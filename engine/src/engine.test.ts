@@ -324,9 +324,11 @@ describe('layered skills', () => {
     const w = hero();
     const events: GameEvent[] = [];
     const c = { w, rng: new Rng('t'), emit: (type: string, outcome: any, data: any = {}) => events.push({ beat: 0, type, outcome, data }) };
-    train(c, 'guitar', 4);
+    train(c, 'guitar', 4); // level 1: too small to make the log
+    expect(events.some((e) => e.type === 'skill_up' && e.data.id === 'guitar')).toBe(false);
+    train(c, 'guitar', 16); // level 3: a milestone
     const up = events.find((e) => e.type === 'skill_up' && e.data.id === 'guitar');
-    expect(up?.data.title).toBe('knows three chords');
+    expect(up?.data.title).toBe('can play a whole song, in order');
   });
 
   it('pool skill raises the chance of winning, seduction needs pool AND romance, and zero guitar means baseline odds', () => {
