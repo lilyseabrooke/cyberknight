@@ -17,3 +17,7 @@ npm run sim -- 1000 0.1       # headless balance harness: <runs> <competence 0..
 ```
 
 `engine/` is pure, deterministic TypeScript (seeded RNG, no DOM). `app/` + `components/` are the Next.js log UI (no backend yet; Supabase saves/login come in M2).
+
+## Deploying
+
+Hosted on Vercel (framework preset: Next.js, Node 22). The production branch is `main`; every other branch and PR gets a preview deployment. No environment variables are required yet; Supabase keys will be needed once saves and login land.
