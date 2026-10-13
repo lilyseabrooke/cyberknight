@@ -6,6 +6,9 @@ import {
   Rng,
   createRun,
   gangName,
+  IMPLANTS,
+  SKILL_LABELS,
+  skillLevel,
   render,
   step,
   type GameEvent,
@@ -33,13 +36,17 @@ interface Snapshot {
   armor: string;
   injuries: string[];
   inventory: string[];
-  companion: string | null;
+  companions: { name: string; kind: string; hp: number; maxHp: number; loyalty: number }[];
   location: string;
   beat: number;
   kills: number;
   heat: [string, number][];
   buffs: string[];
   ending: World['ending'];
+  fame: number;
+  tab: number;
+  skills: [string, number][];
+  implants: string[];
 }
 
 interface Night {
@@ -72,14 +79,18 @@ function snap(w: World): Snapshot {
     weapon: h.weapon.name,
     armor: h.armor?.name ?? 'nothing but attitude',
     injuries: [...h.injuries],
-    inventory: h.inventory.map((i) => i.name),
-    companion: h.companionId ? (w.npcs[h.companionId]?.alive ? w.npcs[h.companionId]!.name : null) : null,
+    inventory: Object.entries(h.inventory.reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => (k > 1 ? `${n} ×${k}` : n)),
+    companions: h.companions.map((a) => ({ name: a.name, kind: a.kind, hp: a.hp, maxHp: a.maxHp, loyalty: a.loyalty })),
     location: w.locations[h.locationId]?.name ?? '?',
     beat: w.beat,
     kills: w.stats.kills,
     heat: Object.entries(w.heat).filter(([, v]) => v > 0),
     buffs: h.buffs.filter((b) => b.until > w.beat).map((b) => b.id),
     ending: w.ending,
+    fame: h.fame,
+    tab: h.tab,
+    skills: (Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((k) => [SKILL_LABELS[k], skillLevel(h, k)] as [string, number]).filter(([, v]) => v > 0),
+    implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
   };
 }
 
@@ -123,7 +134,12 @@ export default function NightViewer() {
   }, []);
 
   useEffect(() => {
-    begin(randomSeed(), 0.15);
+    // ?seed=abc&c=0.3 replays a specific night.
+    const q = new URLSearchParams(window.location.search);
+    const c = Number(q.get('c') ?? 0.15);
+    const comp = Number.isFinite(c) ? Math.max(0, Math.min(1, c)) : 0.15;
+    setCompetence(comp);
+    begin(q.get('seed') || randomSeed(), comp);
   }, [begin]);
 
   const advance = useCallback((untilDrama = false) => {
@@ -192,7 +208,7 @@ export default function NightViewer() {
           <b>{hero.name}</b> <span className="muted">(born {hero.realName}, and she hates it)</span> · {archetype} · night <code>{seed}</code>
           <div className="muted">
             Tonight: {gangName(world.situation.warringGangs[0])} vs {gangName(world.situation.warringGangs[1])} gang war; police crackdown on{' '}
-            {world.situation.crackdown}.
+            {world.situation.crackdown}. Weather: {world.situation.weather.replace('_', ' ')}.
           </div>
         </section>
       )}
@@ -240,7 +256,22 @@ export default function NightViewer() {
               <dt>Weapon</dt><dd>{status.weapon}</dd>
               <dt>Armor</dt><dd>{status.armor}</dd>
               <dt>Drunk</dt><dd>{'🍸'.repeat(Math.min(status.drunk, 6)) || 'sober (suspicious)'}</dd>
-              {status.companion && (<><dt>Companion</dt><dd>{status.companion}</dd></>)}
+              {status.companions.length > 0 && (
+                <>
+                  <dt>Allies</dt>
+                  <dd>
+                    {status.companions.map((a) => (
+                      <div key={a.name} className="ally">
+                        {a.name} <span className="muted">({a.kind}) {Math.max(0, a.hp)}/{a.maxHp} HP · loyalty {Math.max(0, Math.round(a.loyalty))}</span>
+                      </div>
+                    ))}
+                  </dd>
+                </>
+              )}
+              {status.fame > 0 && (<><dt>Fame</dt><dd>{'★'.repeat(Math.min(status.fame, 12))} <span className="muted">{status.fame}</span></dd></>)}
+              {status.tab > 0 && (<><dt>Bar tab</dt><dd className="bad">{status.tab} neodollars (the Halo remembers)</dd></>)}
+              {status.skills.length > 0 && (<><dt>Skills</dt><dd>{status.skills.map(([k, v]) => `${k} ${v}`).join(' · ')}</dd></>)}
+              {status.implants.length > 0 && (<><dt>Chrome</dt><dd>{status.implants.join(', ')}</dd></>)}
               {status.injuries.length > 0 && (<><dt>Injuries</dt><dd className="bad">{status.injuries.map((i) => i.replace('_', ' ')).join(', ')}</dd></>)}
               {status.buffs.length > 0 && (<><dt>Buffs</dt><dd>{status.buffs.join(', ')}</dd></>)}
               <dt>Pockets</dt><dd>{status.inventory.length ? status.inventory.join('; ') : 'lint'}</dd>

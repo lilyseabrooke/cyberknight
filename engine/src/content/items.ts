@@ -37,6 +37,7 @@ export const ITEMS: Record<string, Def> = {
   kevlar_duster: a('kevlar duster', 3, 150),
   riot_vest: a('NPD riot vest', 5, 260),
   corp_plate: a('Helix subdermal plating', 7, 800),
+  champ_vest: a('NEON KNIGHTS championship vest (blinks)', 2, 40),
   // ---- loot ----
   credchip: l('dented credchip', 30),
   memory_shard: l('black-market memory shard', 80),

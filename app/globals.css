@@ -80,3 +80,5 @@ dd.bad { color: var(--bad); }
 @media (prefers-reduced-motion: reduce) {
   .fill { transition: none; }
 }
+
+.ally { margin-bottom: 2px; }

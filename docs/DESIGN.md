@@ -128,7 +128,19 @@ The gameplay *is* the unpredictability of what Blackbird chooses, so the core en
 
 **Things Blackbird can do** (~50 kinds, each with several outcomes): chat/rumors, flirt, kiss (witnessed kisses trigger jealous fights), pickpocket, threaten, challenge anyone, arm-wrestle, hack implants, ask for work, fence loot, get patched by a bathroom doc (sometimes "upgraded"), buy stims, order drinks, buy a round, karaoke, hustle pool, pep talk in the mirror, raid the fridge, laser tag, rob the till, crack the safe, pick locks, dumpster-dive, kick vending machines, dance, mess with fuse panels, break into Helix, steal the experimental device, jump rooftops, and take on the dragon.
 
-**Known balance notes (for M5):** a clueless Blackbird wins ~3% of nights by luck and usually dies in the first hundred beats; a highly competent one currently *avoids* the dragon rather than preparing for it. Meta-progression (Firmware, starting gear) should make "smart" mean "prepared and strong enough", not just "cautious".
+### Deepened sandbox (second pass)
+
+New systems layered on the same affordance engine:
+
+- **Companions (max 3).** Each has HP, loyalty (fades if neglected; at zero they leave), abilities and combat assists. Sources: steal the **robot puppy**; **jack a surveillance drone** (or scrapper-bot) instead of blowing it up; **beatbox with the street kids** behind the club until they adopt her; **recruit the hacker** after a kiss and enough affinity; **rescue a damsel** (random street scene with a time limit; ignoring it means she rescues herself); feed noodles to a **judgmental pigeon**. Allies assist in fights (bites, zaps, bricks, tanking, disabling weapons), scout ambushes and hidden doors, sniff out loot, lift cash, and can be petted or repaired.
+- **Skills that grow by use:** music (karaoke, DJ booth, beatboxing), drinking, tinkering, sneaking. Music makes a DJ set land, wins over the street kids and (rarely) beatboxes her way out of a beating by security. It does not help against the dragon (she tries anyway: `serenade`).
+- **Fame:** earned from DJ sets, karaoke, dancing, billboard hacks, rescues, big brawls, killing the dragon. Bouncers wave her in, bartenders pour for free, fans give her tips.
+- **Bar tab:** she drinks on credit, and Tiny eventually collects.
+- **Chrome with a catch:** ten black-market implants from the bathroom doc (third thumb, chrome larynx, mantis blades, hydraulic calves, emergency defibrillator = one extra life), each with a stated pitch and an honest catch.
+- **Per-run weather** (acid rain, neon fog, heatwave), **Atlas propaganda ads**, **hangovers**, **laser-tag championship**, **gossip**: NPCs reference what she did to them (and what she did to their friends).
+- **Dragon intel:** buy it from the fixer, hack it from a Helix terminal, or pry it from a talkative scientist, and CINDERJAW's targeting stutters. A competent, prepared hero now knows when it's time and commits; the clueless one still stumbles into it.
+
+**Known balance notes (for M5):** a clueless Blackbird beats the dragon ~5% of nights by luck, a mid-competence one ~15%, a highly competent and prepared one ~17%. Meta-progression (Firmware, starting gear) should push the smart end much higher. Events: ~250 distinct kinds per sampling, every one with templates (tested).
 
 ## 8. Roadmap
 

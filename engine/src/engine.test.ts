@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Rng, createRun, step, runToEnd, render, rollPersonality, ARCHETYPES, type World, type GameEvent } from './index';
+import { Rng, createRun, step, runToEnd, render, hasTemplate, rollPersonality, ARCHETYPES, type World, type GameEvent } from './index';
 import { gather } from './interactions';
 
 const play = (seed: string, competence = 0.2) => runToEnd({ seed, competence });
@@ -40,7 +40,7 @@ describe('simulation', () => {
     // and equals a run that never paused
     const whole: GameEvent[] = [];
     while (!straight.over) whole.push(...step(straight));
-    expect([...all.slice(1), ...tailA].map((e) => e.type)).toEqual(whole.map((e) => e.type));
+    expect([...all.slice(events.length), ...tailA].map((e) => e.type)).toEqual(whole.map((e) => e.type));
   });
 
   it('always terminates with an ending', () => {
@@ -117,5 +117,64 @@ describe('text', () => {
       }
     }
     expect([...new Set(bad)]).toEqual([]);
+  });
+});
+
+describe('deepened sandbox', () => {
+  const sweep = (n: number, competence: number, tag: string) => {
+    const seen = new Set<string>();
+    const worlds: World[] = [];
+    for (let i = 0; i < n; i++) {
+      const { world, events } = play(`${tag}-${i}`, competence);
+      worlds.push(world);
+      for (const e of events) seen.add(`${e.type}${e.data.variant !== undefined ? ':' + e.data.variant : ''}`);
+    }
+    return { seen, worlds };
+  };
+
+  it('offers many different ways to get allies, and they show up', () => {
+    const { seen } = sweep(120, 0.3, 'ally');
+    const sources = ['steal_puppy:success', 'jack:drone', 'jack:scrapper', 'recruit:juno', 'pigeon:befriend', 'rescue:thanks_joins', 'companion_joins'].filter((s) => seen.has(s));
+    expect(sources.length).toBeGreaterThanOrEqual(3);
+    expect(seen.has('ally_assist')).toBe(true);
+  });
+
+  it('skills level with use, implants install, and fame is earned', () => {
+    const { seen, worlds } = sweep(120, 0.3, 'prog');
+    expect(seen.has('skill_up')).toBe(true);
+    expect(seen.has('implant:install')).toBe(true);
+    expect(worlds.some((w) => w.hero.implants.length > 0)).toBe(true);
+    expect(worlds.some((w) => w.hero.fame >= 3)).toBe(true);
+  });
+
+  it('allies are always valid, capped, and have sane loyalty', () => {
+    const { worlds } = sweep(80, 0.4, 'cap');
+    for (const w of worlds) {
+      expect(w.hero.companions.length).toBeLessThanOrEqual(3);
+      for (const a of w.hero.companions) expect(a.loyalty).toBeGreaterThan(-5);
+    }
+  });
+
+  it('the world has weather, damsels, a tab and a beatbox talk-down, rarely', () => {
+    const { seen } = sweep(200, 0.2, 'misc');
+    expect(seen.has('weather:acid_rain') || seen.has('weather:neon_fog') || seen.has('weather:heatwave')).toBe(true);
+    expect(seen.has('damsel:scene')).toBe(true);
+    expect(seen.has('order_drink:tab')).toBe(true);
+    expect(seen.has('beatbox:jam') || seen.has('beatbox:laughed')).toBe(true);
+  });
+
+  it('every event kind that occurs has a text template', () => {
+    for (let i = 0; i < 150; i++) {
+      for (const e of play(`tpl-${i}`, (i % 10) / 10).events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+    }
+  });
+
+  it('smart, prepared heroes beat the dragon more often than clueless ones', () => {
+    const wins = (c: number) => {
+      let n = 0;
+      for (let i = 0; i < 120; i++) if (play(`dr-${i}`, c).world.ending === 'victory') n++;
+      return n;
+    };
+    expect(wins(0.8)).toBeGreaterThan(wins(0.05));
   });
 });

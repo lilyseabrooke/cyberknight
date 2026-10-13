@@ -1,6 +1,8 @@
 import type { Ctx, Feature, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { makeItem } from './content/items';
+import { hasAlly } from './companions';
+import { skillLevel, train } from './skills';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
 
 const present = (w: World, id: string): boolean => !!w.npcs[id]?.alive && w.npcs[id]!.locationId === w.hero.locationId;
@@ -88,13 +90,15 @@ function robTill(c: Ctx, f: Feature): void {
 function karaoke(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.35 + h.charm * 0.05 + Math.min(h.drunk, 3) * 0.04 - Math.max(0, h.drunk - 4) * 0.1, 0.1, 0.85);
+  const p = clamp(0.3 + h.charm * 0.04 + skillLevel(h, 'music') * 0.05 + Math.min(h.drunk, 3) * 0.04 - Math.max(0, h.drunk - 4) * 0.1, 0.1, 0.88);
+  train(c, 'music', 1);
   const roll = rng.next();
   if (roll < p) {
     const tips = rng.int(20, 60);
     h.cash += tips;
     for (const n of here(w)) if (!n.hostile) n.affinity += 4;
     gainXp(c, 4);
+    h.fame += 1;
     c.emit('karaoke', 'good', { variant: 'ovation', amount: tips, song: rng.pick(['"Chrome Heart"', '"Dial-Up Love"', '"Total Eclipse of the Uplink"', '"Never Gonna Patch You Up"']) });
   } else if (roll < p + (1 - p) * 0.6) {
     h.hp -= 5;
@@ -167,7 +171,14 @@ function laserTag(c: Ctx): void {
     const prize = rng.int(15, 45);
     h.cash += prize;
     gainXp(c, 9);
-    c.emit('laser_tag', 'good', { variant: 'win', amount: prize });
+    w.counters.league = (w.counters.league ?? 0) + 1;
+    if (w.counters.league === 3) {
+      h.fame += 3;
+      acquire(c, makeItem('champ_vest'));
+      c.emit('laser_tag', 'good', { variant: 'champion', amount: prize });
+    } else {
+      c.emit('laser_tag', 'good', { variant: 'win', amount: prize, wins: w.counters.league });
+    }
   } else if (rng.chance(0.25)) {
     c.emit('laser_tag', 'bad', { variant: 'cheat' });
     h.locationId = 'halo_arcade';
@@ -217,7 +228,7 @@ function dumpster(c: Ctx, f: Feature): void {
   const { w, rng } = c;
   const h = w.hero;
   f.uses++;
-  const sniff = h.companionId && w.npcs[h.companionId]?.alive ? 0.08 : 0;
+  const sniff = hasAlly(w, 'sniff') ? 0.08 : 0;
   const roll = rng.next();
   const find = (id: string, variant: string) => {
     const it = makeItem(id);
@@ -279,6 +290,7 @@ function dance(c: Ctx): void {
   if (rng.chance(p)) {
     for (const d of dancers) d.affinity += 10;
     gainXp(c, 5);
+    h.fame += 1;
     c.emit('dance', 'good', { variant: 'wow', npc: dancers[0]?.name ?? 'the crowd' });
   } else {
     const guard = here(w).find((n) => n.tags.includes('security'));

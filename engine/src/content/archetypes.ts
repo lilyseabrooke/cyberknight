@@ -7,7 +7,7 @@ export interface ArchetypeDef {
   level: [number, number];
   tags: string[];
   faction: string | null;
-  names: 'person' | 'robot' | 'monster';
+  names: 'person' | 'robot' | 'monster' | 'kid';
   weapons: string[];
   armors?: string[];
   armorChance?: number;
@@ -161,6 +161,17 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'robot', weapons: [], loot: ['memory_shard'], lootChance: 0.7, cash: [0, 0], hp: 120, power: 24,
     desc: ['a lab-bot built for moving crates and, apparently, throwing people'],
   },
+  // ---------------- street life ----------------
+  street_kid: {
+    role: 'street kid', level: [1, 1], tags: ['kid'], faction: null,
+    names: 'kid', weapons: ['broken_bottle'], loot: ['credchip', 'neural_gum', 'gold_tooth'], lootChance: 0.6, cash: [1, 15],
+    desc: ['a street kid in a stolen jacket three sizes too big, with a very serious expression'],
+  },
+  damsel: {
+    role: 'courier in distress', level: [1, 1], tags: ['romanceable', 'damsel'], faction: null,
+    names: 'person', weapons: ['zip_pistol'], loot: ['memory_shard', 'fake_id'], lootChance: 0.8, cash: [40, 120],
+    desc: ['a courier with a blue streak in her hair and a package she will not stop clutching'],
+  },
   // ---------------- police & boss ----------------
   npd_officer: {
     role: 'NPD officer', level: [4, 5], tags: ['cop', 'security', 'augmented'], faction: 'npd',
@@ -176,7 +187,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   },
   cyberdragon: {
     role: 'cyberdragon', level: [10, 10], tags: ['robot', 'dragon', 'boss'], faction: 'atlas',
-    names: 'monster', weapons: [], loot: ['helix_sample'], lootChance: 1, cash: [0, 0], hp: 1000, power: 88,
+    names: 'monster', weapons: [], loot: ['helix_sample'], lootChance: 1, cash: [0, 0], hp: 1100, power: 105,
     desc: ['CINDERJAW, an Atlas Protection Platform, forty tons of wings, plasma and customer-service branding'],
   },
 };
@@ -198,7 +209,10 @@ const LAST = [
 ];
 const ROBOT = ['UNIT', 'MK', 'BOT', 'SENTRY', 'AUTO'];
 
-export function rollNpcName(rng: Rng, kind: 'person' | 'robot' | 'monster'): string {
+const KID = ['Pixel', 'Wire', "Lil' Static", 'Moth', 'Bytes', 'Glitch', 'Noodle', 'Zip', 'Tick', 'Dot', 'Rust', 'Mouse'];
+
+export function rollNpcName(rng: Rng, kind: 'person' | 'robot' | 'monster' | 'kid'): string {
+  if (kind === 'kid') return rng.pick(KID);
   if (kind === 'robot') return `${rng.pick(ROBOT)}-${rng.int(100, 999)}`;
   if (kind === 'monster') return 'CINDERJAW';
   return `${rng.pick(FIRST)} ${rng.pick(LAST)}`;

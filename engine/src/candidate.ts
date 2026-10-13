@@ -56,6 +56,27 @@ export function arrive(c: Ctx, to: string, variant: string, extra: Record<string
     first: dest.visits === 1,
     ...extra,
   });
+  // The world remembers: somebody here knows what she did.
+  const known = here(w).filter((n) => n.memories.length > 0 && !n.hostile && n.archetype !== 'puppy');
+  if (known.length && c.rng.chance(0.25)) {
+    const n = c.rng.pick(known);
+    const mem = c.rng.pick(n.memories);
+    c.emit('recognition', n.affinity < -10 ? 'bad' : 'mixed', { npc: n.name, variant: memoryVariant(mem), mem, mood: n.affinity < -10 ? 'cold' : 'warm' });
+  }
+}
+
+function memoryVariant(m: string): string {
+  if (m.includes('charmed')) return 'charmed';
+  if (m === 'kissed Blackbird') return 'kissed';
+  if (m.includes('beaten')) return 'beaten';
+  if (m.includes('shaken down')) return 'shakedown';
+  if (m.includes('stole')) return 'puppy';
+  if (m.includes('till')) return 'till';
+  if (m.includes('kiss someone else')) return 'cheater';
+  if (m.includes('kill')) return 'killer';
+  if (m.includes('skylight')) return 'skylight';
+  if (m.includes('pocket')) return 'pickpocket';
+  return 'generic';
 }
 
 export const dutchHere = (w: World): Npc | undefined => here(w).find((n) => n.id === 'dutch');

@@ -1,4 +1,7 @@
 import type { Ctx, Injury, Item, Npc, World } from './types';
+import { IMPLANTS } from './content/implants';
+import { KINDS, removeCompanion } from './companions';
+import { hasImplantFlag, skillLevel } from './skills';
 
 export const npcsAt = (w: World, loc: string): Npc[] => Object.values(w.npcs).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.beat);
 
@@ -32,9 +35,10 @@ export function heroPower(w: World): number {
   const h = w.hero;
   let p = h.level * 2 + h.muscle + h.weapon.power;
   for (const b of h.buffs) if (b.until > w.beat) p += b.power;
-  const pup = h.companionId ? w.npcs[h.companionId] : null;
-  if (pup?.alive) p += 3;
-  p -= h.drunk * 1.2;
+  for (const a of h.companions) if (a.hp > 0) p += a.power;
+  for (const i of h.implants) p += IMPLANTS[i]?.power ?? 0;
+  if (w.situation.weather === 'heatwave' && w.locations[h.locationId]?.outdoors) p -= 2;
+  p -= Math.max(0, h.drunk - skillLevel(h, 'tolerance') * 0.4) * 1.2;
   let mult = 1;
   if (hasInjury(w, 'broken_leg')) mult *= 0.75;
   if (hasInjury(w, 'cracked_ribs')) mult *= 0.85;
@@ -134,7 +138,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   if (o.joiners !== false && loc.crowded) {
     const joined: Npc[] = [];
     for (const n of npcsAt(w, loc.id)) {
-      if (foes.includes(n) || n.id === h.companionId || joined.length >= 3) continue;
+      if (foes.includes(n) || h.companions.some((a) => a.npcId === n.id) || joined.length >= 3) continue;
       const p = n.tags.includes('owner') ? 0.5 : n.tags.includes('rowdy') && n.affinity < 25 ? 0.22 : 0;
       if (p && rng.chance(p)) joined.push(n);
     }
@@ -162,12 +166,14 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   let result: FightResult | null = null;
   let backfires = 0;
   let crits = 0;
+  let assists = 0;
   const fleeAt = 0.1 + h.competence * 0.35;
   const armor = h.armor?.power ?? 0;
 
   const down = new Set<string>();
   const standing = () => foes.filter((f) => f.alive && !down.has(f.id));
-  while (!result && rounds < 14) {
+  const maxRounds = foes.some((f) => f.tags.includes("boss")) ? 26 : 14;
+  while (!result && rounds < maxRounds) {
     rounds++;
     const living = standing();
     // hero strikes
@@ -184,6 +190,17 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       }
     }
     const target = living[0]!;
+    // Allies pitch in: bites, zaps, bricks, pigeon-based interference.
+    let absorb = 0;
+    for (const a of h.companions) {
+      if (a.hp <= 0 || assists >= 3 || !rng.chance(0.4)) continue;
+      const spec = KINDS[a.kind]!.assist;
+      assists++;
+      if (spec.dmg) dmg += spec.dmg;
+      if (spec.absorb) absorb += spec.absorb;
+      if (spec.disable) living.forEach((f) => !f.flags.includes('disabled') && f.flags.push('disabled'));
+      if (assists === 1) c.emit('ally_assist', 'good', { name: a.name, kind: a.kind, dmg: spec.dmg ?? 0, absorb: spec.absorb ?? 0, foe: target.name });
+    }
     target.hp -= dmg;
     if (target.hp <= 0) {
       if (lethal) kill(c, w, target, h.weapon.name);
@@ -194,17 +211,27 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     let biggest = 0;
     for (const f of standing()) {
       if (!rng.chance(0.8)) continue;
-      const d = Math.max(1, Math.round(f.power * (0.2 + rng.next() * 0.4)) - armor);
+      let fp = f.power - (f.flags.includes('disabled') ? 3 : 0);
+      if (f.tags.includes('boss') && w.flags.dragon_weak) fp *= 0.65;
+      const d = Math.max(1, Math.round(fp * (0.2 + rng.next() * 0.4)) - armor);
       taken += d;
       biggest = Math.max(biggest, d);
     }
+    taken = Math.max(0, taken - absorb);
     h.hp -= taken;
     maybeInjure(c, biggest);
 
     if (!standing().length) {
       result = 'win';
     } else if (h.hp <= 0 && lethal) {
-      result = foes.some((f) => f.tags.includes('cop')) && rng.chance(0.55) ? 'arrested' : 'dead';
+      if (hasImplantFlag(h, 'defib') && !w.flags.defib_used) {
+        w.flags.defib_used = true;
+        h.hp = Math.round(h.maxHp * 0.3);
+        c.emit('defib', 'mixed', {});
+        result = 'flee';
+      } else {
+        result = foes.some((f) => f.tags.includes('cop')) && rng.chance(0.55) ? 'arrested' : 'dead';
+      }
     } else if (!lethal && h.hp < h.maxHp * 0.2) {
       result = 'tossed';
     } else if (rounds >= 2 && h.hp / h.maxHp < fleeAt && !hasInjury(w, 'broken_leg') && rng.chance(0.55 + h.reflex * 0.03)) {
@@ -224,7 +251,8 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     weapon: h.weapon.name,
     backfires,
     crits,
-    puppy: !!h.companionId && !!w.npcs[h.companionId]?.alive,
+    allies: h.companions.filter((a) => a.hp > 0).map((a) => a.name).join(' and '),
+    allyKind: h.companions.find((a) => a.hp > 0)?.kind ?? '',
     boss: foes.some((f) => f.tags.includes('boss')),
     killer: survivors[0]?.name ?? '',
     place: loc.name,
@@ -236,7 +264,8 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     const found: string[] = [];
     for (const f of foes) {
       const defeats = f.memories.filter((m) => m === 'was beaten by Blackbird').length;
-      xp += (f.level * 10) / (1 + defeats);
+      const over = Math.max(0, h.level - f.level);
+      xp += ((f.level * 10) / (1 + defeats)) * Math.max(0.1, 1 - over * 0.15);
       cash += f.cash;
       f.cash = 0;
       if (f.alive) {
@@ -287,11 +316,20 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     c.emit('death', 'bad', { killer: survivors[0]?.name ?? 'something', place: loc.name, cause: o.cause, level: h.level });
   }
 
-  const pup = h.companionId ? w.npcs[h.companionId] : null;
-  if (!w.over && pup?.alive && h.hp < h.maxHp * 0.25 && rng.chance(0.2)) {
-    pup.alive = false;
-    h.companionId = null;
-    c.emit('companion_lost', 'bad', { npc: pup.name });
+  for (const f of foes) f.flags = f.flags.filter((x) => x !== 'disabled');
+  if (result === 'win' && foes.length >= 3) h.fame += 1;
+  if (result === 'win' && foes.some((f) => f.tags.includes('boss'))) h.fame += 10;
+  // Allies share the risk, and the loyalty.
+  if (!w.over) {
+    for (const a of [...h.companions]) {
+      if (result === 'win') a.loyalty = Math.min(100, a.loyalty + 3);
+      else a.loyalty -= 4;
+      const hurt = h.hp < h.maxHp * 0.3 ? 0.4 : 0.15;
+      if (rng.chance(hurt)) {
+        a.hp -= rng.int(4, Math.max(5, Math.round(a.maxHp * 0.5)));
+        if (a.hp <= 0) removeCompanion(c, a, 'lost');
+      }
+    }
   }
   return result;
 }

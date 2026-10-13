@@ -1,6 +1,8 @@
 import type { Ctx, Exit } from './types';
 import { addHeat, arrive, clamp, fight, here, npcsAt, remember, spawnGroup } from './candidate';
 import { hasInjury, gainXp } from './combat';
+import { sneakBonus, tryTalkDown } from './extras';
+import { hasImplantFlag } from './skills';
 
 /** Resolve walking through an exit, including bouncers, locks, guards and jumps. */
 export function moveThrough(c: Ctx, exit: Exit): void {
@@ -23,14 +25,16 @@ export function moveThrough(c: Ctx, exit: Exit): void {
 
     case 'bouncer': {
       const guards = npcsAt(w, 'neon_pharaoh').filter((n) => n.tags.includes('security'));
-      if (h.cash >= 40 && rng.chance(0.5)) {
+      if (h.fame >= 5 && rng.chance(0.8)) {
+        arrive(c, to, 'recognized');
+      } else if (h.cash >= 40 && rng.chance(0.5)) {
         h.cash -= 40;
         arrive(c, to, 'paid');
       } else if (dark || rng.chance(0.2 + h.charm * 0.06)) {
         arrive(c, to, 'charmed');
       } else if (guards[0] && rng.chance(0.3 + (h.personality.weights.pride - 0.5) * 0.3)) {
         c.emit('gate', 'bad', { variant: 'bounced_mouthy', npc: guards[0].name });
-        fight(c, [guards[0]], { cause: 'mouthing off at the door', joiners: false });
+        if (!tryTalkDown(c, [guards[0]])) fight(c, [guards[0]], { cause: 'mouthing off at the door', joiners: false });
       } else {
         c.emit('gate', 'bad', { variant: 'turned_away', npc: guards[0]?.name ?? 'the bouncer' });
       }
@@ -64,7 +68,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
     }
 
     case 'guarded': {
-      const p = clamp(0.5 + h.reflex * 0.04 - dest.security * 0.05 + (dark ? 0.2 : 0), 0.1, 0.9);
+      const p = clamp(0.5 + h.reflex * 0.04 - dest.security * 0.05 + sneakBonus(w), 0.1, 0.9);
       if (rng.chance(p)) {
         arrive(c, to, 'slipped', { place: dest.name });
         return;
@@ -80,7 +84,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
     }
 
     case 'jump': {
-      const p = clamp(0.45 + h.reflex * 0.04 - h.drunk * 0.05, 0.1, 0.9);
+      const p = clamp(0.45 + h.reflex * 0.04 + (hasImplantFlag(h, 'springs') ? 0.2 : 0) - h.drunk * 0.05, 0.1, 0.9);
       if (rng.chance(p)) {
         arrive(c, to, 'stuck_landing');
         gainXp(c, 8);

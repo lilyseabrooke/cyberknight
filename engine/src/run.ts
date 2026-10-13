@@ -7,6 +7,8 @@ import type { Candidate } from './candidate';
 import { spawnGroup } from './candidate';
 import { addHeat, fight, here, npcsAt, relocate } from './combat';
 import { DRIVES } from './personality';
+import { ambientExtras, scoutSaves, tryTalkDown } from './extras';
+import { hasImplantFlag, skillLevel } from './skills';
 
 export const MAX_BEATS = 600;
 
@@ -55,6 +57,7 @@ export function createRun(opts: RunOptions): { world: World; events: GameEvent[]
     { beat: 0, type: 'depart', outcome: 'good', data: { place: world.locations[world.hero.locationId]!.name } },
   ];
   world.locations[world.hero.locationId]!.visits = 1;
+  events.push({ beat: 0, type: 'weather', outcome: 'mixed', data: { variant: world.situation.weather, hit: 0, opening: true } });
   return { world, events };
 }
 
@@ -73,6 +76,7 @@ export function step(w: World): GameEvent[] {
   };
 
   upkeep(c);
+  if (!w.over) ambientExtras(c);
   if (!w.over) ambient(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) {
     const cands = gather(w);
@@ -84,10 +88,11 @@ export function step(w: World): GameEvent[] {
     }
   }
 
-  // follow-the-hero companion
-  const pup = w.hero.companionId ? w.npcs[w.hero.companionId] : null;
-  if (pup?.alive) pup.locationId = w.hero.locationId;
-
+  if (!w.over && w.hero.hp <= 0 && hasImplantFlag(w.hero, 'defib') && !w.flags.defib_used) {
+    w.flags.defib_used = true;
+    w.hero.hp = Math.round(w.hero.maxHp * 0.3);
+    c.emit('defib', 'mixed', {});
+  }
   if (!w.over && w.hero.hp <= 0) {
     // killed by a non-combat cause (zaps, poison, rats of fate)
     w.over = true;
@@ -111,13 +116,14 @@ function upkeep(c: Ctx): void {
   if (w.beat % 10 === 0) for (const k of Object.keys(w.heat)) w.heat[k] = Math.max(0, (w.heat[k] ?? 0) - 1);
   if (w.beat % 8 === 0 && h.drunk > 0) h.drunk--;
   if (w.beat % 5 === 0) h.hp = Math.min(h.maxHp, h.hp + 2);
-  if (h.drunk >= 6) {
+  if (h.drunk >= 6 + Math.floor(skillLevel(h, 'tolerance') / 2)) {
     const lost = Math.round(h.cash * 0.4);
     h.cash -= lost;
     h.drunk = 2;
     h.hp = Math.max(1, h.hp - 5);
     const loc = w.locations[h.locationId]!;
     relocate(w, loc.outdoors ? h.locationId : loc.tossTo);
+    h.buffs.push({ id: 'hangover', until: w.beat + 30, power: -3 });
     c.emit('blackout', 'bad', { lost, place: w.locations[h.locationId]!.name });
   }
 }
@@ -140,6 +146,7 @@ function ambient(c: Ctx): void {
   // Police ambush.
   const npd = w.heat.npd ?? 0;
   if (loc.outdoors && npd >= 3 && rng.chance(0.14 + npd * 0.04)) {
+    if (scoutSaves(c)) return;
     const squad = spawnGroup(c, 'npd_officer', rng.int(2, 3));
     if (npd >= 6) squad.push(...spawnGroup(c, 'npd_sergeant', 1));
     c.emit('ambush', 'bad', { variant: 'npd', count: squad.length, heat: npd });
@@ -149,6 +156,7 @@ function ambient(c: Ctx): void {
   // Atlas retrieval team.
   const atlas = w.heat.atlas ?? 0;
   if (loc.outdoors && atlas >= 5 && rng.chance(0.15)) {
+    if (scoutSaves(c)) return;
     const squad = spawnGroup(c, 'helix_guard', 2);
     c.emit('ambush', 'bad', { variant: 'atlas', count: squad.length, heat: atlas });
     fight(c, squad, { cause: 'an Atlas retrieval team', joiners: false });
@@ -170,7 +178,7 @@ function ambient(c: Ctx): void {
     const guards = crowd.filter((n) => n.tags.includes('security'));
     if (guards.length) {
       c.emit('security_closes_in', 'bad', { npc: guards[0]!.name });
-      fight(c, guards.slice(0, 3), { cause: 'club security running out of patience', joiners: false });
+      if (!tryTalkDown(c, guards.slice(0, 3))) fight(c, guards.slice(0, 3), { cause: 'club security running out of patience', joiners: false });
       return;
     }
   }
@@ -192,7 +200,8 @@ function ambient(c: Ctx): void {
   }
 
   // Muggers.
-  if (loc.outdoors && loc.id !== 'overpass' && loc.id !== 'halo_roof' && rng.chance(0.03)) {
+  if (loc.outdoors && loc.id !== 'overpass' && loc.id !== 'halo_roof' && rng.chance(w.situation.weather === 'acid_rain' ? 0.015 : 0.03)) {
+    if (scoutSaves(c)) return;
     const gang = spawnGroup(c, 'mugger', rng.int(1, 2));
     c.emit('mugging', 'bad', { count: gang.length });
     fight(c, gang, { cause: 'a mugging', joiners: false });

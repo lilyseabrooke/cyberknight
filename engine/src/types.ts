@@ -30,6 +30,21 @@ export interface Buff {
   power: number;
 }
 
+export interface Companion {
+  id: Id;
+  name: string;
+  kind: string;
+  hp: number;
+  maxHp: number;
+  power: number;
+  /** 0..100. At zero they leave. */
+  loyalty: number;
+  abilities: string[];
+  /** The NPC this companion used to be, if any (they go home if they leave). */
+  npcId?: Id;
+  home?: Id;
+}
+
 export interface Hero {
   name: string;
   /** Randomly generated, astonishingly uncool. */
@@ -49,7 +64,14 @@ export interface Hero {
   armor: Item | null;
   inventory: Item[];
   buffs: Buff[];
-  companionId: Id | null;
+  companions: Companion[];
+  /** Skill XP by id; see skills.ts for levels. */
+  skills: Record<string, number>;
+  /** Street fame. Bouncers, bartenders and fans notice. */
+  fame: number;
+  /** What she owes the Rusty Halo. */
+  tab: number;
+  implants: string[];
   locationId: Id;
   previousLocationId: Id;
   personality: Personality;
@@ -121,6 +143,15 @@ export interface Location {
 export interface Situation {
   warringGangs: [string, string];
   crackdown: string;
+  weather: 'acid_rain' | 'neon_fog' | 'heatwave';
+}
+
+/** A damsel in distress, available to be rescued for a short window. */
+export interface Damsel {
+  npcId: Id;
+  foeIds: Id[];
+  locationId: Id;
+  until: number;
 }
 
 export interface World {
@@ -135,6 +166,9 @@ export interface World {
   heat: Record<string, number>;
   situation: Situation;
   flags: Record<string, boolean>;
+  /** Misc numeric counters (laser-tag wins, ads seen, etc.). */
+  counters: Record<string, number>;
+  damsel: Damsel | null;
   /** Recently chosen action keys, used to discourage loops. */
   recent: string[];
   brawlUntil: number;

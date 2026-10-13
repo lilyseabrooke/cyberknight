@@ -52,6 +52,7 @@ const LOCATIONS: Record<Id, LocDef> = {
       ex('street_main', 'Strand Street'),
       ex('halo_kitchen', 'the kitchen door'),
       ex('club_maintenance', 'a maintenance hatch behind the dumpster', { hidden: true, misroute: 'helix_dock' }),
+      ex('club_backlot', 'a gap in the chain-link fence'),
     ],
   },
   street_main: {
@@ -68,6 +69,14 @@ const LOCATIONS: Record<Id, LocDef> = {
     exits: [
       ex('street_main', 'the front doors'),
       ex('club_maintenance', 'a staff door marked MAINTENANCE', { hidden: true, misroute: 'helix_dock' }),
+      ex('club_backlot', "the club's back door, propped open with a milk crate"),
+    ],
+  },
+  club_backlot: {
+    name: 'The lot behind the Neon Pharaoh', kind: 'street', security: 1, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'halo_alley',
+    exits: [
+      ex('halo_alley', 'the gap in the fence'),
+      ex('neon_pharaoh', "the club's back door"),
     ],
   },
   club_maintenance: {
@@ -117,6 +126,11 @@ const FEATURES: [Id, string, string][] = [
   ['halo_backroom', 'the wall safe', 'safe'],
   ['halo_roof', 'the skyline', 'skyline'],
   ['halo_alley', 'the overflowing dumpster', 'dumpster'],
+  ['neon_pharaoh', 'the DJ booth', 'dj_booth'],
+  ['street_main', 'an Atlas billboard', 'billboard'],
+  ['halo_roof', 'a very judgmental pigeon', 'pigeon'],
+  ['helix_lab', 'a Helix research terminal', 'terminal'],
+  ['halo_backroom', 'the poker table', 'poker'],
   ['street_main', 'a battered vending machine', 'vending'],
   ['neon_pharaoh', 'the dance floor', 'dancefloor'],
   ['club_maintenance', 'the fuse panel', 'fuse_panel'],
@@ -189,7 +203,8 @@ export function createWorld(opts: RunOptions): World {
   add('drone', 'halo_alley');
   add('noodler', 'street_main');
   for (let i = 0; i < 3; i++) add('club_security', 'neon_pharaoh');
-  add('dj', 'neon_pharaoh', { name: 'DJ Kilobyte' });
+  add('dj', 'neon_pharaoh', { id: 'kilobyte', name: 'DJ Kilobyte' });
+  for (let i = 0; i < 3; i++) add('street_kid', 'club_backlot');
   add('dancer', 'neon_pharaoh');
   add('dancer', 'neon_pharaoh');
   add('heir', 'neon_pharaoh');
@@ -221,7 +236,11 @@ export function createWorld(opts: RunOptions): World {
     armor: null,
     inventory: [],
     buffs: [],
-    companionId: null,
+    companions: [],
+    skills: {},
+    fame: 0,
+    tab: 0,
+    implants: [],
     locationId: 'halo_floor',
     previousLocationId: 'street_main',
     personality,
@@ -237,8 +256,10 @@ export function createWorld(opts: RunOptions): World {
     features,
     locations,
     heat: { npd: 0, atlas: 0, halo: 0, club: 0 },
-    situation: { warringGangs: [g1, g2], crackdown: rng.pick(CRACKDOWNS) },
+    situation: { warringGangs: [g1, g2], crackdown: rng.pick(CRACKDOWNS), weather: rng.pick(['acid_rain', 'neon_fog', 'heatwave'] as const) },
     flags: {},
+    counters: {},
+    damsel: null,
     recent: [],
     brawlUntil: 0,
     blackoutUntil: 0,

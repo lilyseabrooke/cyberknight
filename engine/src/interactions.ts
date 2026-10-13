@@ -3,7 +3,11 @@ import { acquire, addHeat, fight, gainXp, hasInjury, heroPower, here, maybeInjur
 import { makeItem } from './content/items';
 import { clamp, levelRisk, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
 import { moveThrough } from './moves';
+import { addCompanion, newCompanion, slotsFree } from './companions';
 import { featureCandidates } from './features';
+import { extraCandidates } from './extras';
+import { hasAlly } from './companions';
+import { skillLevel, train } from './skills';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -23,14 +27,14 @@ export function gather(w: World): Candidate[] {
   // ------------------------------------------------------------------ people
   for (const n of crowd) {
     if (n.archetype === 'puppy') {
-      if (h.companionId !== n.id) {
-        out.push({
-          key: `pet:${n.id}`, drives: { lust: 0.15, curiosity: 0.35 },
-          run: (c) => {
-            n.affinity += 10;
-            c.emit('pet_puppy', 'good', { npc: n.name });
-          },
-        });
+      out.push({
+        key: `pet:${n.id}`, drives: { lust: 0.15, curiosity: 0.35 },
+        run: (c) => {
+          n.affinity += 10;
+          c.emit('pet_puppy', 'good', { npc: n.name });
+        },
+      });
+      if (slotsFree(w)) {
         out.push({
           key: `steal_puppy:${n.id}`, drives: { greed: 0.4, curiosity: 0.7, pride: 0.3 }, risk: 1.2,
           run: (c) => stealPuppy(c, n),
@@ -79,9 +83,10 @@ export function gather(w: World): Candidate[] {
       if (!w.flags.job_taken) {
         out.push({ key: `ask_work:${n.id}`, drives: { quest: 1.0, greed: 0.3 }, bonus: 0.2, run: (c) => askWork(c, n) });
       }
-      if (h.inventory.some((i) => i.kind === 'loot')) {
+      const sellable = h.inventory.filter((i) => i.kind === 'loot' || i.kind === 'weapon' || i.kind === 'armor' || i.kind === 'gadget');
+      if (sellable.length) {
         out.push({
-          key: 'fence', drives: { greed: 1.0 }, bonus: h.inventory.filter((i) => i.kind === 'loot').length * 0.1,
+          key: 'fence', drives: { greed: 1.0 }, bonus: sellable.length * 0.1,
           run: (c) => fence(c, n),
         });
       }
@@ -99,7 +104,7 @@ export function gather(w: World): Candidate[] {
 
   // ------------------------------------------------------------- the bar itself
   const bartender = ['nyx', 'dutch'].map((id) => w.npcs[id]).find((n) => alive(n) && n!.locationId === loc.id);
-  if (bartender && h.cash >= 8) {
+  if (bartender && (h.cash >= 8 || (h.tab < 100 && bartender.affinity > -15))) {
     out.push({
       key: 'order_drink', drives: { thirst: 1.0, pride: 0.1 }, bonus: -h.drunk * 0.12, risk: Math.max(0, h.drunk - 2) * 0.3,
       run: (c) => orderDrink(c, bartender),
@@ -114,10 +119,13 @@ export function gather(w: World): Candidate[] {
 
   // ------------------------------------------------------------- the dragon
   const dragon = w.npcs.dragon;
+  const dragonPower = (dragon?.power ?? 0) * (w.flags.dragon_weak ? 0.65 : 1);
+  // A prepared hero knows when it's time.
+  const ready = !!w.flags.dragon_weak && heroPower(w) >= dragonPower * 0.75 && h.hp >= h.maxHp * 0.8;
   if (loc.id === 'overpass' && alive(dragon)) {
     out.push({
-      key: 'challenge_dragon', drives: { quest: 1.5, bravery: 0.6, pride: 0.6 }, bonus: 0.3,
-      risk: 3 + clamp(dragon.power / heroPower(w) - 1, 0, 3),
+      key: 'challenge_dragon', drives: { quest: 1.5, bravery: 0.6, pride: 0.6 }, bonus: 0.3, smart: ready ? 2.2 : 0,
+      risk: 3 + clamp(dragonPower / heroPower(w) - 1, 0, 3),
       run: (c) => {
         c.emit('dragon_confront', 'mixed', { npc: dragon.name });
         fight(c, [dragon], { cause: 'the dragon' });
@@ -127,6 +135,7 @@ export function gather(w: World): Candidate[] {
 
   // ------------------------------------------------------------------ objects
   out.push(...featureCandidates(w));
+  out.push(...extraCandidates(w));
 
   // --------------------------------------------------------------- herself
   if (h.hp < h.maxHp * 0.75) {
@@ -179,11 +188,12 @@ export function gather(w: World): Candidate[] {
     if (e.to === 'overpass' && !w.flags.dragon_known) continue;
     const dest = w.locations[e.to]!;
     const toDragon = e.to === 'overpass';
-    const dragonRisk = toDragon && alive(dragon) ? clamp(dragon.power / heroPower(w) - 0.6, 0, 4) : 0;
+    const dragonRisk = toDragon && alive(dragon) ? clamp(dragonPower / heroPower(w) - 0.6, 0, 4) : 0;
     out.push({
       key: `go:${e.to}`,
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },
       bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0),
+      smart: toDragon && ready ? 2.4 : 0,
       risk: dragonRisk * 1.4 + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0),
       run: (c) => moveThrough(c, e),
     });
@@ -200,6 +210,13 @@ function chat(c: Ctx, n: Npc): void {
   if (w.locations.halo_alley!.exits.some((e) => e.hidden)) options.push('hatch');
   if (w.locations.neon_pharaoh!.exits.some((e) => e.hidden)) options.push('staffdoor');
   const talky = n.tags.includes('rumor');
+  if (n.archetype === 'scientist' && !w.flags.dragon_weak && rng.chance(0.45)) {
+    w.flags.dragon_weak = true;
+    w.flags.dragon_known = true;
+    n.affinity += 5;
+    c.emit('intel', 'good', { variant: 'scientist', npc: n.name });
+    return;
+  }
   if (n.affinity < -10 || rng.chance(0.12)) {
     n.affinity -= 3;
     c.emit('chat', 'bad', { variant: 'snub', npc: n.name });
@@ -219,7 +236,7 @@ function chat(c: Ctx, n: Npc): void {
 function flirt(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.33 + h.charm * 0.05 + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08, 0.05, 0.9);
+  const p = clamp(0.33 + h.charm * 0.05 + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08, 0.05, 0.9);
   if (rng.chance(p)) {
     n.affinity += 16;
     remember(n, 'was charmed by Blackbird');
@@ -325,7 +342,7 @@ function hackNpc(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   n.flags.push('hacked');
-  const p = clamp(0.3 + h.hack * 0.06 - n.level * 0.04, 0.05, 0.85);
+  const p = clamp(0.3 + h.hack * 0.06 + (hasAlly(w, 'hack') ? 0.08 : 0) + skillLevel(h, 'tinkering') * 0.02 - n.level * 0.04, 0.05, 0.85);
   const corp = n.tags.includes('monitored') || n.tags.includes('corp');
   if (!rng.chance(p)) {
     h.hp -= 8;
@@ -369,9 +386,10 @@ function askWork(c: Ctx, n: Npc): void {
 
 function fence(c: Ctx, n: Npc): void {
   const h = c.w.hero;
-  const loot = h.inventory.filter((i) => i.kind === 'loot');
-  const total = Math.round(loot.reduce((a, i) => a + i.value, 0) * 0.7);
-  h.inventory = h.inventory.filter((i) => i.kind !== 'loot');
+  const sellable = (i: { kind: string }) => ['loot', 'weapon', 'armor', 'gadget'].includes(i.kind);
+  const loot = h.inventory.filter(sellable);
+  const total = Math.round(loot.reduce((a, i) => a + i.value * (i.kind === 'loot' ? 0.7 : 0.4), 0));
+  h.inventory = h.inventory.filter((i) => !sellable(i));
   h.cash += total;
   n.affinity += 6;
   c.emit('fence', 'good', { npc: n.name, amount: total, count: loot.length });
@@ -425,8 +443,8 @@ function stealPuppy(c: Ctx, pup: Npc): void {
     c.emit('steal_puppy', 'bad', { variant: 'bitten', npc: pup.name });
     return;
   }
-  h.companionId = pup.id;
-  pup.faction = null;
+  pup.locationId = '_companion';
+  addCompanion(c, newCompanion('puppy', pup.name, { npcId: pup.id, home: 'halo_floor', loyalty: 45 }), 'stolen', true);
   if (dutch) {
     dutch.affinity -= 40;
     remember(dutch, 'Blackbird stole Sprocket');
@@ -444,12 +462,16 @@ function orderDrink(c: Ctx, bartender: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   const drink = rng.pick(DRINKS);
-  const free = bartender.affinity >= 15 && rng.chance(0.5);
-  const cost = free ? 0 : Math.min(h.cash, rng.int(8, 22));
+  const price = rng.int(8, 22);
+  const free = (bartender.affinity >= 15 && rng.chance(0.5)) || (h.fame >= 4 && rng.chance(0.35));
+  const onTab = !free && h.cash < price;
+  const cost = free ? 0 : onTab ? 0 : price;
   h.cash -= cost;
+  if (onTab) h.tab += price;
   h.drunk += 1;
   bartender.affinity += 2;
-  c.emit('order_drink', 'mixed', { variant: free ? 'free' : 'paid', drink, cost, npc: bartender.name, drunk: h.drunk });
+  train(c, 'tolerance', 1);
+  c.emit('order_drink', 'mixed', { variant: free ? (h.fame >= 4 ? 'fame' : 'free') : onTab ? 'tab' : 'paid', drink, cost: onTab ? price : cost, npc: bartender.name, drunk: h.drunk, tab: h.tab });
 }
 
 function buyRound(c: Ctx): void {
