@@ -78,6 +78,8 @@ export interface Npc {
   /** Things that have happened between this NPC and the hero. */
   memories: string[];
   flags: string[];
+  /** Knocked out until this beat (non-lethal fights). */
+  downUntil: number;
 }
 
 export interface Feature {

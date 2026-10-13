@@ -237,5 +237,6 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
     cash: rng.int(def.cash[0], def.cash[1]),
     memories: [],
     flags: [],
+    downUntil: 0,
   };
 }

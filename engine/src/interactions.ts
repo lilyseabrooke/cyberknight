@@ -58,7 +58,7 @@ export function gather(w: World): Candidate[] {
       key: `challenge:${n.id}`, drives: { bravery: 1.0, pride: 0.8 }, bonus: n.affinity < -10 ? 0.4 : 0,
       risk: 0.4 + levelRisk(w, n) + (n.power > heroPower(w) * 1.5 ? 1 : 0),
       run: (c) => {
-        c.emit('challenge', 'mixed', { npc: n.name, role: n.role, variant: String(c.rng.int(1, 4)) });
+        c.emit('challenge', 'mixed', { npc: n.name, role: n.role, variant: String(c.rng.int(1, 6)) });
         fight(c, [n], { cause: `picking a fight with ${n.name}` });
       },
     });

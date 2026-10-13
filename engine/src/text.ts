@@ -197,6 +197,8 @@ const T: Record<string, Entry> = {
   'challenge:2': e((d) => [`Blackbird sidles up to ${d.npc} (${d.role}) and says "You look like you wanna lose."`], ['Rule one: always open with confidence.']),
   'challenge:3': e((d) => [`Blackbird bumps ${d.npc} (${d.role}) on purpose. Twice.`]),
   'challenge:4': e((d) => [`"I'm Blackbird," Blackbird tells ${d.npc} (${d.role}). "I'll be your hero tonight. Hit me."`], ['Great line.']),
+  'challenge:5': e((d) => [`Blackbird takes ${d.npc} (${d.role})'s drink, sips it, and sets it back down wrong on purpose.`], ["Subtle. Let's see if they notice."]),
+  'challenge:6': e((d) => [`Blackbird looks ${d.npc} (${d.role}) up and down, sniffs, and says "Corpo?" It does not matter that they are not.`], ['Never wrong.']),
   fight_start: e(
     (d) =>
       d.boss
@@ -204,15 +206,19 @@ const T: Record<string, Entry> = {
         : d.count === 1
           ? [`Blackbird squares up with ${d.foe} (${d.foeRole}), ${d.weapon} in hand.`, `${d.foe} (${d.foeRole}) vs. Blackbird. Her ${d.weapon} against whatever they have.`]
           : [`${d.count} on one: ${d.foes}. Blackbird grips ${d.weapon}.`, `${d.foes}. They\'re all looking at her. She decides that\'s the best possible start.`],
-    (d) => (d.boss ? ["This is it. The big one. I've been training for this. By drinking."] : ['Let\'s dance.', "I've fought worse. Slightly."]),
+    (d) => (d.boss ? ["This is it. The big one. I've been training for this. By drinking."] : ['Let\'s dance.', "I've fought worse. Slightly.", 'Okay, who wants to be famous?', 'Plan: hit them until they stop. Great plan.', 'This is basically a vacation.']),
   ),
   'fight_end:win': e(
-    (d) => [
-      `${d.killed ? `${d.killed} down` : 'They fold'} after ${d.rounds} rounds. Blackbird loses ${d.taken} HP and finds ${d.cash} neodollars.${d.loot ? ` Loot: ${d.loot}.` : ''}`,
-      `Blackbird wins. ${d.rounds} rounds, ${d.taken} damage taken, ${d.cash} neodollars gained.${d.puppy ? ' Sprocket barks a victory bark.' : ''}`,
-      `It ends the way it was always going to. Blackbird is standing. (${d.rounds} rounds, ${d.taken} damage.)`,
-    ],
-    ['Easy. I barely warmed up.', 'Another one for the highlight reel.', 'Hero: 1. Idiots: a lot.'],
+    (d) => {
+      const spoils = [Number(d.cash) > 0 ? `${d.cash} neodollars` : '', d.loot ? String(d.loot) : ''].filter(Boolean).join(' and ');
+      const cost = Number(d.taken) > 0 ? `${d.taken} damage taken` : 'not a scratch';
+      return [
+        `${Number(d.killed) > 1 ? `${d.killed} down` : 'One down'} in ${d.rounds} rounds: ${cost}.${spoils ? ` Spoils: ${spoils}.` : ''}`,
+        `Blackbird wins. ${d.rounds} rounds, ${cost}.${spoils ? ` She helps herself to ${spoils}.` : ''}${d.puppy ? ' Sprocket barks a victory bark.' : ''}`,
+        `It ends the way it was always going to. Blackbird is standing. (${d.rounds} rounds, ${cost}.)${spoils ? ` ${spoils}, now hers.` : ''}`,
+      ];
+    },
+    ['Easy. I barely warmed up.', 'Another one for the highlight reel.', 'Hero: 1. Idiots: a lot.', 'Somebody write this down.', 'And that, folks, is how it is done.', "They'll tell stories about this. I'll tell them. Loudly."],
   ),
   'fight_end:flee': e(
     (d) => [`Blackbird takes ${d.taken} damage and decides discretion is the better part of valor. She bolts for ${d.to}.`, `Blackbird retreats to ${d.to}. Tactically.`],
@@ -240,7 +246,7 @@ const T: Record<string, Entry> = {
   'injury:concussion': e(() => ['A hard hit to the head. Her vision wobbles. Her thoughts, if possible, wobble faster.'], ['I see two exits. Which one is real?']),
   level_up: e((d) => [`Blackbird reaches level ${d.level}. Her ${d.stat} ticks up. The upgrade is not visible. It feels visible.`, `Level ${d.level}. Something in her chrome clicks. Her ${d.stat} improves.`], ["I'm leveling up. This is how it begins.", 'More power. Same sass.']),
   equip: e(
-    (d) => [d.slot === 'weapon' ? `Blackbird swaps ${d.old} for ${d.item}${d.unstable ? '. It is humming at a frequency that makes her teeth itch' : ''}.` : `Blackbird straps on ${d.item}. Tough.`],
+    (d) => [d.slot === 'weapon' ? `Blackbird trades up from ${d.old} to ${d.item}${d.unstable ? '. It is humming at a frequency that makes her teeth itch' : ''}.` : `Blackbird straps on ${d.item}. Tough.`],
     (d) => [d.unstable ? 'What could possibly go wrong?' : 'Upgrade. Finally.'],
   ),
   monitored_death: e((d) => [`${d.npc} was wearing about half a mil in monitoring implants. His last heartbeat pinged ${d.groups} separate groups, all of them looking at Blackbird now.`], ["It's fine. I'm only sweating a little."]),

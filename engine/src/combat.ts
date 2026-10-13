@@ -1,6 +1,6 @@
 import type { Ctx, Injury, Item, Npc, World } from './types.js';
 
-export const npcsAt = (w: World, loc: string): Npc[] => Object.values(w.npcs).filter((n) => n.alive && n.locationId === loc);
+export const npcsAt = (w: World, loc: string): Npc[] => Object.values(w.npcs).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.beat);
 
 export const here = (w: World): Npc[] => npcsAt(w, w.hero.locationId);
 
@@ -243,6 +243,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
         // non-lethal: knocked out, not dead. They'll remember.
         f.hp = Math.max(1, Math.round(f.maxHp * 0.5));
         f.hostile = false;
+        f.downUntil = w.beat + 22 + rng.int(0, 15);
         f.affinity -= 40;
         remember(f, 'was beaten by Blackbird');
       } else {
@@ -254,7 +255,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     }
     h.cash += cash;
     h.hp = Math.max(h.hp, 1);
-    c.emit('fight_end', 'good', { ...base, variant: 'win', cash, xp: Math.round(xp), loot: found.slice(0, 3).join('; ') });
+    c.emit('fight_end', 'good', { ...base, variant: 'win', cash, xp: Math.round(xp), loot: found.slice(0, 3).join(', ') });
     gainXp(c, xp);
     if (foes.some((f) => f.archetype === 'cyberdragon')) {
       w.over = true;
