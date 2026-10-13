@@ -2,6 +2,7 @@ import type { Ctx, Feature, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { makeItem } from './content/items';
 import { hasAlly } from './companions';
+import { makeCan } from './graffiti';
 import { skillLevel, synergy, train } from './skills';
 import { ODDS } from './hobbies';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
@@ -263,6 +264,9 @@ function dumpster(c: Ctx, f: Feature): void {
   } else if (roll < 0.72) {
     h.inventory.push(makeItem('medkit'));
     c.emit('dumpster', 'good', { variant: 'vagrant' });
+  } else if (roll < 0.84) {
+    makeCan(h, 1);
+    c.emit('dumpster', 'good', { variant: 'paint' });
   } else {
     c.emit('dumpster', 'mixed', { variant: 'nothing' });
   }

@@ -21,7 +21,7 @@ export const ODDS = {
   serve: (h: Hero) => odds(0.3, 0.06, synergy(h, ['cooking', 'romance'])),
   tend: (h: Hero) => odds(0.3, 0.06, synergy(h, ['mixology', ['tolerance', 0.5]])),
   molotov: (h: Hero) => odds(0.3, 0.06, synergy(h, ['mixology', ['tinkering', 0.7]])),
-  art: (h: Hero) => odds(0.3, 0.065, synergy(h, ['art', ['stat:reflex', 0.5]])),
+  art: (h: Hero) => odds(0.42, 0.06, synergy(h, ['art', ['stat:reflex', 0.5]])),
   ask: (h: Hero) => odds(0.3, 0.065, synergy(h, ['streetwise', ['stat:charm', 0.5]])),
   trick: (h: Hero) => odds(0.3, 0.06, synergy(h, ['rapport', ['tinkering', 0.4]])),
   parkour: (h: Hero) => odds(0.35, 0.055, synergy(h, ['athletics', ['stat:reflex', 0.5]])),
@@ -43,7 +43,7 @@ export function hobbyCandidates(w: World): Candidate[] {
     for (const n of crowd.filter((x) => x.tags.includes('romanceable') && !x.hostile)) {
       out.push({ key: `pool_date:${n.id}`, drives: { lust: 0.9, pride: 0.6 }, bonus: 0.1, run: (c) => poolDate(c, n) });
     }
-    if (!owns('cue') && w.beat - (w.counters.cue_at ?? -99) > 25) {
+    if (!owns('cue')) {
       out.push({ key: 'grab_cue', drives: { greed: 0.3, curiosity: 0.3, bravery: 0.2 }, run: grabCue });
     }
   }
@@ -85,9 +85,6 @@ export function hobbyCandidates(w: World): Candidate[] {
     if (h.cash >= 10) out.push({ key: 'mix_molotov', drives: { curiosity: 0.6, bravery: 0.4, pride: 0.3 }, risk: 0.2, run: mixMolotov });
   }
   // ---- graffiti
-  if (feat('wall') && w.beat - (w.counters.graffiti_at ?? -99) > 40) {
-    out.push({ key: 'graffiti', drives: { pride: 0.6, curiosity: 0.6, bravery: 0.3 }, risk: 0.2, run: graffiti });
-  }
   // ---- parkour
   if (feat('parkour')) {
     out.push({ key: 'parkour', drives: { pride: 0.6, bravery: 0.5, curiosity: 0.4 }, risk: 0.5, run: parkour });
@@ -139,7 +136,6 @@ function poolDate(c: Ctx, n: Npc): void {
 
 function grabCue(c: Ctx): void {
   const { w } = c;
-  w.counters.cue_at = w.beat;
   w.hero.inventory.push(makeItem('pool_cue'));
   const dutch = w.npcs.dutch;
   if (alive(dutch) && dutch.locationId === w.hero.locationId) {
@@ -366,27 +362,6 @@ function mixMolotov(c: Ctx): void {
     h.hp -= 8;
     train(c, 'mixology', 1);
     c.emit('mix', 'bad', { variant: 'fail' });
-  }
-}
-
-function graffiti(c: Ctx): void {
-  const { w, rng } = c;
-  const h = w.hero;
-  const [g1] = w.situation.warringGangs;
-  w.counters.graffiti_at = w.beat;
-  if (rng.chance(ODDS.art(h))) {
-    h.fame += skillLevel(h, 'art') >= 5 ? 2 : 1;
-    train(c, 'art', 3);
-    const overGang = rng.chance(0.4);
-    if (overGang) addHeat(w, g1, 2);
-    c.emit('graffiti', 'good', { variant: overGang ? 'over_tag' : 'mural', level: skillLevel(h, 'art') });
-    if (rng.chance(0.25)) {
-      addHeat(w, 'atlas', 1);
-      c.emit('graffiti', 'mixed', { variant: 'drone' });
-    }
-  } else {
-    train(c, 'art', 1);
-    c.emit('graffiti', 'bad', { variant: 'rude' });
   }
 }
 

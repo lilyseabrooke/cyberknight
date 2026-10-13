@@ -44,6 +44,8 @@ interface Snapshot {
   buffs: string[];
   ending: World['ending'];
   fame: number;
+  art: number;
+  paint: number;
   tab: number;
   skills: [string, number][];
   implants: string[];
@@ -63,6 +65,7 @@ const SPEEDS = [
 ];
 
 const HEAT_NAMES: Record<string, string> = { npd: 'Police', atlas: 'Atlas', halo: 'The Halo', club: 'Neon Pharaoh' };
+const heatName = (k: string) => HEAT_NAMES[k] ?? gangName(k);
 const DRAMA = new Set(['fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout']);
 const MAX_LINES = 600;
 
@@ -87,7 +90,9 @@ function snap(w: World): Snapshot {
     heat: Object.entries(w.heat).filter(([, v]) => v > 0),
     buffs: h.buffs.filter((b) => b.until > w.beat).map((b) => b.id),
     ending: w.ending,
-    fame: h.fame,
+    fame: Math.floor(h.fame),
+    art: w.locations[h.locationId]?.graffiti ?? 0,
+    paint: h.inventory.filter((i) => i.id === 'spray_can').reduce((a, i) => a + i.power, 0),
     tab: h.tab,
     skills: (Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((k) => [SKILL_LABELS[k], skillLevel(h, k)] as [string, number]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]),
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
@@ -269,6 +274,8 @@ export default function NightViewer() {
                 </>
               )}
               {status.fame > 0 && (<><dt>Fame</dt><dd>{'★'.repeat(Math.min(status.fame, 12))} <span className="muted">{status.fame}</span></dd></>)}
+              {status.art > 0 && (<><dt>Wall art</dt><dd>{status.art} piece{status.art === 1 ? '' : 's'} of hers here</dd></>)}
+              {status.paint > 0 && (<><dt>Paint</dt><dd>{status.paint} spray{status.paint === 1 ? '' : 's'} left</dd></>)}
               {status.tab > 0 && (<><dt>Bar tab</dt><dd className="bad">{status.tab} neodollars (the Halo remembers)</dd></>)}
               {status.skills.length > 0 && (
                 <>
@@ -288,7 +295,7 @@ export default function NightViewer() {
               <div className="heat">
                 <h3>Heat</h3>
                 {status.heat.map(([k, v]) => (
-                  <Bar key={k} label={HEAT_NAMES[k] ?? k} value={v} max={10} kind="heat" />
+                  <Bar key={k} label={heatName(k)} value={v} max={10} kind="heat" />
                 ))}
               </div>
             )}

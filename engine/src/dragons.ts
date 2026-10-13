@@ -112,7 +112,7 @@ export function dragonCandidates(w: World): Candidate[] {
     key: 'film_flight', drives: { pride: 0.9, curiosity: 0.5, greed: 0.3 }, risk: hera ? 1.5 : 0.5,
     run: (c) => {
       c.w.hero.fame += hera ? 8 : 4;
-      c.emit('dragon_film', 'good', { variant: f.kind, fame: c.w.hero.fame });
+      c.emit('dragon_film', 'good', { variant: f.kind, fame: Math.floor(c.w.hero.fame) });
       if (c.rng.chance(hera ? 0.5 : 0.25)) spotted(c);
     },
   });

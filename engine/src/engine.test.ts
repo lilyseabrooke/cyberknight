@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, createRun, step, runToEnd, render, hasTemplate, rollPersonality, ARCHETYPES, synergy, skillValue, train, ODDS, heroPower, throwDamage, type World, type GameEvent } from './index';
 import { gather } from './interactions';
+import { pieceFame, paintCharges, makeCan, graffitiCandidates, FAME_DECAY } from './graffiti';
 import { fight } from './combat';
 import { createWorld } from './world';
 import { spawnNpc } from './content/archetypes';
@@ -378,7 +379,7 @@ describe('layered skills', () => {
       for (const e of events) seen.add(e.type);
       for (const [k, v] of Object.entries(world.hero.skills)) if (v >= 2) skills.add(k);
     }
-    for (const t of ['pool_date', 'darts', 'jam', 'cook', 'tend_bar', 'graffiti', 'ask_around', 'parkour', 'throw', 'trick', 'mix', 'busk', 'steal_guitar']) {
+    for (const t of ['pool_date', 'darts', 'jam', 'cook', 'tend_bar', 'graffiti', 'paint_shop', 'ask_around', 'parkour', 'throw', 'trick', 'mix', 'busk', 'steal_guitar']) {
       expect(seen.has(t), t).toBe(true);
     }
     expect(skills.size).toBeGreaterThanOrEqual(14);
@@ -396,7 +397,13 @@ describe('layered skills', () => {
       ['serve_dish', { variant: 'swoon', npc: 'x' }], ['serve_dish', { variant: 'polite', npc: 'x' }], ['eat_dish', {}],
       ['tend_bar', { variant: 'pro', amount: 1, npc: 'x' }], ['tend_bar', { variant: 'lucky', amount: 1, npc: 'x' }], ['tend_bar', { variant: 'spill' }], ['tend_bar', { variant: 'complaint', npc: 'x' }],
       ['mix', { variant: 'good', count: 1 }], ['mix', { variant: 'good', count: 2 }], ['mix', { variant: 'fail' }],
-      ['graffiti', { variant: 'mural', level: 1 }], ['graffiti', { variant: 'over_tag' }], ['graffiti', { variant: 'drone' }], ['graffiti', { variant: 'rude' }],
+      ['graffiti', { variant: 'mural', place: 'x', fame: 1 }], ['graffiti', { variant: 'another', place: 'x', fame: 1, pieces: 2 }], ['graffiti', { variant: 'crowded', place: 'x', fame: 1, pieces: 4 }], ['graffiti', { variant: 'overpaint', place: 'x', fame: 1, pieces: 7 }],
+      ['graffiti', { variant: 'over_tag', place: 'x', gang: 'vipers', fame: 1 }], ['graffiti', { variant: 'drone', place: 'x' }], ['graffiti', { variant: 'rude', place: 'x' }], ['spray_empty', {}], ['tag_owner', { npc: 'x', place: 'y' }],
+      ['vandal', { variant: 'scene', count: 1 }], ['vandal', { variant: 'scene', count: 2 }], ['vandal', { variant: 'escaped', to: 'x' }], ['vandal', { variant: 'fined', amount: 5 }], ['vandal', { variant: 'cant_pay' }],
+      ['gang_hunt', { gang: 'vipers', count: 2, place: 'x', turf: true }], ['gang_hunt', { gang: 'vipers', count: 2, place: 'x', turf: false }],
+      ['mural', { variant: 'proud', place: 'x', pieces: 1 }], ['mural', { variant: 'gallery', place: 'x', pieces: 5 }], ['mural', { variant: 'buffed', place: 'x', gang: 'vipers', pieces: 1 }],
+      ['paint_shop', { variant: 'buy', cost: 10, npc: 'x' }], ['paint_shop', { variant: 'flirt_win', npc: 'x', count: 2 }], ['paint_shop', { variant: 'flirt_fail', npc: 'x' }], ['paint_shop', { variant: 'threat_win', npc: 'x', count: 3 }], ['paint_shop', { variant: 'threat_fail', npc: 'x' }],
+      ['paint_shop', { variant: 'rob_start', npc: 'x' }], ['paint_shop', { variant: 'rob_win', npc: 'x', count: 6 }], ['paint_shop', { variant: 'lift_win', count: 1 }], ['paint_shop', { variant: 'lift_caught', npc: 'x' }], ['paint_shop', { variant: 'unattended', count: 3 }], ['dumpster', { variant: 'paint' }],
       ['parkour', { variant: 'clean' }], ['parkour', { variant: 'loot', item: 'x' }], ['parkour', { variant: 'fall' }],
       ['ask_around', { variant: 'mark', npc: 'x', item: 'y' }], ['ask_around', { variant: 'hatch' }], ['ask_around', { variant: 'staffdoor' }], ['ask_around', { variant: 'dragon' }], ['ask_around', { variant: 'gossip' }], ['ask_around', { variant: 'nothing' }],
       ['trick', { variant: 'good', name: 'x', kind: 'pigeon', trick: 'fetch' }], ['trick', { variant: 'good', name: 'x', kind: 'puppy', trick: 'guard' }], ['trick', { variant: 'good', name: 'x', kind: 'drone', trick: 'sing' }], ['trick', { variant: 'fail', name: 'x', kind: 'drone' }],
@@ -405,5 +412,137 @@ describe('layered skills', () => {
       ['skill_up', { skill: 'guitar', level: 1, title: 'knows three chords', id: 'guitar' }],
     ];
     for (const [type, data] of known) expect(hasTemplate({ beat: 1, type, outcome: 'good', data }), `${type}:${data.variant}`).toBe(true);
+  });
+});
+
+describe('graffiti ecosystem', () => {
+  const at = (loc: string, seed = 'g') => {
+    const w = createWorld({ seed, competence: 0.5 });
+    w.hero.locationId = loc;
+    return w;
+  };
+  const run = (w: World, key: string, seed: string) => {
+    const events: GameEvent[] = [];
+    const c = { w, rng: new Rng(seed), emit: (type: string, outcome: any, data: any = {}) => events.push({ beat: w.beat, type, outcome, data }) };
+    const cand = gather(w).find((x) => x.key === key);
+    expect(cand, key).toBeDefined();
+    cand!.run(c);
+    return events;
+  };
+
+  it('tagging needs paint, and paint is used up', () => {
+    const w = at('halo_alley');
+    expect(graffitiCandidates(w).some((c) => c.key === 'graffiti')).toBe(false);
+    makeCan(w.hero, 2);
+    expect(paintCharges(w.hero)).toBe(2);
+    expect(graffitiCandidates(w).some((c) => c.key === 'graffiti')).toBe(true);
+    run(w, 'graffiti', 'a');
+    expect(paintCharges(w.hero)).toBe(1);
+    run(w, 'graffiti', 'b');
+    expect(paintCharges(w.hero)).toBe(0);
+    expect(graffitiCandidates(w).some((c) => c.key === 'graffiti')).toBe(false);
+  });
+
+  it('has no cooldown: she can tag again immediately, as long as she has paint', () => {
+    const w = at('street_main');
+    makeCan(w.hero, 5);
+    run(w, 'graffiti', 'x1');
+    expect(gather(w).some((c) => c.key === 'graffiti')).toBe(true);
+    run(w, 'graffiti', 'x2');
+    expect(gather(w).some((c) => c.key === 'graffiti')).toBe(true);
+  });
+
+  it('fame per piece falls off with each piece already on that spot, and is bounded', () => {
+    const w = at('street_main');
+    let last = Infinity;
+    let sum = 0;
+    for (let n = 0; n < 12; n++) {
+      const f = pieceFame(w.hero, n);
+      expect(f).toBeLessThan(last);
+      last = f;
+      sum += f;
+    }
+    expect(sum).toBeLessThan(1 / (1 - FAME_DECAY) + 0.01); // total fame from one wall is capped
+    expect(pieceFame(w.hero, 6)).toBeLessThan(pieceFame(w.hero, 0) * 0.1);
+  });
+
+  it('a successful piece records itself on the location and pays less the second time', () => {
+    const w = at('club_backlot');
+    makeCan(w.hero, 5);
+    makeCan(w.hero, 5);
+    let pieces = 0;
+    const gains: number[] = [];
+    for (let i = 0; i < 40 && pieces < 3; i++) {
+      const before = w.hero.fame;
+      const evs = run(w, 'graffiti', `s${i}`);
+      const placed = w.locations.club_backlot!.graffiti;
+      if (placed > pieces) {
+        gains.push(w.hero.fame - before);
+        pieces = placed;
+      }
+      if (w.over) break;
+    }
+    expect(w.locations.club_backlot!.graffiti).toBeGreaterThanOrEqual(2);
+    expect(gains[1]!).toBeLessThan(gains[0]!);
+  });
+
+  it('tagging a gang\'s turf angers the gang, and pleases their enemies', () => {
+    const w = at('halo_alley');
+    const turf = w.locations.halo_alley!.territory!;
+    expect(turf).toBe(w.situation.warringGangs[0]);
+    const rival = Object.values(w.npcs).find((n) => n.tags.includes('ganger') && n.faction === w.situation.warringGangs[1])!;
+    const before = rival.affinity;
+    makeCan(w.hero, 5);
+    let placed = false;
+    for (let i = 0; i < 30 && !placed; i++) {
+      run(w, 'graffiti', `t${i}`);
+      placed = w.locations.halo_alley!.graffiti > 0;
+      if (w.over) break;
+    }
+    expect(w.heat[turf]).toBeGreaterThanOrEqual(2);
+    expect(rival.affinity).toBeGreaterThan(before);
+  });
+
+  it('the paint shop offers several ways to get paint', () => {
+    const w = at('paint_shop');
+    w.hero.cash = 100;
+    const keys = gather(w).map((c) => c.key);
+    for (const k of ['buy_paint', 'seduce_clerk', 'threaten_clerk', 'rob_paint_shop', 'shoplift_paint']) expect(keys).toContain(k);
+    for (const [key, min] of [['buy_paint', 1], ['seduce_clerk', 0], ['threaten_clerk', 0], ['rob_paint_shop', 0], ['shoplift_paint', 0]] as const) {
+      let got = 0;
+      for (let i = 0; i < 80; i++) {
+        const t = at('paint_shop', `shop-${key}-${i}`);
+        t.hero.cash = 100;
+        run(t, key, `r${i}`);
+        got += paintCharges(t.hero);
+      }
+      expect(got, key).toBeGreaterThan(min * 80 - 1);
+    }
+  });
+
+  it('stock is finite, but shipments arrive on their own', () => {
+    const w = at('paint_shop');
+    w.counters.paint_stock = 0;
+    expect(gather(w).some((c) => c.key === 'buy_paint')).toBe(false);
+    const { world } = createRun({ seed: 'restock', competence: 0.3 });
+    world.counters.paint_stock = 0;
+    for (let i = 0; i < 31 && !world.over; i++) step(world);
+    expect(world.counters.paint_stock).toBeGreaterThanOrEqual(2);
+  });
+
+  it('tempers cool: old grudges fade toward neutral without any timer on her', () => {
+    const { world } = createRun({ seed: 'cool', competence: 0.3 });
+    const g = Object.values(world.npcs).find((n) => n.id !== 'dutch' && n.locationId === 'helix_lab' && n.alive)!;
+    g.affinity = -30;
+    for (let i = 0; i < 48 && !world.over; i++) step(world);
+    if (!world.over) expect(g.affinity).toBeGreaterThan(-30);
+  });
+
+  it('police fine vandals and gangs hunt her in the sim', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      for (const e of play(`grf-${i}`, 0.3).events) seen.add(e.type + (e.type === 'vandal' ? ':' + e.data.variant : ''));
+    }
+    for (const k of ['graffiti', 'vandal:scene', 'vandal:fined', 'vandal:escaped', 'gang_hunt', 'paint_shop', 'mural']) expect(seen.has(k), k).toBe(true);
   });
 });

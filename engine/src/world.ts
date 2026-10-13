@@ -6,7 +6,7 @@ import type { Exit, Feature, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
 
-type LocDef = Omit<Location, 'visits' | 'id'>;
+type LocDef = Omit<Location, 'visits' | 'id' | 'graffiti' | 'territory'>;
 
 const LOCATIONS: Record<Id, LocDef> = {
   halo_floor: {
@@ -61,6 +61,7 @@ const LOCATIONS: Record<Id, LocDef> = {
       ex('halo_floor', 'the Rusty Halo'),
       ex('halo_alley', 'the alley beside the Halo'),
       ex('neon_pharaoh', 'the Neon Pharaoh nightclub', { gate: 'bouncer' }),
+      ex('paint_shop', 'Spray & Pray Paint Supply'),
       ex('overpass', 'the Kowloon Overpass (where the dragon patrols)'),
     ],
   },
@@ -79,6 +80,10 @@ const LOCATIONS: Record<Id, LocDef> = {
       ex('neon_pharaoh', 'the door back to the club floor'),
       ex('club_backlot', 'the fire exit'),
     ],
+  },
+  paint_shop: {
+    name: 'Spray & Pray Paint Supply', kind: 'shop', security: 1, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
+    exits: [ex('street_main', 'the street')],
   },
   club_backlot: {
     name: 'The lot behind the Neon Pharaoh', kind: 'street', security: 1, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'halo_alley',
@@ -142,7 +147,6 @@ const FEATURES: [Id, string, string][] = [
   ['club_greenroom', 'a vintage guitar on a stand', 'guitar'],
   ['halo_floor', 'the dartboard', 'darts'],
   ['halo_floor', 'the bar taps', 'taps'],
-  ['halo_alley', 'a blank brick wall', 'wall'],
   ['halo_kitchen', 'the stove', 'stove'],
   ['halo_roof', 'the rooftop gaps', 'parkour'],
   ['street_main', 'a battered vending machine', 'vending'],
@@ -179,8 +183,10 @@ export function createWorld(opts: RunOptions): World {
 
   const locations: Record<Id, Location> = {};
   for (const [id, d] of Object.entries(LOCATIONS)) {
-    locations[id] = { id, visits: 0, ...d, exits: d.exits.map((e) => ({ ...e })) };
+    locations[id] = { id, visits: 0, graffiti: 0, territory: null, ...d, exits: d.exits.map((e) => ({ ...e })) };
   }
+  locations.halo_alley!.territory = g1;
+  locations.club_backlot!.territory = g2;
 
   const features: Record<Id, Feature> = {};
   for (const [loc, name, kind] of FEATURES) {
@@ -216,6 +222,7 @@ export function createWorld(opts: RunOptions): World {
   add('fixer', 'halo_backroom', { id: 'madame', name: 'Madame Zero' });
   add('drone', 'halo_alley');
   add('noodler', 'street_main');
+  add('paint_clerk', 'paint_shop', { id: 'clerk' });
   for (let i = 0; i < 3; i++) add('club_security', 'neon_pharaoh');
   add('dj', 'neon_pharaoh', { id: 'kilobyte', name: 'DJ Kilobyte' });
   for (let i = 0; i < 3; i++) add('street_kid', 'club_backlot');
@@ -274,7 +281,7 @@ export function createWorld(opts: RunOptions): World {
     heat: { npd: 0, atlas: 0, halo: 0, club: 0 },
     situation: { warringGangs: [g1, g2], crackdown: rng.pick(CRACKDOWNS), weather: rng.pick(['acid_rain', 'neon_fog', 'heatwave'] as const) },
     flags: {},
-    counters: {},
+    counters: { paint_stock: 8 },
     damsel: null,
     flight: null,
     recent: [],

@@ -126,7 +126,7 @@ export interface Exit {
 export interface Location {
   id: Id;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop';
   exits: Exit[];
   /** 0..10. Raises the chance of being spotted while sneaking. */
   security: number;
@@ -137,6 +137,10 @@ export interface Location {
   /** Where the hero scrambles when fleeing. */
   fleeTo: Id;
   visits: number;
+  /** Pieces of her graffiti up here. Drives diminishing fame and local consequences. */
+  graffiti: number;
+  /** Gang that claims this turf this run (a per-run situational variable). */
+  territory: string | null;
 }
 
 /** Per-run situational variables, layered on the persistent macro-Neo. */

@@ -150,6 +150,13 @@ About 26 skills across music (music, singing, guitar, DJing, beatboxing), aim an
 - **Things to do with skills:** a band's green room with a vintage guitar to jam on, steal (and busk with), and gig on; pool as a hustle (bet size grows with skill) and as seduction (pool x romance); darts; cooking dishes that heal or woo; tending bar and crafting Molotov Mules to throw; graffiti (fame, gang drama); rooftop parkour; asking around for tips and marks; teaching allies tricks; and thrown items in fights.
 - Only milestone levels (3, 5, 8) are announced in the log, with a flavor title ("reads the room through the subwoofers"); the status panel tracks the rest.
 
+### Graffiti (fourth pass)
+
+- **Supplies:** tagging needs a spray can (5 charges). Buy one at **Spray & Pray Paint Supply** (stock is finite; shipments arrive on their own), fish a nearly-empty can out of a dumpster, or get it from the clerk by **seducing her** (romance x charm), **threatening her** (intimidation x muscle), **shoplifting** (sleight of hand), or **taking her down and robbing the shop**. If the clerk is knocked out, Blackbird helps herself.
+- **Saturation, not timers:** every location tracks how many pieces she has put up. Each one pays `0.6^existing` of the fame (total fame from one wall is capped), and the wall text escalates from "a bare wall" to "no room left, she paints over her own work".
+- **Consequences:** police may fine her or chase her ("itinerant vandal"), drones file a review, and tagging indoors angers owners (the Halo's staff, club security, Helix guards). Tagging **gang turf** (a per-run variable: two districts belong to the warring gangs) raises that gang's heat, so crews come hunting her; their enemies like her more; and gangs can paint over her work.
+- **Design rule: no artificial cooldowns.** If something is limited, the limit comes from the world: finite stock, saturation, diminishing returns, heat, grudges that fade on their own over time. The only explicit timer left is teaching allies tricks, which genuinely needs rest. Removed this pass: graffiti, cue-grabbing, billboard-hacking and DJ-block timers.
+
 ### The dragon family
 
 Cyberdragons are Atlas "protection" platforms, in three models that behave differently:

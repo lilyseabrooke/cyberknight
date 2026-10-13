@@ -166,6 +166,11 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['broken_bottle', 'switchblade'], loot: ['walkman', 'credchip', 'gold_tooth'], lootChance: 0.6, cash: [10, 60],
     desc: ['a bandmate in smudged eyeliner and total confidence, between sets'],
   },
+  paint_clerk: {
+    role: 'paint-shop clerk', level: [2, 2], tags: ['romanceable', 'staff', 'shopkeeper'], faction: 'shop',
+    names: 'person', weapons: ['switchblade'], loot: ['memory_shard', 'credchip'], lootChance: 0.5, cash: [40, 120],
+    desc: ['a paint-shop clerk with a neon-pink streak in her hair and paint to the elbows'],
+  },
   // ---------------- street life ----------------
   street_kid: {
     role: 'street kid', level: [1, 1], tags: ['kid'], faction: null,

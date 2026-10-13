@@ -439,8 +439,8 @@ const T: Record<string, Entry> = {
   'dragon_hide:fail': e((d) => [d.kind === 'hera' ? 'Blackbird dives behind a bin. The bin is small, and Blackbird, as it turns out, is not.' : 'Blackbird dives behind a dumpster. A scanner pings. A knee is sticking out.'], ['I was fully hidden. They are just very good at their jobs.']),
   'dragon_gawk:artemis': e(() => ['Blackbird just stands there, mouth open, watching an Artemis patrol draw an arc across the city. Its wings leave faint afterimages.'], ['Beautiful. Terrifying. Beautiful again.']),
   'dragon_gawk:hera': e(() => ['Blackbird stands in the middle of the street, head tilted back, looking up at a Hera Mk. V. It fills the entire sky. She takes a step back, and another, without taking her eyes off it.'], ['I feel very small. This is a new feeling.']),
-  'dragon_film:artemis': e((d) => [`Blackbird holds up her phone and films the Artemis patrol as it passes. The clip is posted before they are out of sight. Fame: ${d.fame}.`], ['This is going to do numbers.']),
-  'dragon_film:hera': e((d) => [`Blackbird zooms in on a Hera Mk. V and films the whole sky. The clip is the most-watched thing in Neo for the next ten minutes. Fame: ${d.fame}. A very large eye turns.`], ['Content. Pure content. Worth it.']),
+  'dragon_film:artemis': e((d) => [`Blackbird holds up her phone and films the Artemis patrol as it passes. The clip is posted before they are out of sight. Fame: ${Math.floor(Number(d.fame))}.`], ['This is going to do numbers.']),
+  'dragon_film:hera': e((d) => [`Blackbird zooms in on a Hera Mk. V and films the whole sky. The clip is the most-watched thing in Neo for the next ten minutes. Fame: ${Math.floor(Number(d.fame))}. A very large eye turns.`], ['Content. Pure content. Worth it.']),
 
   // ====================================================== layered skills, hobbies, and things to throw
   throw: e(
@@ -496,10 +496,6 @@ const T: Record<string, Entry> = {
   'tend_bar:complaint': e((d) => [`${d.npc} sips the drink Blackbird handed them, stares, and puts it down very carefully. "What is in this."`], ["It's a recipe. It's called 'a surprise.'"]),
   'mix:good': e((d) => [Number(d.count) > 1 ? 'Blackbird pours two Molotov Mules (the cocktail, mostly), jams rags in the tops, and tucks them into her jacket. She feels like an artist.' : 'Blackbird mixes a Molotov Mule (the cocktail, mostly), corks it with a rag, and tucks it into her jacket. It is both a drink and a threat.'], ['Cocktails: the original weapon.']),
   'mix:fail': e(() => ['Blackbird mixes a Molotov Mule with too much of the wrong thing. It makes a noise like a kettle and a small eyebrow-shaped flame.'], ['The recipe called for a LITTLE flame.']),
-  'graffiti:mural': e((d) => [`Blackbird takes to the alley wall with a can of paint and a point to prove. Twenty minutes later it says BLACKBIRD WAS HERE, in the shape of a bird, a sword and a heart. A passerby stops to take a photo.`], ["I've found my medium. It's bricks."]),
-  'graffiti:over_tag': e(() => ['Blackbird paints over a gang tag with a much better one. Somewhere across the district, a gang finds out about it.'], ['Constructive criticism, in paint.']),
-  'graffiti:drone': e(() => ["A surveillance drone drifts past the mural, takes a picture, and files it under 'vandalism: 6/10, great composition.'"], ['A review! From a drone! This is it.']),
-  'graffiti:rude': e(() => ['Blackbird intends to paint a heroic eagle. It comes out as a shape that is, by any reading, rude. She tries to cover it. It gets worse.'], ["It's an eagle. I'd stand by that in court."]),
   'parkour:clean': e(() => ['Blackbird takes the rooftops at a run: over a vent, off a ledge, across a four-foot gap that looks wider from below. She lands on the next roof in a roll and a flourish. No one saw it. She does it again.'], ['I am a bird. I am a cat. I am gravity\'s problem.']),
   'parkour:loot': e((d) => [`Blackbird runs the rooftops and, at the end of a gap she definitely cleared, finds ${d.item} sitting in a puddle. A reward for a gamble.`], ['Parkour pays. In weird ways.']),
   'parkour:fall': e(() => ['Blackbird takes a rooftop gap at full speed and finds, halfway across, that it is wider than she hoped. The next thing she knows is a fire escape.'], ["I meant to go down. Just not like that."]),
@@ -520,6 +516,54 @@ const T: Record<string, Entry> = {
     ['I teach tricks. I am a trainer now.', 'Look at that. Skill transfer.'],
   ),
   'trick:fail': e((d) => [`Blackbird tries to teach ${d.name} a trick. ${d.name} responds with enthusiastic incomprehension and a small bite.`], ['They just need more time. And possibly a snack.']),
+
+  // ====================================================== graffiti, the paint shop, and the consequences
+  'graffiti:mural': e(
+    (d) => [`Blackbird takes a can of paint to a bare wall at ${d.place} and does not stop until it says BLACKBIRD WAS HERE, in the shape of a bird, a sword and a heart. A passerby takes a photo. (+${d.fame} fame)`, `A fresh wall at ${d.place}, a can of paint, and nothing to lose. By the end it is a mural of Blackbird fighting a dragon, drawn by Blackbird. Her best work yet. (+${d.fame} fame)`],
+    ["I've found my medium. It's bricks.", 'The city is my canvas. The city did not agree. I painted anyway.'],
+  ),
+  'graffiti:another': e(
+    (d) => [`Blackbird adds another piece to the wall at ${d.place}: a second bird, this one with sunglasses. (+${d.fame} fame, ${d.pieces} pieces up here)`, `A new piece at ${d.place}, next to the old one. It has a dragon in it, losing. (+${d.fame} fame)`],
+    ['A series. Collectors love a series.', 'My early work and my later work, in conversation.'],
+  ),
+  'graffiti:crowded': e(
+    (d) => [`The wall at ${d.place} is getting crowded: ${d.pieces} Blackbirds and counting. The new one barely fits. Neo has seen this already. (+${d.fame} fame)`, `Blackbird squeezes another piece into ${d.place}, between a mural and a stencil of her own face. The neighbors are getting a little tired of it. (+${d.fame} fame)`],
+    ['Saturation is just success with a worse name.', "People are starting to say 'again?' It's a compliment."],
+  ),
+  'graffiti:overpaint': e(
+    (d) => [`There is no room left at ${d.place}. Blackbird paints over her own earlier work to make space. Nobody notices. Nobody cares. (+${d.fame} fame, ${d.pieces} pieces and falling)`, `${d.place} has more Blackbird on it than wall. She paints another anyway. (+${d.fame} fame)`],
+    ['My old stuff was better. The new stuff is bigger.', 'You can only paint a wall so many times, but I am going to find out where that is.'],
+  ),
+  'graffiti:over_tag': e(
+    (d) => [`Blackbird paints over a ${GANGS[String(d.gang)] ?? d.gang} tag at ${d.place} with a much better piece. Across the district, a gang finds out. (+${d.fame} fame)`, `At ${d.place}, ${GANGS[String(d.gang)] ?? d.gang} turf, Blackbird slaps a heroic bird on the gang's name. It is the best-looking act of war on the block. (+${d.fame} fame)`],
+    ['Constructive criticism, in paint.', "It's improved the neighborhood. The neighborhood will object."],
+  ),
+  'graffiti:rude': e(
+    (d) => [`Blackbird intends to paint a heroic eagle at ${d.place}. It comes out as a shape that is, by any reading, rude. She tries to cover it. It gets worse.`, `The wall at ${d.place} gets a very confident piece of work that looks like a bird, a dog and something she has decided not to name.`],
+    ["It's an eagle. I'd stand by that in court.", "Art is subjective. Mostly it's subjective to me."],
+  ),
+  'graffiti:drone': e((d) => [`A surveillance drone drifts past Blackbird's piece at ${d.place}, takes a picture, and files it under 'vandalism: 6/10, great composition.'`], ['A review! From a drone! This is it.']),
+  spray_empty: e(() => ['The can gives a last, exhausted hiss. Blackbird shakes it. Taps it. Holds it upside down. Nothing. She keeps the can anyway, out of respect.'], ["It's the thought that counts. And the pigment."]),
+  tag_owner: e((d) => [`${d.npc} catches Blackbird mid-piece at ${d.place}. He does not look like a man who is going to critique the composition.`, `"Is that SPRAY PAINT," asks ${d.npc}, in the voice of someone who already knows. It is.`], ["It's called a commission. They'll understand when it's done."]),
+  'vandal:scene': e((d) => [Number(d.count) === 1 ? 'A patrol officer rounds the corner, sees the wall, sees the can, and sees Blackbird. "Citizen. Step away from the art."' : 'Two NPD officers appear on either side of the wall. "Itinerant vandal," says one, to the other, like a diagnosis.'], ['Critics.', 'Nobody respects a work in progress.']),
+  'vandal:escaped': e((d) => [`Blackbird vaults a fence, rounds a bin, and is gone before the cuffs come out. The NPD can fine a wall, but not a rumor. She ends up at ${d.to}, a little out of breath.`], ['Art is a contact sport.', "They'll never catch me. Not while I'm quick."]),
+  'vandal:fined': e((d) => [`The officer writes a ticket: ${d.amount} neodollars for "unlicensed expression". Blackbird pays, and for a moment feels like an artist who has arrived.`], ["A fine is the first review. It's the best one."]),
+  'vandal:cant_pay': e(() => ['The officer writes out a ticket for more than Blackbird has. "Then we do this the other way." The other way involves cuffs and shouting.'], ["I thought art was supposed to be free."]),
+  gang_hunt: e((d) => [d.turf ? `${d.count} ${GANGS[String(d.gang)] ?? d.gang} members step out of the shadows at ${d.place}, their own turf. "You the one painting our wall?"` : `${d.count} ${GANGS[String(d.gang)] ?? d.gang} members find Blackbird at ${d.place}. Somebody described her face to them, and drew her bird.`], ['Honestly, I just wanted a canvas.', 'Fans! Of a kind.']),
+  'mural:proud': e((d) => [`Blackbird passes her own work at ${d.place}: ${d.pieces} piece${Number(d.pieces) === 1 ? '' : 's'} up, a little faded, a little smug. Somebody has added a mustache. She respects it.`, `Her bird is still on the wall at ${d.place}. A kid is looking up at it. She does not say anything. She stands a little taller.`], ['My work, in the wild. Look at it.', 'Still there. Still gorgeous.']),
+  'mural:gallery': e((d) => [`${d.place} has become, unofficially, a Blackbird gallery: ${d.pieces} pieces and a few pigeons looking at them like critics.`], ['A retrospective. Of me. On a wall.']),
+  'mural:buffed': e((d) => [`Blackbird finds her piece at ${d.place} painted over with a ${GANGS[String(d.gang)] ?? d.gang} tag. They even used her colors. It looks better, honestly. She does not say that. (${d.pieces} left)`], ["It's collaborative. It's a conversation. It is deeply rude."]),
+  'paint_shop:buy': e((d) => [`Blackbird buys a can of spray paint at Spray & Pray for ${d.cost} neodollars. ${d.npc} bags it like it's a loaded weapon, which in the right hands it is.`], ['Tools of the trade.']),
+  'paint_shop:flirt_win': e((d) => [`Blackbird leans on the counter and talks to ${d.npc} about colors for a very long time. ${d.npc} slides ${d.count} cans across the counter on the house, along with a phone number written on one.`], ['Art supplies and a girl. This is the dream.', 'I am an artist. It is practically a sub-species of charming.']),
+  'paint_shop:flirt_fail': e((d) => [`Blackbird opens with "I'm sorry, are you a color wheel? Because I think I'm going through a phase." ${d.npc} stares at her, and then at the register, and then at her.`], ['The paint fumes got to me. They got to everyone.']),
+  'paint_shop:threat_win': e((d) => [`Blackbird has a quiet word with ${d.npc}. ${d.npc} loads ${d.count} cans into a bag with shaking hands and does not make eye contact. The NPD will hear of this.`], ['Intimidation. A heroic skill, if you squint, with paint on it.']),
+  'paint_shop:threat_fail': e((d) => [`Blackbird demands paint from ${d.npc}. ${d.npc} pulls out a spray can of her own and shows, in a clean arc across the counter, that she knows how to use it.`], ['The shop owner is armed with art supplies. That is also a weapon, apparently.']),
+  'paint_shop:rob_start': e((d) => [`Blackbird vaults the counter of Spray & Pray and tells ${d.npc} she is "borrowing the stock." ${d.npc} reaches for the box cutter.`], ['Heroes take what they need. It is all in the code.']),
+  'paint_shop:rob_win': e((d) => [`${d.npc} is out cold on the floor behind the counter. Blackbird loads ${d.count} cans into a bag, pockets the till and leaves the shop looking like a very confused rainbow.`], ["Restocked. Don't ask what the shop looks like."]),
+  'paint_shop:lift_win': e((d) => [`While the clerk is busy with a customer, Blackbird slips ${d.count} can${Number(d.count) === 1 ? '' : 's'} into her jacket and walks out like it is the most natural thing in the world.`], ['A can in the jacket is worth two on the shelf.']),
+  'paint_shop:lift_caught': e((d) => [`${d.npc} catches Blackbird with a can in each sleeve. "You rattle when you walk." Things escalate.`], ['That rattle was a feature.']),
+  'paint_shop:unattended': e((d) => [`The counter at Spray & Pray is empty: no clerk, no one around. Blackbird helps herself to ${d.count} cans and leaves the money nowhere, with feeling.`], ['It is an honesty-box, spiritually.']),
+  'dumpster:paint': e(() => ["Under a pile of takeout bags, Blackbird finds a spray can. It's mostly empty. It still has a little life in it, like her."], ['One tag. Maybe two. Let us make them count.']),
   death: e(
     (d) => [`Blackbird is dead. Level ${d.level}. ${d.place}. Cause: ${d.cause}. Killed by ${d.killer}.`, `Blackbird flatlines in ${d.place}. Level ${d.level}. The report will say "${d.cause}".`],
     ['Huh. Okay. That was unexpected.', "Tell my fans I'll be back. Tell the cops I wasn't here."],

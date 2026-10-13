@@ -56,6 +56,7 @@ export const ITEMS: Record<string, Def> = {
   medkit: c('field medkit', 45, 60),
   stim: c('combat stim', 6, 40),
   noodles: c('mystery-meat noodle bowl', 12, 5),
+  spray_can: c('can of spray paint (5 left)', 5, 15, ['paint']),
   dish_good: c('a plated noodle special (it is, shockingly, good)', 30, 40, ['dish']),
   cocktail_molotov: c('Molotov Mule (the cocktail, mostly)', 18, 25, ['throwable', 'fire']),
   vintage_guitar: l('vintage guitar (previous owner: a band)', 400, ['instrument']),

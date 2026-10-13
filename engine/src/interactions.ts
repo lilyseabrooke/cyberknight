@@ -10,6 +10,7 @@ import { dragonCandidates } from './dragons';
 import { hasAlly } from './companions';
 import { odds, skillLevel, synergy, train } from './skills';
 import { hobbyCandidates } from './hobbies';
+import { graffitiCandidates } from './graffiti';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -141,6 +142,7 @@ export function gather(w: World): Candidate[] {
   out.push(...extraCandidates(w));
   out.push(...dragonCandidates(w));
   out.push(...hobbyCandidates(w));
+  out.push(...graffitiCandidates(w));
 
   // --------------------------------------------------------------- herself
   if (h.hp < h.maxHp * 0.75) {

@@ -66,8 +66,10 @@ export function extraCandidates(w: World): Candidate[] {
   const music = skillLevel(h, 'djing');
 
   // ---- DJ booth
-  if (feat('dj_booth') && w.beat > (w.counters.dj_block_until ?? 0)) {
-    out.push({ key: 'dj_set', drives: { pride: 0.9, curiosity: 0.5, lust: 0.15 }, bonus: music * 0.04, risk: 0.3, run: djSet });
+  if (feat('dj_booth')) {
+    // She doesn't know he's still mad. A cautious hero might.
+    const sore = w.npcs.kilobyte && w.npcs.kilobyte.affinity < -5 ? 0.7 : 0;
+    out.push({ key: 'dj_set', drives: { pride: 0.9, curiosity: 0.5, lust: 0.15 }, bonus: music * 0.04, risk: 0.3 + sore, run: djSet });
   }
 
   // ---- street kids
@@ -117,7 +119,7 @@ export function extraCandidates(w: World): Candidate[] {
   }
 
   // ---- billboard
-  if (feat('billboard') && w.beat - (w.counters.billboard_at ?? -99) > 45) {
+  if (feat('billboard')) {
     out.push({ key: 'billboard', drives: { pride: 0.8, curiosity: 0.6, greed: 0.1 }, risk: 0.4, run: hackBillboard });
   }
 
@@ -183,7 +185,6 @@ function djSet(c: Ctx): void {
   const lvl = skillLevel(h, 'djing');
   if (alive(kilo) && kilo.locationId === h.locationId && kilo.affinity < -5) {
     kilo.affinity -= 2;
-    w.counters.dj_block_until = w.beat + 30;
     c.emit('dj_set', 'bad', { variant: 'blocked', npc: kilo.name });
     return;
   }
@@ -310,9 +311,11 @@ function hackBillboard(c: Ctx): void {
   const h = w.hero;
   const p = clamp(0.3 + h.hack * 0.06 + skillLevel(h, 'tinkering') * 0.03, 0.1, 0.85);
   if (rng.chance(p)) {
-    h.fame += 3;
-    w.counters.billboard_at = w.beat;
-    addHeat(w, 'atlas', 1);
+    // Each hijack is less of a story, and Atlas gets angrier about it.
+    const hacks = w.counters.billboard_hacks ?? 0;
+    h.fame += 3 * 0.55 ** hacks;
+    w.counters.billboard_hacks = hacks + 1;
+    addHeat(w, 'atlas', 1 + Math.min(2, hacks));
     train(c, 'tinkering', 2);
     c.emit('billboard', 'good', { variant: 'success' });
   } else {
