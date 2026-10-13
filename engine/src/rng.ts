@@ -6,6 +6,17 @@ export class Rng {
     this.state = typeof seed === 'number' ? seed >>> 0 : hashString(seed);
   }
 
+  /** Serializable position in the stream, so a run can be saved and resumed exactly. */
+  get position(): number {
+    return this.state;
+  }
+
+  static fromPosition(state: number): Rng {
+    const r = new Rng(0);
+    r.state = state >>> 0;
+    return r;
+  }
+
   /** Float in [0, 1). */
   next(): number {
     this.state = (this.state + 0x6d2b79f5) >>> 0;
@@ -22,6 +33,17 @@ export class Rng {
 
   chance(p: number): boolean {
     return this.next() < p;
+  }
+
+  /** Weighted pick; weights need not sum to 1. */
+  weighted<T>(items: readonly T[], weight: (t: T) => number): T {
+    const total = items.reduce((a, t) => a + Math.max(0, weight(t)), 0);
+    let roll = this.next() * total;
+    for (const t of items) {
+      roll -= Math.max(0, weight(t));
+      if (roll <= 0) return t;
+    }
+    return items[items.length - 1]!;
   }
 
   pick<T>(items: readonly T[]): T {

@@ -11,6 +11,7 @@ A self-playing cyberpunk sword-and-sorcery roguelite. You're the lab assistant; 
 npm install
 npm test                      # engine unit tests
 npm run typecheck
+npm run play -- neo-7 0.2     # watch one night in Neo: <seed> <competence 0..1>
 npm run sim -- 1000 0.1       # headless balance harness: <runs> <competence 0..1>
 ```
 

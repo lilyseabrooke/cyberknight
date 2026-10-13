@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "sim": "tsx scripts/sim.ts"
+    "sim": "tsx scripts/sim.ts",
+    "play": "tsx scripts/play.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
