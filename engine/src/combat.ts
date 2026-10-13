@@ -160,6 +160,10 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     foeRole: foes[0]!.role,
     weapon: h.weapon.name,
     boss: foes.some((f) => f.tags.includes('boss')),
+    dragon: foes.find((f) => f.tags.includes('dragon'))?.archetype ?? '',
+    hpPct: Math.round((h.hp / h.maxHp) * 100),
+    power: Math.round(heroPower(w)),
+    level: h.level,
   });
 
   let rounds = 0;
@@ -210,9 +214,9 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     let taken = 0;
     let biggest = 0;
     for (const f of standing()) {
-      if (!rng.chance(0.8)) continue;
+      if (!f.tags.includes('hera') && !rng.chance(0.8)) continue; // Hera does not miss
       let fp = f.power - (f.flags.includes('disabled') ? 3 : 0);
-      if (f.tags.includes('boss') && w.flags.dragon_weak) fp *= 0.65;
+      if (f.tags.includes('apollo') && w.flags.dragon_weak) fp *= 0.65;
       const d = Math.max(1, Math.round(fp * (0.2 + rng.next() * 0.4)) - armor);
       taken += d;
       biggest = Math.max(biggest, d);
@@ -254,6 +258,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     allies: h.companions.filter((a) => a.hp > 0).map((a) => a.name).join(' and '),
     allyKind: h.companions.find((a) => a.hp > 0)?.kind ?? '',
     boss: foes.some((f) => f.tags.includes('boss')),
+    dragon: foes.find((f) => f.tags.includes('dragon'))?.archetype ?? '',
     killer: survivors[0]?.name ?? '',
     place: loc.name,
   };
@@ -286,7 +291,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     h.hp = Math.max(h.hp, 1);
     c.emit('fight_end', 'good', { ...base, variant: 'win', cash, xp: Math.round(xp), loot: found.slice(0, 3).join(', ') });
     gainXp(c, xp);
-    if (foes.some((f) => f.archetype === 'cyberdragon')) {
+    if (foes.some((f) => f.archetype === 'apollo')) {
       w.over = true;
       w.ending = 'victory';
       c.emit('victory', 'good', {});
@@ -318,6 +323,14 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
 
   for (const f of foes) f.flags = f.flags.filter((x) => x !== 'disabled');
   if (result === 'win' && foes.length >= 3) h.fame += 1;
+  if (result === 'win') {
+    const scalps = foes.filter((f) => f.tags.includes('artemis')).length;
+    if (scalps) {
+      h.fame += 4 * scalps;
+      w.counters.artemis_kills = (w.counters.artemis_kills ?? 0) + scalps;
+    }
+  }
+  if (w.flight && foes.some((f) => w.flight!.ids.includes(f.id))) w.flight = null;
   if (result === 'win' && foes.some((f) => f.tags.includes('boss'))) h.fame += 10;
   // Allies share the risk, and the loyalty.
   if (!w.over) {

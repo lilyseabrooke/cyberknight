@@ -154,6 +154,16 @@ export interface Damsel {
   until: number;
 }
 
+/** A dragon flight overhead. She has a few beats to decide what to do about it. */
+export interface Flight {
+  kind: 'artemis' | 'hera';
+  ids: Id[];
+  locationId: Id;
+  until: number;
+  hidden: boolean;
+  noticed: boolean;
+}
+
 export interface World {
   seed: string;
   beat: number;
@@ -169,6 +179,7 @@ export interface World {
   /** Misc numeric counters (laser-tag wins, ads seen, etc.). */
   counters: Record<string, number>;
   damsel: Damsel | null;
+  flight: Flight | null;
   /** Recently chosen action keys, used to discourage loops. */
   recent: string[];
   brawlUntil: number;

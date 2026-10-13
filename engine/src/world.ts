@@ -216,7 +216,7 @@ export function createWorld(opts: RunOptions): World {
   add('helix_guard', 'helix_lab');
   add('lab_bot', 'helix_lab');
   add('scientist', 'helix_lab');
-  add('cyberdragon', 'overpass', { id: 'dragon' });
+  add('apollo', 'overpass', { id: 'dragon' });
 
   const hero = {
     name: 'Blackbird',
@@ -260,6 +260,7 @@ export function createWorld(opts: RunOptions): World {
     flags: {},
     counters: {},
     damsel: null,
+    flight: null,
     recent: [],
     brawlUntil: 0,
     blackoutUntil: 0,

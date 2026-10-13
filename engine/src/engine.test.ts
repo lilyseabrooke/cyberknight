@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, createRun, step, runToEnd, render, hasTemplate, rollPersonality, ARCHETYPES, type World, type GameEvent } from './index';
 import { gather } from './interactions';
+import { fight } from './combat';
+import { createWorld } from './world';
+import { spawnNpc } from './content/archetypes';
+import { makeItem } from './content/items';
 
 const play = (seed: string, competence = 0.2) => runToEnd({ seed, competence });
 
@@ -176,5 +180,90 @@ describe('deepened sandbox', () => {
       return n;
     };
     expect(wins(0.8)).toBeGreaterThan(wins(0.05));
+  });
+});
+
+describe('the dragon family', () => {
+  /** Controlled fight: a hero of a given build against `n` dragons of `kind`. */
+  const duel = (kind: string, n: number, hero: { level: number; weapon: string; armor: string; muscle: number }, trials = 150) => {
+    const out: Record<string, number> = {};
+    for (let i = 0; i < trials; i++) {
+      const w = createWorld({ seed: `duel-${kind}-${i}`, competence: 0.7 });
+      const h = w.hero;
+      h.level = hero.level;
+      h.maxHp = 90 + 12 * (hero.level - 1);
+      h.hp = h.maxHp;
+      h.muscle = hero.muscle;
+      h.weapon = makeItem(hero.weapon);
+      h.armor = makeItem(hero.armor);
+      h.locationId = 'street_main';
+      const rng = new Rng(`duel-${i}`);
+      const foes = Array.from({ length: n }, (_, k) => {
+        const d = spawnNpc(rng, `d${k}`, kind, 'street_main');
+        w.npcs[d.id] = d;
+        return d;
+      });
+      const r = fight({ w, rng, emit() {} }, foes, { cause: 'test', joiners: false });
+      out[r] = (out[r] ?? 0) + 1;
+    }
+    return out;
+  };
+  const competent = { level: 6, weapon: 'rail_revolver', armor: 'kevlar_duster', muscle: 6 };
+
+  it('Apollo, Artemis and Hera are distinct creatures', () => {
+    const rng = new Rng('d');
+    const a = spawnNpc(rng, 'a', 'apollo', 'x');
+    const t = spawnNpc(rng, 't', 'artemis', 'x');
+    const h = spawnNpc(rng, 'h', 'hera', 'x');
+    expect(a.role).toContain('Apollo Mk. II');
+    expect(t.role).toContain('Artemis Mk. I');
+    expect(h.role).toContain('Hera Mk. V');
+    expect(t.power).toBeLessThan(a.power);
+    expect(a.power).toBeLessThan(h.power);
+  });
+
+  it('a competent Blackbird beats a lone Artemis almost every time', () => {
+    const r = duel('artemis', 1, competent);
+    expect((r.win ?? 0) / 150).toBeGreaterThan(0.9);
+  });
+
+  it('Artemis packs are the real danger', () => {
+    const one = duel('artemis', 1, competent).win ?? 0;
+    const three = duel('artemis', 3, competent).win ?? 0;
+    expect(one).toBeGreaterThan(three * 5);
+    expect(three / 150).toBeLessThan(0.1);
+  });
+
+  it('Hera Mk. V kills anything she could plausibly be at in this sandbox, and a long way past it', () => {
+    for (const lvl of [4, 8, 12, 25, 35]) {
+      const r = duel('hera', 1, { level: lvl, weapon: 'hiccup', armor: 'corp_plate', muscle: lvl }, 60);
+      expect((r.win ?? 0)).toBe(0);
+      expect((r.dead ?? 0) / 60).toBeGreaterThan(0.9);
+    }
+  });
+
+  it('flights actually occur, Hera is rare, and reactions differ by competence', () => {
+    let flights = 0;
+    let hera = 0;
+    let runs = 0;
+    const hides = { low: 0, high: 0 };
+    for (let i = 0; i < 120; i++) {
+      for (const [c, key] of [[0.05, 'low'], [0.9, 'high']] as const) {
+        const { events } = play(`fl-${i}`, c);
+        runs++;
+        for (const e of events) {
+          if (e.type === 'dragon_flight') {
+            flights++;
+            if (e.data.variant === 'hera') hera++;
+          }
+          if (e.type === 'dragon_hide') hides[key]++;
+        }
+      }
+    }
+    expect(flights).toBeGreaterThan(30);
+    expect(hera).toBeGreaterThan(0);
+    expect(hera).toBeLessThan(flights * 0.25);
+    expect(hides.high).toBeGreaterThan(hides.low);
+    expect(runs).toBe(240);
   });
 });

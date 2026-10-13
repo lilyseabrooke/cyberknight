@@ -6,6 +6,7 @@ import { moveThrough } from './moves';
 import { addCompanion, newCompanion, slotsFree } from './companions';
 import { featureCandidates } from './features';
 import { extraCandidates } from './extras';
+import { dragonCandidates } from './dragons';
 import { hasAlly } from './companions';
 import { skillLevel, train } from './skills';
 
@@ -15,7 +16,7 @@ const DRINKS = [
 ];
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive;
-const talkable = (n: Npc): boolean => !n.hostile && !n.tags.includes('boss') && n.archetype !== 'puppy';
+const talkable = (n: Npc): boolean => !n.hostile && !n.tags.includes('boss') && !n.tags.includes('dragon') && n.archetype !== 'puppy';
 
 /** Everything Blackbird could do right now, from everything in reach. */
 export function gather(w: World): Candidate[] {
@@ -136,6 +137,7 @@ export function gather(w: World): Candidate[] {
   // ------------------------------------------------------------------ objects
   out.push(...featureCandidates(w));
   out.push(...extraCandidates(w));
+  out.push(...dragonCandidates(w));
 
   // --------------------------------------------------------------- herself
   if (h.hp < h.maxHp * 0.75) {

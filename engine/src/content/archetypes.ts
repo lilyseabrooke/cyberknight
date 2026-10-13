@@ -7,7 +7,7 @@ export interface ArchetypeDef {
   level: [number, number];
   tags: string[];
   faction: string | null;
-  names: 'person' | 'robot' | 'monster' | 'kid';
+  names: 'person' | 'robot' | 'monster' | 'kid' | 'artemis' | 'hera';
   weapons: string[];
   armors?: string[];
   armorChance?: number;
@@ -185,10 +185,20 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['credchip', 'memory_shard'], lootChance: 0.7, cash: [80, 200],
     desc: ['an NPD sergeant with the thousand-yard stare of a man who bills overtime'],
   },
-  cyberdragon: {
-    role: 'cyberdragon', level: [10, 10], tags: ['robot', 'dragon', 'boss'], faction: 'atlas',
+  apollo: {
+    role: 'Apollo Mk. II cyberdragon', level: [10, 10], tags: ['robot', 'dragon', 'boss', 'apollo'], faction: 'atlas',
     names: 'monster', weapons: [], loot: ['helix_sample'], lootChance: 1, cash: [0, 0], hp: 1100, power: 105,
-    desc: ['CINDERJAW, an Atlas Protection Platform, forty tons of wings, plasma and customer-service branding'],
+    desc: ['CINDERJAW, an Apollo Mk. II Atlas Protection Platform: forty tons of wings, plasma and customer-service branding'],
+  },
+  artemis: {
+    role: 'Artemis Mk. I cyberdragon', level: [6, 6], tags: ['robot', 'dragon', 'artemis'], faction: 'atlas',
+    names: 'artemis', weapons: [], loot: ['dragon_scale', 'artemis_plate'], lootChance: 0.8, cash: [0, 0], hp: 210, power: 38,
+    desc: ['an Artemis Mk. I patrol dragon: fast, lean, built to hunt in packs and bill by the hour'],
+  },
+  hera: {
+    role: 'Hera Mk. V cyberdragon', level: [40, 40], tags: ['robot', 'dragon', 'hera'], faction: 'atlas',
+    names: 'hera', weapons: [], loot: [], lootChance: 0, cash: [0, 0], hp: 8000, power: 900,
+    desc: ['a Hera Mk. V: a city-scale Atlas pacification platform, with a presence like weather'],
   },
 };
 
@@ -211,10 +221,12 @@ const ROBOT = ['UNIT', 'MK', 'BOT', 'SENTRY', 'AUTO'];
 
 const KID = ['Pixel', 'Wire', "Lil' Static", 'Moth', 'Bytes', 'Glitch', 'Noodle', 'Zip', 'Tick', 'Dot', 'Rust', 'Mouse'];
 
-export function rollNpcName(rng: Rng, kind: 'person' | 'robot' | 'monster' | 'kid'): string {
+export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
   if (kind === 'kid') return rng.pick(KID);
   if (kind === 'robot') return `${rng.pick(ROBOT)}-${rng.int(100, 999)}`;
   if (kind === 'monster') return 'CINDERJAW';
+  if (kind === 'artemis') return `ARTEMIS-${rng.int(100, 999)}`;
+  if (kind === 'hera') return 'HERA-V "MATRIARCH"';
   return `${rng.pick(FIRST)} ${rng.pick(LAST)}`;
 }
 

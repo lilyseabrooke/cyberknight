@@ -154,7 +154,7 @@ const T: Record<string, Entry> = {
   'laser_tag:cheat': e(() => ['Blackbird rewrites her vest to count hits twice. The arena flags it. She is ejected with a lifetime ban from the NEON KNIGHTS league.'], ['Legendary. They will name a rule after me.']),
   'safe:success': e((d) => [`The wall safe clicks open: ${d.amount} neodollars and ${d.item}. A burglar alarm somewhere is considering waking up.`], ['Locks, safes, vaults. The universe wants me to have things.']),
   'safe:alarm': e(() => ['The safe screams. A siren, a red light, a recorded voice that says "THIEF" in a friendly tone.'], ['Technically I wasn\'t done yet.']),
-  'skyline:dragon': e(() => ['From the roof, Blackbird spots it: a massive shape cruising the Kowloon Overpass, running lights tracing the lines of wings. A cyberdragon. Atlas\'s favorite pet.'], ['There. The big one. I can take it.', "Forty tons of Atlas steel. I'll need a bigger sword. Or a smaller dragon."]),
+  'skyline:dragon': e(() => ['From the roof, Blackbird spots it: a massive shape cruising the Kowloon Overpass, running lights tracing the lines of wings. An Apollo Mk. II cyberdragon. Atlas\'s favorite pet.'], ['There. The big one. I can take it.', "Forty tons of Atlas steel. I'll need a bigger sword. Or a smaller dragon."]),
   'skyline:wobble': e(() => ['Blackbird leans over the roof edge for a better look and nearly leaves it for good. A pigeon is concerned.'], ["I'm fine. It's the building that's tilting."]),
   'skyline:vista': e(() => ['Blackbird stands on the roof and surveys Neo: arcologies, billboards, a thousand lit windows of people not doing what she does.'], ['A hero\'s view. Someday this city will thank me.']),
   'dumpster:loot': e((d) => [d.sniff ? `Sprocket sniffs out a buried treasure: ${d.item}. Blackbird takes credit.` : `Elbow-deep in the dumpster, Blackbird finds ${d.item}. A rare win.`], ['Treasure. In trash. That\'s Neo poetry.']),
@@ -201,15 +201,26 @@ const T: Record<string, Entry> = {
   'challenge:6': e((d) => [`Blackbird looks ${d.npc} (${d.role}) up and down, sniffs, and says "Corpo?" It does not matter that they are not.`], ['Never wrong.']),
   fight_start: e(
     (d) =>
-      d.boss
+      d.dragon === 'hera'
+        ? ['Hera Mk. V turns. It takes a while, because it is the size of a district. Every light on its underbelly settles on Blackbird.']
+        : d.dragon === 'artemis'
+          ? [Number(d.count) === 1 ? `${d.foes} drops from the sky in a controlled fall, wings snapping open a few feet above the street. Blackbird levels her ${d.weapon}.` : `${d.count} Artemis Mk. I dragons peel off in formation and drop on Blackbird: ${d.foes}. They have clearly done this before.`]
+      : d.boss
         ? [`${d.foes} unfolds from the dark. Plasma vents spool up. Ads on the underside of its wings read PROTECTING NEO, ONE CITIZEN AT A TIME.`]
         : d.count === 1
           ? [`Blackbird squares up with ${d.foe} (${d.foeRole}), ${d.weapon} in hand.`, `${d.foe} (${d.foeRole}) vs. Blackbird. Her ${d.weapon} against whatever they have.`]
           : [`${d.count} on one: ${d.foes}. Blackbird grips ${d.weapon}.`, `${d.foes}. They\'re all looking at her. She decides that\'s the best possible start.`],
-    (d) => (d.boss ? ["This is it. The big one. I've been training for this. By drinking."] : ['Let\'s dance.', "I've fought worse. Slightly.", 'Okay, who wants to be famous?', 'Plan: hit them until they stop. Great plan.', 'This is basically a vacation.']),
+    (d) => (d.dragon === 'hera' ? ["Oh. That's... that's a big one.", 'Okay. New plan. Same plan, but with feelings.'] : d.dragon === 'artemis' ? ['Dragon hunting! Finally!', "A real dragon. A small one, but I'll take it."] : d.boss ? ["This is it. The big one. I've been training for this. By drinking."] : ['Let\'s dance.', "I've fought worse. Slightly.", 'Okay, who wants to be famous?', 'Plan: hit them until they stop. Great plan.', 'This is basically a vacation.']),
   ),
   'fight_end:win': e(
     (d) => {
+      if (d.dragon === 'artemis') {
+        const spoils = [Number(d.cash) > 0 ? `${d.cash} neodollars` : '', d.loot ? String(d.loot) : ''].filter(Boolean).join(' and ');
+        return [
+          `${Number(d.killed) > 1 ? `${d.killed} Artemis dragons come` : 'The Artemis comes'} down in ${d.rounds} rounds, ${Number(d.taken) > 0 ? `${d.taken} damage taken` : 'not a scratch'}. Blackbird stands on the wreckage like it's a podium.${spoils ? ` Salvage: ${spoils}.` : ''}`,
+          `A tidy kill: ${d.rounds} rounds and the Artemis is a pile of hot plating. ${Number(d.taken) > 0 ? `Blackbird's out ${d.taken} HP.` : 'Blackbird is entirely unharmed.'}${spoils ? ` ${spoils}.` : ''}`,
+        ];
+      }
       const spoils = [Number(d.cash) > 0 ? `${d.cash} neodollars` : '', d.loot ? String(d.loot) : ''].filter(Boolean).join(' and ');
       const cost = Number(d.taken) > 0 ? `${d.taken} damage taken` : 'not a scratch';
       return [
@@ -218,7 +229,7 @@ const T: Record<string, Entry> = {
         `It ends the way it was always going to. Blackbird is standing. (${d.rounds} rounds, ${cost}.)${spoils ? ` ${spoils}, now hers.` : ''}`,
       ];
     },
-    ['Easy. I barely warmed up.', 'Another one for the highlight reel.', 'Hero: 1. Idiots: a lot.', 'Somebody write this down.', 'And that, folks, is how it is done.', "They'll tell stories about this. I'll tell them. Loudly."],
+    (d) => d.dragon === 'artemis' ? ['I killed a dragon. A real dragon! The small kind, but still.', "That's DRAGON-SLAYER on the business card, now.", 'Mount that scale over the bar.'] : ['Easy. I barely warmed up.', 'Another one for the highlight reel.', 'Hero: 1. Idiots: a lot.', 'Somebody write this down.', 'And that, folks, is how it is done.', "They'll tell stories about this. I'll tell them. Loudly."],
   ),
   'fight_end:flee': e(
     (d) => [`Blackbird takes ${d.taken} damage and decides discretion is the better part of valor. She bolts for ${d.to}.`, `Blackbird retreats to ${d.to}. Tactically.`],
@@ -234,10 +245,14 @@ const T: Record<string, Entry> = {
   ),
   'fight_end:dead': e(
     (d) =>
-      d.boss
-        ? [`The dragon turns Blackbird into a smoking silhouette on the Kowloon Overpass. Round ${d.rounds}.`, `Forty tons of Atlas steel and one tire iron. Round ${d.rounds}.`]
+      d.dragon === 'hera'
+        ? ['Hera Mk. V does not so much attack Blackbird as happen to her. There is a flash, and then there is a smoking silhouette, and then there is a dragon continuing on its way.', 'The Hera does not break stride. Blackbird is a shadow on the pavement, and then not even that.']
+        : d.dragon === 'artemis'
+          ? [`The Artemis pack takes Blackbird apart in round ${d.rounds}, working in tidy formation. One of them is, somehow, still polite about it.`, `Round ${d.rounds}. ${d.killer || 'The Artemis'} lands on what's left of the cover and checks the street for further complaints.`]
+      : d.boss
+        ? [`The Apollo Mk. II turns Blackbird into a smoking silhouette on the Kowloon Overpass. Round ${d.rounds}.`, `Forty tons of Atlas steel and one tire iron. Round ${d.rounds}.`]
         : [`Blackbird goes down in round ${d.rounds}. ${d.killer || 'Something'} stands over her.`, `Round ${d.rounds}. It was not the heroic last stand she had imagined.`],
-    ['Okay, that one might actually hurt.', 'This is fine.'],
+    (d) => (d.dragon === 'hera' ? ['...Huh.', 'I regret nothing. Mostly the part where I looked up.'] : d.dragon === 'artemis' ? ['There were THREE of them. That was just unfair.', 'Should have gone for the one on the left.'] : ['Okay, that one might actually hurt.', 'This is fine.']),
   ),
   brawl_joins: e((d) => [`${d.npcs} ${Number(d.count) > 1 ? 'jump' : 'jumps'} in. Because why not.`, `Somebody shouts "BRAWL!" and ${d.npcs} ${Number(d.count) > 1 ? 'are' : 'is'} suddenly involved.`], ['More the merrier.', "Don't worry, I take all comers."]),
   'injury:broken_leg': e(() => ['A leg gives out with a sound like a snapped pipe. Blackbird has a broken leg.'], ["It's just a leg. I have another one."]),
@@ -250,7 +265,7 @@ const T: Record<string, Entry> = {
     (d) => [d.unstable ? 'What could possibly go wrong?' : 'Upgrade. Finally.'],
   ),
   monitored_death: e((d) => [`${d.npc} was wearing about half a mil in monitoring implants. His last heartbeat pinged ${d.groups} separate groups, all of them looking at Blackbird now.`], ["It's fine. I'm only sweating a little."]),
-  dragon_confront: e((d) => [`Blackbird strides onto the Kowloon Overpass and points whatever she is holding at the sky. ${d.npc} descends.`], ['Today is the day. I can feel it.']),
+  dragon_confront: e((d) => [`Blackbird strides onto the Kowloon Overpass and points whatever she is holding at the sky. The Apollo Mk. II, ${d.npc}, descends.`], ['Today is the day. I can feel it.']),
   dragon_notices: e((d) => [`Overhead, ${d.npc} banks and swings its head toward Blackbird. A speaker clears its throat: "CITIZEN, YOU ARE IN VIOLATION OF CONTENTMENT."`], ["Hi. Nice wings."]),
   'rob_till:success': e((d) => [`Blackbird empties the register for ${d.amount} neodollars while the bartender's back is turned. It takes a coordinated effort and a decoy napkin.`], ['It\'s not stealing. It\'s redistribution.']),
   'rob_till:caught': e((d) => [`${d.npc}'s hand lands on Blackbird's shoulder. "That's the till." He is very calm. It is worse.`], ["Just counting it for him."]),
@@ -389,6 +404,41 @@ const T: Record<string, Entry> = {
   'recognition:skylight': e((d) => [`${d.npc} sees Blackbird and points up at an imaginary skylight. "Hey, did you fall through that?" Several people laugh.`], ["It was an entrance. A dramatic entrance."]),
   'recognition:pickpocket': e((d) => [`${d.npc} sees Blackbird and casually checks every pocket they have.`], ['Cautious. That is how you stay alive in this city.']),
   'recognition:generic': e((d) => [`${d.npc} gives Blackbird a nod that says "I remember you".`], ['Neo remembers.']),
+
+  // ====================================================== the dragon family
+  'dragon_flight:artemis': e(
+    (d) => {
+      const lead = Number(d.count) === 1
+        ? `An Artemis Mk. I banks low over ${d.place}, red scanner sweeping the district. One patrol dragon, built for speed. Alone, for now.`
+        : Number(d.count) === 2
+          ? `Two Artemis Mk. I dragons slide in over ${d.place} wingtip to wingtip, searchlights crossing like scissors.`
+          : `Three Artemis Mk. I dragons arrive over ${d.place} in a formation clearly designed to be a lot.`;
+      return [d.warned ? `${lead} Blackbird was warned in time. She's already in the shadows.` : lead];
+    },
+    (d) => (Number(d.count) === 1 ? ['One? One I can do.', 'A solo dragon. Someone is feeling overconfident. Possibly me.'] : ["That's more than one. Math is my enemy tonight.", 'The thing about dragons is the plural.']),
+  ),
+  'dragon_flight:hera': e(
+    (d) => [d.warned ? `The sky over ${d.place} goes dark. A Hera Mk. V drifts overhead, big as a city block, and Blackbird has already ducked out of its line of sight.` : `The sky over ${d.place} goes dark. A Hera Mk. V drifts in from the east, big as a city block, every car alarm in the district going off in apology. The street goes quiet in a way streets are not supposed to.`],
+    ['Okay. That is not the same kind of dragon.', 'That one has weather.'],
+  ),
+  'dragon_pass:artemis': e(
+    (d) => [d.hidden ? 'The Artemis patrol sweeps past without a glance. Blackbird exhales. Nobody saw her. This is, by her own standards, a flawless performance.' : d.left ? 'Behind Blackbird, the Artemis patrol disappears over the rooftops, shining searchlights at somebody else.' : 'The Artemis patrol finds nothing worth the trouble and moves on. Blackbird is a little offended.'],
+    (d) => (d.hidden ? ['Stealth, baby.', 'I disappear like a professional.'] : ['They did not even look. Rude.']),
+  ),
+  'dragon_pass:hera': e(
+    (d) => [d.hidden ? 'The Hera Mk. V passes overhead and the street breathes again. Blackbird stays in the doorway for an extra full minute, just to be sure.' : d.left ? 'Behind Blackbird, the Hera Mk. V drifts on across the skyline and out of sight. She does not look back. She is walking faster than she was.' : 'The Hera Mk. V drifts on, without once looking down. Blackbird does not know whether to be relieved or insulted.'],
+    (d) => (d.hidden || d.left ? ['I was never worried. My hands were shaking for other reasons.', "That's the day I learned what fear looks like in the sky."] : ['It did not even notice me. Honestly, I should be thankful.']),
+  ),
+  'dragon_notice:artemis': e((d) => [Number(d.count) === 1 ? 'The Artemis tilts, one wing dipping, scanner locking onto Blackbird with a soft electronic chirp. "PRELIMINARY CITATION ISSUED."' : 'A scanner locks onto Blackbird. Then another. The Artemis pack tilts as one. "CITIZEN: YOU ARE BEING EXAMINED."'], ['They noticed me. That is the first thing that has gone right all day.']),
+  'dragon_notice:hera': e(() => ['A single huge eye in the Hera Mk. V\'s underbelly opens, and turns, very slowly, and finds her. A voice the size of a building says: "CITIZEN."'], ['Oh no. Oh, a very specific no.']),
+  'dragon_engage:artemis': e((d) => [Number(d.count) === 1 ? 'Blackbird steps into the middle of the street, plants her feet, and tells the Artemis it\'s time for the best day of its life.' : 'Blackbird steps into the street and points at the Artemis pack. "Which of you wants to go first?" They do not need to choose.'], ['Dragon slayer. DRAGON. SLAYER.']),
+  'dragon_engage:hera': e(() => ['Blackbird steps into the middle of the street, plants her feet, and points her weapon at a Hera Mk. V. It is not an even match. It is not, technically, a match.'], ["I've killed bigger. Probably. I've forgotten when."]),
+  'dragon_hide:ok': e((d) => [d.kind === 'hera' ? 'Blackbird flattens herself into a doorway, behind a bin, under a tarp. The Hera passes over the top of her like a tide.' : 'Blackbird ducks behind a dumpster and holds her breath. The Artemis patrol glides over, scanner sweeping, and does not stop.'], ['Cover! Excellent cover. I am a cover professional.']),
+  'dragon_hide:fail': e((d) => [d.kind === 'hera' ? 'Blackbird dives behind a bin. The bin is small, and Blackbird, as it turns out, is not.' : 'Blackbird dives behind a dumpster. A scanner pings. A knee is sticking out.'], ['I was fully hidden. They are just very good at their jobs.']),
+  'dragon_gawk:artemis': e(() => ['Blackbird just stands there, mouth open, watching an Artemis patrol draw an arc across the city. Its wings leave faint afterimages.'], ['Beautiful. Terrifying. Beautiful again.']),
+  'dragon_gawk:hera': e(() => ['Blackbird stands in the middle of the street, head tilted back, looking up at a Hera Mk. V. It fills the entire sky. She takes a step back, and another, without taking her eyes off it.'], ['I feel very small. This is a new feeling.']),
+  'dragon_film:artemis': e((d) => [`Blackbird holds up her phone and films the Artemis patrol as it passes. The clip is posted before they are out of sight. Fame: ${d.fame}.`], ['This is going to do numbers.']),
+  'dragon_film:hera': e((d) => [`Blackbird zooms in on a Hera Mk. V and films the whole sky. The clip is the most-watched thing in Neo for the next ten minutes. Fame: ${d.fame}. A very large eye turns.`], ['Content. Pure content. Worth it.']),
   death: e(
     (d) => [`Blackbird is dead. Level ${d.level}. ${d.place}. Cause: ${d.cause}. Killed by ${d.killer}.`, `Blackbird flatlines in ${d.place}. Level ${d.level}. The report will say "${d.cause}".`],
     ['Huh. Okay. That was unexpected.', "Tell my fans I'll be back. Tell the cops I wasn't here."],

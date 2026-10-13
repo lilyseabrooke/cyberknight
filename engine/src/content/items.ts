@@ -37,6 +37,7 @@ export const ITEMS: Record<string, Def> = {
   kevlar_duster: a('kevlar duster', 3, 150),
   riot_vest: a('NPD riot vest', 5, 260),
   corp_plate: a('Helix subdermal plating', 7, 800),
+  artemis_plate: a('Artemis wing plating', 6, 500),
   champ_vest: a('NEON KNIGHTS championship vest (blinks)', 2, 40),
   // ---- loot ----
   credchip: l('dented credchip', 30),
@@ -49,6 +50,7 @@ export const ITEMS: Record<string, Def> = {
   mom_photo: l("holo-photo of someone's mother", 5),
   corp_creds: l('Atlas executive credentials', 350, ['corp']),
   helix_sample: l('vial of glowing Helix sample', 200, ['corp']),
+  dragon_scale: l('Artemis scale (still warm)', 250, ['dragon']),
   vipers_patch: l('Chrome Vipers colors', 20, ['gang']),
   // ---- consumables ----
   medkit: c('field medkit', 45, 60),

@@ -8,6 +8,7 @@ import { spawnGroup } from './candidate';
 import { addHeat, fight, here, npcsAt, relocate } from './combat';
 import { DRIVES } from './personality';
 import { ambientExtras, scoutSaves, tryTalkDown } from './extras';
+import { ambientDragons } from './dragons';
 import { hasImplantFlag, skillLevel } from './skills';
 
 export const MAX_BEATS = 600;
@@ -77,7 +78,8 @@ export function step(w: World): GameEvent[] {
 
   upkeep(c);
   if (!w.over) ambientExtras(c);
-  if (!w.over) ambient(c);
+  if (!w.over) ambientDragons(c);
+  if (!w.over && !events.some((e) => e.type === 'fight_end')) ambient(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) {
     const cands = gather(w);
     if (cands.length) {
