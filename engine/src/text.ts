@@ -29,6 +29,8 @@ export const BLURBS: Record<string, string> = {
   halo_arcade: 'The basement arcade. A laser-tag arena glows in the dark. A league banner reads NEON KNIGHTS: 0 WINS.',
   halo_backroom: 'The backroom: poker table, cigar smoke, and a wall safe that wants to be loved.',
   halo_roof: 'The Halo roof. Wind, rust, and the whole megacity laid out like a circuit board.',
+  club_greenroom: "The Neon Pharaoh's green room: a couch with a history, a cooler of warm beer, and a vintage guitar on a stand like a relic.",
+  club_backlot: 'The lot behind the Neon Pharaoh: milk crates, a boombox, and a few street kids with serious faces.',
   halo_alley: 'The alley behind the Halo. Steam vents, puddles with colors, and a dumpster that has seen things.',
   street_main: 'Strand Street. Rain, neon, ads for things that should not be advertised.',
   neon_pharaoh: 'The Neon Pharaoh: gold-plated hologram sphinxes, bass you can feel in your implants, a velvet rope guarded by sunglasses.',
@@ -138,8 +140,8 @@ const T: Record<string, Entry> = {
   'order_drink:paid': e((d) => [`Blackbird orders ${d.drink} from ${d.npc} for ${d.cost} neodollars. It goes down in one. She orders another look.`, `${d.drink}. ${d.cost} neodollars. The bar-top is sticky and the evening is young.`], ['Liquid courage. Courage, at a discount.', 'One more and then I get serious.']),
   'order_drink:free': e((d) => [`${d.npc} slides Blackbird ${d.drink} on the house, along with a look that costs more than the drink.`], ['Perks of being a legend.']),
   buy_round: e((d) => [`Blackbird slaps down ${d.cost} neodollars and announces a round for the house. The bar roars. Several people think she is a billionaire.`], ["I'm the hero of this bar. The bar just doesn't know it yet."]),
-  'karaoke:ovation': e((d) => [`Blackbird takes the stage and belts ${d.song}. The bar is dead silent, then on its feet. ${d.amount} neodollars in the tip jar.`], ["That's right. Hero AND diva."]),
-  'karaoke:boos': e(() => ['Blackbird mounts the karaoke stage and sings. The crowd boos. Something that was once a beer bottle hits her shoulder.'], ["The sound system's busted. That wasn't how it sounded in my head."]),
+  'karaoke:ovation': e((d) => [`Blackbird takes the stage and belts ${d.song}. The bar is dead silent, then on its feet. ${d.amount} neodollars in the tip jar.`, `Blackbird grabs the mic for ${d.song}. By the second chorus the whole bar is singing. The jukebox sulks. ${d.amount} neodollars in the jar.`, `${d.song}, performed by Blackbird, with feeling and no shame. A man in the back is openly crying. ${d.amount} neodollars.`, `Blackbird hits the high note of ${d.song} and, for one second, every glass in the bar rings. ${d.amount} neodollars in tips.`], ["That's right. Hero AND diva."]),
+  'karaoke:boos': e(() => ['Blackbird mounts the karaoke stage and sings. The crowd boos. Something that was once a beer bottle hits her shoulder.', 'Blackbird takes the mic and opens with a note that does not exist. A bar full of strangers unite against her.', 'Halfway through her song the jukebox plays over her, out of spite. Blackbird keeps going. The crowd throws a bar stool.'], ["The sound system's busted. That wasn't how it sounded in my head."]),
   'karaoke:brawl': e((d) => [`Blackbird\'s performance is interrupted by ${d.npc}, who says a thing about her singing. A glass flies.`], ['Critics. Every one of them is a coward.']),
   'pool:win': e((d) => [`Blackbird takes ${d.npc}'s ${d.amount} neodollars off the pool table with a lazy bank shot.`], ['Pool is geometry. I am great at geometry.']),
   'pool:lose': e((d) => [`${d.npc} sinks the eight ball. Blackbird is out ${d.amount} neodollars.`], ['I let them win. For morale.']),
@@ -300,7 +302,7 @@ const T: Record<string, Entry> = {
     },
     (d) => (d.opening ? ['Perfect weather for heroics.', 'Rain? Fog? Heat? I can work with all of it.'] : []),
   ),
-  skill_up: e((d) => [`Blackbird's ${d.skill} reaches level ${d.level}.`, `Her ${d.skill} improves to level ${d.level}. Practice, apparently, is a thing.`], ["I'm a natural. A natural who practices a lot."]),
+  skill_up: e((d) => [d.title ? `Blackbird's ${d.skill} reaches level ${d.level}. Verdict: ${d.title}.` : `Blackbird's ${d.skill} reaches level ${d.level}.`, `${d.skill}: level ${d.level}.${d.title ? ` ("${d.title}")` : ''} Practice, apparently, works.`], ["I'm a natural. A natural who practices a lot.", 'Look at me, getting better at things.']),
   'companion_joins:kids': e(() => ["The Backlot Kids fall in behind Blackbird like ducklings with a very bad influence. They're hers now. They have opinions about her fashion."], ['Look at that. I have a gang. A gang of children. Wholesome.']),
   companion_joins: e((d) => [`${d.name} joins Blackbird's side (${d.kind}).`], ['The team is growing.']),
   companion_leaves: e((d) => [`${d.name} wanders off. Loyalty, it turns out, expires if you don't check on it.`, `${d.name} has had enough of Blackbird's schedule and goes elsewhere.`], ['They were holding me back anyway.']),
@@ -439,6 +441,85 @@ const T: Record<string, Entry> = {
   'dragon_gawk:hera': e(() => ['Blackbird stands in the middle of the street, head tilted back, looking up at a Hera Mk. V. It fills the entire sky. She takes a step back, and another, without taking her eyes off it.'], ['I feel very small. This is a new feeling.']),
   'dragon_film:artemis': e((d) => [`Blackbird holds up her phone and films the Artemis patrol as it passes. The clip is posted before they are out of sight. Fame: ${d.fame}.`], ['This is going to do numbers.']),
   'dragon_film:hera': e((d) => [`Blackbird zooms in on a Hera Mk. V and films the whole sky. The clip is the most-watched thing in Neo for the next ten minutes. Fame: ${d.fame}. A very large eye turns.`], ['Content. Pure content. Worth it.']),
+
+  // ====================================================== layered skills, hobbies, and things to throw
+  throw: e(
+    (d) => {
+      const foe = String(d.foe);
+      switch (d.variant) {
+        case 'pool_cue':
+          return [d.cop ? `As ${foe} reaches for the cuffs, Blackbird snatches a pool cue off her belt and hurls it. ${d.skilled ? 'A shot she has made a thousand times. It lands exactly where she wanted' : 'It hits ' + foe + ' in the knee'} for ${d.dmg} damage.` : `Blackbird flings a pool cue at ${foe}. ${d.skilled ? 'She has put that shot in the corner pocket a hundred times. ' : ''}It connects for ${d.dmg} damage.`, `A pool cue sails across the room and finds ${foe}. ${d.dmg} damage. ${d.skilled ? 'All those hours at the table were for something.' : 'Mostly dumb luck.'}`];
+        case 'cocktail_molotov':
+          return [`Blackbird hurls a Molotov Mule. It does not so much break as bloom. ${foe} and everyone near them is on fire: ${d.dmg} damage and a smell like a rave in a refinery.`, `The cocktail leaves her hand, ignites, and lands on ${foe}. Burn damage: ${d.dmg}. Presentation: excellent.`];
+        case 'switchblade':
+          return [`A chrome switchblade spins through the air and into ${foe}: ${d.dmg} damage. She was aiming for something else.`];
+        case 'cleaver':
+          return [`Blackbird hurls a cleaver end over end. It lands in ${foe}: ${d.dmg} damage. Somewhere, a chef weeps.`];
+        default:
+          return [`Blackbird lobs a broken bottle at ${foe}. ${d.dmg} damage and a good deal of glitter.`];
+      }
+    },
+    (d) => (d.variant === 'pool_cue' && d.skilled ? ['Eight ball, corner pocket. Cop edition.', "That's what all those hours were for."] : d.variant === 'cocktail_molotov' ? ['I call it the Blackbird Special.', 'Drink responsibly. Throw irresponsibly.'] : ['Throwing things: a hero skill.', 'Always keep something to throw.']),
+  ),
+  grab_cue: e((d) => [`Blackbird takes a house pool cue off the wall and slips it under her jacket. ${d.npc} is busy. It's the owner's cue now it's hers.`], ["It's not stealing. It's pre-owned."]),
+  'pool_date:win': e((d) => [`Blackbird racks the balls and challenges ${d.npc} to a game. She wins. ${d.npc} lets her win, or doesn't. Either way, it ends with a smile and a hand on a hip.`], ['Pool: romance with extra geometry.']),
+  'pool_date:win_skilled': e((d) => [`Blackbird breaks, runs the table, and banks the eight ball with a look straight at ${d.npc}. It is the most seductive thing a cue has ever done. ${d.npc} is no longer thinking about pool.`], ["I didn't even call the shot. I called her.", 'Every hour I spent at that table. Every. Hour.']),
+  'pool_date:outplayed': e((d) => [`${d.npc} runs the table in four minutes flat and holds out a hand. Blackbird pays up ${d.amount} neodollars. ${d.npc} is, if anything, charmed by how little she minded.`], ['She is amazing. I am also broke. Both facts are fine.']),
+  'pool_date:scratch': e((d) => [`Blackbird sinks the cue ball on the break. ${d.npc} has a very polite look about it.`], ["It's a style. The scratch."]),
+  'darts:win': e((d) => [`Blackbird throws a dart without looking, and then another. The board is happy. ${d.amount} neodollars from the pot.`], ['I wasn\'t even aiming. Which is how you aim.']),
+  'darts:lose': e((d) => [`Blackbird throws three darts. One lands in the board, one in the wall, one in the ceiling. ${d.amount} neodollars gone.`, `A dart sticks in a coat rack. Another in someone's hat. Neither in the board. ${d.amount} neodollars to the house.`, `Blackbird's throwing arm is fine. Her aim has stepped out. ${d.amount} neodollars gone.`], ['The board moved. Everyone saw it.']),
+  'darts:stray': e((d) => [`A dart goes wide and lands in ${d.npc}'s drink. ${d.npc} stands up slowly. ${d.amount} neodollars gone, and so is their patience.`], ['That is definitely their fault.']),
+  'jam:band': e((d) => [`Blackbird invites herself into the green room, picks up the guitar and starts to play. The band gives her a look, then a nod, then a drummer. Within a verse they're all in. Level ${d.level} guitar, with feeling.`], ['Look at that. I have a band.', 'Is this what destiny sounds like?']),
+  'jam:solo': e((d) => [`The green room is empty. Blackbird takes the guitar off its stand and plays to the couch. The couch has no notes. Level ${d.level} guitar.`], ['The acoustics are fantastic.']),
+  'jam:meh': e(() => ['Blackbird picks up the guitar and plays what she hopes is a song. Somebody groans in the hallway. Someone else pretends to take a call.', 'Blackbird plucks at the guitar. It sounds like a very polite cat being strangled by a ukulele.'], ["It's lo-fi."]),
+  'jam:smash': e((d) => [`Blackbird gets carried away, swings the guitar over her head, and there is a very expensive sound. ${d.npc} and the rest of the band turn around.`], ['It was a rock-and-roll moment. They get it.']),
+  'jam:thrown_out': e((d) => [`${d.npc} blocks the door of the green room. "You're not welcome." Blackbird walks in anyway.`], ['The artists will understand.']),
+  'gig:killer': e((d) => [`${d.npc} nods at Blackbird: "You're on." She steps onto the Neon Pharaoh's stage in front of a full house and plays like it's the last song on earth. ${d.amount} neodollars in the tip jar, and a roar.`], ["Rock and roll. I'm a rock and roll legend. Say it again."]),
+  'gig:flop': e((d) => [`Blackbird steps onto the stage with the band. The first chord is not a chord. The second is not either. ${d.npc} stares at the floor. Someone throws a drink.`], ['The sound guy was out to get me.']),
+  'steal_guitar:alone': e(() => ['The green room is empty. Blackbird takes the guitar off its stand, wraps it in her jacket, and strolls out like she is on her way to a concert. Which she is.'], ['I have a guitar now. This is a normal thing to have.']),
+  'steal_guitar:band': e(() => ['While the band argues about a setlist, Blackbird lifts the guitar and slips out. By the time anyone notices the stand is empty, so is she.'], ['I took it. In front of them. Genius.']),
+  'steal_guitar:caught': e((d) => [`Blackbird has the guitar halfway out the door when ${d.npc} says, quite calmly, "that's mine." Things escalate.`], ["It's a joint custody situation."]),
+  'busk:tips': e((d) => [`Blackbird sets up on the curb, hat out, and plays. A small crowd forms. They tip ${d.amount} neodollars and a few of them even sing along.`, `On a corner, with a stolen guitar and nothing to lose, Blackbird plays something that sounds almost like a hit. ${d.amount} neodollars in the case.`], ['I could do this full time.']),
+  'busk:ignored': e(() => ['Blackbird plays for ten minutes. Nobody stops. A pigeon looks at her, then looks away, deeply embarrassed.'], ['They just don\'t get it yet.']),
+  'busk:complaint': e(() => ['Blackbird is mid-solo when a window slams open: "NOISE COMPLAINT, I\'M CALLING THE NPD." Four minutes later a drone arrives to confirm.'], ['Critics.']),
+  'busk:stolen': e(() => ['A couple of kids on a scooter swoop by and grab the guitar out of her hands. By the time she turns around, so are they. She is left with a hat.'], ['Honestly, I respect the hustle.']),
+  'cook:good': e((d) => [`Blackbird takes over the stove and plates a noodle special that makes ${d.npc} stop what they're doing. It is, honestly, good. She sets it aside, glowing.`], ["I'm a chef. A hero and a chef. What can't I do?"]),
+  'cook:meh': e(() => ['Blackbird makes noodles. They are noodles. She takes them with a flourish.'], ['Gourmet, if you squint.']),
+  'cook:fire': e((d) => [`Blackbird sets the stove to "ambitious" and the kitchen briefly becomes a candle. ${d.npc} comes in carrying a fire extinguisher and a grudge.`], ['Flambé. It is called flambé.']),
+  'cook:kicked_out': e((d) => [`Blackbird strides into the kitchen and picks up a pan. ${d.npc} picks up a larger pan. "You're banned."`], ["It's a very big pan."]),
+  eat_dish: e(() => ['Blackbird eats her own noodle special. It is shockingly good. A warm, confident energy rises through her.'], ["I'm either a chef or the food is magic. Either way."]),
+  'serve_dish:swoon': e((d) => [`Blackbird slides a plated noodle special in front of ${d.npc}. ${d.npc} takes a bite, closes her eyes, and says nothing for a good ten seconds. Then: "Who ARE you?"`], ['The way to a girl\'s heart is through her stomach. And my knife work.']),
+  'serve_dish:polite': e((d) => [`Blackbird presents ${d.npc} with a plated noodle special. ${d.npc} eats it, smiles, and says it is "interesting." Everyone knows what that means.`], ['She loved it. Probably. It was interesting, which is a compliment.']),
+  'tend_bar:pro': e((d) => [`Blackbird vaults the bar, steals a shaker, and pours like she was born there. ${d.npc} watches, impressed, then amused. Tips: ${d.amount} neodollars.`], ['Bartender: the second oldest profession, and I am great at it.']),
+  'tend_bar:lucky': e((d) => [`Blackbird jumps behind the bar and wings it. Somehow, a drink comes out that people want. Tips: ${d.amount} neodollars. ${d.npc} is concerned.`], ["Naming it 'The Blackbird.' Don't ask about the ingredients."]),
+  'tend_bar:spill': e(() => ['Blackbird tries a flourish with a shaker. The shaker disagrees. Several people are now wearing a Synthahol Sunrise.'], ['Free dry-clean tip: don\'t.']),
+  'tend_bar:complaint': e((d) => [`${d.npc} sips the drink Blackbird handed them, stares, and puts it down very carefully. "What is in this."`], ["It's a recipe. It's called 'a surprise.'"]),
+  'mix:good': e((d) => [Number(d.count) > 1 ? 'Blackbird pours two Molotov Mules (the cocktail, mostly), jams rags in the tops, and tucks them into her jacket. She feels like an artist.' : 'Blackbird mixes a Molotov Mule (the cocktail, mostly), corks it with a rag, and tucks it into her jacket. It is both a drink and a threat.'], ['Cocktails: the original weapon.']),
+  'mix:fail': e(() => ['Blackbird mixes a Molotov Mule with too much of the wrong thing. It makes a noise like a kettle and a small eyebrow-shaped flame.'], ['The recipe called for a LITTLE flame.']),
+  'graffiti:mural': e((d) => [`Blackbird takes to the alley wall with a can of paint and a point to prove. Twenty minutes later it says BLACKBIRD WAS HERE, in the shape of a bird, a sword and a heart. A passerby stops to take a photo.`], ["I've found my medium. It's bricks."]),
+  'graffiti:over_tag': e(() => ['Blackbird paints over a gang tag with a much better one. Somewhere across the district, a gang finds out about it.'], ['Constructive criticism, in paint.']),
+  'graffiti:drone': e(() => ["A surveillance drone drifts past the mural, takes a picture, and files it under 'vandalism: 6/10, great composition.'"], ['A review! From a drone! This is it.']),
+  'graffiti:rude': e(() => ['Blackbird intends to paint a heroic eagle. It comes out as a shape that is, by any reading, rude. She tries to cover it. It gets worse.'], ["It's an eagle. I'd stand by that in court."]),
+  'parkour:clean': e(() => ['Blackbird takes the rooftops at a run: over a vent, off a ledge, across a four-foot gap that looks wider from below. She lands on the next roof in a roll and a flourish. No one saw it. She does it again.'], ['I am a bird. I am a cat. I am gravity\'s problem.']),
+  'parkour:loot': e((d) => [`Blackbird runs the rooftops and, at the end of a gap she definitely cleared, finds ${d.item} sitting in a puddle. A reward for a gamble.`], ['Parkour pays. In weird ways.']),
+  'parkour:fall': e(() => ['Blackbird takes a rooftop gap at full speed and finds, halfway across, that it is wider than she hoped. The next thing she knows is a fire escape.'], ["I meant to go down. Just not like that."]),
+  'ask_around:mark': e((d) => [`Blackbird buys a few drinks' worth of gossip. The word is that ${d.npc} is carrying ${d.item}, and keeps it somewhere easy.`], ['A tip! Free, mostly.']),
+  'ask_around:hatch': e(() => ['A tip, for ten neodollars: there is a maintenance hatch behind the Halo dumpster that goes under half the block.'], ['Gossip pays. Slowly.']),
+  'ask_around:staffdoor': e(() => ["A tip, for ten neodollars: the Neon Pharaoh has a staff door nobody guards. 'Goes everywhere,' says the stranger."], ['Streetwise: my favorite wise.']),
+  'ask_around:dragon': e(() => ["A tip, for ten neodollars: Atlas keeps a dragon on the Kowloon Overpass. 'Nobody comes back,' says the stranger. 'Gossip says it's got a manager.'"], ['The manager is the weak point. In every corp.']),
+  'ask_around:gossip': e(() => ['Ten neodollars buys a lot of rumors, none of them useful. Somebody\'s cousin has a theory about the moon.'], ['I am a very well-informed person now.']),
+  'ask_around:nothing': e(() => ['Blackbird asks around, and around, and around. Nobody knows anything or will say it. Ten neodollars gone.'], ['The street has secrets. It keeps them.']),
+  'trick:good': e(
+    (d) => {
+      const t = String(d.trick);
+      const nm = String(d.name);
+      const k = String(d.kind);
+      const how = t === 'fetch' ? 'to bring back whatever shiny thing it finds' : t === 'guard' ? 'to stand between Blackbird and incoming damage' : 'to hum a little tune that keeps everyone calm';
+      return [k === 'pigeon' ? `Blackbird spends an afternoon teaching ${nm} ${how}. The pigeon looks bored and then, quietly, does it.` : k === 'puppy' ? `Blackbird teaches ${nm} ${how}. The puppy's LED ear lights up. It is, by any measure, a very good boy.` : `Blackbird spends some time teaching ${nm} ${how}. It takes. ${nm} seems pleased.`];
+    },
+    ['I teach tricks. I am a trainer now.', 'Look at that. Skill transfer.'],
+  ),
+  'trick:fail': e((d) => [`Blackbird tries to teach ${d.name} a trick. ${d.name} responds with enthusiastic incomprehension and a small bite.`], ['They just need more time. And possibly a snack.']),
   death: e(
     (d) => [`Blackbird is dead. Level ${d.level}. ${d.place}. Cause: ${d.cause}. Killed by ${d.killer}.`, `Blackbird flatlines in ${d.place}. Level ${d.level}. The report will say "${d.cause}".`],
     ['Huh. Okay. That was unexpected.', "Tell my fans I'll be back. Tell the cops I wasn't here."],

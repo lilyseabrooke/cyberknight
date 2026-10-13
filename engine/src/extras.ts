@@ -4,7 +4,7 @@ import { clamp, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { addCompanion, alliesWith, hasAlly, hasKind, newCompanion, removeCompanion, slotsFree } from './companions';
-import { hasImplantFlag, skillLevel, train } from './skills';
+import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { spawnNpc } from './content/archetypes';
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive && n.downUntil <= 1e9;
@@ -39,12 +39,12 @@ export function sneakBonus(w: World): number {
 export function tryTalkDown(c: Ctx, guards: Npc[]): boolean {
   const { w, rng } = c;
   const h = w.hero;
-  const lvl = skillLevel(h, 'music');
+  const lvl = skillLevel(h, 'beatbox');
   const wants = clamp(0.12 + (h.personality.weights.pride - 0.5) * 0.5 + lvl * 0.05, 0, 0.6);
   if (!guards.length || !rng.chance(wants)) return false;
   const g = guards[0]!;
-  train(c, 'music', 1);
-  if (rng.chance(clamp(0.02 + lvl * 0.035, 0.02, 0.4))) {
+  train(c, 'beatbox', 1);
+  if (rng.chance(clamp(0.02 + 0.04 * synergy(h, ['beatbox', ['music', 0.5], ['stat:charm', 0.5]]), 0.02, 0.45))) {
     for (const x of guards) x.affinity += 10;
     addHeat(w, 'club', -2);
     h.fame += 1;
@@ -63,7 +63,7 @@ export function extraCandidates(w: World): Candidate[] {
   const loc = w.locations[h.locationId]!;
   const crowd = here(w);
   const feat = (kind: string) => w.features[kind]?.locationId === h.locationId;
-  const music = skillLevel(h, 'music');
+  const music = skillLevel(h, 'djing');
 
   // ---- DJ booth
   if (feat('dj_booth') && w.beat > (w.counters.dj_block_until ?? 0)) {
@@ -156,7 +156,8 @@ export function extraCandidates(w: World): Candidate[] {
   // ---- looking after her people
   for (const a of h.companions) {
     out.push({ key: `pet_ally:${a.id}`, drives: { lust: 0.04, curiosity: 0.08 }, bonus: a.loyalty < 40 ? 0.7 : -0.3, run: (c) => {
-      a.loyalty = Math.min(100, a.loyalty + 10);
+      a.loyalty = Math.min(100, a.loyalty + 10 + skillLevel(h, 'rapport'));
+      train(c, 'rapport', 1);
       c.emit('pet_ally', 'good', { name: a.name, kind: a.kind });
     } });
     if (a.hp < a.maxHp * 0.6 && h.cash >= 10) {
@@ -179,7 +180,7 @@ function djSet(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const kilo = w.npcs.kilobyte;
-  const lvl = skillLevel(h, 'music');
+  const lvl = skillLevel(h, 'djing');
   if (alive(kilo) && kilo.locationId === h.locationId && kilo.affinity < -5) {
     kilo.affinity -= 2;
     w.counters.dj_block_until = w.beat + 30;
@@ -187,24 +188,24 @@ function djSet(c: Ctx): void {
     return;
   }
   const b2b = alive(kilo) && kilo.locationId === h.locationId && kilo.affinity >= 15;
-  const p = clamp(0.18 + lvl * 0.07 + h.charm * 0.02 + (b2b ? 0.12 : 0) - h.drunk * 0.02, 0.05, 0.92);
+  const p = clamp(0.15 + 0.07 * synergy(h, ['djing', ['music', 0.7], ['tinkering', 0.2]]) + h.charm * 0.015 + (b2b ? 0.12 : 0) - h.drunk * 0.02, 0.05, 0.92);
   const roll = rng.next();
   if (roll < p) {
     const tips = rng.int(40, 120);
     h.cash += tips;
     h.fame += b2b ? 3 : 2;
     for (const n of here(w)) if (!n.hostile) n.affinity += n.tags.includes('romanceable') ? 8 : 3;
-    train(c, 'music', 3);
+    train(c, 'djing', 3);
     gainXp(c, 6);
     c.emit('dj_set', 'good', { variant: b2b ? 'b2b' : 'killer', amount: tips, npc: kilo?.name ?? 'the DJ', lvl });
   } else if (roll < p + (1 - p) * 0.55) {
     h.hp -= 4;
-    train(c, 'music', 1);
+    train(c, 'djing', 1);
     for (const n of here(w)) if (!n.hostile) n.affinity -= 2;
     c.emit('dj_set', 'bad', { variant: 'flop' });
   } else {
     addHeat(w, 'npd', 1);
-    train(c, 'music', 1);
+    train(c, 'djing', 1);
     c.emit('dj_set', 'bad', { variant: 'wrong_file' });
   }
 }
@@ -212,16 +213,16 @@ function djSet(c: Ctx): void {
 function beatbox(c: Ctx, kid: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const lvl = skillLevel(h, 'music');
-  if (rng.chance(clamp(0.08 + lvl * 0.09 + h.charm * 0.015, 0.05, 0.9))) {
+  const lvl = skillLevel(h, 'beatbox');
+  if (rng.chance(clamp(0.08 + 0.07 * synergy(h, ['beatbox', ['music', 0.5], ['stat:charm', 0.3]]) + h.charm * 0.01, 0.05, 0.9))) {
     kid.affinity += 30;
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 10;
     h.fame += 1;
-    train(c, 'music', 2);
+    train(c, 'beatbox', 2);
     c.emit('beatbox', 'good', { variant: 'jam', npc: kid.name, lvl });
   } else {
     kid.affinity -= 5;
-    train(c, 'music', 1);
+    train(c, 'beatbox', 1);
     if (kid.affinity < 0 && rng.chance(0.4)) {
       const lost = Math.min(h.cash, rng.int(8, 30));
       h.cash -= lost;
@@ -326,13 +327,15 @@ function getImplant(c: Ctx, doc: Npc): void {
   const h = w.hero;
   const id = rng.pick(IMPLANT_IDS.filter((i) => !h.implants.includes(i)));
   const def = IMPLANTS[id]!;
-  if (h.cash < def.cost) {
+  const price = Math.round(def.cost * (1 - Math.min(0.3, skillLevel(h, 'haggling') * 0.03)));
+  train(c, 'haggling', 1);
+  if (h.cash < price) {
     c.emit('implant', 'mixed', { variant: 'poor', npc: doc.name, implant: def.name, cost: def.cost });
     return;
   }
-  h.cash -= def.cost;
+  h.cash -= price;
   if (rng.chance(0.12)) {
-    h.cash += Math.round(def.cost / 2);
+    h.cash += Math.round(price / 2);
     if (!h.injuries.includes('concussion')) h.injuries.push('concussion');
     c.emit('implant', 'bad', { variant: 'reject', npc: doc.name, implant: def.name });
     return;
@@ -406,7 +409,9 @@ function poker(c: Ctx): void {
   const h = w.hero;
   const madame = w.npcs.madame;
   const cheat = h.hack >= 3 && rng.chance(0.45);
-  const p = clamp(0.38 + h.charm * 0.02 + (cheat ? 0.2 : 0) - h.drunk * 0.02, 0.1, 0.85);
+  const p = clamp(0.3 + h.charm * 0.012 + 0.05 * synergy(h, ['cards', ['stat:charm', 0.5]]) + (cheat ? 0.05 + 0.04 * synergy(h, ['cards', 'sleight']) : 0) - h.drunk * 0.02, 0.1, 0.88);
+  train(c, 'cards', 2);
+  if (cheat) train(c, 'sleight', 1);
   if (cheat && rng.chance(0.18) && alive(madame) && madame.locationId === h.locationId) {
     madame.affinity -= 30;
     c.emit('poker', 'bad', { variant: 'caught', npc: madame.name });
@@ -427,9 +432,9 @@ function poker(c: Ctx): void {
 function serenade(c: Ctx): void {
   const { w } = c;
   const h = w.hero;
-  const lvl = skillLevel(h, 'music');
+  const lvl = skillLevel(h, 'beatbox');
   h.fame += 3;
-  train(c, 'music', 2);
+  train(c, 'beatbox', 2);
   c.emit('serenade', 'mixed', { variant: 'viral', lvl });
   fight(c, [w.npcs.dragon!], { cause: 'serenading a cyberdragon' });
 }
@@ -481,12 +486,13 @@ export function ambientExtras(c: Ctx): void {
   // --- allies: loyalty fades, antics happen, scouts find things
   if (w.beat % 15 === 0) {
     for (const a of [...h.companions]) {
+      if (a.abilities.includes('sing')) continue;
       a.loyalty -= a.loyalty < 30 ? 2 : 1;
       if (a.loyalty <= 0) removeCompanion(c, a, 'left');
     }
   }
   for (const a of h.companions) {
-    if (rng.chance(0.04)) {
+    if (rng.chance(a.abilities.includes('fetch') ? 0.075 : 0.04)) {
       const fx = ANTIC[a.kind]?.(c, a.name) ?? { variant: a.kind };
       c.emit('antic', 'mixed', { name: a.name, kind: a.kind, ...fx });
     }

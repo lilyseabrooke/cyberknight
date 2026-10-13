@@ -8,7 +8,8 @@ import { featureCandidates } from './features';
 import { extraCandidates } from './extras';
 import { dragonCandidates } from './dragons';
 import { hasAlly } from './companions';
-import { skillLevel, train } from './skills';
+import { odds, skillLevel, synergy, train } from './skills';
+import { hobbyCandidates } from './hobbies';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -32,6 +33,7 @@ export function gather(w: World): Candidate[] {
         key: `pet:${n.id}`, drives: { lust: 0.15, curiosity: 0.35 },
         run: (c) => {
           n.affinity += 10;
+          train(c, 'rapport', 1);
           c.emit('pet_puppy', 'good', { npc: n.name });
         },
       });
@@ -84,7 +86,7 @@ export function gather(w: World): Candidate[] {
       if (!w.flags.job_taken) {
         out.push({ key: `ask_work:${n.id}`, drives: { quest: 1.0, greed: 0.3 }, bonus: 0.2, run: (c) => askWork(c, n) });
       }
-      const sellable = h.inventory.filter((i) => i.kind === 'loot' || i.kind === 'weapon' || i.kind === 'armor' || i.kind === 'gadget');
+      const sellable = h.inventory.filter((i) => (i.kind === 'loot' || i.kind === 'weapon' || i.kind === 'armor' || i.kind === 'gadget') && !i.tags.includes('instrument'));
       if (sellable.length) {
         out.push({
           key: 'fence', drives: { greed: 1.0 }, bonus: sellable.length * 0.1,
@@ -138,14 +140,16 @@ export function gather(w: World): Candidate[] {
   out.push(...featureCandidates(w));
   out.push(...extraCandidates(w));
   out.push(...dragonCandidates(w));
+  out.push(...hobbyCandidates(w));
 
   // --------------------------------------------------------------- herself
   if (h.hp < h.maxHp * 0.75) {
     out.push({
       key: 'bandage', drives: {}, smart: 1.0, bonus: (1 - h.hp / h.maxHp) * 1.6,
       run: (c) => {
-        const heal = Math.round(h.maxHp * 0.22);
+        const heal = Math.round(h.maxHp * (0.22 + 0.02 * skillLevel(h, 'medicine')));
         h.hp = Math.min(h.maxHp, h.hp + heal);
+        train(c, 'medicine', 1);
         c.emit('bandage', 'good', { heal });
       },
     });
@@ -156,7 +160,8 @@ export function gather(w: World): Candidate[] {
       key: 'use_medkit', drives: {}, smart: 1.6, bonus: (1 - h.hp / h.maxHp) * 2 + h.injuries.length * 0.5,
       run: (c) => {
         h.inventory.splice(h.inventory.indexOf(medkit), 1);
-        const heal = medkit.power + 20;
+        const heal = medkit.power + 20 + skillLevel(h, 'medicine') * 2;
+        train(c, 'medicine', 1);
         h.hp = Math.min(h.maxHp, h.hp + heal);
         const cured = h.injuries.shift();
         c.emit('use_medkit', 'good', { heal, cured: cured ?? '' });
@@ -212,6 +217,7 @@ function chat(c: Ctx, n: Npc): void {
   if (w.locations.halo_alley!.exits.some((e) => e.hidden)) options.push('hatch');
   if (w.locations.neon_pharaoh!.exits.some((e) => e.hidden)) options.push('staffdoor');
   const talky = n.tags.includes('rumor');
+  train(c, 'streetwise', 1);
   if (n.archetype === 'scientist' && !w.flags.dragon_weak && rng.chance(0.45)) {
     w.flags.dragon_weak = true;
     w.flags.dragon_known = true;
@@ -222,7 +228,7 @@ function chat(c: Ctx, n: Npc): void {
   if (n.affinity < -10 || rng.chance(0.12)) {
     n.affinity -= 3;
     c.emit('chat', 'bad', { variant: 'snub', npc: n.name });
-  } else if (options.length && rng.chance(talky ? 0.8 : 0.3)) {
+  } else if (options.length && rng.chance((talky ? 0.8 : 0.3) + 0.03 * skillLevel(w.hero, 'streetwise'))) {
     const what = rng.pick(options);
     n.affinity += 3;
     if (what === 'dragon') w.flags.dragon_known = true;
@@ -238,9 +244,11 @@ function chat(c: Ctx, n: Npc): void {
 function flirt(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.33 + h.charm * 0.05 + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08, 0.05, 0.9);
+  const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08, 0.05, 0.9);
+  train(c, 'romance', 1);
   if (rng.chance(p)) {
     n.affinity += 16;
+    train(c, 'romance', 1);
     remember(n, 'was charmed by Blackbird');
     const number = n.affinity >= 28 && rng.chance(0.4);
     c.emit('flirt', 'good', { variant: number ? 'number' : 'smooth', npc: n.name });
@@ -262,6 +270,7 @@ function kiss(c: Ctx, n: Npc): void {
     return;
   }
   n.affinity += 20;
+  train(c, 'romance', 2);
   w.flags[`kissed:${n.id}`] = true;
   remember(n, 'kissed Blackbird');
   c.emit('kiss', 'good', { variant: 'kiss', npc: n.name });
@@ -281,7 +290,8 @@ function kiss(c: Ctx, n: Npc): void {
 function pickpocket(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.38 + h.reflex * 0.04 - n.level * 0.05 - h.drunk * 0.02, 0.08, 0.85);
+  const p = clamp(0.3 + h.reflex * 0.02 + 0.045 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + (n.flags.includes('marked') ? 0.15 : 0) - n.level * 0.05 - h.drunk * 0.02, 0.08, 0.88);
+  train(c, 'sleight', 1);
   if (!rng.chance(p)) {
     n.affinity -= 30;
     remember(n, 'caught Blackbird\'s hand in their pocket');
@@ -308,7 +318,8 @@ function pickpocket(c: Ctx, n: Npc): void {
 function threaten(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.muscle * 0.04 + h.level * 0.03 - n.level * 0.07, 0.05, 0.85);
+  const p = clamp(0.22 + h.muscle * 0.02 + 0.05 * synergy(h, ['intimidation', ['stat:muscle', 0.5]]) + h.level * 0.03 - n.level * 0.07, 0.05, 0.88);
+  train(c, 'intimidation', 1);
   if (rng.chance(p)) {
     const take = Math.round(n.cash * 0.8);
     n.cash -= take;
@@ -388,10 +399,12 @@ function askWork(c: Ctx, n: Npc): void {
 
 function fence(c: Ctx, n: Npc): void {
   const h = c.w.hero;
-  const sellable = (i: { kind: string }) => ['loot', 'weapon', 'armor', 'gadget'].includes(i.kind);
+  const sellable = (i: { kind: string; tags: string[] }) => ['loot', 'weapon', 'armor', 'gadget'].includes(i.kind) && !i.tags.includes('instrument');
   const loot = h.inventory.filter(sellable);
-  const total = Math.round(loot.reduce((a, i) => a + i.value * (i.kind === 'loot' ? 0.7 : 0.4), 0));
+  const cut = 1 + skillLevel(h, 'haggling') * 0.04;
+  const total = Math.round(loot.reduce((a, i) => a + i.value * (i.kind === 'loot' ? 0.7 : 0.4) * cut, 0));
   h.inventory = h.inventory.filter((i) => !sellable(i));
+  train(c, 'haggling', 2);
   h.cash += total;
   n.affinity += 6;
   c.emit('fence', 'good', { npc: n.name, amount: total, count: loot.length });

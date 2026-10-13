@@ -1,11 +1,20 @@
 import type { Ctx, Injury, Item, Npc, World } from './types';
 import { IMPLANTS } from './content/implants';
 import { KINDS, removeCompanion } from './companions';
-import { hasImplantFlag, skillLevel } from './skills';
+import { hasImplantFlag, skillLevel, skillValue, train } from './skills';
 
 export const npcsAt = (w: World, loc: string): Npc[] => Object.values(w.npcs).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.beat);
 
 export const here = (w: World): Npc[] => npcsAt(w, w.hero.locationId);
+
+export const weaponStyle = (tags: string[]): 'marksmanship' | 'melee' | null => (tags.includes('gun') ? 'marksmanship' : tags.includes('melee') ? 'melee' : null);
+
+/** Thrown-item damage: mostly her regular stats; a cue also gets her pool skill. Cocktails burn. */
+export function throwDamage(w: World, item: Item): number {
+  const h = w.hero;
+  const cue = item.tags.includes('cue') ? skillValue(h, 'pool') * 1.5 : 0;
+  return Math.round(h.muscle + h.level * 1.5 + skillValue(h, 'throwing') * 2 + cue + item.power);
+}
 
 /** Move the hero. Scrambling through a hidden door reveals it, in both directions. */
 export function relocate(w: World, to: string): void {
@@ -34,6 +43,8 @@ export function remember(npc: Npc, what: string): void {
 export function heroPower(w: World): number {
   const h = w.hero;
   let p = h.level * 2 + h.muscle + h.weapon.power;
+  const style = weaponStyle(h.weapon.tags);
+  if (style) p += skillValue(h, style) * 0.6;
   for (const b of h.buffs) if (b.until > w.beat) p += b.power;
   for (const a of h.companions) if (a.hp > 0) p += a.power;
   for (const i of h.implants) p += IMPLANTS[i]?.power ?? 0;
@@ -176,10 +187,34 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
 
   const down = new Set<string>();
   const standing = () => foes.filter((f) => f.alive && !down.has(f.id));
+  const hit = (target: Npc, dmg: number) => {
+    target.hp -= dmg;
+    if (target.hp <= 0 && target.alive && !down.has(target.id)) {
+      if (lethal) kill(c, w, target, h.weapon.name);
+      else down.add(target.id);
+    }
+  };
+  // She might lob something first. Cues, bottles, knives, and cocktails.
+  const throwables = h.inventory.filter((i) => i.tags.includes('throwable'));
+  if (throwables.length && rng.chance(0.3 + (h.personality.weights.pride - 0.5) * 0.3 + skillValue(h, 'throwing') * 0.03)) {
+    const item = throwables.find((i) => i.tags.includes('fire')) ?? throwables.find((i) => i.id === 'switchblade') ?? throwables.find((i) => i.tags.includes('cue')) ?? throwables[0]!;
+    h.inventory.splice(h.inventory.indexOf(item), 1);
+    const dmg = Math.round(throwDamage(w, item) * (0.8 + rng.next() * 0.6));
+    const target = standing()[0]!;
+    hit(target, dmg);
+    if (item.tags.includes('fire')) for (const f of standing()) hit(f, Math.round(dmg * 0.4));
+    train(c, 'throwing', 2);
+    if (item.tags.includes('cue')) train(c, 'pool', 1);
+    c.emit('throw', 'good', { variant: item.id, foe: target.name, dmg, cop: target.tags.includes('cop'), skilled: item.tags.includes('cue') && skillLevel(h, 'pool') >= 3 });
+  }
   const maxRounds = foes.some((f) => f.tags.includes("boss")) ? 26 : 14;
   while (!result && rounds < maxRounds) {
     rounds++;
     const living = standing();
+    if (!living.length) {
+      result = 'win';
+      break;
+    }
     // hero strikes
     let dmg = Math.round(heroPower(w) * (0.45 + rng.next() * 0.6));
     if (h.weapon.unstable) {
@@ -202,14 +237,11 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       assists++;
       if (spec.dmg) dmg += spec.dmg;
       if (spec.absorb) absorb += spec.absorb;
+      if (a.abilities.includes('guard')) absorb += 4;
       if (spec.disable) living.forEach((f) => !f.flags.includes('disabled') && f.flags.push('disabled'));
       if (assists === 1) c.emit('ally_assist', 'good', { name: a.name, kind: a.kind, dmg: spec.dmg ?? 0, absorb: spec.absorb ?? 0, foe: target.name });
     }
-    target.hp -= dmg;
-    if (target.hp <= 0) {
-      if (lethal) kill(c, w, target, h.weapon.name);
-      else down.add(target.id); // knocked out, not dead. They'll remember.
-    }
+    hit(target, dmg); // non-lethal fights knock people out; they remember
     // foes strike
     let taken = 0;
     let biggest = 0;
@@ -238,7 +270,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       }
     } else if (!lethal && h.hp < h.maxHp * 0.2) {
       result = 'tossed';
-    } else if (rounds >= 2 && h.hp / h.maxHp < fleeAt && !hasInjury(w, 'broken_leg') && rng.chance(0.55 + h.reflex * 0.03)) {
+    } else if (rounds >= 2 && h.hp / h.maxHp < fleeAt && !hasInjury(w, 'broken_leg') && rng.chance(0.55 + h.reflex * 0.03 + skillValue(h, 'athletics') * 0.02)) {
       result = 'flee';
     }
   }
@@ -322,6 +354,9 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   }
 
   for (const f of foes) f.flags = f.flags.filter((x) => x !== 'disabled');
+  const style = weaponStyle(h.weapon.tags);
+  if (style && !w.over) train(c, style, 1 + Math.min(3, foes.length));
+  if (result === 'flee' && !w.over) train(c, 'athletics', 2);
   if (result === 'win' && foes.length >= 3) h.fame += 1;
   if (result === 'win') {
     const scalps = foes.filter((f) => f.tags.includes('artemis')).length;

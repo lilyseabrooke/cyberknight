@@ -161,6 +161,11 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'robot', weapons: [], loot: ['memory_shard'], lootChance: 0.7, cash: [0, 0], hp: 120, power: 24,
     desc: ['a lab-bot built for moving crates and, apparently, throwing people'],
   },
+  bandmate: {
+    role: 'bandmate', level: [2, 2], tags: ['rowdy', 'band'], faction: 'club',
+    names: 'person', weapons: ['broken_bottle', 'switchblade'], loot: ['walkman', 'credchip', 'gold_tooth'], lootChance: 0.6, cash: [10, 60],
+    desc: ['a bandmate in smudged eyeliner and total confidence, between sets'],
+  },
   // ---------------- street life ----------------
   street_kid: {
     role: 'street kid', level: [1, 1], tags: ['kid'], faction: null,

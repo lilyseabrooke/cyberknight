@@ -56,6 +56,9 @@ export const ITEMS: Record<string, Def> = {
   medkit: c('field medkit', 45, 60),
   stim: c('combat stim', 6, 40),
   noodles: c('mystery-meat noodle bowl', 12, 5),
+  dish_good: c('a plated noodle special (it is, shockingly, good)', 30, 40, ['dish']),
+  cocktail_molotov: c('Molotov Mule (the cocktail, mostly)', 18, 25, ['throwable', 'fire']),
+  vintage_guitar: l('vintage guitar (previous owner: a band)', 400, ['instrument']),
 };
 
 export function makeItem(id: string): Item {
@@ -67,3 +70,12 @@ export function makeItem(id: string): Item {
 export function isKind(i: Item, k: ItemKind): boolean {
   return i.kind === k;
 }
+
+/** Weapon style tags drive the combat skills; throwables can be flung in fights. */
+const STYLE: Record<string, string[]> = {
+  zip_pistol: ['gun'], service_pistol: ['gun'], stunner_mk3: ['gun'], riot_shotgun: ['gun'], rail_revolver: ['gun'],
+  gauss_smg: ['gun'], pulse_rifle: ['gun'], hiccup: ['gun'],
+  excalibur: ['melee'], broken_bottle: ['melee', 'throwable'], pool_cue: ['melee', 'throwable', 'cue'], cleaver: ['melee', 'throwable'],
+  judgment: ['melee'], switchblade: ['melee', 'throwable'], arc_gauntlet: ['melee'], monowhip: ['melee'], thermal_katana: ['melee'],
+};
+for (const [id, tags] of Object.entries(STYLE)) ITEMS[id]!.tags.push(...tags);

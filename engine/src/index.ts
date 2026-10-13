@@ -7,3 +7,6 @@ export { createRun, step, runToEnd, MAX_BEATS } from './run';
 export { render, hasTemplate, type TextLine, type RenderCtx } from './text';
 export { skillLevel, SKILL_LABELS } from './skills';
 export { IMPLANTS } from './content/implants';
+export { synergy, skillValue, train, odds as skillOdds, type Part } from './skills';
+export { ODDS } from './hobbies';
+export { heroPower, throwDamage } from './combat';

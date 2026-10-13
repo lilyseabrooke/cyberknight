@@ -89,7 +89,7 @@ function snap(w: World): Snapshot {
     ending: w.ending,
     fame: h.fame,
     tab: h.tab,
-    skills: (Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((k) => [SKILL_LABELS[k], skillLevel(h, k)] as [string, number]).filter(([, v]) => v > 0),
+    skills: (Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((k) => [SKILL_LABELS[k], skillLevel(h, k)] as [string, number]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]),
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
   };
 }
@@ -270,7 +270,15 @@ export default function NightViewer() {
               )}
               {status.fame > 0 && (<><dt>Fame</dt><dd>{'★'.repeat(Math.min(status.fame, 12))} <span className="muted">{status.fame}</span></dd></>)}
               {status.tab > 0 && (<><dt>Bar tab</dt><dd className="bad">{status.tab} neodollars (the Halo remembers)</dd></>)}
-              {status.skills.length > 0 && (<><dt>Skills</dt><dd>{status.skills.map(([k, v]) => `${k} ${v}`).join(' · ')}</dd></>)}
+              {status.skills.length > 0 && (
+                <>
+                  <dt>Skills</dt>
+                  <dd>
+                    {status.skills.slice(0, 9).map(([k, v]) => `${k} ${v}`).join(' · ')}
+                    {status.skills.length > 9 && <span className="muted"> (+{status.skills.length - 9} more)</span>}
+                  </dd>
+                </>
+              )}
               {status.implants.length > 0 && (<><dt>Chrome</dt><dd>{status.implants.join(', ')}</dd></>)}
               {status.injuries.length > 0 && (<><dt>Injuries</dt><dd className="bad">{status.injuries.map((i) => i.replace('_', ' ')).join(', ')}</dd></>)}
               {status.buffs.length > 0 && (<><dt>Buffs</dt><dd>{status.buffs.join(', ')}</dd></>)}

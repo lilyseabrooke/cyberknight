@@ -2,7 +2,8 @@ import type { Ctx, Feature, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { makeItem } from './content/items';
 import { hasAlly } from './companions';
-import { skillLevel, train } from './skills';
+import { skillLevel, synergy, train } from './skills';
+import { ODDS } from './hobbies';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
 
 const present = (w: World, id: string): boolean => !!w.npcs[id]?.alive && w.npcs[id]!.locationId === w.hero.locationId;
@@ -90,8 +91,8 @@ function robTill(c: Ctx, f: Feature): void {
 function karaoke(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.charm * 0.04 + skillLevel(h, 'music') * 0.05 + Math.min(h.drunk, 3) * 0.04 - Math.max(0, h.drunk - 4) * 0.1, 0.1, 0.88);
-  train(c, 'music', 1);
+  const p = clamp(0.25 + h.charm * 0.03 + 0.06 * synergy(h, ['vocals', ['music', 0.5]]) + Math.min(h.drunk, 3) * 0.04 - Math.max(0, h.drunk - 4) * 0.1, 0.1, 0.88);
+  train(c, 'vocals', 2);
   const roll = rng.next();
   if (roll < p) {
     const tips = rng.int(20, 60);
@@ -115,15 +116,18 @@ function pool(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const rival = rng.pick(here(w).filter((n) => n.tags.includes('rowdy') && !n.hostile));
-  const bet = Math.min(h.cash, rng.int(15, 50));
-  const p = clamp(0.42 + h.reflex * 0.04 - rival.level * 0.04 - h.drunk * 0.03, 0.1, 0.85);
+  // Better players bet bigger.
+  const bet = Math.min(h.cash, rng.int(15, 50) + Math.floor(skillLevel(h, 'pool') * 6));
+  const p = clamp(ODDS.pool(h) - rival.level * 0.03 - h.drunk * 0.03, 0.08, 0.92);
   if (rng.chance(p)) {
     h.cash += bet;
     rival.cash = Math.max(0, rival.cash - bet);
     rival.affinity -= 5;
+    train(c, 'pool', 2);
     c.emit('pool', 'good', { variant: 'win', npc: rival.name, amount: bet });
   } else {
     h.cash -= bet;
+    train(c, 'pool', 1);
     c.emit('pool', 'bad', { variant: 'lose', npc: rival.name, amount: bet });
     if (rng.chance(0.3)) {
       c.emit('pool', 'bad', { variant: 'accuse', npc: rival.name });
@@ -166,7 +170,8 @@ function laserTag(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   h.cash -= 15;
-  const p = clamp(0.4 + h.reflex * 0.05 - h.drunk * 0.04, 0.1, 0.9);
+  const p = clamp(0.3 + h.reflex * 0.03 + 0.06 * synergy(h, ['marksmanship', ['stat:reflex', 0.5]]) - h.drunk * 0.04, 0.1, 0.9);
+  train(c, 'marksmanship', 2);
   if (rng.chance(p)) {
     const prize = rng.int(15, 45);
     h.cash += prize;
@@ -192,7 +197,8 @@ function laserTag(c: Ctx): void {
 function crackSafe(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.2 + h.hack * 0.07 + h.reflex * 0.02, 0.05, 0.8);
+  const p = clamp(0.15 + h.hack * 0.04 + 0.05 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]), 0.05, 0.85);
+  train(c, 'lockpicking', 2);
   if (rng.chance(p)) {
     const take = rng.int(200, 450);
     h.cash += take;
@@ -286,7 +292,8 @@ function dance(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const dancers = here(w).filter((n) => n.tags.includes('romanceable'));
-  const p = clamp(0.4 + h.charm * 0.04 + Math.min(h.drunk, 2) * 0.03, 0.15, 0.85);
+  const p = clamp(0.3 + h.charm * 0.025 + 0.06 * synergy(h, ['dancing', ['stat:charm', 0.5]]) + Math.min(h.drunk, 2) * 0.03, 0.15, 0.88);
+  train(c, 'dancing', 2);
   if (rng.chance(p)) {
     for (const d of dancers) d.affinity += 10;
     gainXp(c, 5);

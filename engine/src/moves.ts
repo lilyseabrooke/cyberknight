@@ -2,7 +2,7 @@ import type { Ctx, Exit } from './types';
 import { addHeat, arrive, clamp, fight, here, npcsAt, remember, spawnGroup } from './candidate';
 import { hasInjury, gainXp } from './combat';
 import { sneakBonus, tryTalkDown } from './extras';
-import { hasImplantFlag } from './skills';
+import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 
 /** Resolve walking through an exit, including bouncers, locks, guards and jumps. */
 export function moveThrough(c: Ctx, exit: Exit): void {
@@ -47,7 +47,8 @@ export function moveThrough(c: Ctx, exit: Exit): void {
         arrive(c, to, 'invited', { npc: madame.name });
         return;
       }
-      const pick = 0.12 + h.hack * 0.06 + h.reflex * 0.04;
+      const pick = 0.1 + h.hack * 0.03 + h.reflex * 0.02 + 0.055 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]);
+      train(c, 'lockpicking', 1);
       if (rng.chance(pick)) {
         arrive(c, to, 'picked');
       } else if (rng.chance(0.4 + h.muscle * 0.03)) {
@@ -70,6 +71,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
     case 'guarded': {
       const p = clamp(0.5 + h.reflex * 0.04 - dest.security * 0.05 + sneakBonus(w), 0.1, 0.9);
       if (rng.chance(p)) {
+        train(c, 'sneak', 2);
         arrive(c, to, 'slipped', { place: dest.name });
         return;
       }
@@ -84,7 +86,8 @@ export function moveThrough(c: Ctx, exit: Exit): void {
     }
 
     case 'jump': {
-      const p = clamp(0.45 + h.reflex * 0.04 + (hasImplantFlag(h, 'springs') ? 0.2 : 0) - h.drunk * 0.05, 0.1, 0.9);
+      const p = clamp(0.35 + h.reflex * 0.03 + 0.04 * synergy(h, ['athletics', ['stat:reflex', 0.5]]) + (hasImplantFlag(h, 'springs') ? 0.2 : 0) - h.drunk * 0.05, 0.1, 0.92);
+      train(c, 'athletics', 1);
       if (rng.chance(p)) {
         arrive(c, to, 'stuck_landing');
         gainXp(c, 8);

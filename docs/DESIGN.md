@@ -140,6 +140,16 @@ New systems layered on the same affordance engine:
 - **Per-run weather** (acid rain, neon fog, heatwave), **Atlas propaganda ads**, **hangovers**, **laser-tag championship**, **gossip**: NPCs reference what she did to them (and what she did to their friends).
 - **Dragon intel:** buy it from the fixer, hack it from a Helix terminal, or pry it from a talkative scientist, and CINDERJAW's targeting stutters. A competent, prepared hero now knows when it's time and commits; the clueless one still stumbles into it.
 
+### Layered skills (third pass)
+
+About 26 skills across music (music, singing, guitar, DJing, beatboxing), aim and combat (pool, throwing, shooting, melee, athletics), stealth and tech (sneaking, sleight of hand, lockpicking, tinkering), social (romance, dancing, intimidation, streetwise, haggling, cards, animal rapport) and crafts (drinking, mixology, cooking, first aid, graffiti).
+
+- **Combination rule.** An action lists the skills and stats that feed it. They combine as a **weighted geometric mean on a 0-10 scale** (`synergy()` in `engine/src/skills.ts`), and the result adds to a baseline luck chance (`ODDS` in `engine/src/hobbies.ts`). Any zero factor zeroes the skill part (music 10 + guitar 0 = baseline luck only), while a related skill improves a new one (guitar 3 + music 8 = about 4.9, better than guitar 3 alone). Stats count as factors (`stat:charm`).
+- **Spillover.** Training a skill gives a share of XP to related skills (guitar nudges music; pool nudges throwing), so learning something new carries her old knowledge with it.
+- **Additive bonuses** are used where the user's rule is "mostly regular stats": a thrown pool cue uses muscle, level and throwing, plus a pool bonus; guns and melee weapons add shooting or melee skill to power.
+- **Things to do with skills:** a band's green room with a vintage guitar to jam on, steal (and busk with), and gig on; pool as a hustle (bet size grows with skill) and as seduction (pool x romance); darts; cooking dishes that heal or woo; tending bar and crafting Molotov Mules to throw; graffiti (fame, gang drama); rooftop parkour; asking around for tips and marks; teaching allies tricks; and thrown items in fights.
+- Only milestone levels (3, 5, 8) are announced in the log, with a flavor title ("reads the room through the subwoofers"); the status panel tracks the rest.
+
 ### The dragon family
 
 Cyberdragons are Atlas "protection" platforms, in three models that behave differently:

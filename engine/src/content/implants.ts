@@ -1,4 +1,4 @@
-export type SkillId = 'music' | 'tolerance' | 'tinkering' | 'sneak';
+import type { SkillId } from './skills';
 
 export interface ImplantDef {
   name: string;

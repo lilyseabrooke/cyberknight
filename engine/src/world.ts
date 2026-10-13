@@ -70,6 +70,14 @@ const LOCATIONS: Record<Id, LocDef> = {
       ex('street_main', 'the front doors'),
       ex('club_maintenance', 'a staff door marked MAINTENANCE', { hidden: true, misroute: 'helix_dock' }),
       ex('club_backlot', "the club's back door, propped open with a milk crate"),
+      ex('club_greenroom', 'a door marked BAND & STAFF ONLY (propped open with an amp)'),
+    ],
+  },
+  club_greenroom: {
+    name: "The Neon Pharaoh's green room", kind: 'club', security: 4, crowded: false, outdoors: false, tossTo: 'club_backlot', fleeTo: 'club_backlot',
+    exits: [
+      ex('neon_pharaoh', 'the door back to the club floor'),
+      ex('club_backlot', 'the fire exit'),
     ],
   },
   club_backlot: {
@@ -131,6 +139,12 @@ const FEATURES: [Id, string, string][] = [
   ['halo_roof', 'a very judgmental pigeon', 'pigeon'],
   ['helix_lab', 'a Helix research terminal', 'terminal'],
   ['halo_backroom', 'the poker table', 'poker'],
+  ['club_greenroom', 'a vintage guitar on a stand', 'guitar'],
+  ['halo_floor', 'the dartboard', 'darts'],
+  ['halo_floor', 'the bar taps', 'taps'],
+  ['halo_alley', 'a blank brick wall', 'wall'],
+  ['halo_kitchen', 'the stove', 'stove'],
+  ['halo_roof', 'the rooftop gaps', 'parkour'],
   ['street_main', 'a battered vending machine', 'vending'],
   ['neon_pharaoh', 'the dance floor', 'dancefloor'],
   ['club_maintenance', 'the fuse panel', 'fuse_panel'],
@@ -208,6 +222,8 @@ export function createWorld(opts: RunOptions): World {
   add('dancer', 'neon_pharaoh');
   add('dancer', 'neon_pharaoh');
   add('heir', 'neon_pharaoh');
+  add('bandmate', 'club_greenroom');
+  add('bandmate', 'club_greenroom');
   add('scrapper', 'club_maintenance');
   add('helix_guard', 'helix_dock');
   add('helix_guard', 'helix_dock');
