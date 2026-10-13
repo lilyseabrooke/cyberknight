@@ -48,6 +48,7 @@ A **utility AI** with needs, traits and a competence knob.
 - **Drives:** thirst, lust, greed, bravery, curiosity, pride, plus the real objective.
 - **Decision:** each beat, score the available actions and choose via softmax. A **temperature** (inverse competence) controls how often she makes a dumb choice. Early: high temperature, low quest weight.
 - **Flaws are traits**, specific and funny and learnable: *can't resist a blue-haired bartender*, *starts bar fights*, *says yes to every dare*. Upgrades can raise quest weight, add considerations (risk checks, retreat thresholds, route planning) and lower noise. Some flaws can be tamed; some should probably never go away.
+- **Per-save personality:** the hero is **Blackbird**, with a randomly generated, astonishingly uncool government name per save. Baseline is "cocky, self-assured hero who knows she's the hero." Each save rolls a **perturbation** from that baseline: a set of drive-weight modifiers and quirk tags (airheaded ditz → dangerously curious; hothead → picks fights far above her level; hopeless romantic; lush; gambler; etc.). Personality is persistent for the save and also drives voice in the prose layer. See `docs/TONE.md`.
 - **Assists (spend Cipher mid-run):** cash, healing, ammo, sober-up, temporary competence boost, etc. Costs scale so assists are a strong rescue, never the primary strategy.
 - **No runtime LLM.** Determinism, cost and latency. Writing is hand-authored templates (§9). An optional LLM flavor layer is a possible later experiment, not a dependency.
 
@@ -121,7 +122,7 @@ Gated by world-state flags:
 ## 9. Writing and content
 
 - Prose is generated from structured events via a template/grammar layer (Tracery-like): tagged lines, variation, callbacks to remembered events, and voice that shifts as the hero grows more competent.
-- Claude drafts the content; the author is happy to be surprised. Before writing in volume, Claude gathers tone references and examples from the author.
+- Claude drafts the content; the author is happy to be surprised. Voice, humor level and samples live in `docs/TONE.md`. Reports interleave a neutral field-report voice with Blackbird's own cocky first-person thoughts.
 - Content must be tagged (location type, mood, relationship state) so the right line appears at the right moment.
 
 ## 10. Open items
