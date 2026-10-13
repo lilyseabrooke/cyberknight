@@ -1,7 +1,7 @@
-import type { Drive } from './personality.js';
-import type { Ctx, Npc, World } from './types.js';
-import { addHeat, fight, here, npcsAt, remember, relocate } from './combat.js';
-import { spawnNpc } from './content/archetypes.js';
+import type { Drive } from './personality';
+import type { Ctx, Npc, World } from './types';
+import { addHeat, fight, here, npcsAt, remember, relocate } from './combat';
+import { spawnNpc } from './content/archetypes';
 
 /**
  * A thing Blackbird could do right now. Everything in Neo advertises these (the Sims model):

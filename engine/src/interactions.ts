@@ -1,9 +1,9 @@
-import type { Ctx, Npc, World } from './types.js';
-import { acquire, addHeat, fight, gainXp, hasInjury, heroPower, here, maybeInjure, remember } from './combat.js';
-import { makeItem } from './content/items.js';
-import { clamp, levelRisk, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate.js';
-import { moveThrough } from './moves.js';
-import { featureCandidates } from './features.js';
+import type { Ctx, Npc, World } from './types';
+import { acquire, addHeat, fight, gainXp, hasInjury, heroPower, here, maybeInjure, remember } from './combat';
+import { makeItem } from './content/items';
+import { clamp, levelRisk, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
+import { moveThrough } from './moves';
+import { featureCandidates } from './features';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',

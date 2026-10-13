@@ -1,4 +1,4 @@
-import type { Item, ItemKind } from '../types.js';
+import type { Item, ItemKind } from '../types';
 
 type Def = Omit<Item, 'id'>;
 const w = (name: string, power: number, value: number, tags: string[] = []): Def => ({ name, kind: 'weapon', power, value, tags });

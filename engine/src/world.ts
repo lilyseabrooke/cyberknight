@@ -1,8 +1,8 @@
-import { Rng } from './rng.js';
-import { rollGovernmentName, rollPersonality, type Personality } from './personality.js';
-import { GANGS, spawnNpc } from './content/archetypes.js';
-import { makeItem } from './content/items.js';
-import type { Exit, Feature, Id, Location, Npc, World } from './types.js';
+import { Rng } from './rng';
+import { rollGovernmentName, rollPersonality, type Personality } from './personality';
+import { GANGS, spawnNpc } from './content/archetypes';
+import { makeItem } from './content/items';
+import type { Exit, Feature, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
 

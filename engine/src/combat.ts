@@ -1,4 +1,4 @@
-import type { Ctx, Injury, Item, Npc, World } from './types.js';
+import type { Ctx, Injury, Item, Npc, World } from './types';
 
 export const npcsAt = (w: World, loc: string): Npc[] => Object.values(w.npcs).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.beat);
 

@@ -1,7 +1,7 @@
-import type { Ctx, Feature, World } from './types.js';
-import { acquire, addHeat, fight, gainXp, here, remember } from './combat.js';
-import { makeItem } from './content/items.js';
-import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate.js';
+import type { Ctx, Feature, World } from './types';
+import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
+import { makeItem } from './content/items';
+import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
 
 const present = (w: World, id: string): boolean => !!w.npcs[id]?.alive && w.npcs[id]!.locationId === w.hero.locationId;
 

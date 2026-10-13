@@ -1,5 +1,5 @@
 /** Watch one night in Neo. npm run play -- [seed] [competence] */
-import { Rng, createRun, step, render } from '../engine/src/index.js';
+import { Rng, createRun, step, render } from '../engine/src/index';
 
 const seed = process.argv[2] ?? 'neo-1';
 const competence = Number(process.argv[3] ?? 0.1);

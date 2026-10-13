@@ -1,6 +1,6 @@
-import type { Ctx, Exit } from './types.js';
-import { addHeat, arrive, clamp, fight, here, npcsAt, remember, spawnGroup } from './candidate.js';
-import { hasInjury, gainXp } from './combat.js';
+import type { Ctx, Exit } from './types';
+import { addHeat, arrive, clamp, fight, here, npcsAt, remember, spawnGroup } from './candidate';
+import { hasInjury, gainXp } from './combat';
 
 /** Resolve walking through an exit, including bouncers, locks, guards and jumps. */
 export function moveThrough(c: Ctx, exit: Exit): void {

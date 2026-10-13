@@ -1,12 +1,12 @@
-import { Rng } from './rng.js';
-import type { Ctx, GameEvent, World } from './types.js';
-import type { EventData, Outcome } from './events.js';
-import { createWorld, type RunOptions } from './world.js';
-import { gather } from './interactions.js';
-import type { Candidate } from './candidate.js';
-import { spawnGroup } from './candidate.js';
-import { addHeat, fight, here, npcsAt, relocate } from './combat.js';
-import { DRIVES } from './personality.js';
+import { Rng } from './rng';
+import type { Ctx, GameEvent, World } from './types';
+import type { EventData, Outcome } from './events';
+import { createWorld, type RunOptions } from './world';
+import { gather } from './interactions';
+import type { Candidate } from './candidate';
+import { spawnGroup } from './candidate';
+import { addHeat, fight, here, npcsAt, relocate } from './combat';
+import { DRIVES } from './personality';
 
 export const MAX_BEATS = 600;
 

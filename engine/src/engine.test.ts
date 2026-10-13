@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Rng, createRun, step, runToEnd, render, rollPersonality, ARCHETYPES, type World, type GameEvent } from './index.js';
-import { gather } from './interactions.js';
+import { Rng, createRun, step, runToEnd, render, rollPersonality, ARCHETYPES, type World, type GameEvent } from './index';
+import { gather } from './interactions';
 
 const play = (seed: string, competence = 0.2) => runToEnd({ seed, competence });
 

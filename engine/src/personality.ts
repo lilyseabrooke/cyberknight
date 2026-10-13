@@ -1,4 +1,4 @@
-import { Rng } from './rng.js';
+import { Rng } from './rng';
 
 export type Drive = 'quest' | 'thirst' | 'lust' | 'greed' | 'bravery' | 'curiosity' | 'pride';
 

@@ -1,6 +1,6 @@
-import type { Rng } from './rng.js';
-import type { Personality } from './personality.js';
-import type { EventData, GameEvent, Outcome } from './events.js';
+import type { Rng } from './rng';
+import type { Personality } from './personality';
+import type { EventData, GameEvent, Outcome } from './events';
 
 /**
  * All world state is plain JSON (no classes, Sets or Maps) so a run can be saved to

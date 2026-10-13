@@ -1,6 +1,6 @@
-import type { Rng } from './rng.js';
-import type { GameEvent, EventData } from './events.js';
-import { GANGS } from './content/archetypes.js';
+import type { Rng } from './rng';
+import type { GameEvent, EventData } from './events';
+import { GANGS } from './content/archetypes';
 
 export interface TextLine {
   /** `report` = neutral field report. `thought` = Blackbird's own cocky inner voice. */

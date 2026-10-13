@@ -1,5 +1,5 @@
 /** Headless balance harness: npm run sim -- [runs] [competence] */
-import { runToEnd, type World } from '../engine/src/index.js';
+import { runToEnd, type World } from '../engine/src/index';
 
 const runs = Number(process.argv[2] ?? 500);
 const competence = Number(process.argv[3] ?? 0.1);

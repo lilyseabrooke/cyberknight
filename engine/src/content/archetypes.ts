@@ -1,6 +1,6 @@
-import type { Rng } from '../rng.js';
-import type { Item, Npc } from '../types.js';
-import { makeItem } from './items.js';
+import type { Rng } from '../rng';
+import type { Item, Npc } from '../types';
+import { makeItem } from './items';
 
 export interface ArchetypeDef {
   role: string;

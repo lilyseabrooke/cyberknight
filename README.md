@@ -9,10 +9,11 @@ A self-playing cyberpunk sword-and-sorcery roguelite. You're the lab assistant; 
 
 ```
 npm install
+npm run dev                    # the log UI at http://localhost:3000 (runs the engine in the browser)
 npm test                      # engine unit tests
 npm run typecheck
 npm run play -- neo-7 0.2     # watch one night in Neo: <seed> <competence 0..1>
 npm run sim -- 1000 0.1       # headless balance harness: <runs> <competence 0..1>
 ```
 
-`engine/` is pure, deterministic TypeScript (seeded RNG, no DOM). The web app (Next.js + Supabase on Vercel) comes in M2.
+`engine/` is pure, deterministic TypeScript (seeded RNG, no DOM). `app/` + `components/` are the Next.js log UI (no backend yet; Supabase saves/login come in M2).
