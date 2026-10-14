@@ -20,6 +20,7 @@ import {
   step,
   type GameEvent,
   type World,
+  describeWeapon,
 } from '../engine/src';
 
 interface LogLine {
@@ -42,6 +43,7 @@ interface Snapshot {
   weapon: string;
   /** What she is actually swinging right now (different if the gun is dry). */
   wielding: string;
+  weaponInfo: string;
   ammo: [string, number][];
   medPacks: string;
   medStock: number;
@@ -95,6 +97,7 @@ function snap(w: World): Snapshot {
     drunk: h.drunk,
     weapon: h.weapon.name,
     wielding: wielded(h).name,
+    weaponInfo: describeWeapon(wielded(h)),
     ammo: Object.entries(h.ammo).filter(([, n]) => n > 0).map(([t, n]) => [AMMO[t]?.label ?? t, n] as [string, number]),
     medPacks: Object.entries(medPacks(h).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => `${k} ${n}`).join(' · '),
     medStock: medStock(h),
@@ -292,7 +295,7 @@ export default function NightViewer() {
             <dl>
               <dt>Location</dt><dd>{status.location}</dd>
               <dt>Neodollars</dt><dd>{status.cash}</dd>
-              <dt>Weapon</dt><dd>{status.weapon}{status.wielding !== status.weapon && <span className="bad"> (dry: using {status.wielding})</span>}</dd>
+              <dt>Weapon</dt><dd>{status.weapon}{status.wielding !== status.weapon && <span className="bad"> (dry: using {status.wielding})</span>}<br /><small>{status.weaponInfo}</small></dd>
               <dt>Medical</dt><dd className={status.medStock === 0 ? 'bad' : undefined}>{status.medPacks ? `${status.medPacks} (${status.medStock} HP)` : 'none (she cannot heal)'}</dd>
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
               <dt>Armor</dt><dd>{status.armor}</dd>

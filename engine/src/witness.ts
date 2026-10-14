@@ -82,7 +82,7 @@ export function pickReaction(c: Ctx, n: Npc, victim: Npc): Reaction {
  * Called at the start of a fight she started. Works out who saw, applies heat, lets the crowd
  * react, and returns anyone who piles in against her. `gun` means shots will be fired: louder.
  */
-export function witnessAssault(c: Ctx, foes: Npc[], opts: { gun: boolean }): Witnessing {
+export function witnessAssault(c: Ctx, foes: Npc[], opts: { noise: number }): Witnessing {
   const { w, rng } = c;
   const h = w.hero;
   const loc = w.locations[h.locationId]!;
@@ -100,7 +100,8 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { gun: boolean }): Wit
     (n) => !foes.includes(n) && !h.companions.some((a) => a.npcId === n.id) && n.archetype !== 'puppy' && !n.hostile,
   );
   const drones = bystanders.filter((n) => n.tags.includes('robot') && !n.tags.includes('dragon'));
-  const noticeP = clamp(0.8 - sneakBonus(w) + (opts.gun ? 0.15 : 0), 0.25, 0.97);
+  const loud = opts.noise >= 0.6;
+  const noticeP = clamp(0.8 - sneakBonus(w) + (opts.noise - 0.5) * 0.3, 0.2, 0.97);
   const seenBy = bystanders.filter((n) => isPerson(n) && rng.chance(noticeP)).slice(0, 6);
   const camSees = cams > 0;
   const droneSees = drones.length > 0;
@@ -119,7 +120,7 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { gun: boolean }): Wit
     witnesses: seenBy.length,
     drone: droneSees ? drones[0]!.name : '',
     victim: victim.name,
-    gun: opts.gun,
+    gun: loud,
   });
 
   // Reactions
@@ -184,7 +185,7 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { gun: boolean }): Wit
   // Heat. Gunfire is loud, crowds and cameras make it stick, a cop in the room makes it official.
   const fromWitnesses = seenBy.length ? 1 + (seenBy.length >= 3 ? 1 : 0) : 0;
   const fromCameras = camSees || droneSees ? 1 + (cams >= 3 ? 1 : 0) : 0;
-  const gain = Math.min(4, Math.max(fromWitnesses, fromCameras) + (opts.gun ? 1 : 0) + (copSaw ? 1 : 0) + calls);
+  const gain = Math.min(4, Math.max(fromWitnesses, fromCameras) + (loud ? 1 : 0) + (copSaw ? 1 : 0) + calls);
   if (warranted) {
     // Wanted people are the police's problem, not hers. Everyone else still saw what they saw.
     c.emit('bounty_hit', 'good', { victim: victim.name, amount: victim.bounty!.amount, witnesses: seenBy.length });

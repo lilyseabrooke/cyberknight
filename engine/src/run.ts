@@ -12,7 +12,7 @@ import { ambientExtras, scoutSaves, tryTalkDown } from './extras';
 import { ambientDragons } from './dragons';
 import { ambientGraffiti } from './graffiti';
 import { hasImplantFlag, skillLevel } from './skills';
-import { expireBuffs } from './supply';
+import { expireBuffs, restockShelf } from './supply';
 import { discretion } from './discretion';
 import { scanBounties } from './bounty';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
@@ -142,6 +142,7 @@ function upkeep(c: Ctx): void {
   tickSatiety(h);
   // Shipments arrive; tempers cool. No timers on her, just the world carrying on.
   if (w.beat % 30 === 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2);
+  if (w.beat % 90 === 0) restockShelf(c);
   if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;
   // No passive regeneration. Wounds stay until a med pack or a street doc deals with them.
   if (h.drunk >= 6 + Math.floor(skillLevel(h, 'tolerance') / 2)) {

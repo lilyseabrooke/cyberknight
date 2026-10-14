@@ -271,3 +271,34 @@ Goals used to steer her by place: "this room looks valuable", then work out some
 Related changes: goals count the room she's already in (so she doesn't leave one that holds what she wants for one that holds a bit more); goal pulls fade while she's hot; an idle, broke hero decides to do something about it sooner; NPD drones can't kill her on the street.
 
 **Why goals were not getting finished (found after the first pursuit pass).** In "assess / take" she had decided she could beat him and he was in the room, yet she struck on only 1% of those beats: the discretion system's reluctance to fight in view of people (about 8 points on average) cancelled the goal's 4.5 push, so she stood about chatting. A decision to act is now final: with a `take` verdict the pursuit gives back her reluctance. If the room is too watched to do it quietly she waits for it to thin out or for a quieter spot (the `lure` verdict, up to ~18 beats) and then goes loud. Kill goals completed per night went from about 1.7 to 2.8 and gave-up goals from 1.6 to 1.0.
+
+## Procedural weapons (ninth pass)
+
+Weapons are rolled, not listed (`engine/src/weapons.ts`). A weapon is a **class** (knife, blade, club, whip, gauntlet, pistol, SMG, shotgun, rifle, energy), a **tier** (how good it is for its price), and up to three **traits** bought out of its base damage:
+
+| trait | what it does |
+|---|---|
+| crit chance / multiplier | bigger hits now and then |
+| armor-piercing | takes points off the target's plating (foes' armor items now soak damage: half their armor value per hit) |
+| noise | 0 is silent, 1 is a gunshot. Noisy weapons make witnesses notice and add police heat; quiet ones don't |
+| armor | extra armor while it is in her hand |
+| vs-type | damage multiplier against robots, cops, gangers, corps, augmented people, bosses or dragons |
+| stun | chance per hit that the target loses its next attack |
+| burn | chance per hit that the target keeps taking damage for a few rounds |
+| skill bonus | +1 to +3 on a skill (melee, marksmanship, sneak...) while it is wielded |
+
+Weight is recorded for when encumbrance exists. The named classics (`ITEMS`) still exist; they get plain defaults. About a quarter of what people carry is still the classic, the rest are rolled variants of the same kind and tier, so loot is procedural too.
+
+`rating(item, foe?)` puts a weapon on one scale (base damage plus what its traits are worth; against a particular foe the relevant traits count in full). Everything that used to compare `weapon.power` now compares ratings: equipping, shopping, the "better weapon" goal, prep for a fight, win odds.
+
+**The shelf.** The gunsmith has a generated shelf per night (`world.arsenal`), turning over every 90 beats (some stock "sold to somebody else", which she notices if she had her eye on it). Each restock includes a step up on whatever she is holding, a sidegrade at about the same tier with a trait she lacks (aimed at her current quarry's kind, when she has one) and some random stock. So there is always something better in some regard, and upgrades are incremental.
+
+**In a fight** she picks, from what she is carrying and has ammo for, the weapon that suits the enemy in front of her (her usual one gets the benefit of the doubt), and the log says so when she swaps or when a crit, stun or burn lands.
+
+## Idle goals: fame, money, dragons
+
+She is meant to be about three things: **getting famous, getting rich, killing cyberdragons.** When she has no goal at all (including at the start of the night) she picks one of the three, weighted by personality (fame, vanity, artistry; greed and being broke; courage, justice, thrill). Beats with no goal at all fell from about 31% to about 1%.
+
+- **Fame** (`fame` goal): the pursuit picks an act (karaoke, DJ set, gig, billboard, graffiti, busk, parkour) by what she expects it to earn her fame, learned from experience, and her taste for it; goes to its venue and does it. If she gets there and can't go on she writes it off for a while and tries something else. Saturation does the limiting: repeated acts earn less, and what she has learned they are worth falls with them.
+- **Money** is the `cash` goal with the bounty and odd-job pursuits already described.
+- **Dragons** (`dragon` goal): flights can't be found, only waited for, so she **scans the skies** outdoors (each scan makes a flight likelier; a beat spent looking). When one arrives she sizes it up with the fight maths and either engages, hides, or goes to get something that works on dragons (a weapon goal aimed at the Apollo, so vs-dragon and vs-boss traits count). A scout's warning is a head start when she is ready, not a reason to hide. When she thinks she can take the Apollo she switches to that and goes to the Overpass.

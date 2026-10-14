@@ -23,6 +23,9 @@ interface Entry {
 }
 const e = (r: Lines, t?: Lines): Entry => ({ r, t });
 const $ = (n: unknown): string => Number(n).toLocaleString('en-US');
+/** An act of fame, as a phrase. */
+const ACTS: Record<string, string> = { karaoke: 'a karaoke number', dj_set: 'a DJ set', gig: 'a gig with the band', billboard: 'hijacking a billboard', graffiti: 'a big piece of graffiti', busk: 'busking', parkour: 'some rooftop parkour' };
+const act = (a: unknown): string => ACTS[String(a)] ?? String(a);
 
 export const BLURBS: Record<string, string> = {
   halo_floor: 'The Rusty Halo: synth-whiskey, neon halos that flicker in Morse code, and a jukebox that has opinions.',
@@ -458,6 +461,22 @@ const T: Record<string, Entry> = {
   'pursuit:sizeup_wait': e((d) => [`${d.npc} is right there, and Blackbird is not in fighting shape. She bides her time.`], ['Patience. Plus a little bleeding.']),
   'pursuit:pass': e((d) => [`Blackbird crosses ${d.npc} off the list. There will be other bounties, and she likes being alive.`], ['Live to hunt another day.']),
   'pursuit:lost_trail': e((d) => [`${d.npc} isn't where Blackbird last saw them. The trail has gone cold.`], ['Typical. Nobody stays where you left them.']),
+  'weapon_proc:crit': e((d) => [`The ${d.weapon} finds a gap in ${d.foe}'s guard. Critical hit.`, `A perfect strike: the ${d.weapon} goes exactly where it shouldn't, on ${d.foe}.`], ['Lucky? No. Practiced. Okay, a little lucky.']),
+  'weapon_proc:stun': e((d) => [`${d.foe} reels, stunned. The ${d.weapon} does that.`], ['Nobody likes being tased. Not even a professional.']),
+  'weapon_proc:burn': e((d) => [`${d.foe} catches fire. The ${d.weapon} is, as advertised, incendiary.`], ['And the crowd goes: ow.']),
+  'weapon_swap': e((d) => [`Against ${d.foe}, Blackbird switches to the ${d.weapon}.`, `The ${d.weapon} suits ${d.foe} better. Blackbird swaps.`], ['Right tool, right job.']),
+  'scan_skies': e((d) => d.first ? [`Blackbird steps out into the open at ${d.place} and looks up. Up there, on a schedule, are the things she wants to kill. She waits.`] : [`Blackbird watches the sky over ${d.place}, hands on hips, like a very patient lightning rod.`, `Another long look at the clouds over ${d.place}. No wings yet.`, `Blackbird squints at the skyline over ${d.place} until her eyes water. Somewhere up there, a patrol is running late.`, `Blackbird lingers over ${d.place}, listening for the tell-tale hum of very expensive wings.`], ['Come on, you overpriced lizards.', 'Dragons: always late, always expensive.']),
+  'pursuit:perform_pick': e((d) => [`Blackbird wants a bigger name. The best bet, by her read: ${act(d.act)}. She heads for ${d.place}.`, `Fame is ${d.fame} and climbing, or it will be. Plan: ${act(d.act)} at ${d.place}.`], ['Nobody ever got famous by staying home.', 'The people need me. They just do not know it yet.']),
+  'pursuit:perform_blocked': e((d) => [`The stage is there, but ${act(d.act)} is not happening tonight. Blackbird shrugs and looks for another way to be adored.`], ['Their loss. Honestly.']),
+  'pursuit:dragon_apollo': e((d) => [`Blackbird has done the maths and likes it. She is done with the small stuff: ${d.npc} is next.`], ['The big one. At last. Mom would be so confused.']),
+  'pursuit:dragon_sizeup_take': e((d) => [d.count ? `The sky fills with wings: ${d.npc}. Blackbird reads the odds (${d.odds}%) and decides it is a good day.` : `Blackbird looks up at ${d.npc} and does the maths: ${d.odds}%. She lets herself smile.`], ['Hello, big lizard. I am your replacement.']),
+  'pursuit:dragon_sizeup_prep': e((d) => [d.count ? `Dragons overhead (${d.npc}). The odds are ${d.odds}%, which Blackbird respects in the way you respect a cliff.` : `${d.npc} looms. ${d.odds}%. She will need a lot more than a good attitude.`], ['Not yet. But soon. Maybe.']),
+  'pursuit:dragon_sizeup_wait': e((d) => [`There is a dragon, and Blackbird is bleeding. She decides the dragon can wait. The dragon is not told this.`], ['Patience. And a bandage.']),
+  'goal_new:idle_fame': e((d) => [`Nothing on her mind, and plenty of time to fill. Blackbird decides, for no good reason, to get famous (${d.amount} fame, for starters).`, `Blackbird wakes up to herself and sets a goal: the whole city knowing her name, or at least ${d.amount} fame's worth.`], ['I should be a star. I would be so good at being a star.']),
+  'goal_new:idle_dragon': e(() => [`Blackbird looks up at the dragons that patrol Neo and makes a decision. She is going to put one in the ground.`, `The sky belongs to Atlas. Blackbird would like it back. She starts hunting cyberdragons.`], ['I mean, someone has to. Why not the one with the tire iron?']),
+  'goal_done:famous': e(() => [`Blackbird has her fame, or enough of it. People recognize her in line for noodles. She tolerates it with enormous dignity.`], ['They know my name. Now to make them say it properly.']),
+  'goal_done:slain': e(() => [`A dragon is down. Atlas will bill her for the wing. Blackbird will frame the scale.`], ['One for the wall.']),
+  'goal_done:apollo': e(() => [`The Apollo is dead. Blackbird stands in the ruins of a forty-ton security product and thinks about breakfast.`], ['Nobody believes me. That is the best part.']),
   'ambush:atlas': e((d) => [`Black vans, matte-black armor, no insignia but the Atlas logo stitched on every sleeve. A Helix retrieval team (${d.count}) steps out of the dark.`], ['A real hero has real enemies. Welcome to my fan club.']),
   banned: e((d) => [`${d.npc} blocks the door of the Rusty Halo. "You're banned." Blackbird\'s name has been on the wall since Tuesday.`], ["Banned? I've never even been..."]),
   security_closes_in: e((d) => [`${d.npc} and the rest of Neon Pharaoh security close in around Blackbird, tapping stunners against their palms.`], ["I can hear them coming. Flattering."]),
@@ -829,6 +848,8 @@ const T: Record<string, Entry> = {
   'goal_resume:kill': e((d) => [`${d.npc} drifts back into Blackbird's head. She had not forgotten, exactly. She had just been busy.`], ['Still on the list. Still at the top.']),
   'goal_resume:romance': e((d) => [`Blackbird thinks of ${d.npc} and tidies her hair for no reason.`], ['Where was I. Right. Impressing someone.']),
   'goal_resume:weapon': e(() => ['Blackbird looks down at her weapon, sighs, and remembers she was going to do something about that.'], ['A better weapon. I was getting to it.']),
+  'goal_resume:fame': e(() => ['Blackbird catches her reflection in a window and remembers she is meant to be famous. She stands up straighter.'], ['Right. The adoring public. They are waiting.']),
+  'goal_resume:dragon': e(() => ['Blackbird glances at the sky and remembers the dragons. They have not forgotten her. They do not know her. But they have not forgotten her.'], ['Back to the hunt.']),
   'goal_resume:heist': e((d) => [`Blackbird glances toward ${d.place} and remembers the plan.`], ["The job's still there. I'm still going to do it."]),
 
   // Mid-heist.

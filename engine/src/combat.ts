@@ -1,9 +1,10 @@
-import type { Ctx, Injury, Item, Npc, World } from './types';
+import type { Ctx, Hero, Injury, Item, Npc, World } from './types';
 import { IMPLANTS } from './content/implants';
 import { AMMO } from './content/ammo';
 import { KINDS, removeCompanion } from './companions';
 import { hasImplantFlag, skillLevel, skillValue, train } from './skills';
 import { addAmmo, spendAmmo, wielded } from './arms';
+import { foeArmor, fxOf, rating, vsMult } from './weapons';
 import { witnessAssault } from './witness';
 import { collectBounties } from './bounty';
 
@@ -31,6 +32,8 @@ export function relocate(w: World, to: string): void {
   for (const e of w.locations[from]?.exits ?? []) if (e.to === to) e.hidden = false;
   for (const e of dest?.exits ?? []) if (e.to === from) e.hidden = false;
 }
+
+const loadedFor = (h: Hero, it: Item): boolean => !it.ammoType || (h.ammo[it.ammoType] ?? 0) > 0;
 
 export const hasInjury = (w: World, i: Injury): boolean => w.hero.injuries.includes(i);
 
@@ -70,7 +73,7 @@ export function acquire(c: Ctx, item: Item): void {
     addAmmo(h, item.ammoType, item.rounds);
     return;
   }
-  if ((item.kind === 'weapon' || item.kind === 'gadget') && item.power > h.weapon.power) {
+  if ((item.kind === 'weapon' || item.kind === 'gadget') && rating(item) > rating(h.weapon) * 1.03) {
     const old = h.weapon;
     h.weapon = item;
     h.inventory.push(old); // keep the old one: when the good gun runs dry, the tire iron still works
@@ -175,7 +178,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   let heatFaction = 'npd';
   let warranted = false;
   if (o.assault) {
-    const wit = witnessAssault(c, foes, { gun: !!wielded(h).ammoType });
+    const wit = witnessAssault(c, foes, { noise: fxOf(wielded(h, foes)).noise });
     seen = wit.seen;
     heatFaction = wit.heatFaction;
     warranted = wit.warranted;
@@ -205,8 +208,16 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   let crits = 0;
   let assists = 0;
   let ammoSpent = 0;
-  let wield = wielded(h);
+  let wield = wielded(h, foes);
   let lastWield = h.weapon.id;
+  const stunned = new Set<string>();
+  const burning = new Map<string, number>();
+  const procs = new Set<string>();
+  const proc = (kind: string, foe: Npc) => {
+    if (procs.has(kind)) return;
+    procs.add(kind);
+    c.emit('weapon_proc', 'good', { variant: kind, weapon: wield.name, foe: foe.name });
+  };
   const fleeAt = 0.1 + h.competence * 0.35;
   const armor = h.armor?.power ?? 0;
 
@@ -241,11 +252,13 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       break;
     }
     // hero strikes, with whatever still works
-    wield = wielded(h);
+    wield = wielded(h, living);
     if (wield.id !== lastWield) {
-      if (wield.id !== h.weapon.id) c.emit('out_of_ammo', 'bad', { weapon: h.weapon.name, ammo: AMMO[h.weapon.ammoType ?? '']?.label ?? 'ammo', fallback: wield.name, bare: wield.id === 'fists' });
+      if (!loadedFor(h, h.weapon)) c.emit('out_of_ammo', 'bad', { weapon: h.weapon.name, ammo: AMMO[h.weapon.ammoType ?? '']?.label ?? 'ammo', fallback: wield.name, bare: wield.id === 'fists' });
+      else if (wield.id !== h.weapon.id) c.emit('weapon_swap', 'mixed', { weapon: wield.name, old: lastWield === 'fists' ? 'bare fists' : h.weapon.name, foe: living[0]!.name });
       lastWield = wield.id;
     }
+    const fx = fxOf(wield);
     ammoSpent += spendAmmo(h, wield);
     let dmg = Math.round(heroPower(w, wield) * (0.45 + rng.next() * 0.6));
     if (wield.unstable) {
@@ -260,6 +273,13 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       }
     }
     const target = living[0]!;
+    // What the weapon does besides hit: edge against this sort of enemy, crits, and plating it gets through.
+    dmg = Math.round(dmg * vsMult(fx, target));
+    if (rng.chance(fx.crit)) {
+      dmg = Math.round(dmg * fx.critMult);
+      proc('crit', target);
+    }
+    dmg = Math.max(1, dmg - Math.round(Math.max(0, foeArmor(target) * 0.5 - fx.pierce)));
     // Allies pitch in: bites, zaps, bricks, pigeon-based interference.
     let absorb = 0;
     for (const a of h.companions) {
@@ -273,14 +293,33 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       if (assists === 1) c.emit('ally_assist', 'good', { name: a.name, kind: a.kind, dmg: spec.dmg ?? 0, absorb: spec.absorb ?? 0, foe: target.name });
     }
     hit(target, dmg); // non-lethal fights knock people out; they remember
+    if (target.alive && !down.has(target.id)) {
+      if (rng.chance(fx.stun)) {
+        stunned.add(target.id);
+        proc('stun', target);
+      }
+      if (rng.chance(fx.burn)) {
+        burning.set(target.id, 3);
+        proc('burn', target);
+      }
+    }
+    for (const [id, left] of [...burning]) {
+      const f = foes.find((x) => x.id === id)!;
+      if (left <= 0 || !f.alive || down.has(id)) burning.delete(id);
+      else {
+        hit(f, Math.max(2, Math.round(heroPower(w, wield) * 0.15)));
+        burning.set(id, left - 1);
+      }
+    }
     // foes strike
     let taken = 0;
     let biggest = 0;
     for (const f of standing()) {
+      if (stunned.delete(f.id)) continue; // reeling
       if (!f.tags.includes('hera') && !rng.chance(0.8)) continue; // Hera does not miss
       let fp = f.power - (f.flags.includes('disabled') ? 3 : 0);
       if (f.tags.includes('apollo') && w.flags.dragon_weak) fp *= 0.65;
-      const d = Math.max(1, Math.round(fp * (0.2 + rng.next() * 0.4)) - armor);
+      const d = Math.max(1, Math.round(fp * (0.2 + rng.next() * 0.4)) - armor - fx.armor);
       taken += d;
       biggest = Math.max(biggest, d);
     }
@@ -402,6 +441,8 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   if (result === 'flee' && !w.over) train(c, 'athletics', 2);
   if (result === 'win' && foes.length >= 3) h.fame += 1;
   if (result === 'win') {
+    const dragons = foes.filter((f) => f.tags.includes('dragon') && !f.tags.includes('boss')).length;
+    if (dragons) w.counters.dragon_kills = (w.counters.dragon_kills ?? 0) + dragons;
     const scalps = foes.filter((f) => f.tags.includes('artemis')).length;
     if (scalps) {
       h.fame += 4 * scalps;

@@ -5,7 +5,9 @@ import { makeAmmoBox, makeItem, ITEMS } from './content/items';
 import { AMMO } from './content/ammo';
 import { STIMS, type StimDef } from './content/stims';
 import { MEDS, MED_IDS } from './content/meds';
-import { DOC_FEE, GEAR_MARKUP, PHARMACY_STIMS, SHOP_AMMO, SHOP_ARMOR, SHOP_WEAPONS, gearPrice } from './content/shops';
+import { DOC_FEE, GEAR_MARKUP, PHARMACY_STIMS, SHOP_AMMO, SHOP_ARMOR, gearPrice } from './content/shops';
+import { armBest, fxOf, genWeapon, niches, rating, shelfPrice } from './weapons';
+import { focusFoe } from './plans';
 import { addAmmo, ammoOf, gunsOwned, isArm, medPacks, medStock, shotsLeft, wielded } from './arms';
 import { skillLevel, train } from './skills';
 import { healUrge } from './urges';
@@ -27,17 +29,29 @@ const activeStims = (h: Hero, beat: number) => h.buffs.filter((b) => b.id.starts
 /** Cash she keeps back for emergencies before blowing the rest on gear. Sharper heroes save more. */
 const reserve = (h: Hero): number => Math.round(h.competence * 80);
 
-/** Best affordable upgrade for a slot, or null. */
-function bestUpgrade(w: World, slot: 'weapon' | 'armor'): { id: string; cost: number } | null {
+/** Best affordable upgrade for a slot, or null. Weapons are judged against the enemy she has in mind, if she has one. */
+function bestUpgrade(w: World, slot: 'weapon' | 'armor'): { id: string; cost: number; gain: number } | null {
   const h = w.hero;
-  const have = slot === 'weapon' ? h.weapon.power : (h.armor?.power ?? 0);
-  const ids = slot === 'weapon' ? SHOP_WEAPONS : SHOP_ARMOR;
-  let best: { id: string; cost: number } | null = null;
-  for (const id of ids) {
+  let best: { id: string; cost: number; gain: number } | null = null;
+  if (slot === 'weapon') {
+    const foe = focusFoe(w);
+    const have = armBest(h, foe);
+    for (const it of Object.values(w.arsenal ?? {})) {
+      if (w.flags[`sold:${it.id}`]) continue;
+      const cost = price(h, shelfPrice(it, GEAR_MARKUP));
+      const gain = rating(it, foe) - have;
+      if (gain < 0.8 || cost > h.cash - reserve(h)) continue;
+      if (!best || gain > best.gain) best = { id: it.id, cost, gain };
+    }
+    return best;
+  }
+  const have = h.armor?.power ?? 0;
+  for (const id of SHOP_ARMOR) {
     if (w.flags[`sold:${id}`]) continue;
     const cost = price(h, gearPrice(id));
     if (ITEMS[id]!.power <= have || cost > h.cash - reserve(h)) continue;
-    if (!best || ITEMS[id]!.power > ITEMS[best.id]!.power) best = { id, cost };
+    const gain = ITEMS[id]!.power - have;
+    if (!best || gain > best.gain) best = { id, cost, gain };
   }
   return best;
 }
@@ -137,7 +151,7 @@ export function supplyCandidates(w: World): Candidate[] {
     for (const slot of ['weapon', 'armor'] as const) {
       const up = bestUpgrade(w, slot);
       if (!up) continue;
-      const gain = ITEMS[up.id]!.power - (slot === 'weapon' ? h.weapon.power : (h.armor?.power ?? 0));
+      const gain = up.gain;
       out.push({
         key: `buy_gear:${slot}`, drives: { pride: 0.7, greed: 0.2, bravery: 0.3 }, smart: 0.5 + gain * 0.04,
         bonus: Math.min(1, gain * 0.05),
@@ -200,11 +214,15 @@ function buyAmmo(c: Ctx, keeper: Npc, type: string, cost: number): void {
 
 export function buyGear(c: Ctx, keeper: Npc, id: string, cost: number): void {
   const h = c.w.hero;
-  const item = makeItem(id);
+  const item = c.w.arsenal?.[id] ?? makeItem(id);
   const slot = item.kind === 'armor' ? 'armor' : 'weapon';
   h.cash -= cost;
   keeper.affinity += 3;
   train(c, 'haggling', 2);
+  if (c.w.arsenal?.[id]) {
+    delete c.w.arsenal[id];
+    c.w.flags[`sold:${id}`] = true;
+  }
   // Every gun leaves the shop with a box in it. The gunsmith is not a monster.
   let starter = '';
   if (item.ammoType) {
@@ -214,6 +232,23 @@ export function buyGear(c: Ctx, keeper: Npc, id: string, cost: number): void {
   }
   c.emit('buy_gear', 'good', { variant: slot, npc: keeper.name, item: item.name, slot, cost, starter, gun: !!item.ammoType });
   acquire(c, item);
+}
+
+/** Shipments: every so often the gunsmith moves some stock on and gets some in, including something to suit whoever walks in. */
+export function restockShelf(c: Ctx): void {
+  const { w, rng } = c;
+  const shelf = (w.arsenal ??= {});
+  const ids = Object.keys(shelf);
+  const foe = focusFoe(w);
+  const drop = Math.min(ids.length, 3);
+  for (let i = 0; i < drop; i++) {
+    const id = rng.pick(Object.keys(shelf));
+    delete shelf[id];
+    w.flags[`sold:${id}`] = true;
+  }
+  const vsTag = foe ? ['dragon', 'boss', 'robot', 'cop', 'ganger', 'corp', 'augmented'].find((t) => foe.tags.includes(t) || foe.archetype === t) : undefined;
+  const fresh = [...niches(rng, w.hero.weapon, 2, vsTag), genWeapon(rng, { tier: Math.max(0.5, fxOf(w.hero.weapon).tier + (rng.next() - 0.3) * 2.5) }), genWeapon(rng, { tier: 0.5 + rng.next() * 6 })];
+  for (const it of fresh) shelf[it.id] = it;
 }
 
 /** The smallest kit that covers what she is missing, or else the biggest she has. */

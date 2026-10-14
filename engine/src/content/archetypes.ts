@@ -1,6 +1,7 @@
 import type { Rng } from '../rng';
 import type { Item, Npc } from '../types';
 import { makeAmmoBox, makeItem } from './items';
+import { rating, variantOf } from '../weapons';
 
 export interface ArchetypeDef {
   role: string;
@@ -262,9 +263,9 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
   const loadout: Item[] = [];
   let weaponPower = 0;
   if (def.weapons.length) {
-    const wpn = makeItem(rng.pick(def.weapons));
+    const wpn = variantOf(rng, makeItem(rng.pick(def.weapons)));
     loadout.push(wpn);
-    weaponPower = wpn.power;
+    weaponPower = Math.round(rating(wpn));
   }
   // Shooters carry spare rounds, which is how she ends up with any.
   const gun = loadout[0];

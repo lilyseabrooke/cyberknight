@@ -1,4 +1,5 @@
 import { Rng } from './rng';
+import { genShelf } from './weapons';
 import { rollGovernmentName, rollPersonality, type Personality } from './personality';
 import { GANGS, spawnNpc } from './content/archetypes';
 import { makeItem } from './content/items';
@@ -319,6 +320,7 @@ export function createWorld(opts: RunOptions): World {
     features,
     locations,
     heat: { npd: 0, atlas: 0, halo: 0, club: 0 },
+    arsenal: Object.fromEntries(genShelf(new Rng(`arsenal:${opts.seed}`), hero.weapon).map((it) => [it.id, it])),
     situation: { warringGangs: [g1, g2], crackdown: rng.pick(CRACKDOWNS), weather: rng.pick(['acid_rain', 'neon_fog', 'heatwave'] as const) },
     flags: {},
     counters: { paint_stock: 8 },

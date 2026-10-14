@@ -27,6 +27,35 @@ export interface Item {
   perRound?: number;
   /** Ammo boxes: how many rounds are inside. Picking one up pours it into `hero.ammo`. */
   rounds?: number;
+  /** Weapons: the traits that make this one different from the next. See weapons.ts. Named classics without it get plain defaults. */
+  fx?: WeaponFx;
+}
+
+/** What a weapon does besides hit. Every number is a trade against the base damage in `Item.power`. */
+export interface WeaponFx {
+  /** What it is, for names and for who can use it: blade, club, pistol... */
+  cls: string;
+  /** How good it is for its price, 0..9ish (a tire iron is about 0, a pulse rifle about 9). */
+  tier: number;
+  /** Chance of a critical hit per round, and what a crit multiplies damage by. */
+  crit: number;
+  critMult: number;
+  /** Armor the target's plating loses against this weapon. */
+  pierce: number;
+  /** 0 is silent, 1 is a gunshot in a cathedral. Witnesses notice loud weapons. */
+  noise: number;
+  /** Armor she gains while holding it. */
+  armor: number;
+  /** Damage multipliers against kinds of enemy, by tag or archetype (robot, cop, ganger, dragon...). */
+  vs: Record<string, number>;
+  /** Chance per hit that the target loses its next attack. */
+  stun: number;
+  /** Chance per hit that the target catches fire and keeps taking damage. */
+  burn: number;
+  /** A skill that is better while she holds it. */
+  skill?: { id: string; bonus: number };
+  /** For when there's encumbrance. */
+  weight: number;
 }
 
 export interface Buff {
@@ -197,6 +226,8 @@ export interface World {
   locations: Record<Id, Location>;
   /** Wanted level per faction, decays over time. */
   heat: Record<string, number>;
+  /** What the gunsmith has on the shelf tonight (and any other generated gear for sale), by item id. */
+  arsenal?: Record<string, Item>;
   situation: Situation;
   flags: Record<string, boolean>;
   /** Misc numeric counters (laser-tag wins, ads seen, etc.). */
@@ -212,7 +243,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'heist';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'heist' | 'fame' | 'dragon';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
@@ -264,7 +295,7 @@ export interface Goal {
 /** Decide what to do, then look for the chance to do it: who she's after, how, and how far along she is. */
 export interface Pursuit {
   /** hunt: the goal's own target. bounty / odd_jobs: ways to raise cash. ask: looking for a lead. */
-  plan: 'hunt' | 'bounty' | 'odd_jobs' | 'ask';
+  plan: 'hunt' | 'bounty' | 'odd_jobs' | 'ask' | 'perform';
   npc?: Id;
   /** search: where is he? approach: on the way. assess: in the room, sizing him up. act: doing it. */
   phase: 'search' | 'approach' | 'assess' | 'act';
@@ -279,6 +310,9 @@ export interface Pursuit {
   searched: Id[];
   /** The best option's score when she committed, so she only switches for something clearly better. */
   eff?: number;
+  /** Fame: the act she's going to put on, and when she got to the venue without managing it. */
+  act?: string;
+  arrived?: number;
 }
 
 /** Something she's seen for sale. */
@@ -291,6 +325,8 @@ export interface Ware {
   /** What it adds. Weapons and armor: power. */
   power: number;
   seen: number;
+  /** Weapons: what's actually on the shelf, so she can judge it against a particular enemy. */
+  item?: Item;
 }
 
 /** What she knows, what she wants, and how she's going about it. All plain JSON. */
@@ -311,6 +347,8 @@ export interface Mind {
   /** The leaf goal that has been steering her most lately (so she doesn't flip-flop). */
   focus: number | null;
   tally: { done: number; dropped: number; revised: number; delayed: number };
+  /** What she expects each kind of act to do for her fame, learned from experience. */
+  fame?: Record<string, number>;
   /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */
   bounties?: Record<Id, 'scan' | 'scanner' | 'tip'>;
 }

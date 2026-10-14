@@ -17,3 +17,4 @@ export { wielded, ammoOf, medPacks, medStock, shotsLeft } from './arms';
 export { MEDS } from './content/meds';
 export { goalLabel, goalBias, goalViews, type GoalView } from './goals';
 export { priority as goalPriority, capacity as goalCapacity } from './mind';
+export { describe as describeWeapon, rating as weaponRating, genWeapon, fxOf } from './weapons';

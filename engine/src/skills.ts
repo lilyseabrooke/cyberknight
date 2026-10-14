@@ -11,7 +11,8 @@ export const SKILL_LABELS: Record<SkillId, string> = Object.fromEntries(SKILL_ID
 export function skillValue(h: Hero, id: SkillId): number {
   const base = Math.min(10, Math.sqrt((h.skills[id] ?? 0) / 2));
   const bonus = h.implants.reduce((a, i) => a + (IMPLANTS[i]?.skills?.[id] ?? 0), 0);
-  return Math.max(0, Math.min(12, base + bonus));
+  const held = h.weapon?.fx?.skill?.id === id ? h.weapon.fx.skill.bonus : 0;
+  return Math.max(0, Math.min(12, base + bonus + held));
 }
 
 export const skillLevel = (h: Hero, id: SkillId): number => Math.floor(skillValue(h, id));

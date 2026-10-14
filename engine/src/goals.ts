@@ -1,13 +1,15 @@
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
-import type { Ctx, Goal, GoalKind, Id, World, GameEvent } from './types';
+import type { Ctx, Goal, GoalKind, Id, Npc, Ware, World, GameEvent } from './types';
+import { armBest, edge, rating } from './weapons';
+import { wielded } from './arms';
 import type { EventData } from './events';
 import type { Trait } from './personality';
 import { heroPower, here } from './combat';
 import { flameOf } from './traits';
 import { buyGear, supplyUrge } from './supply';
 import { heatUrge } from './laylow';
-import { pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
+import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { MAX_IMPLANTS } from './content/implants';
 import {
@@ -15,7 +17,7 @@ import {
 } from './mind';
 import {
   SPEND, SITES, appeal, expectedEarn, fenceValue, isSafeSpot, isSold, keeperOf, knownSites, learnEarning, owns, routeTo, safeSpot, shopStock,
-  siteAt, totalHeat, wareCost, wealth, type Site,
+  siteAt, totalHeat, wareCost, wealth, FAME_ACTS, FAME_FAMILIES, expectedFame, learnFame, type Site,
 } from './plans';
 
 /**
@@ -64,6 +66,8 @@ const wareOf = (w: World, g: Goal) => (g.ware ? w.mind.wares[g.ware] : undefined
 const distTo = (w: World, to: Id): number => routeTo(w, w.hero.locationId, to)?.dist ?? 12;
 const money = (n: number): string => Math.round(n).toLocaleString('en-US');
 const hpFrac = (w: World): number => w.hero.hp / w.hero.maxHp;
+/** Who a weapon goal is meant for, if anyone in particular. */
+const foeOf = (w: World, g: Goal): Npc | undefined => (g.npc ? w.npcs[g.npc] : undefined);
 
 /** Loud things. A hero trying to be quiet does not do these. */
 const NOISY = new Set([
@@ -210,30 +214,32 @@ const KINDS: Record<GoalKind, Kind> = {
   // ------------------------------------------------------------------ weapon
   weapon: {
     decay: 0.003, stick: ['courage'], patience: 70,
-    label: () => 'find a better weapon',
+    label: (w, g) => (g.npc && w.npcs[g.npc] ? `find something that works on ${w.npcs[g.npc]!.name}` : 'find a better weapon'),
     check(w, g) {
-      return w.hero.weapon.power >= (g.amount ?? 99) ? { done: 'armed' } : null;
+      return armBest(w.hero, foeOf(w, g)) >= (g.amount ?? 99) ? { done: 'armed' } : null;
     },
     plan(c, g) {
       const { w } = c;
       if (!isLeaf(w, g)) return;
-      const cur = w.hero.weapon.power;
-      const known = Object.values(w.mind.wares).filter((x) => x.kind === 'weapon' && !isSold(w, x.id) && x.power > cur);
+      const foe = foeOf(w, g);
+      const cur = armBest(w.hero, foe);
+      const rate = (x: Ware) => (x.item ? rating(x.item, foe) : x.power);
+      const known = Object.values(w.mind.wares).filter((x) => x.kind === 'weapon' && !isSold(w, x.id) && rate(x) > cur + 0.5);
       if (!known.length) {
-        // She has stood in the shop and nothing in it beats what she's got.
-        if (Object.values(w.mind.wares).some((x) => x.kind === 'weapon')) end(c, g, 'drop', 'nothing_better');
+        // She has stood in the shop and nothing in it beats what she's got. The shelf turns over; give it time, or take one off somebody.
+        if (Object.values(w.mind.wares).some((x) => x.kind === 'weapon') && w.beat - g.born > 160) end(c, g, 'drop', 'nothing_better');
         return;
       }
-      let pick = known.filter((x) => x.power >= (g.amount ?? 99)).sort((a, b) => a.price - b.price)[0];
+      let pick = known.filter((x) => rate(x) >= (g.amount ?? 99)).sort((a, b) => a.price - b.price)[0];
       if (!pick) {
-        pick = [...known].sort((a, b) => b.power - a.power)[0]!;
-        g.amount = pick.power;
+        pick = [...known].sort((a, b) => rate(b) - rate(a))[0]!;
+        g.amount = rate(pick);
         w.mind.tally.revised++;
         c.emit('goal_revise', 'mixed', goalData(w, g, { variant: 'lower_sights', item: pick.name }));
       }
       adopt(c, { kind: 'buy', parent: g.id, ware: pick.id, why: g.why, desire: g.desire, variant: 'want_item', extra: { item: pick.name, price: wareCost(w, pick), cash: w.hero.cash, shop: w.locations[pick.loc]?.name ?? 'the shop', short: Math.max(0, wareCost(w, pick) - w.hero.cash) } });
     },
-    metric: (w) => w.hero.weapon.power * 10 + (Object.values(w.mind.wares).some((x) => x.kind === 'weapon') ? 1 : 0),
+    metric: (w, g) => armBest(w.hero, foeOf(w, g)) * 10 + (Object.values(w.mind.wares).some((x) => x.kind === 'weapon') ? 1 : 0),
     targets(w) {
       // If she hasn't seen what the gun shop has, that's where to look.
       if (Object.values(w.mind.wares).some((x) => x.kind === 'weapon')) return [];
@@ -243,7 +249,9 @@ const KINDS: Record<GoalKind, Kind> = {
       // Or take one off somebody who has it.
       const n = id ? w.npcs[id] : undefined;
       if (!n || (fam !== 'pickpocket' && fam !== 'challenge')) return 0;
-      const better = n.loadout.some((i) => i.kind === 'weapon' && i.power >= w.hero.weapon.power + 3);
+      const foe = foeOf(w, g);
+      const have = armBest(w.hero, foe);
+      const better = n.loadout.some((i) => i.kind === 'weapon' && rating(i, foe) >= have + 3);
       return better ? (fam === 'pickpocket' ? 2.2 : 1.0) : 0;
     },
   },
@@ -272,14 +280,14 @@ const KINDS: Record<GoalKind, Kind> = {
       // Is he stronger than she is? A sharper hero asks before she swings. Anyone asks after the first beating.
       const noise = (((g.id * 37) % 21) - 10) / 10 * (1 - h.competence) * 0.35;
       const est = n.power * (1 + noise);
-      const need = est - heroPower(w);
+      const need = est - heroPower(w) * edge(wielded(h, [n]), n);
       const foresight = 0.08 + 0.5 * h.competence + (g.setbacks > 0 ? 0.5 : 0);
       // Having just sized him up and not liked it, she is far more inclined to go and get ready.
       const sized = g.pursuit?.verdict === 'prep';
       if (((need > 0 && rng.chance(foresight)) || (sized && need > -3 && rng.chance(0.5))) && !cooling(w, `prep:${n.id}`)) {
-        const amount = Math.min(24, h.weapon.power + Math.max(2, Math.ceil(need) + 1));
-        if (amount > h.weapon.power) {
-          adopt(c, { kind: 'weapon', parent: g.id, amount, why: `${n.name} hits harder than she does`, desire: g.desire, variant: 'prep', extra: { npc: n.name } });
+        const amount = Math.min(30, armBest(h, n) + Math.max(2, Math.ceil(need) + 1));
+        if (amount > armBest(h, n)) {
+          adopt(c, { kind: 'weapon', parent: g.id, npc: n.id, amount, why: `${n.name} hits harder than she does`, desire: g.desire, variant: 'prep', extra: { npc: n.name } });
         }
       }
     },
@@ -297,6 +305,57 @@ const KINDS: Record<GoalKind, Kind> = {
       const loc = w.mind.lastSeen[n.id];
       return -(loc ? distTo(w, loc) : 12) + (1 - n.hp / n.maxHp) * 6 + (g.struck ? 2 : 0);
     },
+    targets: (w, g) => pursuitTargets(w, g) ?? [],
+    bias: (w, g, fam, id) => pursuitBias(w, g, fam, id),
+  },
+
+  // ------------------------------------------------------------------ fame
+  fame: {
+    decay: 0.0028, stick: ['fame', 'vanity'], patience: 60,
+    label: (_w, g) => `get famous (${g.amount ?? 0} fame)`,
+    check: (w, g) => (w.hero.fame >= (g.amount ?? 0) ? { done: 'famous' } : null),
+    plan() {},
+    metric: (w) => w.hero.fame,
+    targets(w, g) {
+      const chosen = pursuitTargets(w, g);
+      if (chosen) return chosen;
+      const spots = new Map<Id, number>();
+      for (const a of FAME_ACTS) {
+        const loc = a.venue(w);
+        if (loc) spots.set(loc, Math.max(spots.get(loc) ?? 0, Math.min(3, 1.2 * Math.log1p(expectedFame(w, a.fam) / 0.6))));
+      }
+      return [...spots].map(([loc, value]) => ({ loc, value }));
+    },
+    bias: (w, g, fam, id) => pursuitBias(w, g, fam, id),
+  },
+
+  // ------------------------------------------------------------------ dragons
+  dragon: {
+    decay: 0.0022, stick: ['courage', 'justice'], patience: 90,
+    label: (_w, g) => (g.mode === 'apollo' ? 'slay the Apollo' : 'hunt cyberdragons'),
+    check(w, g) {
+      if (w.npcs.dragon && !w.npcs.dragon.alive) return { done: 'apollo' };
+      if ((w.counters.dragon_kills ?? 0) >= (g.amount ?? 99)) return { done: 'slain' };
+      return null;
+    },
+    plan(c, g) {
+      const { w, rng } = c;
+      const h = w.hero;
+      if (!isLeaf(w, g)) return;
+      if (hpFrac(w) < 0.5) {
+        delay(c, g, 40, 'hurt');
+        return;
+      }
+      // Not ready for what she's after? A sharper head goes and gets something that works on dragons.
+      const apollo = w.npcs.dragon;
+      const ready = dragonReadiness(w, g);
+      if (ready < 0.5 && apollo && !cooling(w, 'prep:dragon') && rng.chance(0.02 + 0.08 * h.competence)) {
+        const have = armBest(h, apollo);
+        adopt(c, { kind: 'weapon', parent: g.id, npc: apollo.id, amount: Math.min(32, have + 3), why: 'dragons do not care for tire irons', desire: g.desire, variant: 'prep', extra: { npc: 'Dragon plating' } });
+        cool(w, 'prep:dragon', 60);
+      }
+    },
+    metric: (w, g) => (w.counters.dragon_kills ?? 0) * 10 + dragonReadiness(w, g) * 5,
     targets: (w, g) => pursuitTargets(w, g) ?? [],
     bias: (w, g, fam, id) => pursuitBias(w, g, fam, id),
   },
@@ -622,22 +681,40 @@ function formGoals(c: Ctx): void {
     adopt(c, { kind: 'cash', amount: h.cash + 120 + rng.int(0, 180), why: 'being broke is embarrassing', desire: 0.35 + 0.4 * t.greed, variant: 'rich' });
   }
 
-  // Nothing on her mind and not much in her pocket: a sharper head stops drifting and decides to do something about it.
-  if (!w.mind.goals.length && h.cash < 300 && rng.chance(0.03 + 0.08 * h.competence + 0.04 * Math.max(0, t.greed - 0.4))) {
-    adopt(c, { kind: 'cash', amount: h.cash + 120 + rng.int(0, 200), why: t.justice > 0.6 ? 'there is paper out on people who deserve it' : 'a hero needs a cushion', desire: 0.3 + 0.35 * t.greed, variant: 'rich' });
-  }
-
-  // The dragon is up there, and she is down here with a tire iron.
-  const dragon = w.npcs.dragon;
-  if (w.flags.dragon_known && dragon?.alive && !hasGoal(w, 'weapon') && heroPower(w) < dragon.power * 0.7 && rng.chance(0.004 + 0.01 * Math.max(0, t.courage + t.justice - 1))) {
-    const amount = Math.min(24, h.weapon.power + Math.ceil(dragon.power * 0.8 - heroPower(w)));
-    if (amount > h.weapon.power) adopt(c, { kind: 'weapon', amount, why: 'the dragon will not slay itself', desire: 0.4 + 0.3 * t.courage, variant: 'dragon' });
-  }
+  formIdle(c);
 
   // Because it's there.
   if (hpFrac(w) >= 0.6 && !hasGoal(w, 'heist') && rng.chance(0.0025 * heistAppetite(w))) {
     const sites = knownSites(w).filter((s) => !cooling(w, `heist:${s.loc}`));
     if (sites.length) startHeist(c, rng.pick(sites), null, 0.4 + 0.3 * t.thrill, 'because it is there', 'heist_idea');
+  }
+}
+
+/**
+ * Nothing on her mind. She's a cyberknight with three things she's actually about: getting famous, getting rich,
+ * and putting cyberdragons in the ground. She picks one.
+ */
+function formIdle(c: Ctx): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  const t = traits(w);
+  if (topLevel(w).length) return;
+  if (w.beat > 3 && !rng.chance(0.5)) return;
+  const opts = [
+    { k: 'fame' as const, wt: 0.5 + 1.6 * (t.fame - 0.5) + 0.6 * (t.vanity - 0.5) + 0.5 * (t.artistry - 0.5) + 0.4 * (t.impress - 0.5) },
+    { k: 'cash' as const, wt: 0.6 + 1.5 * (t.greed - 0.5) + (h.cash < 150 ? 0.6 : 0) },
+    { k: 'dragon' as const, wt: 0.35 + 1.4 * (t.courage - 0.5) + 0.9 * (t.justice - 0.5) + 0.6 * (t.thrill - 0.5) },
+  ].filter((o) => !hasGoal(w, o.k)).map((o) => ({ ...o, wt: Math.max(0.05, o.wt) }));
+  if (!opts.length) return;
+  const pick = rng.weighted(opts, (o) => o.wt).k;
+  if (pick === 'fame') {
+    const amount = Math.floor(h.fame) + rng.int(4, 8) + Math.floor(h.fame * 0.15);
+    adopt(c, { kind: 'fame', amount, why: t.vanity > 0.6 ? 'she has the face for it' : 'the city should know her name', desire: clamp(0.45 + 0.4 * t.fame, 0.3, 0.9), variant: 'idle_fame', extra: { amount } });
+  } else if (pick === 'cash') {
+    const amount = Math.round(h.cash + rng.int(150, 350) + 0.2 * h.cash);
+    adopt(c, { kind: 'cash', amount, why: h.cash < 150 ? 'being broke is embarrassing' : 'a hero needs a cushion', desire: clamp(0.4 + 0.45 * t.greed, 0.3, 0.9), variant: 'rich' });
+  } else {
+    adopt(c, { kind: 'dragon', amount: (w.counters.dragon_kills ?? 0) + 1, mode: 'flight', why: 'somebody has to', desire: clamp(0.45 + 0.4 * Math.max(t.courage, t.justice), 0.3, 0.9), variant: 'idle_dragon' });
   }
 }
 
@@ -777,9 +854,10 @@ export interface Before {
   wealth: number;
   hp: number;
   heat: number;
+  fame: number;
 }
 
-export const mindBefore = (w: World): Before => ({ wealth: wealth(w.hero), hp: w.hero.hp, heat: totalHeat(w) });
+export const mindBefore = (w: World): Before => ({ wealth: wealth(w.hero), hp: w.hero.hp, heat: totalHeat(w), fame: w.hero.fame });
 
 /** She's acted. What did that earn her, and did it get her anywhere? */
 export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events: GameEvent[]): void {
@@ -788,6 +866,10 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
   const h = w.hero;
   const [fam, id] = (pick?.key ?? '').split(':') as [string, string | undefined];
   if (pick && fam !== 'go' && fam) learnEarning(w, fam, wealth(h) - before.wealth);
+  if (pick && FAME_FAMILIES.has(fam)) {
+    learnFame(w, fam, h.fame - before.fame);
+    for (const g of m.goals) if (g.kind === 'fame' && g.pursuit?.act === fam) g.pursuit.arrived = undefined;
+  }
 
   const lost = events.some((e) => e.type === 'fight_end' && e.data.variant !== 'win');
   const looted = events.some((e) => LOOT.has(e.type) && e.outcome === 'good');

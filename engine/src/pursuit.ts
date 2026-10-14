@@ -4,9 +4,14 @@ import { heroPower, here, npcsAt } from './combat';
 import { hasBounty, knowsBounty, tippable } from './bounty';
 import { caution, discretion, exposure, lawShare } from './discretion';
 import { oddJobReady } from './hustles';
-import { routeTo } from './plans';
+import { FAME_ACTS, FAME_FAMILIES, expectedFame, routeTo } from './plans';
+import { traitBias } from './traits';
+import { spawnNpc } from './content/archetypes';
+import { Rng } from './rng';
 import { sneakBonus } from './extras';
 import { reactionWeights } from './witness';
+import { edge } from './weapons';
+import { wielded } from './arms';
 
 /**
  * Decide what to do, then look for the chance to do it.
@@ -54,7 +59,7 @@ export function winOdds(w: World, g: Goal, n: Npc): number {
     power += p * b.power * (1 + noise);
     hp += p * Math.max(1, b.hp);
   }
-  const rounds = hp / Math.max(1, 0.72 * heroPower(w));
+  const rounds = hp / Math.max(1, 0.72 * heroPower(w) * edge(wielded(h, [n]), n));
   const perRound = 0.8 * Math.max(1, power * 0.4 - (h.armor?.power ?? 0));
   const ratio = (rounds * perRound) / Math.max(1, h.hp * 0.8);
   const losses = w.counters[`lost_to_${n.id}`] ?? 0;
@@ -132,6 +137,8 @@ const fresh = (g: Goal, plan: Pursuit['plan'], npc: Id | undefined, w: World): P
 export function pursuitTick(c: Ctx, g: Goal): void {
   if (g.kind === 'kill') huntTick(c, g);
   else if (g.kind === 'cash') cashTick(c, g);
+  else if (g.kind === 'fame') fameTick(c, g);
+  else if (g.kind === 'dragon') dragonTick(c, g);
 }
 
 /** Where is the thing she's after, and is she there? Updates phase; returns whether it turned up. */
@@ -255,6 +262,22 @@ function cashTick(c: Ctx, g: Goal): void {
 export function pursuitTargets(w: World, g: Goal): { loc: Id; value: number }[] | null {
   const p = g.pursuit;
   if (!p) return null;
+  if (g.kind === 'fame') {
+    const venue = p.act ? FAME_ACTS.find((a) => a.fam === p.act)?.venue(w) : null;
+    return venue ? [{ loc: venue, value: 3.0 }] : null;
+  }
+  if (g.kind === 'dragon') {
+    if (g.mode === 'apollo') return w.npcs.dragon?.alive && w.flags.dragon_known ? [{ loc: w.npcs.dragon.locationId, value: 3.0 }] : null;
+    // Flights come to her, wherever it is open sky. She goes and looks.
+    const spots = Object.entries(w.locations).filter(([id, l]) => l.outdoors && id !== 'overpass' && (l.visits ?? 0) > 0);
+    let best: { loc: Id; d: number } | null = null;
+    for (const [id] of spots) {
+      if (id === w.hero.locationId) return [{ loc: id, value: 2.0 }];
+      const r = routeTo(w, w.hero.locationId, id);
+      if (r && (!best || r.dist < best.d)) best = { loc: id, d: r.dist };
+    }
+    return best ? [{ loc: best.loc, value: 2.0 }] : null;
+  }
   const n = p.npc ? w.npcs[p.npc] : undefined;
   if (!n) return null;
   const loc = where(w, n);
@@ -276,6 +299,23 @@ export function pursuitTargets(w: World, g: Goal): { loc: Id; value: number }[] 
 /** What the pursuit wants her to do about the person in front of her. Added on top of the goal's own bias. */
 export function pursuitBias(w: World, g: Goal, fam: string, id: string | undefined): number {
   const p = g.pursuit;
+  if (g.kind === 'fame') {
+    if (!FAME_FAMILIES.has(fam)) return 0;
+    const exp = 1.4 * Math.log1p(expectedFame(w, fam) / 0.6);
+    return exp + (p?.act === fam ? 3.5 : 0);
+  }
+  if (g.kind === 'dragon') {
+    const v = p?.verdict;
+    const here0 = w.locations[w.hero.locationId];
+    if (fam === 'scan_skies') return p?.phase === 'search' && g.mode !== 'apollo' ? 4 : 0;
+    if (fam === 'chat' && !w.flags.dragon_known && id && w.npcs[id]?.tags.includes('rumor')) return 3;
+    if (p?.phase !== 'assess') return fam === 'film_flight' ? 0.5 : 0;
+    if (fam === 'engage_flight' || fam === 'challenge_dragon') return v === 'take' ? 5 : 0;
+    if (fam === 'hide_flight') return v === 'take' ? 0 : 2.5;
+    if (fam === 'film_flight') return v === 'take' ? 1.5 : 0.3;
+    void here0;
+    return 0;
+  }
   if (!p || !id || id !== p.npc) return 0;
   const fight = fam === 'challenge' || fam === 'sweep';
   const quiet = fam === 'lure' || fam === 'tail';
@@ -294,3 +334,142 @@ export function pursuitBias(w: World, g: Goal, fam: string, id: string | undefin
 /** Whether the pursuit is doing the steering for cash, so the generic scramble-for-money pull should back off. */
 export const pursuing = (g: Goal): boolean => !!g.pursuit && g.pursuit.plan !== 'hunt';
 
+
+// ===================================================================== fame: pick an act, then find the stage
+
+interface Gig {
+  fam: string;
+  loc: Id;
+  eff: number;
+}
+
+function fameOptions(w: World, blocked: Record<string, number>): Gig[] {
+  const out: Gig[] = [];
+  for (const a of FAME_ACTS) {
+    if ((blocked[a.fam] ?? 0) > w.beat) continue;
+    const loc = a.venue(w);
+    if (!loc) continue;
+    const taste = Math.exp(0.35 * traitBias(w, { key: a.fam } as never));
+    out.push({ fam: a.fam, loc, eff: (expectedFame(w, a.fam) * taste) / (2 + 2 * dist(w, loc)) });
+  }
+  return out.sort((a, b) => b.eff - a.eff);
+}
+
+function fameTick(c: Ctx, g: Goal): void {
+  const { w, rng } = c;
+  if (w.hero.fame >= (g.amount ?? 0)) return;
+  let p = g.pursuit;
+  const blocked = p?.passed ?? {};
+  if (p?.act && ((blocked[p.act] ?? 0) > w.beat)) p = undefined;
+  const review = !p || w.beat - p.since >= 10;
+  if (review) {
+    const opts = fameOptions(w, blocked);
+    if (opts.length) {
+      const exp = 1 + 2 * w.hero.competence;
+      const cur = p?.act ? opts.find((o) => o.fam === p!.act) : undefined;
+      const pick = !p || !cur || opts[0]!.eff > cur.eff * 1.5 ? rng.weighted(opts, (o) => Math.pow(o.eff, exp)) : cur;
+      if (!p || pick.fam !== p.act) {
+        p = g.pursuit = { plan: 'perform', phase: 'search', since: w.beat, passed: blocked, searched: [], act: pick.fam };
+        c.emit('pursuit', 'mixed', { variant: 'perform_pick', act: pick.fam, place: w.locations[pick.loc]?.name ?? 'around', fame: Math.floor(w.hero.fame), goal: 'fame', options: opts.length });
+      } else {
+        p.since = w.beat;
+      }
+    } else {
+      p = undefined;
+    }
+  }
+  g.pursuit = p;
+  if (!p?.act) return;
+  const act = FAME_ACTS.find((a) => a.fam === p!.act)!;
+  const venue = act.venue(w);
+  if (!venue) return;
+  if (w.hero.locationId === venue) {
+    p.phase = 'act';
+    p.arrived ??= w.beat;
+    // Got to the stage and couldn't go on: it's not happening tonight.
+    if (w.beat - p.arrived > 5) {
+      p.passed[p.act] = w.beat + 60;
+      c.emit('pursuit', 'bad', { variant: 'perform_blocked', act: p.act, goal: 'fame' });
+      g.pursuit = undefined;
+    }
+  } else {
+    p.phase = 'approach';
+    p.arrived = undefined;
+  }
+}
+
+// ===================================================================== dragons: look for them, size them up
+
+const proxies = new Map<string, Npc>();
+/** What an Artemis is like, for judging whether she's ready, when there isn't one in front of her. */
+function proxyFoe(kind: string): Npc {
+  let n = proxies.get(kind);
+  if (!n) {
+    n = spawnNpc(new Rng(`proxy:${kind}`), `proxy_${kind}`, kind, '_gone');
+    proxies.set(kind, n);
+  }
+  return n;
+}
+
+/** The fight maths for a group: all of them at once. */
+function groupOdds(w: World, g: Goal, foes: Npc[]): number {
+  const h = w.hero;
+  const power = foes.reduce((a, n) => a + n.power, 0);
+  const hp = foes.reduce((a, n) => a + Math.max(1, n.hp), 0);
+  const lead = foes[0]!;
+  const rounds = hp / Math.max(1, 0.72 * heroPower(w) * edge(wielded(h, foes), lead));
+  const perRound = 0.8 * Math.max(1, power * 0.4 - (h.armor?.power ?? 0));
+  const ratio = (rounds * perRound) / Math.max(1, h.hp * 0.8);
+  return clamp(1.15 - 0.75 * ratio, 0.02, 0.95);
+}
+
+/** How ready she is for the next dragon, 0..1. */
+export function dragonReadiness(w: World, g: Goal): number {
+  const apollo = w.npcs.dragon;
+  if (g.mode === 'apollo' && apollo?.alive) return groupOdds(w, g, [apollo]) * (w.flags.dragon_weak ? 1 : 0.8);
+  return groupOdds(w, g, [proxyFoe('artemis')]);
+}
+
+function dragonTick(c: Ctx, g: Goal): void {
+  const { w } = c;
+  const h = w.hero;
+  const p = (g.pursuit ??= { plan: 'hunt', phase: 'search', since: w.beat, passed: {}, searched: [] });
+  const t = traits(w);
+  const bar = clamp(0.5 - 0.25 * (t.reckless - 0.5) - 0.15 * (t.courage - 0.5), 0.3, 0.65);
+  // Ready for the big one? Then she goes for the big one.
+  const apollo = w.npcs.dragon;
+  if (g.mode !== 'apollo' && apollo?.alive && w.flags.dragon_known && groupOdds(w, g, [apollo]) * (w.flags.dragon_weak ? 1 : 0.8) >= bar + 0.1) {
+    g.mode = 'apollo';
+    c.emit('pursuit', 'mixed', { variant: 'dragon_apollo', npc: apollo.name, goal: 'dragon' });
+  }
+  if (g.mode === 'apollo') {
+    if (!apollo?.alive) return;
+    if (h.locationId === apollo.locationId) {
+      p.phase = 'assess';
+      const v: Verdict = hpFrac(w) < 0.8 ? 'wait' : readyFor(w, g, [apollo], bar) ? 'take' : 'prep';
+      if (v !== p.verdict) {
+        p.verdict = v;
+        c.emit('pursuit', v === 'take' ? 'mixed' : 'bad', { variant: `dragon_sizeup_${v}`, npc: apollo.name, odds: Math.round(groupOdds(w, g, [apollo]) * 100), goal: 'dragon' });
+      }
+    } else {
+      p.phase = w.flags.dragon_known ? 'approach' : 'search';
+      p.verdict = undefined;
+    }
+    return;
+  }
+  const f = w.flight;
+  const foes = f && f.locationId === h.locationId && !f.hidden && !f.noticed ? f.ids.map((id) => w.npcs[id]).filter((n): n is Npc => !!n && n.alive) : [];
+  if (foes.length) {
+    p.phase = 'assess';
+    const v: Verdict = hpFrac(w) < 0.7 ? 'wait' : readyFor(w, g, foes, bar) ? 'take' : 'prep';
+    if (v !== p.verdict) {
+      p.verdict = v;
+      c.emit('pursuit', v === 'take' ? 'mixed' : 'bad', { variant: `dragon_sizeup_${v}`, npc: foes.map((n) => n.name).join(' and '), odds: Math.round(groupOdds(w, g, foes) * 100), count: foes.length, kind: f!.kind, goal: 'dragon' });
+    }
+  } else {
+    p.phase = 'search';
+    p.verdict = undefined;
+  }
+}
+
+const readyFor = (w: World, g: Goal, foes: Npc[], bar: number): boolean => groupOdds(w, g, foes) >= bar;
