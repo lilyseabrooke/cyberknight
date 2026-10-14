@@ -18,6 +18,10 @@ import { goalCandidates } from './goals';
 import { discretionCandidates } from './discretion';
 import { hustleCandidates } from './hustles';
 import { knowsBounty, tippable } from './bounty';
+import { healUrge } from './urges';
+import { laylowCandidates } from './laylow';
+import { stageCandidates } from './stage';
+import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -60,7 +64,7 @@ export function gather(w: World): Candidate[] {
     if (n.tags.includes('romanceable')) {
       out.push({ key: `flirt:${n.id}`, drives: { lust: 1.0, curiosity: 0.1 }, run: (c) => flirt(c, n) });
       if (n.affinity >= 12 || (h.drunk >= 2 && n.affinity >= 0)) {
-        out.push({ key: `kiss:${n.id}`, drives: { lust: 1.5 }, bonus: n.affinity / 80, run: (c) => kiss(c, n) });
+        out.push({ key: `kiss:${n.id}`, drives: { lust: 1.5 }, bonus: kissBonus(w, n), run: (c) => kiss(c, n) });
       }
     }
     if (!n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
@@ -107,7 +111,7 @@ export function gather(w: World): Candidate[] {
     if (n.tags.includes('doc') && h.cash >= DOC_FEE[0] && (h.hp < h.maxHp * 0.85 || h.injuries.length)) {
       out.push({
         key: 'get_patched', drives: { curiosity: 0.15 }, smart: 1.3,
-        bonus: (1 - h.hp / h.maxHp) * 2.4 + h.injuries.length * 0.8, run: (c) => getPatched(c, n),
+        bonus: 0.9 * healUrge(h) + h.injuries.length * 0.8, run: (c) => getPatched(c, n),
       });
     }
     if (n.tags.includes('dealer') && h.cash >= 20) {
@@ -152,6 +156,9 @@ export function gather(w: World): Candidate[] {
   out.push(...dragonCandidates(w));
   out.push(...hobbyCandidates(w));
   out.push(...graffitiCandidates(w));
+  out.push(...romanceCandidates(w));
+  out.push(...laylowCandidates(w));
+  out.push(...stageCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...discretionCandidates(w));
   out.push(...hustleCandidates(w));
@@ -192,6 +199,7 @@ export function gather(w: World): Candidate[] {
 
 function chat(c: Ctx, n: Npc): void {
   const { w, rng } = c;
+  if (n.tags.includes('romanceable')) kindle(w.hero, 0.02);
   const options: string[] = [];
   if (!w.flags.dragon_known) options.push('dragon');
   if (w.locations.halo_alley!.exits.some((e) => e.hidden)) options.push('hatch');
@@ -216,6 +224,7 @@ function chat(c: Ctx, n: Npc): void {
     if (what === 'bounty') {
       const wanted = rng.pick(tips);
       (w.mind.bounties ??= {})[wanted.id] = 'tip';
+      w.mind.lastSeen[wanted.id] = w.mind.lastSeen[wanted.id] ?? wanted.locationId;
       n.affinity += 3;
       c.emit('chat', 'good', { variant: 'rumor_bounty', npc: n.name, target: wanted.name, role: wanted.role, amount: wanted.bounty!.amount, place: w.locations[w.mind.lastSeen[wanted.id] ?? wanted.locationId]?.name ?? 'around' });
       return;
@@ -235,6 +244,7 @@ function flirt(c: Ctx, n: Npc): void {
   const h = w.hero;
   const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08, 0.05, 0.9);
   train(c, 'romance', 1);
+  kindle(h, 0.05);
   if (rng.chance(p)) {
     n.affinity += 16;
     train(c, 'romance', 1);
@@ -254,6 +264,7 @@ function flirt(c: Ctx, n: Npc): void {
 
 function kiss(c: Ctx, n: Npc): void {
   const { w, rng } = c;
+  kindle(w.hero, 0.07);
   if (!rng.chance(0.78)) {
     n.affinity -= 6;
     c.emit('kiss', 'bad', { variant: 'rejected', npc: n.name });
@@ -262,19 +273,10 @@ function kiss(c: Ctx, n: Npc): void {
   n.affinity += 20;
   train(c, 'romance', 2);
   w.flags[`kissed:${n.id}`] = true;
+  w.counters[`kisses_${n.id}`] = kissesWith(w, n.id) + 1;
   remember(n, 'kissed Blackbird');
-  c.emit('kiss', 'good', { variant: 'kiss', npc: n.name });
-  // The Sims rule: somebody saw that.
-  const rival = here(w).find(
-    (r) => r.id !== n.id && r.tags.includes('romanceable') && !r.hostile && (w.flags[`kissed:${r.id}`] || r.affinity >= 15),
-  );
-  if (rival) {
-    rival.affinity -= 30;
-    remember(rival, 'watched Blackbird kiss someone else');
-    const fights = rival.tags.includes('jealous') ? 0.9 : 0.4;
-    c.emit('jealous', 'bad', { variant: rng.chance(fights) ? 'fight' : 'sulk', npc: rival.name, npc2: n.name });
-    if (rng.chance(fights)) fight(c, [rival], { cause: `jealousy over ${n.name}` });
-  }
+  c.emit('kiss', 'good', { variant: 'kiss', npc: n.name, times: kissesWith(w, n.id) });
+  jealousy(c, n);
 }
 
 function pickpocket(c: Ctx, n: Npc): void {

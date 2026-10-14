@@ -187,6 +187,15 @@ Things for the hero AI to plan around. All state is JSON on `World`; all of it i
 - **Bounties (`bounty.ts`).** Some NPCs (gangers, dealers, hackers, scrappers, a few regulars; each night has at least one posted and one hidden) carry NPD paper (`Npc.bounty`). Hitting someone with a bounty adds **no police heat** (`Witnessing.warranted`: also skips the bodies heat), but witnesses still react, a drone still tells Atlas, the victim's crew still hears, and Atlas's own premises don't care about NPD paper. Winning against a bountied target pays it out. She only acts on what she knows (`Mind.bounties`): posted bounties are read by her optics on sight (nothing if she has `fried_optics`); hidden ones need the **bounty-grade scanner** implant (`bounty_scan`) or a tip from someone who talks (prophets, dealers, fixers). A known bounty makes a target more attractive and a crowd far less of a worry (a fifth of the usual caution), never none.
 - **Balance.** Police heat is deliberately steep: going around flatlining randos is not a viable strategy. With scarce healing and real heat, the current (pre-strategy) Blackbird dies in roughly 15-80 beats depending on competence, and nobody reaches the dragon. That is the gap the strategy layer is for. Tune with `npm run sim`.
 
+### Romance and appetite (sixth pass)
+
+Kissing used to be a runaway loop (the desire to kiss grew without limit as affinity grew, and some nights were hundreds of kisses). It is now the first step of a short arc with a natural limit.
+
+- **Kiss fatigue.** The desire to kiss someone *again* is capped by affection and drops with every kiss she's already had with them. Kisses lead to **making a move**.
+- **Making a move** (`engine/src/romance.ts`). Available after a kiss (or when she is drunk and keen). It can be declined (sometimes with a slap). If accepted, the venue is decided by **wildness** (thrill, mischief, impulsive, reckless, plus drink): wild and drunk heroes do it **in public** (the bar's owner tosses them out, the police hear about it outdoors, a hero who likes an audience gets famous for it); otherwise it's **somewhere private**, a spot chosen from where she is (a stall, the fridge, the backroom couch, the green room, a VIP booth, the alley). Private spots are **tolerated** (low risk) or **forbidden** (the kitchen, backroom, green room, crawlspace: high risk), with cameras and outdoors adding risk. If she's **caught**, whoever owns the place reacts (staff, the band, club security, an NPD officer, a maintenance bot, or a drone) and the evening is cut short. Sometimes the other person takes her **back to their place** (a corporate penthouse, a capsule hab, a walk-up): it **moves her there**, and the walk can get her **jumped** on the way. After the evening: a warm morning, a phone number, a wallet that's lighter, or an interruption.
+- **Satiety** (`Hero.satiety`, 0..1). A move that lands leaves her sated; it suppresses flirting, kissing and moves (and crush goals) and **decays slowly** (about 220 beats at neutral), faster for showboats, thrill-seekers and drinkers, slower for hopeless romantics. **Amorous company speeds the decay**: flirting, kissing, chatting up girls, pool dates, serving dinner and dancing all burn through it.
+- **Healing is a steep urge** (`engine/src/urges.ts`). How badly she wants healing rises sharply as HP falls (about 0.6 at 70% HP, 1.8 at 50%, 5 at 20%) and is **flattened by drink**: a wasted Blackbird thinks she's fine. It drives buying med packs, the doc, using packs and heading to the chem-mart, so money goals no longer outcompete a hurt hero at the pharmacy counter. A route hop from a goal also no longer drags her out of a shop in the middle of a pressing errand.
+
 ### The dragon family
 
 Cyberdragons are Atlas "protection" platforms, in three models that behave differently:
@@ -225,3 +234,113 @@ A flight gives her a few beats to react: **engage**, **hide**, **gawk**, or **fi
 - Exact beat pacing curve and real-time run length per stage.
 - Cipher cost tuning (1 word = 1 Cipher is fixed).
 - Whether to cap daily Cipher conversion (currently: no).
+
+## Heat and lying low (seventh pass)
+
+Police response now scales with NPD heat instead of jumping straight to riot gear (`engine/src/laylow.ts`).
+
+- **Heat 1-3:** only drones. `npd_drone` is a weak, non-lethal patrol unit (stun nets: losing means being tossed, not killed). One drone at heat 1-2, two from 3.
+- **Heat 4+:** officers (two, three from 6, plus a drone sometimes); a sergeant joins at 8. Officers are still lethal, so a hot night is still rough.
+- Only outdoors. Inside a hideout nothing finds her.
+
+Heat sets a **heat urge** (`heatUrge`): about 0.6 at heat 1, 2.4 at 3, 5 at 5, 10 at 8. Recklessness, thrill-seeking and drunkenness shrink it, because she thinks she's fine.
+
+- **Lay low** (`lay_low:here`): offered in a hideout (restroom, basement arcade, maintenance crawlspace, any home). Each beat there has a good chance to shave a point off NPD and Atlas heat. This is the safe default.
+- **Head for cover** (`heatBias`): `go:` candidates are pulled towards the nearest hideout and away from leaving one, and crime and noisy families are pushed down while hot.
+- **Bribe a cop** (`bribe_cop:street`): street only, heat 2+. Cost rises with heat and with every bribe she has already made (cops learn her rate); she balks at spending most of her cash. A wrong cop makes it worse, and sometimes a fight.
+- **Fix the record** (`fix_record:madame`): Madame Zero, expensive, reliable, knocks 3-5 off.
+- **Frame someone** (`frame:<id>`): pins it on a bystander, who is pulled off the board for 70 beats. Prefers bad guys and avoids friends. Gets harder with every frame-up and botches into a fight.
+
+No cooldowns: price inflation, finite cash and a finite supply of fall guys do the limiting.
+
+## Pursuits: decide what to do, then find the chance (eighth pass)
+
+Goals used to steer her by place: "this room looks valuable", then work out something to do there. Now a leaf goal that needs an opportunity runs a **pursuit** (`engine/src/pursuit.ts`), stored on the goal as `g.pursuit`:
+
+1. **Pick a specific thing.**
+   - Kill: the target.
+   - Cash: she weighs every option she knows about (a known bounty, a staff member who could use a hand) by expected value over time, with personality in the sum (courage, justice and thrill favour paper; honesty and kindness favour honest work). Sharper heads pick more greedily; hasty ones more randomly. With no options she asks a tipster, and with none of those the goal's generic pull applies.
+2. **Search.** `search` (don't know where), `approach` (on the way; the route is a committed target and not a sum of every place that looks valuable), `assess` (he is in the room), `act`. A trail gone cold is dropped from memory and she looks somewhere new.
+3. **Size him up** (`assessFoe`). Odds come from the real fight maths (rounds to put him down against what he and his friends do to her meanwhile; calibrated against actual outcomes), her memory of who has beaten her, and her competence (noisier reads when low). The verdict:
+   - `take`: go ahead.
+   - `lure`: too many eyes; try to get him somewhere quiet (`lure` and `tail` now also serve bounty hunts).
+   - `wait`: she's hurt.
+   - `prep`: too much for her. Kill goals go and get a better weapon; a bounty is written off for ~90 beats and she picks another.
+4. **Bias.** The verdict decides which actions on the target are boosted. While a particular score is in mind, the generic scramble-for-money pull is cut to about a third.
+
+Related changes: goals count the room she's already in (so she doesn't leave one that holds what she wants for one that holds a bit more); goal pulls fade while she's hot; an idle, broke hero decides to do something about it sooner; NPD drones can't kill her on the street.
+
+**Why goals were not getting finished (found after the first pursuit pass).** In "assess / take" she had decided she could beat him and he was in the room, yet she struck on only 1% of those beats: the discretion system's reluctance to fight in view of people (about 8 points on average) cancelled the goal's 4.5 push, so she stood about chatting. A decision to act is now final: with a `take` verdict the pursuit gives back her reluctance. If the room is too watched to do it quietly she waits for it to thin out or for a quieter spot (the `lure` verdict, up to ~18 beats) and then goes loud. Kill goals completed per night went from about 1.7 to 2.8 and gave-up goals from 1.6 to 1.0.
+
+## Procedural weapons (ninth pass)
+
+Weapons are rolled, not listed (`engine/src/weapons.ts`). A weapon is a **class** (knife, blade, club, whip, gauntlet, pistol, SMG, shotgun, rifle, energy), a **tier** (how good it is for its price), and up to three **traits** bought out of its base damage:
+
+| trait | what it does |
+|---|---|
+| crit chance / multiplier | bigger hits now and then |
+| armor-piercing | takes points off the target's plating (foes' armor items now soak damage: half their armor value per hit) |
+| noise | 0 is silent, 1 is a gunshot. Noisy weapons make witnesses notice and add police heat; quiet ones don't |
+| armor | extra armor while it is in her hand |
+| vs-type | damage multiplier against robots, cops, gangers, corps, augmented people, bosses or dragons |
+| stun | chance per hit that the target loses its next attack |
+| burn | chance per hit that the target keeps taking damage for a few rounds |
+| skill bonus | +1 to +3 on a skill (melee, marksmanship, sneak...) while it is wielded |
+
+Weight is recorded for when encumbrance exists. The named classics (`ITEMS`) still exist; they get plain defaults. About a quarter of what people carry is still the classic, the rest are rolled variants of the same kind and tier, so loot is procedural too.
+
+`rating(item, foe?)` puts a weapon on one scale (base damage plus what its traits are worth; against a particular foe the relevant traits count in full). Everything that used to compare `weapon.power` now compares ratings: equipping, shopping, the "better weapon" goal, prep for a fight, win odds.
+
+**The shelf.** The gunsmith has a generated shelf per night (`world.arsenal`), turning over every 90 beats (some stock "sold to somebody else", which she notices if she had her eye on it). Each restock includes a step up on whatever she is holding, a sidegrade at about the same tier with a trait she lacks (aimed at her current quarry's kind, when she has one) and some random stock. So there is always something better in some regard, and upgrades are incremental.
+
+**In a fight** she picks, from what she is carrying and has ammo for, the weapon that suits the enemy in front of her (her usual one gets the benefit of the doubt), and the log says so when she swaps or when a crit, stun or burn lands.
+
+## Idle goals: fame, money, dragons
+
+She is meant to be about three things: **getting famous, getting rich, killing cyberdragons.** When she has no goal at all (including at the start of the night) she picks one of the three, weighted by personality (fame, vanity, artistry; greed and being broke; courage, justice, thrill). Beats with no goal at all fell from about 31% to about 1%.
+
+- **Fame** (`fame` goal): the pursuit picks an act (karaoke, DJ set, gig, billboard, graffiti, busk, parkour) by what she expects it to earn her fame, learned from experience, and her taste for it; goes to its venue and does it. If she gets there and can't go on she writes it off for a while and tries something else. Saturation does the limiting: repeated acts earn less, and what she has learned they are worth falls with them.
+- **Money** is the `cash` goal with the bounty and odd-job pursuits already described.
+- **Dragons** (`dragon` goal): flights can't be found, only waited for, so she **scans the skies** outdoors (each scan makes a flight likelier; a beat spent looking). When one arrives she sizes it up with the fight maths and either engages, hides, or goes to get something that works on dragons (a weapon goal aimed at the Apollo, so vs-dragon and vs-boss traits count). A scout's warning is a head start when she is ready, not a reason to hide. When she thinks she can take the Apollo she switches to that and goes to the Overpass.
+
+## Crowds, callings, and more to do with a voice (tenth pass)
+
+**Crowd fatigue** (`engine/src/stage.ts`). Every performing act wears out the crowd *for that skill* at that place (a bit less for her other skills there), and it recovers slowly with time (about 250 beats from fully worn out). Fame from an act is scaled by the stage (clubs 1.5, bars 1, the street 0.8) and by how fresh the crowd is; tips shrink too; and a worn-out crowd puts her off doing it again right there (a sharper head notices sooner). The way out is a different venue, a different act, or a bigger stage. No cooldowns: it's the audience that is finite. Billboard hijacks and graffiti keep their own saturation.
+
+**Callings.** A real showing (a big win from someone with at least some skill in it, or a level in the skill) can light her up. Her chance depends on artistry, fame, impulsiveness and how good she already is. While it lasts (`mind.passion`: a skill and a level, cooling with time, fed by good showings and starved by flops):
+
+- every act built on that skill appeals to her (+2.2 x level);
+- her fame goal becomes a calling ("become a superstar vocalist", "become a guitar legend", ...), or one is formed;
+- the fame pursuit weights acts of that skill threefold, and everything else down, so the run has a shape; the venue freshness and stage terms pull her to somewhere new when a crowd is spent;
+- practice breeds appetite: act choice also scales with her level in the skill.
+
+**New acts** (all with their own odds, skills and consequences; none usable on someone she's already close to: world-state limits, not timers):
+
+| act | skill | where / who |
+|---|---|---|
+| sing on the street (`sing_busk`) | singing | anywhere outdoors, no instrument needed |
+| crash a gig (`crash_gig`) | singing | the DJ at the Neon Pharaoh or the band in the green room; can end with her thrown out |
+| serenade someone (`serenade_girl`) | singing, romance | a romanceable girl in the room; builds affinity, stirs her appetite |
+| guitar duel (`guitar_duel`) | guitar | band members, with a guitar to hand |
+| set for the kids (`backlot_set`) | DJing | the lot behind the club, street kids present |
+| beat battle (`beat_battle`) | beatboxing | rowdy regulars |
+
+Known thin spots: guitar and DJ branches are gated (she has to find a guitar, kids have to be around), and art/other skills have one or two acts each. The framework (`ACT_SKILL`, `FAME_ACTS`, `CALLING`) takes new acts without other changes.
+
+## Hustles without cooldowns (eleventh pass)
+
+The ten hustles used to be throttled by timers (18 to 140 beats since she last did it to that person). Each is now limited by something that is true about the world (`engine/src/hustles.ts`, `tickHustles` once a beat):
+
+| hustle | what limits it |
+|---|---|
+| odd jobs | staff have a stock of chores (2 or 3). Doing one uses it up. A place makes more work the busier it is, so the Halo on a crowded night has plenty and a quiet shop almost none |
+| security shift | open shifts on the club door (1, max 2); a shift fills one, and new ones open while the club is crowded |
+| courier run | a fixer or dealer has parcels waiting; shipments bring more slowly; nobody hands her a package while the NPD is on her (heat 4+) |
+| bodyguard gig | only for someone who actually needs an escort: patrons and girls come to need one at random as the night goes on, and the need goes when she does it |
+| burglary | the house has to have something in it (cash 60+). She takes it, the victim is poorer, and she only robs a place once |
+| protection | the shopkeeper's till empties as she takes from it and fills from takings (faster in a busy shop) |
+| scam / fake goods | a mark falls for it once. The room also hears about it (`location.wary`), which makes the next one harder and, after a few, not worth trying; that fades |
+| fortune-telling | the same person pays half as much the second time and won't pay a third time; the room tires of it |
+| odd requests | only people who actually have a favour to ask, which they come to have at random |
+
+Because nothing is on a clock, she can do two chores for the same boss back to back if there are two to do. Competent heroes do fewer odd jobs per night than before (about 24 versus 32) and hustle income fell a third; goals and deaths over 300 nights are the same.

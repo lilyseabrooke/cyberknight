@@ -779,8 +779,8 @@ describe('resources and consequences', () => {
     });
 
     it('melee weapons need none', () => {
-      const { w } = duelWith('cleaver', {}, 'a2');
-      expect(Object.values(w.hero.ammo).every((n) => n === 0)).toBe(true);
+      const { events } = duelWith('cleaver', {}, 'a2');
+      expect(Number(events.find((e) => e.type === 'fight_end')!.data.ammoSpent)).toBe(0);
     });
 
     it('a dry gun is no gun: she falls back to what still works, and says so', () => {

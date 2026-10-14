@@ -1,7 +1,8 @@
 import type { Hero, Id, Item, Npc, Ware, World } from './types';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { ITEMS } from './content/items';
-import { SHOP_ARMOR, SHOP_WEAPONS, gearPrice } from './content/shops';
+import { GEAR_MARKUP, SHOP_ARMOR, gearPrice } from './content/shops';
+import { armBest, rating, shelfPrice } from './weapons';
 import { price } from './supply';
 import { skillLevel } from './skills';
 
@@ -93,10 +94,14 @@ export function shopStock(w: World): Ware[] {
   const h = w.hero;
   const out: Ware[] = [];
   if (h.locationId === 'gun_shop' && present(w, w.npcs.gunsmith)) {
-    for (const id of [...SHOP_WEAPONS, ...SHOP_ARMOR]) {
+    for (const it of Object.values(w.arsenal ?? {})) {
+      if (isSold(w, it.id)) continue;
+      out.push({ id: it.id, name: it.name, kind: 'weapon', loc: 'gun_shop', price: shelfPrice(it, GEAR_MARKUP), power: Math.round(rating(it) * 10) / 10, seen: w.beat, item: it });
+    }
+    for (const id of SHOP_ARMOR) {
       const it = ITEMS[id]!;
       if (isSold(w, id)) continue;
-      out.push({ id, name: it.name, kind: it.kind === 'armor' ? 'armor' : 'weapon', loc: 'gun_shop', price: gearPrice(id), power: it.power, seen: w.beat });
+      out.push({ id, name: it.name, kind: 'armor', loc: 'gun_shop', price: gearPrice(id), power: it.power, seen: w.beat });
     }
   }
   if (h.locationId === 'halo_restroom' && present(w, w.npcs.doc) && h.implants.length < MAX_IMPLANTS) {
@@ -121,7 +126,9 @@ export function owns(w: World, ware: Ware): boolean {
   const h = w.hero;
   if (ware.kind === 'implant') return h.implants.includes(ware.id);
   if (ware.kind === 'armor') return (h.armor?.power ?? 0) >= ware.power;
-  return h.weapon.power >= ware.power || h.inventory.some((i: Item) => i.id === ware.id);
+  if (h.weapon.id === ware.id || h.inventory.some((i: Item) => i.id === ware.id)) return true;
+  // Something at least as good, and nothing about this one that would do the job in front of her better.
+  return rating(h.weapon) >= ware.power && !situationalEdge(w, ware);
 }
 
 /** How much she'd want it, ~0..3. Traits colour it; nothing here cares whether it is a good idea. */
@@ -129,7 +136,12 @@ export function appeal(w: World, ware: Ware): number {
   const h = w.hero;
   const t = h.personality.traits;
   let base = 0;
-  if (ware.kind === 'weapon') base = (ware.power - h.weapon.power) / 5;
+  if (ware.kind === 'weapon') {
+    base = (ware.power - rating(h.weapon)) / 5;
+    // Or it's the right tool for the job she has in mind.
+    const foe = focusFoe(w);
+    if (foe && ware.item) base = Math.max(base, (rating(ware.item, foe) - armBest(h, foe)) / 4);
+  }
   else if (ware.kind === 'armor') base = (ware.power - (h.armor?.power ?? 0)) / 2.5;
   else {
     const def = IMPLANTS[ware.id]!;
@@ -184,3 +196,63 @@ export function learnEarning(w: World, family: string, gained: number): void {
 }
 
 export const totalHeat = (w: World): number => Object.values(w.heat).reduce((a, b) => a + b, 0);
+
+/** The enemy she is most set on right now, if any: a grudge, a bounty, the dragon. */
+export function focusFoe(w: World): Npc | undefined {
+  for (const d of w.mind.drive) {
+    const g = w.mind.goals.find((x) => x.id === d.id);
+    const id = g?.kind === 'kill' ? g.npc : g?.kind === 'dragon' ? g.npc : g?.pursuit && g.pursuit.plan === 'bounty' ? g.pursuit.npc : undefined;
+    const n = id ? w.npcs[id] : undefined;
+    if (n?.alive) return n;
+  }
+  return undefined;
+}
+
+/** Is this the right tool for the person she's after, even if it isn't the best weapon in general? */
+export function situationalEdge(w: World, ware: Ware): boolean {
+  const foe = focusFoe(w);
+  return !!foe && !!ware.item && rating(ware.item, foe) > armBest(w.hero, foe) * 1.08;
+}
+
+// ===================================================================== fame
+
+export interface FameAct {
+  fam: string;
+  /** The skill it's built on, if any. */
+  skill?: string;
+  /** What she'd expect it to do for her fame before experience says otherwise. */
+  prior: number;
+  /** Where she'd do it, if she knows of somewhere. */
+  venue(w: World): Id | null;
+}
+
+const featureAt = (w: World, kind: string): Id | null => {
+  const f = Object.values(w.features).find((x) => x.kind === kind);
+  return f && (w.locations[f.locationId]?.visits ?? 0) > 0 ? f.locationId : null;
+};
+const seen = (w: World, id: Id): Id | null => ((w.locations[id]?.visits ?? 0) > 0 ? id : null);
+
+export const FAME_ACTS: FameAct[] = [
+  { fam: 'karaoke', skill: 'vocals', prior: 1.0, venue: (w) => featureAt(w, 'karaoke') },
+  { fam: 'sing_busk', skill: 'vocals', prior: 1.0, venue: (w) => seen(w, 'street_main') },
+  { fam: 'crash_gig', skill: 'vocals', prior: 3.0, venue: (w) => (w.npcs.kilobyte?.alive ? seen(w, 'neon_pharaoh') : null) },
+  { fam: 'dj_set', skill: 'djing', prior: 2.0, venue: (w) => featureAt(w, 'dj_booth') },
+  { fam: 'backlot_set', skill: 'djing', prior: 1.3, venue: (w) => seen(w, 'club_backlot') },
+  { fam: 'gig', skill: 'guitar', prior: 3.0, venue: (w) => featureAt(w, 'guitar') },
+  { fam: 'jam', skill: 'guitar', prior: 1.0, venue: (w) => featureAt(w, 'guitar') },
+  { fam: 'guitar_duel', skill: 'guitar', prior: 2.2, venue: (w) => featureAt(w, 'guitar') },
+  { fam: 'busk', skill: 'guitar', prior: 1.0, venue: (w) => (w.hero.inventory.some((i) => i.tags.includes('instrument')) ? seen(w, 'street_main') : null) },
+  { fam: 'beat_battle', skill: 'beatbox', prior: 1.2, venue: (w) => seen(w, 'halo_floor') },
+  { fam: 'billboard', prior: 3.0, venue: (w) => featureAt(w, 'billboard') },
+  { fam: 'graffiti', skill: 'art', prior: 1.2, venue: (w) => seen(w, 'street_main') },
+  { fam: 'parkour', prior: 0.8, venue: (w) => featureAt(w, 'parkour') },
+];
+
+export const FAME_FAMILIES = new Set([...FAME_ACTS.map((a) => a.fam), 'film_flight', 'beatbox', 'serenade', 'serenade_girl', 'dancefloor']);
+
+export const expectedFame = (w: World, fam: string): number => Math.max(0, w.mind.fame?.[fam] ?? FAME_ACTS.find((a) => a.fam === fam)?.prior ?? (FAME_FAMILIES.has(fam) ? 0.8 : 0));
+
+export function learnFame(w: World, fam: string, gained: number): void {
+  const prev = expectedFame(w, fam);
+  (w.mind.fame ??= {})[fam] = Math.round(Math.max(0, Math.min(20, prev * 0.8 + gained * 0.2)) * 100) / 100;
+}

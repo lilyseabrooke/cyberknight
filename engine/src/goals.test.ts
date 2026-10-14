@@ -235,7 +235,7 @@ describe('goals', () => {
       w.hero.locationId = 'halo_floor';
       const done = tick(w);
       expect(done.find((e) => e.type === 'goal_done')?.data.variant).toBe('clean');
-      expect(w.mind.goals).toHaveLength(0);
+      expect(w.mind.goals.filter((g) => g.kind === 'heist')).toHaveLength(0);
     });
 
     it('makes noise and the plan changes: a competent hero bails, a clueless one presses on', () => {
@@ -462,7 +462,7 @@ describe('goals', () => {
         }
         maxDepth = Math.max(maxDepth, ...w.mind.goals.map((g) => depth(w, g)));
       }
-      for (const k of ['buy', 'cash', 'kill', 'romance', 'weapon']) expect(kinds, k).toContain(k);
+      for (const k of ['buy', 'cash', 'kill', 'romance', 'weapon', 'fame', 'dragon']) expect(kinds, k).toContain(k);
       expect(nested).toBeGreaterThan(5);
       expect([...variants].some((v) => v.startsWith('goal_done'))).toBe(true);
       expect([...variants].some((v) => v.startsWith('goal_drop'))).toBe(true);

@@ -22,15 +22,67 @@ const HODDS = {
 
 const talkable = (n: Npc): boolean => !n.hostile && !n.tags.includes('boss') && !n.tags.includes('dragon') && n.archetype !== 'puppy';
 
-/** Per-NPC hustles are tempting but one-at-a-time: this is a cooldown gate so the whole crowd
- * doesn't all become fresh marks for every scam at once, the same way `teach_trick` throttles itself. */
-const ready = (w: World, tag: string, id: string, window: number): boolean => w.beat - (w.counters[`${tag}_${id}`] ?? -9999) > window;
-const mark = (c: Ctx, tag: string, id: string): void => {
-  c.w.counters[`${tag}_${id}`] = c.w.beat;
+// ===================================================================== what limits them
+//
+// None of these has a cooldown. Each is limited by something in the world: work that the place generates and
+// she uses up, goods that arrive in shipments, a mark who only falls for it once, a room that has heard about
+// the scam, a request somebody actually has. See `tickHustles` for how the world refills them.
+
+const stock = (w: World, key: string, init: number): number => (w.counters[key] ??= init);
+const take = (w: World, key: string, n = 1): void => {
+  w.counters[key] = Math.max(0, (w.counters[key] ?? 0) - n);
 };
 
-/** Every odd job, hustle, and bad idea Blackbird can pick up on a street corner — thinned out with
- * cooldowns so these are occasional opportunities, not a standing buffet next to everything else to do. */
+/** Chores a place has for her: the mess a busy room makes. */
+export const chores = (w: World, n: Npc): number => stock(w, `chores_${n.id}`, n.tags.includes('owner') ? 3 : 2);
+/** Packages a fixer or dealer has waiting. */
+export const parcels = (w: World, n: Npc): number => stock(w, `parcels_${n.id}`, 1);
+/** Open shifts on the club door. */
+export const doorSlots = (w: World): number => stock(w, 'door_slots', 1);
+
+const has = (n: Npc, flag: string): boolean => n.flags.includes(flag);
+const addFlag = (n: Npc, flag: string): void => {
+  if (!n.flags.includes(flag)) n.flags.push(flag);
+};
+const dropFlag = (n: Npc, flag: string): void => {
+  n.flags = n.flags.filter((f) => f !== flag);
+};
+
+/** How wary this room is of one kind of trick, 0..~1. It remembers, then forgets (see stage.tickVenues). */
+export const wary = (w: World, locId: string, kind: string): number => w.locations[locId]?.wary?.[kind] ?? 0;
+const warn = (w: World, locId: string, kind: string, by: number): void => {
+  const loc = w.locations[locId]!;
+  const m = (loc.wary ??= {});
+  m[kind] = (m[kind] ?? 0) + by;
+};
+
+/** Staff who could use a hand right now: there is something that needs doing. */
+export const oddJobReady = (w: World, n: Npc): boolean => n.alive && !n.hostile && n.tags.includes('staff') && n.affinity >= -10 && chores(w, n) >= 1;
+
+/**
+ * The world carries on. Busy places make work; shipments come in; shops take money; people end up needing an escort
+ * or a favour. Called once a beat.
+ */
+export function tickHustles(c: Ctx): void {
+  const { w, rng } = c;
+  const crowd: Record<string, number> = {};
+  for (const n of Object.values(w.npcs)) if (n.alive && !n.hostile && n.downUntil <= w.beat) crowd[n.locationId] = (crowd[n.locationId] ?? 0) + 1;
+  for (const n of Object.values(w.npcs)) {
+    if (!n.alive || n.id.startsWith('tmp_') || n.hostile || n.tags.includes('robot') || n.locationId.startsWith('_')) continue;
+    const busy = (crowd[n.locationId] ?? 1) - 1;
+    if (n.tags.includes('staff')) w.counters[`chores_${n.id}`] = Math.min(3, chores(w, n) + 0.006 + 0.004 * busy);
+    if (n.tags.includes('fixer') || n.tags.includes('dealer')) w.counters[`parcels_${n.id}`] = Math.min(2, parcels(w, n) + 0.012);
+    // Takings: a till fills up between visits from the people who actually shop there.
+    if (n.tags.includes('shopkeeper') || n.tags.includes('owner')) n.cash = Math.min(120, n.cash + 0.15 + 0.05 * busy);
+    if (n.alive && w.beat > 20 && (n.tags.includes('romanceable') || n.archetype === 'patron') && !has(n, 'wants_escort') && rng.chance(0.003)) addFlag(n, 'wants_escort');
+    if (!n.tags.includes('fixer') && n.affinity >= -5 && !has(n, 'favor') && rng.chance(0.004)) addFlag(n, 'favor');
+  }
+  const club = crowd.neon_pharaoh ?? 0;
+  if (club >= 5) w.counters.door_slots = Math.min(2, doorSlots(w) + 0.012);
+}
+
+/** Every odd job, hustle, and bad idea Blackbird can pick up on a street corner. Each exists only while the world has
+ * something to offer for it (see above), so they are occasional opportunities, not a standing buffet. */
 export function hustleCandidates(w: World): Candidate[] {
   const out: Candidate[] = [];
   const h = w.hero;
@@ -44,29 +96,29 @@ export function hustleCandidates(w: World): Candidate[] {
   }
 
   // ---- odd jobs for the staff: hauling kegs, bussing tables, nothing heroic about it
-  for (const n of crowd.filter((x) => x.tags.includes('staff') && x.affinity >= -10 && ready(w, 'odd_jobs', x.id, 18))) {
+  for (const n of crowd.filter((x) => oddJobReady(w, x))) {
     out.push({ key: `odd_jobs:${n.id}`, drives: { greed: 0.25, pride: 0.1 }, risk: 0.1, run: (c) => oddJobs(c, n) });
   }
 
   // ---- working the door: a night of standing security for somebody else's club
   const guards = crowd.filter((n) => n.tags.includes('security'));
-  if (loc.id === 'neon_pharaoh' && guards.length && guards.every((g) => g.affinity >= -5) && ready(w, 'security_shift', 'x', 40)) {
+  if (loc.id === 'neon_pharaoh' && guards.length && guards.every((g) => g.affinity >= -5) && doorSlots(w) >= 1) {
     out.push({ key: 'security_shift', drives: { greed: 0.35, pride: 0.2, bravery: 0.2 }, risk: 0.5, run: securityShift });
   }
 
   // ---- a quick courier run for whoever's connected enough to have packages
-  for (const n of crowd.filter((x) => (x.tags.includes('fixer') || x.tags.includes('dealer')) && ready(w, 'courier_run', x.id, 35))) {
+  for (const n of crowd.filter((x) => (x.tags.includes('fixer') || x.tags.includes('dealer')) && parcels(w, x) >= 1 && x.affinity >= -10 && (w.heat.npd ?? 0) < 4)) {
     out.push({ key: `courier_run:${n.id}`, drives: { greed: 0.3, curiosity: 0.2 }, risk: 0.3, run: (c) => courierRun(c, n) });
   }
 
   // ---- bodyguard gig: somebody's willing to pay to not walk home alone
-  for (const n of crowd.filter((x) => (x.tags.includes('romanceable') || x.archetype === 'patron') && ready(w, 'bodyguard_gig', x.id, 70))) {
+  for (const n of crowd.filter((x) => has(x, 'wants_escort'))) {
     out.push({ key: `bodyguard_gig:${n.id}`, drives: { greed: 0.3, bravery: 0.3, pride: 0.2 }, risk: 0.6, run: (c) => bodyguardGig(c, n) });
   }
 
   // ---- questionable: waiting for someone to be distracted, then robbing their place blind
   // (not the fixer: Madame Zero is a story contact, not a mark)
-  for (const n of crowd.filter((x) => !x.tags.includes('kid') && !x.tags.includes('robot') && !x.tags.includes('fixer') && ready(w, 'burgle_home', x.id, 140))) {
+  for (const n of crowd.filter((x) => !x.tags.includes('kid') && !x.tags.includes('robot') && !x.tags.includes('fixer') && x.cash >= 60 && !has(x, 'burgled'))) {
     out.push({
       key: `burgle_home:${n.id}`, drives: { greed: 0.55, curiosity: 0.2 }, risk: 1.2 + levelRisk(w, n),
       run: (c) => burgleHome(c, n),
@@ -74,7 +126,7 @@ export function hustleCandidates(w: World): Candidate[] {
   }
 
   // ---- shady: protection money from anyone running a till
-  for (const n of crowd.filter((x) => (x.tags.includes('shopkeeper') || x.tags.includes('owner')) && ready(w, 'protection_racket', x.id, 90))) {
+  for (const n of crowd.filter((x) => (x.tags.includes('shopkeeper') || x.tags.includes('owner')) && x.cash >= 30 && x.affinity > -45)) {
     out.push({
       key: `protection_racket:${n.id}`, drives: { greed: 0.4, bravery: 0.3 }, risk: 0.6 + levelRisk(w, n),
       run: (c) => protectionRacket(c, n),
@@ -83,23 +135,23 @@ export function hustleCandidates(w: World): Candidate[] {
 
   // ---- shady: three-card monte on anyone standing still long enough
   if (h.cash >= 10) {
-    for (const n of crowd.filter((x) => (x.tags.includes('rowdy') || x.archetype === 'patron') && ready(w, 'scam_mark', x.id, 60))) {
+    for (const n of crowd.filter((x) => (x.tags.includes('rowdy') || x.archetype === 'patron') && !has(x, 'wise') && wary(w, loc.id, 'scam') < 1.2)) {
       out.push({ key: `scam_mark:${n.id}`, drives: { greed: 0.35, curiosity: 0.1 }, risk: 0.3, run: (c) => scamMark(c, n) });
     }
   }
 
   // ---- shady: selling bunk stims and fake implants to anyone gullible enough
-  for (const n of crowd.filter((x) => x.cash > 0 && !x.tags.includes('kid') && !x.tags.includes('fixer') && ready(w, 'sell_fake_goods', x.id, 60))) {
+  for (const n of crowd.filter((x) => x.cash >= 15 && !x.tags.includes('kid') && !x.tags.includes('fixer') && !has(x, 'duped') && wary(w, loc.id, 'fakes') < 1.2)) {
     out.push({ key: `sell_fake_goods:${n.id}`, drives: { greed: 0.3, curiosity: 0.1 }, risk: 0.4, run: (c) => sellFakeGoods(c, n) });
   }
 
   // ---- shady but mostly harmless: cold-reading a mark's fortune for tip money
-  for (const n of crowd.filter((x) => !x.tags.includes('robot') && !x.tags.includes('fixer') && ready(w, 'cold_read', x.id, 55))) {
+  for (const n of crowd.filter((x) => !x.tags.includes('robot') && !x.tags.includes('fixer') && (w.counters[`read_${x.id}`] ?? 0) < 2 && wary(w, loc.id, 'readings') < 1.2)) {
     out.push({ key: `cold_read:${n.id}`, drives: { greed: 0.2, curiosity: 0.2 }, run: (c) => coldRead(c, n) });
   }
 
   // ---- random favors: NPCs occasionally have a weird little job for her
-  for (const n of crowd.filter((x) => !x.tags.includes('robot') && !x.tags.includes('fixer') && x.affinity >= -5 && ready(w, 'odd_request', x.id, 70))) {
+  for (const n of crowd.filter((x) => has(x, 'favor') && !x.tags.includes('robot') && !x.tags.includes('fixer') && x.affinity >= -5)) {
     out.push({ key: `odd_request:${n.id}`, drives: { curiosity: 0.3, greed: 0.15 }, bonus: 0.1, risk: 0.2, run: (c) => oddRequest(c, n) });
   }
 
@@ -143,7 +195,7 @@ function panhandle(c: Ctx): void {
 function oddJobs(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'odd_jobs', n.id);
+  take(w, `chores_${n.id}`);
   const chore = rng.pick(['kegs', 'tables', 'dishes', 'crates']);
   if (rng.chance(clamp(HODDS.oddJobs(h), 0.5, 0.95))) {
     const pay = rng.int(10, 30);
@@ -162,7 +214,7 @@ function oddJobs(c: Ctx, n: Npc): void {
 function securityShift(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'security_shift', 'x');
+  take(w, 'door_slots');
   const p = clamp(HODDS.securityShift(h), 0.2, 0.9);
   train(c, 'hustling', 2);
   train(c, 'intimidation', 1);
@@ -187,7 +239,7 @@ function securityShift(c: Ctx): void {
 function courierRun(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'courier_run', n.id);
+  take(w, `parcels_${n.id}`);
   const p = clamp(HODDS.courierRun(h) - (n.tags.includes('dealer') ? 0.1 : 0), 0.2, 0.9);
   if (rng.chance(p)) {
     const pay = rng.int(30, 90);
@@ -205,7 +257,7 @@ function courierRun(c: Ctx, n: Npc): void {
 function bodyguardGig(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'bodyguard_gig', n.id);
+  dropFlag(n, 'wants_escort');
   train(c, 'hustling', 2);
   const ambushChance = clamp(0.4 - skillLevel(h, 'hustling') * 0.025, 0.15, 0.4);
   if (rng.chance(ambushChance)) {
@@ -231,11 +283,12 @@ function bodyguardGig(c: Ctx, n: Npc): void {
 function burgleHome(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'burgle_home', n.id);
+  addFlag(n, 'burgled');
   const p = clamp(0.35 + skillLevel(h, 'lockpicking') * 0.05 + skillLevel(h, 'sneak') * 0.04 - n.level * 0.03, 0.05, 0.85);
   train(c, 'lockpicking', 2);
   if (rng.chance(p)) {
-    const cash = rng.int(80, 220);
+    const cash = Math.min(Math.round(n.cash * 0.9), rng.int(80, 220));
+    n.cash -= cash;
     h.cash += cash;
     train(c, 'sneak', 2);
     let item = '';
@@ -257,11 +310,11 @@ function burgleHome(c: Ctx, n: Npc): void {
 function protectionRacket(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'protection_racket', n.id);
   const p = clamp(0.3 + h.muscle * 0.03 + skillLevel(h, 'intimidation') * 0.05 - n.level * 0.04, 0.1, 0.85);
   train(c, 'intimidation', 2);
   if (rng.chance(p)) {
-    const cut = rng.int(20, 60);
+    const cut = Math.min(n.cash, rng.int(20, 60));
+    n.cash -= cut;
     h.cash += cut;
     n.affinity -= 15;
     addHeat(w, 'npd', 1);
@@ -276,9 +329,10 @@ function protectionRacket(c: Ctx, n: Npc): void {
 function scamMark(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'scam_mark', n.id);
+  addFlag(n, 'wise');
   const stake = Math.min(h.cash, rng.int(10, 30));
-  const p = clamp(HODDS.scamMark(h), 0.1, 0.85);
+  const p = clamp(HODDS.scamMark(h) - 0.2 * wary(w, h.locationId, 'scam'), 0.1, 0.85);
+  warn(w, h.locationId, 'scam', 0.3);
   train(c, 'grifting', 2);
   train(c, 'cards', 1);
   if (rng.chance(p)) {
@@ -295,8 +349,9 @@ function scamMark(c: Ctx, n: Npc): void {
 function sellFakeGoods(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'sell_fake_goods', n.id);
-  const p = clamp(HODDS.sellFakeGoods(h) - (n.tags.includes('dealer') ? 0.2 : 0), 0.1, 0.85);
+  addFlag(n, 'duped');
+  const p = clamp(HODDS.sellFakeGoods(h) - (n.tags.includes('dealer') ? 0.2 : 0) - 0.2 * wary(w, h.locationId, 'fakes'), 0.1, 0.85);
+  warn(w, h.locationId, 'fakes', 0.3);
   train(c, 'grifting', 2);
   train(c, 'haggling', 1);
   if (rng.chance(p)) {
@@ -314,11 +369,13 @@ function sellFakeGoods(c: Ctx, n: Npc): void {
 function coldRead(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'cold_read', n.id);
-  const p = clamp(HODDS.coldRead(h), 0.1, 0.85);
+  const reads = w.counters[`read_${n.id}`] ?? 0;
+  w.counters[`read_${n.id}`] = reads + 1;
+  const p = clamp(HODDS.coldRead(h) - 0.15 * wary(w, h.locationId, 'readings'), 0.1, 0.85);
+  warn(w, h.locationId, 'readings', 0.15);
   train(c, 'grifting', 1);
   if (rng.chance(p)) {
-    const tip = rng.int(10, 35);
+    const tip = Math.max(1, Math.round(rng.int(10, 35) * 0.5 ** reads));
     h.cash += tip;
     n.affinity += 5;
     c.emit('cold_read', 'good', { variant: 'spooked', amount: tip, npc: n.name });
@@ -333,7 +390,7 @@ const FAVORS = ['fetch_item', 'deliver_message', 'scare_someone', 'watch_my_stuf
 function oddRequest(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  mark(c, 'odd_request', n.id);
+  dropFlag(n, 'favor');
   const favor = rng.pick(FAVORS);
   const skill = favor === 'scare_someone' ? 'intimidation' : favor === 'walk_me_home' ? 'athletics' : 'streetwise';
   const p = clamp(0.4 + skillLevel(h, skill) * 0.04 + skillLevel(h, 'hustling') * 0.02 + synergy(h, ['streetwise', ['stat:charm', 0.3]]) * 0.02, 0.15, 0.88);

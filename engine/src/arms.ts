@@ -1,5 +1,6 @@
-import type { Hero, Item } from './types';
+import type { Hero, Item, Npc } from './types';
 import { FISTS } from './content/items';
+import { rating } from './weapons';
 
 /** Pure helpers for what she is carrying and whether it will actually go bang. No world, no RNG. */
 
@@ -14,10 +15,25 @@ export const loaded = (h: Hero, it: Item): boolean => !it.ammoType || ammoOf(h, 
  * What she is actually swinging or firing. Her preferred weapon if it works; otherwise the best
  * thing in her pockets that does; otherwise her fists. A dry rail revolver is a very expensive club.
  */
-export function wielded(h: Hero): Item {
-  if (loaded(h, h.weapon)) return h.weapon;
-  let best: Item = FISTS;
-  for (const it of h.inventory) if (isArm(it) && loaded(h, it) && it.power > best.power) best = it;
+export function wielded(h: Hero, foes?: Npc[]): Item {
+  if (!foes?.length) {
+    if (loaded(h, h.weapon)) return h.weapon;
+    let best: Item = FISTS;
+    for (const it of h.inventory) if (isArm(it) && loaded(h, it) && rating(it) > rating(best)) best = it;
+    return best;
+  }
+  // Against these particular people: whichever of her weapons that works suits the job best. Her usual one gets the benefit of the doubt.
+  const score = (it: Item) => foes.reduce((a, f) => a + rating(it, f), 0) / foes.length;
+  let best: Item = loaded(h, h.weapon) ? h.weapon : FISTS;
+  let bestScore = loaded(h, h.weapon) ? score(h.weapon) * 1.06 : score(FISTS);
+  for (const it of h.inventory) {
+    if (!isArm(it) || !loaded(h, it)) continue;
+    const sc = score(it);
+    if (sc > bestScore) {
+      best = it;
+      bestScore = sc;
+    }
+  }
   return best;
 }
 

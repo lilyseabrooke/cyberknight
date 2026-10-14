@@ -1,4 +1,5 @@
 import { Rng } from './rng';
+import { genShelf } from './weapons';
 import { rollGovernmentName, rollPersonality, type Personality } from './personality';
 import { GANGS, spawnNpc } from './content/archetypes';
 import { makeItem } from './content/items';
@@ -90,6 +91,18 @@ const LOCATIONS: Record<Id, LocDef> = {
       ex('neon_pharaoh', 'the door back to the club floor'),
       ex('club_backlot', 'the fire exit'),
     ],
+  },
+  home_stacks: {
+    name: 'The Stacks, unit 4C', kind: 'home', security: 0, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
+    exits: [ex('street_main', 'the stairwell down to Strand Street')],
+  },
+  home_hab: {
+    name: 'a capsule hab in the Honeycomb', kind: 'home', security: 0, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
+    exits: [ex('street_main', 'the corridor out to Strand Street')],
+  },
+  home_penthouse: {
+    name: 'a corporate penthouse with a view of the dragon patrols', kind: 'home', security: 0, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
+    exits: [ex('street_main', 'the express lift down to Strand Street')],
   },
   paint_shop: {
     name: 'Spray & Pray Paint Supply', kind: 'shop', security: 1, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
@@ -275,6 +288,7 @@ export function createWorld(opts: RunOptions): World {
     xp: 0,
     cash: 60,
     drunk: 0,
+    satiety: 0,
     muscle: 3,
     reflex: 3,
     hack: 2,
@@ -306,6 +320,7 @@ export function createWorld(opts: RunOptions): World {
     features,
     locations,
     heat: { npd: 0, atlas: 0, halo: 0, club: 0 },
+    arsenal: Object.fromEntries(genShelf(new Rng(`arsenal:${opts.seed}`), hero.weapon).map((it) => [it.id, it])),
     situation: { warringGangs: [g1, g2], crackdown: rng.pick(CRACKDOWNS), weather: rng.pick(['acid_rain', 'neon_fog', 'heatwave'] as const) },
     flags: {},
     counters: { paint_stock: 8 },

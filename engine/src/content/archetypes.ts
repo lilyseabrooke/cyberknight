@@ -1,6 +1,7 @@
 import type { Rng } from '../rng';
 import type { Item, Npc } from '../types';
 import { makeAmmoBox, makeItem } from './items';
+import { rating, variantOf } from '../weapons';
 
 export interface ArchetypeDef {
   role: string;
@@ -105,6 +106,11 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     role: 'surveillance drone', level: [3, 3], tags: ['robot', 'patrol', 'augmented'], faction: 'atlas',
     names: 'robot', weapons: ['stunner_mk3'], loot: ['memory_shard'], lootChance: 0.5, cash: [0, 0], hp: 55, power: 12,
     desc: ['an Atlas surveillance drone, hovering with the confidence of something that has never been punched'],
+  },
+  npd_drone: {
+    role: 'NPD patrol drone', level: [3, 3], tags: ['robot', 'patrol', 'nonlethal'], faction: 'npd',
+    names: 'robot', weapons: ['stunner_mk3'], loot: ['memory_shard'], lootChance: 0.4, cash: [0, 0], hp: 42, power: 9,
+    desc: ['an NPD patrol drone with a stun-net launcher and a voice like a parking ticket'],
   },
   mugger: {
     role: 'mugger', level: [2, 3], tags: ['ganger', 'rowdy'], faction: 'ganger',
@@ -257,9 +263,9 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
   const loadout: Item[] = [];
   let weaponPower = 0;
   if (def.weapons.length) {
-    const wpn = makeItem(rng.pick(def.weapons));
+    const wpn = variantOf(rng, makeItem(rng.pick(def.weapons)));
     loadout.push(wpn);
-    weaponPower = wpn.power;
+    weaponPower = Math.round(rating(wpn));
   }
   // Shooters carry spare rounds, which is how she ends up with any.
   const gun = loadout[0];

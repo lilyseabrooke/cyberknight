@@ -20,6 +20,7 @@ import {
   step,
   type GameEvent,
   type World,
+  describeWeapon,
 } from '../engine/src';
 
 interface LogLine {
@@ -42,6 +43,7 @@ interface Snapshot {
   weapon: string;
   /** What she is actually swinging right now (different if the gun is dry). */
   wielding: string;
+  weaponInfo: string;
   ammo: [string, number][];
   medPacks: string;
   medStock: number;
@@ -62,6 +64,7 @@ interface Snapshot {
   skills: [string, number][];
   implants: string[];
   goals: GoalView[];
+  satiety: number;
 }
 
 interface Night {
@@ -94,6 +97,7 @@ function snap(w: World): Snapshot {
     drunk: h.drunk,
     weapon: h.weapon.name,
     wielding: wielded(h).name,
+    weaponInfo: describeWeapon(wielded(h)),
     ammo: Object.entries(h.ammo).filter(([, n]) => n > 0).map(([t, n]) => [AMMO[t]?.label ?? t, n] as [string, number]),
     medPacks: Object.entries(medPacks(h).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => `${k} ${n}`).join(' · '),
     medStock: medStock(h),
@@ -114,6 +118,7 @@ function snap(w: World): Snapshot {
     skills: (Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((k) => [SKILL_LABELS[k], skillLevel(h, k)] as [string, number]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]),
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
     goals: goalViews(w),
+    satiety: h.satiety ?? 0,
   };
 }
 
@@ -290,10 +295,11 @@ export default function NightViewer() {
             <dl>
               <dt>Location</dt><dd>{status.location}</dd>
               <dt>Neodollars</dt><dd>{status.cash}</dd>
-              <dt>Weapon</dt><dd>{status.weapon}{status.wielding !== status.weapon && <span className="bad"> (dry: using {status.wielding})</span>}</dd>
+              <dt>Weapon</dt><dd>{status.weapon}{status.wielding !== status.weapon && <span className="bad"> (dry: using {status.wielding})</span>}<br /><small>{status.weaponInfo}</small></dd>
               <dt>Medical</dt><dd className={status.medStock === 0 ? 'bad' : undefined}>{status.medPacks ? `${status.medPacks} (${status.medStock} HP)` : 'none (she cannot heal)'}</dd>
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
               <dt>Armor</dt><dd>{status.armor}</dd>
+              {status.satiety > 0.08 && (<><dt>Afterglow</dt><dd>{'♥'.repeat(Math.max(1, Math.round(status.satiety * 5)))} <span className="muted">sated</span></dd></>)}
               <dt>Drunk</dt><dd>{'🍸'.repeat(Math.min(status.drunk, 6)) || 'sober (suspicious)'}</dd>
               {status.companions.length > 0 && (
                 <>

@@ -4,6 +4,8 @@ import { clamp, revealExit, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { odds, skillLevel, synergy, train } from './skills';
 import { hasKind } from './companions';
+import { kindle } from './romance';
+import { fameFrom, tipScale } from './stage';
 
 /**
  * Every skill formula in one place: baseline luck + a bonus per point of synergy, where synergy is the weighted
@@ -115,6 +117,7 @@ function poolDate(c: Ctx, n: Npc): void {
   const bet = Math.min(h.cash, rng.int(10, 30));
   const p = clamp(ODDS.poolDate(h, n), 0.05, 0.9);
   const skilled = skillLevel(h, 'pool') >= 3;
+  kindle(h, 0.05);
   if (rng.chance(p)) {
     n.affinity += 22;
     remember(n, 'lost at pool to Blackbird and liked it');
@@ -178,7 +181,7 @@ function jam(c: Ctx): void {
   }
   if (rng.chance(ODDS.jam(h))) {
     for (const b of band) b.affinity += 14;
-    h.fame += 1;
+    fameFrom(c, 1, 'jam');
     train(c, 'guitar', 3);
     gainXp(c, 5);
     c.emit('jam', 'good', { variant: band.length ? 'band' : 'solo', npc: band[0]?.name ?? '', level: skillLevel(h, 'guitar') });
@@ -199,9 +202,9 @@ function gig(c: Ctx): void {
   const h = w.hero;
   const band = here(w).filter((n) => n.tags.includes('band'));
   if (rng.chance(ODDS.gig(h))) {
-    const tips = rng.int(80, 220);
+    const tips = Math.round(rng.int(80, 220) * tipScale(w, 'gig'));
     h.cash += tips;
-    h.fame += 3;
+    fameFrom(c, 3, 'gig');
     for (const b of band) b.affinity += 8;
     train(c, 'guitar', 3);
     train(c, 'vocals', 1);
@@ -239,9 +242,9 @@ function busk(c: Ctx): void {
   const h = w.hero;
   const roll = rng.next();
   if (roll < ODDS.busk(h)) {
-    const tips = rng.int(15, 70);
+    const tips = Math.round(rng.int(15, 70) * tipScale(w, 'busk'));
     h.cash += tips;
-    h.fame += 1;
+    fameFrom(c, 1, 'busk');
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 10;
     train(c, 'guitar', 2);
     train(c, 'vocals', 1);
@@ -304,6 +307,7 @@ function serveDish(c: Ctx, n: Npc): void {
   const h = w.hero;
   const i = h.inventory.findIndex((x) => x.tags.includes('dish'));
   if (i >= 0) h.inventory.splice(i, 1);
+  kindle(h, 0.04);
   if (rng.chance(ODDS.serve(h))) {
     n.affinity += 20;
     remember(n, 'was cooked for by Blackbird');

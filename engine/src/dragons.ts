@@ -3,6 +3,7 @@ import { fight, heroPower } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
 import { scoutSaves, sneakBonus } from './extras';
 import { train } from './skills';
+import { dragonReadiness } from './pursuit';
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive;
 
@@ -31,7 +32,7 @@ export function ambientDragons(c: Ctx): void {
   if (!w.flags.hera_seen && rng.chance(0.004)) {
     w.flags.hera_seen = true;
     spawnFlight(c, 'hera', 1);
-  } else if (rng.chance(0.022)) {
+  } else if (rng.chance(0.022 + (w.counters.skywatch === w.beat - 1 ? 0.1 + 0.01 * h.hack : 0))) {
     spawnFlight(c, 'artemis', rng.weighted([1, 2, 3], (n) => (n === 3 ? 0.2 : 0.4)));
   }
 }
@@ -43,7 +44,9 @@ function spawnFlight(c: Ctx, kind: 'artemis' | 'hera', count: number): void {
   const dragons = spawnGroup(c, kind, count);
   w.flight = { kind, ids: dragons.map((d) => d.id), locationId: loc.id, until: w.beat + (kind === 'hera' ? 9 : 7), hidden: false, noticed: false };
   const warned = scoutSaves(c);
-  if (warned) w.flight.hidden = true;
+  // A warning keeps her out of sight, unless she is out hunting and ready for it: then it is a head start.
+  const hunting = w.mind.goals.find((g) => g.kind === 'dragon');
+  if (warned && !(hunting && dragonReadiness(w, hunting) >= 0.5)) w.flight.hidden = true;
   c.emit('dragon_flight', 'mixed', { variant: kind, count, warned, place: loc.name, first: !w.flags[`${kind}_seen_before`] });
   w.flags[`${kind}_seen_before`] = true;
   w.flags.dragon_known = true;
@@ -69,6 +72,18 @@ function engage(c: Ctx): void {
 export function dragonCandidates(w: World): Candidate[] {
   const f = w.flight;
   const h = w.hero;
+  const loc0 = w.locations[h.locationId]!;
+  // Hunting them means looking up: dragons patrol, and an eye on the sky finds the patrol sooner.
+  if (!f && loc0.outdoors && loc0.id !== 'overpass' && w.mind.goals.some((g) => g.kind === 'dragon' && g.mode !== 'apollo')) {
+    return [{
+      key: 'scan_skies', drives: {}, bonus: -0.2,
+      run: (c) => {
+        c.w.counters.skywatch = c.w.beat;
+        c.emit('scan_skies', 'mixed', { place: loc0.name, first: !c.w.flags.skywatched });
+        c.w.flags.skywatched = true;
+      },
+    }];
+  }
   if (!f || f.locationId !== h.locationId || f.hidden || f.noticed) return [];
   const foes = flightFoes(w);
   if (!foes.length) return [];

@@ -23,6 +23,9 @@ interface Entry {
 }
 const e = (r: Lines, t?: Lines): Entry => ({ r, t });
 const $ = (n: unknown): string => Number(n).toLocaleString('en-US');
+/** An act of fame, as a phrase. */
+const ACTS: Record<string, string> = { karaoke: 'a karaoke number', dj_set: 'a DJ set', gig: 'a gig with the band', billboard: 'hijacking a billboard', graffiti: 'a big piece of graffiti', busk: 'busking', parkour: 'some rooftop parkour', sing_busk: 'singing on the street', crash_gig: 'crashing somebody else\'s gig', guitar_duel: 'a guitar duel', backlot_set: 'a set for the kids behind the club', beat_battle: 'a beat battle', jam: 'a jam with the band' };
+const act = (a: unknown): string => ACTS[String(a)] ?? String(a);
 
 export const BLURBS: Record<string, string> = {
   halo_floor: 'The Rusty Halo: synth-whiskey, neon halos that flicker in Morse code, and a jukebox that has opinions.',
@@ -35,6 +38,9 @@ export const BLURBS: Record<string, string> = {
   chem_mart: 'Lucky Seven Chem-Mart: fluorescent lights, a rack of med packs behind glass, and a pharmacist who has seen worse than whatever you are about to describe.',
   gun_shop: 'Bullets & Bagels: a long counter of guns, a short counter of bagels, and a sign that reads NO REFUNDS ON FIREARMS OR REGRETS.',
   club_backlot: 'The lot behind the Neon Pharaoh: milk crates, a boombox, and a few street kids with serious faces.',
+  home_stacks: 'The Stacks, unit 4C: one room, one window, one plant that is a good deal healthier than it looks, and a bed that will have to do.',
+  home_hab: 'A capsule hab in the Honeycomb: a bed the size of a coffin, three monitors, a tangle of cables, and a very faint smell of burnt dust.',
+  home_penthouse: 'A corporate penthouse: floor-to-ceiling glass, nothing on the walls, and a view of the dragon patrols that costs more per month than the whole of Blackbird\'s neighborhood.',
   halo_alley: 'The alley behind the Halo. Steam vents, puddles with colors, and a dumpster that has seen things.',
   street_main: 'Strand Street. Rain, neon, ads for things that should not be advertised.',
   neon_pharaoh: 'The Neon Pharaoh: gold-plated hologram sphinxes, bass you can feel in your implants, a velvet rope guarded by sunglasses.',
@@ -114,7 +120,7 @@ const T: Record<string, Entry> = {
   ),
   'flirt:slapped': e((d) => [`${d.npc} slaps Blackbird so hard her implants recalibrate. Wounded pride, minor.`], ['Worth it. I think I felt a spark.']),
   'kiss:kiss': e(
-    (d) => [`Blackbird and ${d.npc} find a dark corner. The camera, discreetly, finds the ceiling.`, `${d.npc} takes Blackbird by the collar. The next ten minutes are not a matter of public record.`, `Neon, bass, and ${d.npc}'s hand in Blackbird's hair. The report cuts to the weather.`, `${d.npc} pulls Blackbird in by the jacket. It goes on for a while. The jukebox plays something suitable.`],
+    (d) => Number(d.times) >= 3 ? [`Blackbird and ${d.npc} are, at this point, just making out. It is an extended session. Somebody nearby has started a very discreet timer.`, `Kiss number ${d.times} with ${d.npc}. They are both ahead of where this was going, and neither seems to mind.`] : [`Blackbird and ${d.npc} find a dark corner. The camera, discreetly, finds the ceiling.`, `${d.npc} takes Blackbird by the collar. The next ten minutes are not a matter of public record.`, `Neon, bass, and ${d.npc}'s hand in Blackbird's hair. The report cuts to the weather.`, `${d.npc} pulls Blackbird in by the jacket. It goes on for a while. The jukebox plays something suitable.`],
     ['Dragon? What dragon.', 'Neo is a city of second chances. This is my third. Fourth?'],
   ),
   'kiss:rejected': e((d) => [`Blackbird leans in. ${d.npc} leans out. A lot of time passes in that gap.`], ["She was just checking me for a fever."]),
@@ -433,6 +439,62 @@ const T: Record<string, Entry> = {
   'rob_till:caught': e((d) => [`${d.npc}'s hand lands on Blackbird's shoulder. "That's the till." He is very calm. It is worse.`], ["Just counting it for him."]),
   blackout: e((d) => [`Blackbird's memory skips. When it resumes, she is in ${d.place} with fewer neodollars (${d.lost} fewer) and a lot more feelings.`, `Blackbird wakes up, somehow, in ${d.place}. Missing: ${d.lost} neodollars.`], ["Time moves strangely, in bars.", "Last thing I remember is a really good song."]),
   'ambush:npd': e((d) => [`Sirens. Three patrol drones drop out of the dark and an NPD squad (${d.count} officers) fans out. Blackbird's heat is ${d.heat}. "Don't move," says the lead officer, in a voice that suggests he'd prefer she did.`], ['They always show up for the good stuff.']),
+  'ambush:npd_drone': e((d) => [Number(d.count) > 1 ? `Two NPD patrol drones peel off a streetlight and fall in behind Blackbird, red lamps blinking. "You are in violation of several things," one chirps. Heat: ${d.heat}.` : `An NPD patrol drone drops out of the neon haze, stun-net launcher whirring. "You are wanted for questioning," it says. Heat: ${d.heat}.`], ['Just drones. Heat that low gets you the budget version.', 'They sent a hovering parking meter. I am insulted. A little.']),
+  'lay_low:restroom': e((d) => [d.dropped ? `Blackbird sits on the lid of a stall door that says OPEN 24H, feet up, and listens to the sirens go by. Slowly, they stop looking. Heat: ${d.level}.` : `Blackbird hides in the restroom, counting tiles. The sirens are still out there. So is the heat (${d.level}).`], ['Nobody has ever found anybody in a bathroom stall. That is the Neo way.', 'Patience. The best weapon is no one knowing where you are.']),
+  'lay_low:arcade': e((d) => [d.dropped ? `Blackbird disappears into the Halo's basement arcade, plays three rounds of a game from the last century, and lets the heat cool. Heat: ${d.level}.` : `Blackbird hunkers down in the basement arcade, feeding quarters to a machine she does not like. Heat: ${d.level}.`], ['I am simply a gamer. A gamer who is not wanted.', 'High score, low profile.']),
+  'lay_low:crawlspace': e((d) => [d.dropped ? `Blackbird folds herself into the maintenance crawlspace among the pipes and the pigeons, and waits for the city to forget her. Heat: ${d.level}.` : `Blackbird waits in the dark of the crawlspace. Something drips. The heat does not (${d.level}).`], ['Glamorous? No. Effective? Slightly.']),
+  'lay_low:home': e((d) => [d.dropped ? `Blackbird stays in, curtains drawn, and lets the storm blow over. Heat: ${d.level}.` : `Blackbird lies low at the place, watching the street through a gap in the blinds. Heat: ${d.level}.`], ['Home sweet hideout.']),
+  'bribe_cop:paid': e((d) => [`A beat cop on the corner gets a folded envelope: ${$(d.cost)} neodollars. The report in his tablet develops a typo. Heat: ${d.level}.`, `${$(d.cost)} neodollars change hands behind a news kiosk. The officer remembers he didn't see anything. Heat: ${d.level}.`], ['Justice has a rate card.', 'The system works. For people with cash.']),
+  'bribe_cop:refused': e((d) => [`Blackbird waves ${$(d.cost)} neodollars at an NPD patrol officer. "Is that a bribe?" he asks, very loudly. It is no longer a bribe, it is a situation.`], ['Wrong cop. Right idea.', 'Everyone has a price. He had a different one.']),
+  'bribe_cop:refused_fight': e((d) => [`The envelope hits the pavement and so does the officer's temper. "You're under arrest," he says, drawing.`], ["I got the wrong honest man. The one honest man in Neo."]),
+  'fix_record:fix': e((d) => [`${d.npc} takes ${$(d.cost)} neodollars, taps two keys, and a chunk of Blackbird's rap sheet goes where files go to die. Heat: ${d.level}.`], ['Madame Zero is worth every neodollar and a few more.']),
+  'frame:deserved': e((d) => [`An anonymous tip, a dropped credchip in ${d.npc}'s pocket, and the sirens find a new favorite. The ${d.role} is hauled off, protesting. Heat: ${d.level}.`], ['Karma, with a little help.', 'They had it coming. Ish. They had something coming.']),
+  'frame:innocent': e((d) => [`The NPD gets an excellent tip about ${d.npc} (${d.role}), who did nothing. They are led away. The heat comes down to ${d.level}.`], ['I feel bad for about a second and a half.', 'Sorry, friend. It was you or me.']),
+  'frame:botched': e((d) => [`Blackbird tries to pin it on ${d.npc}. ${d.npc} notices. Loudly. Heat goes up by one.`], ['It was a good frame. In theory.']),
+  'frame:fight': e((d) => [`Blackbird tries to plant evidence on ${d.npc} and gets caught with her hand in their coat. It escalates.`], ['That is what I get for being a crook with ambition.']),
+  'pursuit:bounty_pick': e((d) => [`Still ${$(d.short)} short. Blackbird thinks it over and settles on paper: ${d.npc} (${d.role}) is worth ${$(d.amount)} neodollars to the NPD, last seen at ${d.place}. She likes her chances (${d.odds}%).`, `${$(d.short)} neodollars short, and ${d.npc} (${d.role}) has ${$(d.amount)} on their head. Blackbird goes looking: ${d.place}, last she heard.`], ['Money with a face on it. My favorite kind.', 'A bounty is just a job where the boss is the police.']),
+  'pursuit:jobs_pick': e((d) => [`Cash is tight. Blackbird decides honest work will do: ${d.npc} (${d.role}) at ${d.place} always has something that needs lifting.`, `No paper worth chasing. Blackbird heads for ${d.place}; ${d.npc} probably needs a hand with something heavy.`], ['Hard work. Disgusting. But it pays.', 'Honest labor. In this economy.']),
+  'pursuit:ask_pick': e((d) => [`Blackbird has no leads and no cash. She goes to ${d.npc} (${d.role}) at ${d.place} to ask who in this city is worth money.`], ['Information is the first loot.']),
+  'pursuit:sizeup_take': e((d) => [d.goal === 'cash' ? `Blackbird finds ${d.npc} (${d.role}) and sizes them up: ${d.odds}% odds, and a payday if she's right. She cracks her knuckles.` : `There he is: ${d.npc} (${d.role}). Blackbird sizes him up. ${d.odds}% by her count. Good enough.`], ['I like these odds. I like most odds.', 'Nobody ever talked themselves out of a fight like this.']),
+  'pursuit:sizeup_lure': e((d) => [`Blackbird spots ${d.npc} (${d.role}), but there are too many eyes in here. She wants a quieter room.`], ["Not here. Someone's watching.", 'You do not do this in front of people. Unless you are a poet.']),
+  'pursuit:sizeup_prep': e((d) => [d.goal === 'cash' ? `Blackbird looks over ${d.npc} (${d.role}) and the maths is bad: ${d.odds}%. Not today.` : `Blackbird gets a good look at ${d.npc} (${d.role}) and does not like it: ${d.odds}%. She is going to need more than a good attitude.`], ["He's bigger than I remembered. Everything is.", 'Strategic retreat. Not a retreat. A strategy.']),
+  'pursuit:sizeup_wait': e((d) => [`${d.npc} is right there, and Blackbird is not in fighting shape. She bides her time.`], ['Patience. Plus a little bleeding.']),
+  'pursuit:pass': e((d) => [`Blackbird crosses ${d.npc} off the list. There will be other bounties, and she likes being alive.`], ['Live to hunt another day.']),
+  'pursuit:lost_trail': e((d) => [`${d.npc} isn't where Blackbird last saw them. The trail has gone cold.`], ['Typical. Nobody stays where you left them.']),
+  'weapon_proc:crit': e((d) => [`The ${d.weapon} finds a gap in ${d.foe}'s guard. Critical hit.`, `A perfect strike: the ${d.weapon} goes exactly where it shouldn't, on ${d.foe}.`], ['Lucky? No. Practiced. Okay, a little lucky.']),
+  'weapon_proc:stun': e((d) => [`${d.foe} reels, stunned. The ${d.weapon} does that.`], ['Nobody likes being tased. Not even a professional.']),
+  'weapon_proc:burn': e((d) => [`${d.foe} catches fire. The ${d.weapon} is, as advertised, incendiary.`], ['And the crowd goes: ow.']),
+  'weapon_swap': e((d) => [`Against ${d.foe}, Blackbird switches to the ${d.weapon}.`, `The ${d.weapon} suits ${d.foe} better. Blackbird swaps.`], ['Right tool, right job.']),
+  'scan_skies': e((d) => d.first ? [`Blackbird steps out into the open at ${d.place} and looks up. Up there, on a schedule, are the things she wants to kill. She waits.`] : [`Blackbird watches the sky over ${d.place}, hands on hips, like a very patient lightning rod.`, `Another long look at the clouds over ${d.place}. No wings yet.`, `Blackbird squints at the skyline over ${d.place} until her eyes water. Somewhere up there, a patrol is running late.`, `Blackbird lingers over ${d.place}, listening for the tell-tale hum of very expensive wings.`], ['Come on, you overpriced lizards.', 'Dragons: always late, always expensive.']),
+  'pursuit:perform_pick': e((d) => [`Blackbird wants a bigger name. The best bet, by her read: ${act(d.act)}. She heads for ${d.place}.`, `Fame is ${d.fame} and climbing, or it will be. Plan: ${act(d.act)} at ${d.place}.`], ['Nobody ever got famous by staying home.', 'The people need me. They just do not know it yet.']),
+  'pursuit:perform_blocked': e((d) => [`The stage is there, but ${act(d.act)} is not happening tonight. Blackbird shrugs and looks for another way to be adored.`], ['Their loss. Honestly.']),
+  'pursuit:dragon_apollo': e((d) => [`Blackbird has done the maths and likes it. She is done with the small stuff: ${d.npc} is next.`], ['The big one. At last. Mom would be so confused.']),
+  'pursuit:dragon_sizeup_take': e((d) => [d.count ? `The sky fills with wings: ${d.npc}. Blackbird reads the odds (${d.odds}%) and decides it is a good day.` : `Blackbird looks up at ${d.npc} and does the maths: ${d.odds}%. She lets herself smile.`], ['Hello, big lizard. I am your replacement.']),
+  'pursuit:dragon_sizeup_prep': e((d) => [d.count ? `Dragons overhead (${d.npc}). The odds are ${d.odds}%, which Blackbird respects in the way you respect a cliff.` : `${d.npc} looms. ${d.odds}%. She will need a lot more than a good attitude.`], ['Not yet. But soon. Maybe.']),
+  'pursuit:dragon_sizeup_wait': e((d) => [`There is a dragon, and Blackbird is bleeding. She decides the dragon can wait. The dragon is not told this.`], ['Patience. And a bandage.']),
+  'goal_new:idle_fame': e((d) => [`Nothing on her mind, and plenty of time to fill. Blackbird decides, for no good reason, to get famous (${d.amount} fame, for starters).`, `Blackbird wakes up to herself and sets a goal: the whole city knowing her name, or at least ${d.amount} fame's worth.`], ['I should be a star. I would be so good at being a star.']),
+  'goal_new:idle_dragon': e(() => [`Blackbird looks up at the dragons that patrol Neo and makes a decision. She is going to put one in the ground.`, `The sky belongs to Atlas. Blackbird would like it back. She starts hunting cyberdragons.`], ['I mean, someone has to. Why not the one with the tire iron?']),
+  'goal_done:famous': e(() => [`Blackbird has her fame, or enough of it. People recognize her in line for noodles. She tolerates it with enormous dignity.`], ['They know my name. Now to make them say it properly.']),
+  'goal_done:slain': e(() => [`A dragon is down. Atlas will bill her for the wing. Blackbird will frame the scale.`], ['One for the wall.']),
+  'goal_done:apollo': e(() => [`The Apollo is dead. Blackbird stands in the ruins of a forty-ton security product and thinks about breakfast.`], ['Nobody believes me. That is the best part.']),
+  'sing_busk:tips': e((d) => [`Blackbird plants herself on the sidewalk and sings, no instrument, no net. A crowd finds her. ${d.amount} neodollars land in the hat.`, `A street corner, a song, a hat. By the last chorus there are ${d.amount} neodollars in it and three people filming.`], ['Voice of an angel. A mildly criminal angel.', 'I should have done this years ago.']),
+  'sing_busk:complaint': e(() => ['Blackbird is mid-chorus when someone decides this is a noise violation. A patrol notes her name.'], ['Art is always a crime somewhere.']),
+  'sing_busk:heckled': e(() => ['Blackbird sings. A man across the street sings back, louder and worse. Someone throws a noodle.'], ['Everyone is a critic. Everyone is also a noodle thrower.']),
+  'sing_busk:ignored': e(() => ['Blackbird sings her heart out on the corner. Nobody stops. A pigeon looks on with something like pity.'], ['Tough crowd. Tougher pigeon.']),
+  'crash_gig:stole_the_show': e((d) => [`Blackbird strolls on stage during ${d.npc}'s set, takes the mic out of a hand that was not ready, and owns the room. ${d.amount} neodollars come flying. ${d.npc} is, after a second, delighted.`], ['Excuse me, I am the headliner now.', 'Technically that was crashing. Spiritually it was destiny.']),
+  'crash_gig:tossed': e((d) => [`Blackbird jumps on stage, grabs the mic, and is on the floor of ${d.to} within the verse. ${d.npc} did not appreciate the collaboration.`], ['Critics. They will want my autograph in a decade.']),
+  'crash_gig:flop': e((d) => [`Blackbird hops onstage mid-song with a big idea that does not survive contact with the audience. ${d.npc} lets her finish. Barely.`], ['Okay. That was a lot of confidence.']),
+  'serenade_girl:swoon': e((d) => [`Blackbird sings softly, only for ${d.npc}, in a crowded room that goes quiet. ${d.npc} does not look away.`, `A slow song, a long look. ${d.npc} is, by every measure, undone.`], ['It is the voice. It is always the voice.', 'Music: a weapon of last resort, deployed first.']),
+  'serenade_girl:cringe': e((d) => [`Blackbird serenades ${d.npc}. It is, politely, a lot. ${d.npc} looks for the exit.`], ['She loved it. She is just very quiet about it.']),
+  'guitar_duel:won': e((d) => [`Blackbird and ${d.npc} trade licks, each one nastier than the last. In the final bar, hers is the one the room remembers.`], ['I do not so much play as win.']),
+  'guitar_duel:lost': e((d) => [`Blackbird takes on ${d.npc} on guitar and learns exactly how much she has left to learn.`], ['They had a better guitar. Probably. Definitely.']),
+  'backlot_set:rave': e((d) => [`Behind the Pharaoh, Blackbird borrows a speaker and cranks a set for the lot full of kids. They dance like it is the last night in Neo. ${d.amount} neodollars, mostly in coins.`], ['The best crowd in the city: tiny, poor, and furious about it.']),
+  'backlot_set:dead_speaker': e(() => ['Blackbird drops the bass behind the club. The speaker coughs, shudders, and dies. The kids give a polite round of applause for the attempt.'], ['The speaker is not a professional. I am. Allegedly.']),
+  'beat_battle:won': e((d) => [`Blackbird and ${d.npc} go head to head with only mouths. Hers is the faster mouth. The whole bar shouts the verdict.`], ['Kick, snare, victory.']),
+  'beat_battle:lost': e((d) => [`${d.npc} out-beats Blackbird so thoroughly she loses her place. The bar offers condolences.`], ['It was a good loss. Very musical.']),
+  'crowd_tired': e((d) => [`${d.place} has heard a lot of Blackbird lately. The applause is polite, and a few people have gone to refill their drinks.`, `The regulars at ${d.place} clap the way people clap for a delayed train. Time to find a new stage.`], ['They are tired of me. How is that possible.', 'A good performer knows when to leave the building.']),
+  'passion:ignite': e((d) => [`Something clicks. Blackbird feels it in the back of the throat and the soles of the feet: ${d.skill}. This is the thing. She is going to ${d.calling}.`, `The night rearranges around one idea. Blackbird decides, with feeling, to ${d.calling}.`], ['I was born for this. Possibly just now, but still.', 'There is a feeling you get when it starts working. This is it.']),
+  'goal_new:passion': e((d) => [`New life goal, announced to nobody: ${d.calling}.`], ['Starting tonight.']),
   'ambush:atlas': e((d) => [`Black vans, matte-black armor, no insignia but the Atlas logo stitched on every sleeve. A Helix retrieval team (${d.count}) steps out of the dark.`], ['A real hero has real enemies. Welcome to my fan club.']),
   banned: e((d) => [`${d.npc} blocks the door of the Rusty Halo. "You're banned." Blackbird\'s name has been on the wall since Tuesday.`], ["Banned? I've never even been..."]),
   security_closes_in: e((d) => [`${d.npc} and the rest of Neon Pharaoh security close in around Blackbird, tapping stunners against their palms.`], ["I can hear them coming. Flattering."]),
@@ -804,6 +866,8 @@ const T: Record<string, Entry> = {
   'goal_resume:kill': e((d) => [`${d.npc} drifts back into Blackbird's head. She had not forgotten, exactly. She had just been busy.`], ['Still on the list. Still at the top.']),
   'goal_resume:romance': e((d) => [`Blackbird thinks of ${d.npc} and tidies her hair for no reason.`], ['Where was I. Right. Impressing someone.']),
   'goal_resume:weapon': e(() => ['Blackbird looks down at her weapon, sighs, and remembers she was going to do something about that.'], ['A better weapon. I was getting to it.']),
+  'goal_resume:fame': e(() => ['Blackbird catches her reflection in a window and remembers she is meant to be famous. She stands up straighter.'], ['Right. The adoring public. They are waiting.']),
+  'goal_resume:dragon': e(() => ['Blackbird glances at the sky and remembers the dragons. They have not forgotten her. They do not know her. But they have not forgotten her.'], ['Back to the hunt.']),
   'goal_resume:heist': e((d) => [`Blackbird glances toward ${d.place} and remembers the plan.`], ["The job's still there. I'm still going to do it."]),
 
   // Mid-heist.
@@ -816,6 +880,57 @@ const T: Record<string, Entry> = {
     (d) => [d.taken ? 'Did you see that? Did you see that look? Nobody else saw that look.' : 'I am above this. I am a bigger person. I am a bigger person, and I am noting it.'],
   ),
   impressed: e((d) => [`${d.npc} watches Blackbird do her thing. ${d.npc} is, against her better judgment, a little impressed.`, `Out of the corner of her eye, ${d.npc} is looking. Blackbird makes it look effortless. It is not.`], ['Yes. Watch. Take notes.', 'Nailed it. Subtly. In a way that is not at all subtle.']),
+
+  // ====================================================== making a move
+  'make_move:declined': e((d) => [`Blackbird says something low and meaningful to ${d.npc}. ${d.npc} smiles, pats her on the cheek, and says "not tonight." Blackbird nods like she meant to ask something else.`, `Blackbird suggests that she and ${d.npc} take this somewhere more private. "Cute," says ${d.npc}, and goes back to their drink.`], ['Playing hard to get. I love a challenge.', 'Nothing a good night and a little denial cannot fix.']),
+  'make_move:slap': e((d) => [`Blackbird makes her move. ${d.npc} slaps her, without malice, with precision, and with a sound the whole bar hears.`], ['Is that a yes? That felt like a "maybe".']),
+  'make_move:private': e(
+    (d) => {
+      const spot = String(d.spot);
+      const forb = d.tier === 'forbidden';
+      const who = String(d.npc);
+      const lead =
+        spot.includes('bathroom') || spot.includes('stall') ? `Blackbird and ${who} slip into the bathroom stall. The door says SANITARY-ISH. The lock is more of an idea.`
+        : spot.includes('fridge') ? `Blackbird and ${who} find the walk-in fridge. It is cold in there. They are, briefly, not.`
+        : spot.includes('couch') ? `Blackbird steers ${who} into the backroom, onto a couch that has seen better, and worse, and a poker night.`
+        : spot.includes('green room') ? `Blackbird and ${who} find the band's green room. The door has a sign on it. They put it on the outside.`
+        : spot.includes('crawlspace') ? `Blackbird and ${who} climb into the maintenance crawlspace, where the pipes hum a tune that is not remotely romantic and nobody cares.`
+        : spot.includes('VIP') ? `Blackbird and ${who} slide into a dark VIP booth. The velvet is, mostly, a suggestion. The camera, discreetly, finds the ceiling.`
+        : spot.includes('alley') ? `Blackbird and ${who} duck into the alley behind the Halo. Neon, steam, and a very large dumpster make for excellent chaperones.`
+        : `Blackbird and ${who} find ${spot}. Neither is thinking about the view.`;
+      return [forb ? `${lead} They should not be in here. This is part of the appeal.` : lead, d.wasted ? `${lead} Neither of them is entirely sure where "here" is, which is helpful.` : lead];
+    },
+    ["I'm a professional. At everything.", 'The hero gets a little downtime. It is in the contract. I wrote the contract.', 'This is a very good plan. I made it up eleven seconds ago.'],
+  ),
+  'make_move:public': e(
+    (d) => [d.outdoors ? `Blackbird and ${d.npc} decide that a street is a place, and places are for this. Strand Street has seen worse. Probably.` : `Blackbird and ${d.npc} decide that a bar is basically a bedroom with bad lighting. They do not leave ${d.place}. Nobody has asked them to. Yet.`, d.wasted ? `Neither of them is quite sober enough to find the door. They improvise right where they are, in front of ${d.place}.` : `Blackbird and ${d.npc} do not so much "find a room" as "become the room." Several patrons suddenly find their drinks very interesting.`],
+    ['Privacy is a bourgeois concept.', 'Everyone loves a show. I am an excellent show.', 'The camera in the corner is going to need a little time to think about this.'],
+  ),
+  'make_move:public_tossed': e((d) => [`${d.npc} hauls both of them out by the collar, mid-sentence. "THIS IS A BAR," he says, in the voice of a man whose bar has never been used for this. ${d.partner} is laughing. Blackbird is very nearly dignified.`], ['He did not even ask. He just tossed us. How rude. How fair.']),
+  'make_move:public_cheer': e((d) => [`The crowd, to its enormous credit, claps. Someone starts a chant. ${d.npc} takes a bow, and so does Blackbird. It does wonders for the legend.`], ["That's how a hero spends her evening. In front of an audience."]),
+  'make_move:invite': e((d) => [`"Come back to mine," says ${d.npc}, in a tone that does not leave room for a counter-offer. They leave ${d.place} together, ${d.npc} leading the way to ${d.home}.`, `${d.npc} takes Blackbird by the hand and walks her out of ${d.place}. "It is not far," ${d.npc} says. It is, in fact, a bit far. They go anyway.`], ["Her place. I'm going to her place. I'm going to see the inside of a real person's life.", 'What could possibly happen on a dark street in Neo?']),
+  'make_move:jumped': e((d) => [Number(d.count) === 1 ? `A mugger steps out of the neon halfway down the block. ${d.npc} says something unkind and bolts. Blackbird, who has been interrupted, is, understandably, in a mood.` : `Two muggers step out of the dark halfway down the block. ${d.npc} takes one look and bolts. Blackbird, interrupted, rolls up her sleeves.`], ['Of all the nights.', 'You picked the wrong time. Statistically, you picked the worst possible time.']),
+  'make_move:jump_won': e((d) => [`Blackbird dusts herself off. ${d.npc} comes back around the corner, a little ashamed, a lot impressed. "You're the real thing," ${d.npc} says. They go the rest of the way hand in hand.`], ['See? Heroes are good for the neighborhood.']),
+  'make_move:jump_ruined': e((d) => [`By the time Blackbird picks herself up, ${d.npc} is long gone and so is the mood. The night has taken a different turn.`], ['It would have been a good one.']),
+  'make_move:caught_staff': e((d) => [`The door opens. ${d.npc} (${d.role}) takes in the situation, and ${d.partner}, and Blackbird, in that order. "Not in ${d.spot}," ${d.npc} says, with a restraint that is almost frightening.`], ["I can explain. I will not explain.", 'He is staring. Everyone is staring. This is fine.']),
+  'make_move:caught_band': e((d) => [`The door swings open and a bandmate (${d.npc}) walks in on them. "Oh, come on," ${d.npc} says. "Not on the amp." The rest of the band can be heard laughing in the hallway.`], ['They write songs about this. Possibly this one.']),
+  'make_move:caught_guard': e((d) => [`A flashlight hits them from the doorway. ${d.npc}, Neon Pharaoh security, clears his throat. "This is a staff area." The way he says "staff" is quite pointed.`], ['I am staff. I am the staff of life.']),
+  'make_move:caught_police': e((d) => [`A flashlight, a badge, and a very tired NPD officer. "Public indecency, citizens," the officer says, in the voice of a man reading it off a list for the ninth time this week.`], ['Is it public if I only have the one audience member?']),
+  'make_move:caught_robot': e((d) => [`The maintenance bot, ${d.npc}, rolls around the corner, aims its one working eye at the situation, and emits a long, mournful beep. It is not clear whether this is a complaint.`], ['I am being judged by a vacuum cleaner.']),
+  'make_move:caught_drone': e(() => ['A surveillance drone drifts past the window, takes a long look, and files it under "behavior: noted." The shutter sound is the least subtle thing about it.'], ['If that goes in my record, the record is going to have a lot of chapters.']),
+  'make_move:fined': e((d) => [`The officer writes out a ticket for ${d.amount} neodollars for "unlicensed affection". Blackbird pays it, with a certain amount of pride.`], ['Tax on greatness. Third time this week. Different greatness.']),
+  'make_move:afterglow': e(
+    (d) => {
+      const who = String(d.npc);
+      if (d.flavor === 'interrupted') return [`What was left of the evening with ${who} is better than none. They part with a nod, a grin, and a little less than they hoped for. Satisfaction: partial.`, `${who} fixes their jacket. "Another time." Blackbird is, at best, three-quarters satisfied.`];
+      if (d.flavor === 'wallet') return [`Blackbird wakes up, or comes around, or whatever it is, to find ${who} gone and ${d.lost} neodollars with them. It was, on balance, worth it.`, `${who} is a very good time and a very good pickpocket. ${d.lost} neodollars, gone with the dawn.`];
+      if (d.flavor === 'number') return [`Afterwards, ${who} writes a number on her wrist in glowing ink. "Call me," ${who} says. "Don't do the thing where you don't." It is, by any measure, a promising development.`, `${who} walks Blackbird to the door. "That was... unexpectedly great." Blackbird, for a moment, forgets about dragons.`];
+      if (d.where === 'home') return [`The camera, discreetly, finds the plant on the windowsill. Hours later, ${who} makes breakfast, and Blackbird is, for the first time all night, entirely at peace. ${d.spot}, it turns out, is a very good place to be a hero.`, `Dawn finds Blackbird in ${d.spot}, looking at the ceiling with a smile that goes all the way down. ${who} is making coffee. It is, quite possibly, the best night of her life.`];
+      if (d.where === 'public') return [`Afterwards, ${who} straightens their clothes and the room slowly resumes its life. Blackbird is, as far as she is concerned, a new person. Sated.`];
+      return [`The camera, discreetly, finds the ceiling. Some time later, Blackbird and ${who} emerge, flushed, mussed and extremely pleased with each other. She is, in every sense, sated.`, `Blackbird comes out of ${d.spot} with a grin that could cut glass. ${who} follows, a few steps behind, straightening her collar.`];
+    },
+    (d) => (d.flavor === 'interrupted' ? ['Rain check. A heroic rain check.', 'The universe has a sense of humor and it is aimed squarely at me.'] : d.flavor === 'wallet' ? ['Cheap at the price. I think.', "She took my money. I took the rest of the night. We're even."] : ['Okay. Okay. Wow. Okay.', 'I could save the whole city right now. After a nap.', "That's the stuff. That's what I was fighting for. Probably."]),
+  ),
   death: e(
     (d) => [`Blackbird is dead. Level ${d.level}. ${d.place}. Cause: ${d.cause}. Killed by ${d.killer}.`, `Blackbird flatlines in ${d.place}. Level ${d.level}. The report will say "${d.cause}".`],
     ['Huh. Okay. That was unexpected.', "Tell my fans I'll be back. Tell the cops I wasn't here."],

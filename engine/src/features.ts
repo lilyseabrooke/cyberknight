@@ -3,10 +3,12 @@ import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { makeAmmoBox, makeItem } from './content/items';
 import { AMMO_IDS } from './content/ammo';
 import { hasAlly } from './companions';
+import { kindle } from './romance';
 import { makeCan } from './graffiti';
 import { skillLevel, synergy, train } from './skills';
 import { ODDS } from './hobbies';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
+import { fameFrom, tipScale } from './stage';
 
 const present = (w: World, id: string): boolean => !!w.npcs[id]?.alive && w.npcs[id]!.locationId === w.hero.locationId;
 
@@ -106,11 +108,11 @@ function karaoke(c: Ctx): void {
   train(c, 'vocals', 2);
   const roll = rng.next();
   if (roll < p) {
-    const tips = rng.int(20, 60);
+    const tips = Math.round(rng.int(20, 60) * tipScale(w, 'karaoke'));
     h.cash += tips;
     for (const n of here(w)) if (!n.hostile) n.affinity += 4;
     gainXp(c, 4);
-    h.fame += 1;
+    fameFrom(c, 1, 'karaoke');
     c.emit('karaoke', 'good', { variant: 'ovation', amount: tips, song: rng.pick(['"Chrome Heart"', '"Dial-Up Love"', '"Total Eclipse of the Uplink"', '"Never Gonna Patch You Up"']) });
   } else if (roll < p + (1 - p) * 0.6) {
     h.hp -= 5;
@@ -305,6 +307,7 @@ function dance(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const dancers = here(w).filter((n) => n.tags.includes('romanceable'));
+  if (dancers.length) kindle(h, 0.02);
   const p = clamp(0.3 + h.charm * 0.025 + 0.06 * synergy(h, ['dancing', ['stat:charm', 0.5]]) + Math.min(h.drunk, 2) * 0.03, 0.15, 0.88);
   train(c, 'dancing', 2);
   if (rng.chance(p)) {
