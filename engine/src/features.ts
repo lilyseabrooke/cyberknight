@@ -63,6 +63,15 @@ export function featureCandidates(w: World): Candidate[] {
           out.push({ key, drives: { greed: 1.5, curiosity: 0.9 }, risk: 1.5, run: vault });
         }
         break;
+      case 'scrap_pile':
+        out.push({ key, drives: { greed: 0.7, curiosity: 0.4 }, bonus: f.uses > 6 ? -0.4 : 0, risk: 0.15, run: (c) => scrapPile(c, f) });
+        break;
+      case 'relay':
+        out.push({ key, drives: { curiosity: 0.6, bravery: 0.5, quest: 0.1 }, risk: 0.6, run: relay });
+        break;
+      case 'job_board':
+        out.push({ key, drives: { greed: 0.55, curiosity: 0.3 }, risk: 0.3, run: jobBoard });
+        break;
     }
   }
   return out;
@@ -340,6 +349,92 @@ function crates(c: Ctx): void {
     const guards = here(w).filter((n) => n.tags.includes('security'));
     c.emit('crates', 'bad', { variant: 'alarm' });
     if (guards.length) fight(c, guards.slice(0, 2), { cause: 'rummaging through Helix cargo', joiners: false });
+  }
+}
+
+function scrapPile(c: Ctx, f: Feature): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  f.uses++;
+  const roll = rng.next();
+  if (roll < 0.1) {
+    h.hp -= 5;
+    c.emit('scrap_pile', 'bad', { variant: 'cut' });
+  } else if (roll < 0.2) {
+    const it = makeItem('drone_core');
+    c.emit('scrap_pile', 'good', { variant: 'rare', item: it.name });
+    acquire(c, it);
+  } else if (roll < 0.55) {
+    const cash = Math.max(2, rng.int(5, 20) >> Math.min(f.uses - 1, 2));
+    h.cash += cash;
+    c.emit('scrap_pile', 'good', { variant: 'junk', amount: cash });
+  } else if (roll < 0.8) {
+    const it = makeItem(rng.pick(['scrap_metal', 'credchip', 'gold_tooth', 'neural_gum', 'walkman']));
+    c.emit('scrap_pile', 'good', { variant: 'find', item: it.name });
+    acquire(c, it);
+  } else {
+    c.emit('scrap_pile', 'mixed', { variant: 'nothing' });
+  }
+}
+
+function relay(c: Ctx): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  const p = clamp(0.3 + h.hack * 0.05 + skillLevel(h, 'tinkering') * 0.05, 0.1, 0.85);
+  if (rng.chance(p)) {
+    const drop = rng.int(1, 3);
+    w.heat.atlas = Math.max(0, (w.heat.atlas ?? 0) - drop);
+    train(c, 'tinkering', 3);
+    gainXp(c, 8);
+    const bonus = rng.chance(0.3) ? makeItem('drone_core') : null;
+    if (bonus) acquire(c, bonus);
+    c.emit('relay', 'good', { variant: 'sabotage', drop, item: bonus?.name ?? '' });
+  } else {
+    addHeat(w, 'atlas', 2);
+    c.emit('relay', 'bad', { variant: 'alarm' });
+    const [bot] = spawnGroup(c, 'scrapper', 1);
+    if (bot) fight(c, [bot], { cause: 'getting caught sabotaging an Atlas relay', joiners: false });
+  }
+}
+
+const GIGS = ['flyers', 'skiptrace', 'rumor_job', 'pest_control'] as const;
+
+function jobBoard(c: Ctx): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  const gig = rng.pick(GIGS);
+  if (gig === 'flyers') {
+    const pay = rng.int(10, 25);
+    h.cash += pay;
+    c.emit('job_board', 'good', { variant: 'flyers', amount: pay });
+  } else if (gig === 'rumor_job') {
+    train(c, 'streetwise', 2);
+    const pay = rng.int(15, 40);
+    h.cash += pay;
+    c.emit('job_board', 'good', { variant: 'rumor_job', amount: pay });
+  } else if (gig === 'skiptrace') {
+    const p = clamp(0.45 + h.muscle * 0.03 + skillLevel(h, 'intimidation') * 0.04, 0.1, 0.85);
+    if (rng.chance(p)) {
+      const pay = rng.int(50, 140);
+      h.cash += pay;
+      gainXp(c, 10);
+      c.emit('job_board', 'good', { variant: 'skiptrace', amount: pay });
+    } else {
+      const [mark] = spawnGroup(c, 'mugger', 1);
+      c.emit('job_board', 'bad', { variant: 'skiptrace_fail' });
+      if (mark) fight(c, [mark], { cause: 'chasing down a skip for a flyer job' });
+    }
+  } else {
+    const p = clamp(0.5 + skillLevel(h, 'athletics') * 0.03, 0.15, 0.85);
+    if (rng.chance(p)) {
+      const pay = rng.int(20, 50);
+      h.cash += pay;
+      train(c, 'athletics', 1);
+      c.emit('job_board', 'good', { variant: 'pest_control', amount: pay });
+    } else {
+      h.hp -= 6;
+      c.emit('job_board', 'bad', { variant: 'pest_control_fail' });
+    }
   }
 }
 

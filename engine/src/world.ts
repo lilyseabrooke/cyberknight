@@ -172,6 +172,9 @@ const FEATURES: [Id, string, string][] = [
   ['club_maintenance', 'the fuse panel', 'fuse_panel'],
   ['helix_dock', 'a stack of unmarked crates', 'crates'],
   ['helix_lab', 'the prototype vault', 'vault'],
+  ['club_backlot', 'a heap of salvageable scrap', 'scrap_pile'],
+  ['club_maintenance', 'an Atlas signal relay', 'relay'],
+  ['street_main', 'a corkboard of handwritten gig flyers', 'job_board'],
 ];
 
 const GANG_IDS = Object.keys(GANGS);
