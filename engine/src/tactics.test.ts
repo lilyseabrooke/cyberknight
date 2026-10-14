@@ -8,6 +8,7 @@ import { newCompanion } from './companions';
 import { dist, hasLos, inCover, line, makeGrid, neighbors, pathTo, reach, terrainAt, type Grid, type Terrain } from './grid';
 import { Sim, foeProfile, highlights, weaponReach, type Arrival } from './tactics';
 import type { Location } from './types';
+import { addNpc } from './population';
 
 const KINDS: Location['kind'][] = ['bar', 'street', 'club', 'corp', 'tunnel', 'boss', 'shop', 'home'];
 
@@ -45,7 +46,7 @@ function stage(seed: string, s: Setup = {}): { w: World; foes: Npc[]; rng: Rng; 
   const rng = new Rng(`${seed}-rng`);
   const foes = Array.from({ length: s.n ?? 2 }, (_, k) => {
     const d = spawnNpc(rng, `d${k}`, s.kind ?? 'ganger', h.locationId);
-    w.npcs[d.id] = d;
+    addNpc(w, d);
     return d;
   });
   const events: GameEvent[] = [];
@@ -256,7 +257,7 @@ describe('a fight on the grid', () => {
     const extra = Array.from({ length: 2 }, (_, k) => {
       const d = spawnNpc(new Rng(`x${k}`), `late${k}`, 'cop', 'street_main');
       d.hostile = true;
-      s.w.npcs[d.id] = d;
+      addNpc(s.w, d);
       return d;
     });
     const arrivals: Arrival[] = extra.map((npc) => ({ npc, round: 2, why: 'law' }));

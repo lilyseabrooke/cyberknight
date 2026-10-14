@@ -5,6 +5,7 @@ import { gather } from './interactions';
 import { score } from './run';
 import { heatBias, heatUrge, hideoutDist, isHideout, laylowCandidates, npdResponse } from './laylow';
 import { spawnNpc } from './content/archetypes';
+import { moveNpc } from './population';
 
 const world = (seed: string, traits: Parameters<typeof personalityFrom>[0] = {}, competence = 0.7): World =>
   createWorld({ seed, competence, personality: personalityFrom(traits) });
@@ -196,7 +197,7 @@ describe('ways out', () => {
 
   it('Madame Zero will lose a report for cash', () => {
     const w = prep('madame', 'halo_backroom', 6, 1500);
-    w.npcs.madame!.locationId = 'halo_backroom';
+    moveNpc(w, w.npcs.madame!, 'halo_backroom');
     const cand = laylowCandidates(w).find((x) => x.key === 'fix_record:madame')!;
     expect(cand).toBeTruthy();
     const { c, events } = ctxOf(w, 'fix');

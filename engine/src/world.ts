@@ -5,6 +5,8 @@ import { GANGS, spawnNpc } from './content/archetypes';
 import { makeItem } from './content/items';
 import { newMind } from './mind';
 import { assignBounties } from './bounty';
+import { newFactions, setRelation } from './factions';
+import { START_MINUTE } from './clock';
 import type { Exit, Feature, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
@@ -217,7 +219,8 @@ export function createWorld(opts: RunOptions): World {
 
   const locations: Record<Id, Location> = {};
   for (const [id, d] of Object.entries(LOCATIONS)) {
-    locations[id] = { id, visits: 0, cameras: CAMERAS[id] ?? 0, graffiti: 0, territory: null, ...d, exits: d.exits.map((e) => ({ ...e })) };
+    // The hand-built places are already furnished with their people (below); `populate` is for the ones that are generated.
+    locations[id] = { id, visits: 0, cameras: CAMERAS[id] ?? 0, graffiti: 0, territory: null, ...d, exits: d.exits.map((e) => ({ ...e })), populated: true };
   }
   locations.halo_alley!.territory = g1;
   locations.club_backlot!.territory = g2;
@@ -232,7 +235,9 @@ export function createWorld(opts: RunOptions): World {
   let n = 0;
   const add = (arch: string, loc: Id, o: { id?: string; faction?: string; name?: string } = {}) => {
     const id = o.id ?? `${arch}_${n++}`;
+    // Straight into the record is fine here: the population indexes are built on first use, after this is done.
     npcs[id] = spawnNpc(nrng, id, arch, loc, { faction: o.faction, name: o.name });
+    npcs[id]!.authored = true;
     return npcs[id]!;
   };
 
@@ -310,13 +315,18 @@ export function createWorld(opts: RunOptions): World {
     competence: opts.competence ?? 0.1,
   };
 
+  const factions = newFactions();
+  setRelation(factions, g1, g2, -70);
+
   return {
     seed: opts.seed,
     beat: 0,
+    clock: START_MINUTE,
     rngPosition: new Rng(`run:${opts.seed}`).position,
     hero,
     mind: newMind(),
     npcs,
+    factions,
     features,
     locations,
     heat: { npd: 0, atlas: 0, halo: 0, club: 0 },

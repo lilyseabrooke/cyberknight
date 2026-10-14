@@ -1,4 +1,5 @@
 import type { Companion, Ctx, Npc, World } from './types';
+import { moveNpc } from './population';
 
 export interface KindDef {
   label: string;
@@ -61,7 +62,7 @@ export function removeCompanion(c: Ctx, comp: Companion, why: 'left' | 'lost'): 
   w.hero.companions = w.hero.companions.filter((a) => a !== comp);
   if (why === 'left' && comp.npcId && w.npcs[comp.npcId]) {
     const n: Npc = w.npcs[comp.npcId]!;
-    n.locationId = comp.home ?? 'halo_floor';
+    moveNpc(w, n, comp.home ?? 'halo_floor');
     n.alive = true;
   }
   c.emit(why === 'lost' ? 'companion_lost' : 'companion_leaves', 'bad', { name: comp.name, kind: comp.kind });

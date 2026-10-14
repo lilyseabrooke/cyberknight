@@ -9,6 +9,7 @@ import { skillLevel, synergy, train } from './skills';
 import { ODDS } from './hobbies';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
 import { fameFrom, tipScale } from './stage';
+import { moveNpc } from './population';
 
 const present = (w: World, id: string): boolean => !!w.npcs[id]?.alive && w.npcs[id]!.locationId === w.hero.locationId;
 
@@ -224,7 +225,7 @@ function crackSafe(c: Ctx): void {
     c.emit('safe', 'bad', { variant: 'alarm' });
     const heavy = [w.npcs.tiny, w.npcs.dutch].find((n) => n?.alive);
     if (heavy) {
-      heavy.locationId = h.locationId;
+      moveNpc(w, heavy, h.locationId);
       fight(c, [heavy], { cause: 'cracking the Halo safe' });
     }
   }

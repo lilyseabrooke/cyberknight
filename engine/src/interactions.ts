@@ -22,6 +22,7 @@ import { healUrge } from './urges';
 import { laylowCandidates } from './laylow';
 import { stageCandidates } from './stage';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
+import { moveNpc } from './population';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -444,7 +445,7 @@ function stealPuppy(c: Ctx, pup: Npc): void {
     c.emit('steal_puppy', 'bad', { variant: 'bitten', npc: pup.name });
     return;
   }
-  pup.locationId = '_companion';
+  moveNpc(w, pup, '_companion');
   addCompanion(c, newCompanion('puppy', pup.name, { npcId: pup.id, home: 'halo_floor', loyalty: 45 }), 'stolen', true);
   if (dutch) {
     dutch.affinity -= 40;

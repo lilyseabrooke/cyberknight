@@ -3,6 +3,7 @@ import { addHeat, arrive, clamp, fight, here, npcsAt, remember, spawnGroup } fro
 import { hasInjury, gainXp } from './combat';
 import { sneakBonus, tryTalkDown } from './extras';
 import { hasImplantFlag, skillLevel, synergy, train } from './skills';
+import { moveNpc } from './population';
 
 /** Resolve walking through an exit, including bouncers, locks, guards and jumps. */
 export function moveThrough(c: Ctx, exit: Exit): void {
@@ -58,7 +59,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
         const tiny = w.npcs.tiny;
         if (tiny?.alive && tiny.locationId === 'halo_floor' && rng.chance(0.45)) {
           c.emit('gate', 'bad', { variant: 'tiny_heard', npc: tiny.name });
-          tiny.locationId = h.locationId;
+          moveNpc(w, tiny, h.locationId);
           fight(c, [tiny], { cause: 'breaking the backroom door', joiners: true });
         }
       } else {

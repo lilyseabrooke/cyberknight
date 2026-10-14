@@ -8,6 +8,7 @@ import { hasGoal } from './mind';
 import { isHunted } from './pursuit';
 import { skillLevel } from './skills';
 import { workingCameras } from './witness';
+import { moveNpc } from './population';
 
 /**
  * Blackbird knows the police are a thing. She doesn't like to start a fight where it can be
@@ -152,7 +153,7 @@ function lure(c: Ctx, n: Npc, to: Id): void {
   }
   const dest = w.locations[to]!;
   relocate(w, to);
-  n.locationId = to;
+  moveNpc(w, n, to);
   remember(n, 'followed Blackbird somewhere quiet');
   c.emit('lure', 'mixed', { variant: 'ok', npc: n.name, place: dest.name, from });
 }
@@ -168,6 +169,6 @@ function tail(c: Ctx, n: Npc, to: Id): void {
   }
   const dest = w.locations[to]!;
   relocate(w, to);
-  n.locationId = to;
+  moveNpc(w, n, to);
   c.emit('tail', 'mixed', { variant: 'follow', npc: n.name, place: dest.name, from });
 }

@@ -2,6 +2,7 @@ import type { Ctx, Hero, Npc, World } from './types';
 import { addHeat, fight, here, relocate, remember } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
 import { synergy, train } from './skills';
+import { moveNpc } from './population';
 
 /**
  * Romance with consequences. Kissing leads to making a move; a move that lands leaves her sated for a while
@@ -194,12 +195,12 @@ function makeMove(c: Ctx, n: Npc): void {
   c.emit('make_move', 'good', { variant: 'private', npc: n.name, spot: spot.label, tier: spot.tier, place: originName, wasted });
   if (spot.to !== origin) {
     relocate(w, spot.to);
-    n.locationId = spot.to;
+    moveNpc(w, n, spot.to);
   }
   let factor = 1;
   if (rng.chance(caughtChance(w, spot))) factor = caught(c, n, spot);
   if (!w.over) afterglow(c, n, 'private', factor, spot.label);
-  if (n.alive && n.locationId !== 'home_stacks' && !n.locationId.startsWith('home_')) n.locationId = origin; // they drift back to the party
+  if (n.alive && n.locationId !== 'home_stacks' && !n.locationId.startsWith('home_')) moveNpc(w, n, origin); // they drift back to the party
 }
 
 function publicly(c: Ctx, n: Npc, place: string, wasted: boolean): void {
@@ -273,7 +274,7 @@ function atTheirPlace(c: Ctx, n: Npc, origin: string, originName: string): void 
     c.emit('make_move', 'mixed', { variant: 'jump_won', npc: n.name });
   }
   relocate(w, home);
-  n.locationId = home;
+  moveNpc(w, n, home);
   afterglow(c, n, 'home', 1, homeLoc.name);
 }
 

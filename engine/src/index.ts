@@ -18,3 +18,7 @@ export { MEDS } from './content/meds';
 export { goalLabel, goalBias, goalViews, type GoalView } from './goals';
 export { priority as goalPriority, capacity as goalCapacity } from './mind';
 export { describe as describeWeapon, rating as weaponRating, genWeapon, fxOf } from './weapons';
+export { clockLabel, phaseOf, dayOf, hourOf, catchUp, elapse, offlineMinutes, type Phase } from './clock';
+export { npcsAt, everyoneAt, hauntersOf, awayNpcs, addNpc, moveNpc, removeNpc, AWAY } from './population';
+export { populate, ROSTERS, type SlotDef } from './roster';
+export { relation, defaultOpinion, type Faction } from './factions';

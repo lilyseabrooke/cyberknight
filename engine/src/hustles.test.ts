@@ -5,6 +5,7 @@ import { chores, doorSlots, hustleCandidates, oddJobReady, parcels, tickHustles,
 import { tickVenues } from './stage';
 import { spawnNpc } from './content/archetypes';
 import type { Npc } from './types';
+import { addNpc, moveNpc } from './population';
 
 const world = (seed: string, competence = 0.8): World => createWorld({ seed, competence, personality: personalityFrom({}) });
 const ctxOf = (w: World, seed: string) => {
@@ -13,11 +14,11 @@ const ctxOf = (w: World, seed: string) => {
 };
 const npc = (w: World, id: string, archetype: string, loc: string, extra: Partial<Npc> = {}): Npc => {
   const n = Object.assign(spawnNpc(new Rng(id), id, archetype, loc, {}), extra);
-  w.npcs[id] = n;
+  addNpc(w, n);
   return n;
 };
 const empty = (w: World, loc: string, keep: string[] = []) => {
-  for (const n of Object.values(w.npcs)) if (n.locationId === loc && !keep.includes(n.id)) n.locationId = '_gone';
+  for (const n of Object.values(w.npcs)) if (n.locationId === loc && !keep.includes(n.id)) moveNpc(w, n, '_gone');
   w.hero.locationId = loc;
 };
 const keys = (w: World, prefix: string) => hustleCandidates(w).filter((x) => x.key.startsWith(prefix));
@@ -40,7 +41,7 @@ describe('odd jobs: work the place makes', () => {
   it('there is only so much to do, and doing it uses it up; no waiting period', () => {
     const w = world('chores');
     empty(w, 'halo_floor', ['dutch']);
-    w.npcs.dutch!.locationId = 'halo_floor';
+    moveNpc(w, w.npcs.dutch!, 'halo_floor');
     const have = Math.floor(chores(w, w.npcs.dutch!));
     expect(have).toBeGreaterThanOrEqual(2);
     for (let i = 0; i < have; i++) {
@@ -57,7 +58,7 @@ describe('odd jobs: work the place makes', () => {
     const wQuiet = world('quiet');
     for (const [w, extra] of [[wBusy, 8], [wQuiet, 0]] as const) {
       empty(w, 'halo_floor', ['dutch']);
-      w.npcs.dutch!.locationId = 'halo_floor';
+      moveNpc(w, w.npcs.dutch!, 'halo_floor');
       w.counters.chores_dutch = 0;
       for (let i = 0; i < extra; i++) npc(w, `p${i}`, 'patron', 'halo_floor');
       tick(w, 40);
@@ -90,7 +91,7 @@ describe('couriers', () => {
   it('a package is a package: she takes it, and the next one arrives with the shipment; and not when the law is on her', () => {
     const w = world('courier');
     empty(w, 'halo_floor', ['skeeter']);
-    w.npcs.skeeter!.locationId = 'halo_floor';
+    moveNpc(w, w.npcs.skeeter!, 'halo_floor');
     w.npcs.skeeter!.affinity = 5;
     expect(parcels(w, w.npcs.skeeter!)).toBe(1);
     expect(keys(w, 'courier_run').length).toBe(1);
@@ -145,7 +146,7 @@ describe('burglary and shakedowns take what is there', () => {
     const w = world('racket');
     empty(w, 'chem_mart', ['pharmacist']);
     const keeper = w.npcs.pharmacist!;
-    keeper.locationId = 'chem_mart';
+    moveNpc(w, keeper, 'chem_mart');
     keeper.cash = 50;
     keeper.level = 1;
     expect(keys(w, 'protection_racket').length).toBe(1);
@@ -185,7 +186,7 @@ describe('cons: a mark falls for it once, and a room hears about it', () => {
         m.alive = true;
         m.downUntil = 0;
       m.affinity = 0;
-        m.locationId = 'halo_floor';
+        moveNpc(w, m, 'halo_floor');
       }
       if (!keys(w, `scam_mark:m${i}`).length) break; // the room has stopped biting
       run(w, `scam_mark:m${i}`, `s${i}`);
@@ -196,7 +197,7 @@ describe('cons: a mark falls for it once, and a room hears about it', () => {
       m.alive = true;
       m.downUntil = 0;
       m.affinity = 0;
-      m.locationId = 'halo_floor';
+      moveNpc(w, m, 'halo_floor');
     }
     // The room has heard about it.
     expect(keys(w, 'scam_mark').length).toBe(0);
@@ -209,7 +210,7 @@ describe('cons: a mark falls for it once, and a room hears about it', () => {
       m.alive = true;
       m.downUntil = 0;
       m.affinity = 0;
-      m.locationId = 'halo_floor';
+      moveNpc(w, m, 'halo_floor');
     }
     w.hero.hp = w.hero.maxHp;
     w.hero.locationId = 'halo_floor';

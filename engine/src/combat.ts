@@ -7,8 +7,11 @@ import { fxOf, rating } from './weapons';
 import { Sim, highlights, type Arrival, type Hooks } from './tactics';
 import { witnessAssault } from './witness';
 import { collectBounties } from './bounty';
+import { npcsAt } from './population';
+import { pinAt, settleAt } from './movement';
+import { populate } from './roster';
 
-export const npcsAt = (w: World, loc: string): Npc[] => Object.values(w.npcs).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.beat);
+export { npcsAt };
 
 export const here = (w: World): Npc[] => npcsAt(w, w.hero.locationId);
 
@@ -25,10 +28,16 @@ export function throwDamage(w: World, item: Item): number {
 export function relocate(w: World, to: string): void {
   const h = w.hero;
   const from = h.locationId;
+  // Whoever she's looking at stays where she left them for a while; where she's headed catches up on the time she's been away.
+  pinAt(w, from, w.clock);
   h.previousLocationId = from;
   h.locationId = to;
   const dest = w.locations[to];
-  if (dest) dest.visits++;
+  if (dest) {
+    dest.visits++;
+    settleAt(w, to, w.clock);
+    populate(w, dest);
+  }
   for (const e of w.locations[from]?.exits ?? []) if (e.to === to) e.hidden = false;
   for (const e of dest?.exits ?? []) if (e.to === from) e.hidden = false;
 }

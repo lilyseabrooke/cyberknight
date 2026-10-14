@@ -187,6 +187,18 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['riot_shotgun'], armors: ['kevlar_duster'], armorChance: 1, loot: [], lootChance: 0, cash: [150, 400],
     desc: ['a gunsmith with forearms like cargo cranes who sells bagels out of the same display case as the grenades'],
   },
+  // ---------------- generic people for places nobody wrote by hand ----------------
+  shopkeeper: {
+    role: 'shopkeeper', level: [2, 3], tags: ['staff', 'shopkeeper'], faction: 'shop',
+    names: 'person', weapons: ['switchblade', 'zip_pistol'], armors: ['kevlar_duster'], armorChance: 0.3,
+    loot: ['credchip', 'med_pack'], lootChance: 0.4, cash: [40, 160],
+    desc: ['a shopkeeper who has priced everything in the room, including you'],
+  },
+  drifter: {
+    role: 'passer-by', level: [1, 2], tags: [], faction: null,
+    names: 'person', weapons: ['broken_bottle', 'switchblade'], loot: ['credchip', 'neural_gum'], lootChance: 0.3, cash: [0, 40],
+    desc: ['someone on their way somewhere else, hood up'],
+  },
   // ---------------- street life ----------------
   street_kid: {
     role: 'street kid', level: [1, 1], tags: ['kid'], faction: null,

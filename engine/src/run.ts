@@ -20,6 +20,7 @@ import { heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
 import { satietyBias, tickSatiety } from './romance';
+import { BASE_MIN_PER_BEAT } from './clock';
 
 export const MAX_BEATS = 600;
 
@@ -84,6 +85,7 @@ export function step(w: World): GameEvent[] {
   const rng = Rng.fromPosition(w.rngPosition);
   const events: GameEvent[] = [];
   w.beat++;
+  w.clock += BASE_MIN_PER_BEAT;
   const c: Ctx = {
     w,
     rng,

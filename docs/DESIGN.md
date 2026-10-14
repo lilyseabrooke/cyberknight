@@ -364,3 +364,29 @@ Every fight is now played out on a small grid. The player never sees the board: 
 **Reporting.** The sim records a log; the five heaviest entries (reinforcements, thrown-out foes, ambushes and slams, a hack, a retreat, an ally going down, a throw, a crit/stun/burn proc, an ally assist, a weapon swap...) are emitted in order between `fight_start` and `fight_end`. New event types: `tactic` (variants `ambush flurry slam hazard_shove hazard hack intimidate overwatch leap retreat`), `foe_flees` (`ran scared thrown_out`), `reinforce` (`law backup`), `ally_down`.
 
 Possible next steps: foes with techniques of their own (a dragon's sweep, a bouncer's grapple), per-weapon techniques (a shotgun's cone, a whip's pull), terrain you can interact with (shut a door, kill the lights), teaching allies tricks, and pursuit across rooms (a fleeing enemy followed out the exit by the next fight).
+
+## A world that fills itself in (thirteenth pass)
+
+The end goal: the map is generated as Blackbird explores, the world and its people persist across runs, and almost nobody is hand-written. This pass lays the foundation for the people. Nothing about the current night changes; the hand-built Rusty Halo district is the seed everything else grows from.
+
+### Decisions
+- **People persist across runs, and so does the map.** A run resets Blackbird (hero, heat, goals); the population, factions and generated places stay. Dead stays dead, and the dead stay referenceable (a kill in run 3 can matter in run 7).
+- **NPCs remember previous runs.** In fiction she is a personality backup rebuilt in a new body, which is weird even for Neo. Whoever knows she died is confused she's back; whoever doesn't thinks nothing happened. So "does this NPC know she died?" is state on the NPC, not a global.
+- **Time is an in-game clock** (`clock.ts`, world minutes), advanced a little each beat and by more when something takes time (fights, odd jobs, sleeping). It is not locked to the wall clock. When the player is away, `catchUp` converts real time into world time at a slower rate with a ceiling (about 5 world days for a night away, 7 at most). Nothing is simulated for the gap.
+- **Nobody off-screen is simulated.** An NPC with haunts has a position that is a pure function of (world seed, who they are, the clock) (`movement.ts`), so a ten-minute absence and a ten-day one cost the same and two observers agree. People are settled when Blackbird arrives somewhere and pinned where she left them when she goes.
+- **The narrative only reveals what's relevant.** History and wants exist as data but surface in text only once she learns them (the `Mind.bounties` pattern, generalised) or when they change a scene. Generation is lazy (deepen on relevance); reveal is gated by what she knows. These are separate.
+
+### What exists now
+- **Population store (`population.ts`).** The only code that moves an NPC or adds one. Indexes by location and by haunt, built lazily and never saved, so a world loaded from JSON rebuilds on first use. `Npc.locationId` is `readonly`, so the compiler stops anything else writing it. `npcsAt` no longer scans everyone.
+- **Places describe the people they need (`roster.ts`).** `ROSTERS` maps a place kind to slots (role, count range, chance, minimum security, faction source, bystander or resident). `populate(w, loc)` fills a place the first time it matters. Each slot-member has a stable id (`bartender@roadhouse.0.0`) and its own random stream, so the same place always gets the same people whatever order the world is explored in, asking twice makes no twins, and the dead aren't rerolled. A vacancy can be filled by someone already in the world and currently off the map (`AWAY`) before anyone new is made. `relocate` populates on arrival.
+- **Factions are records (`factions.ts`).** Standing between factions, place influence (which factions lean on a place, inherited from neighbours when a place is generated), and a default opinion of one NPC for another that comes from faction standing, so nobody stores an opinion of everybody.
+- **Clock (`clock.ts`)** and the new `Npc` fields (`home`, `haunts`, `routine`, `settledAt`, `ephemeral`, `authored`).
+
+### Not built yet
+1. **Ties and facts.** A sparse graph of personal opinions (kin, friend, rival, debt) that only exists where something made it, gossip along it, and typed history/want facts with discoverability (`visible`, `overheard`, `asked`, `deduced`, `secret`). Ties to people who don't exist yet create stubs.
+2. **Deepening on relevance** (`stub` → `shallow` → `deep`), with wants reusing the goal machinery.
+3. **Active movers.** Targets, pursuers and companions move beat by beat; everyone else is settled lazily. People currently don't walk in or out while she stays put.
+4. **Long-absence life events** (changed faction, moved district, died) for gaps of days, and archiving of far-away ephemeral people (hot/warm/cold tiers).
+5. **The persistent world store** split from the run (hero state resets; population, factions and the map persist), and per-NPC memory of whether they know she died.
+6. **Map generation** feeding `populate`. Location ids must be derived from where a place is, not the order it was found, to keep people deterministic.
+7. **Hot scans.** Several systems still scan every NPC each beat (`tickHustles`, goals, pursuit tip-offs). Fine at 45 people, not at thousands; they need to ask the index.

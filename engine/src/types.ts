@@ -1,6 +1,8 @@
 import type { Rng } from './rng';
 import type { Personality } from './personality';
 import type { EventData, GameEvent, Outcome } from './events';
+import type { Phase } from './clock';
+import type { Faction } from './factions';
 
 /**
  * All world state is plain JSON (no classes, Sets or Maps) so a run can be saved to
@@ -127,7 +129,8 @@ export interface Npc {
   name: string;
   archetype: string;
   role: string;
-  locationId: Id;
+  /** Where they are. Read-only here: `moveNpc` (population.ts) is the only thing that moves anyone, so the indexes stay true. */
+  readonly locationId: Id;
   hp: number;
   maxHp: number;
   level: number;
@@ -147,6 +150,18 @@ export interface Npc {
   downUntil: number;
   /** An outstanding NPD bounty. Hitting someone who has one doesn't bring the police down on her. See bounty.ts. */
   bounty?: { amount: number; hidden: boolean };
+  /** Where they live and work. Absent for people who never go anywhere. */
+  home?: Id;
+  /** Places they turn up, by weight. Absent means they stay where they are. See movement.ts. */
+  haunts?: Record<Id, number>;
+  /** Where they like to be at each time of day, overriding their haunts. */
+  routine?: Partial<Record<Phase, Id>>;
+  /** World minute their position was last brought up to date. */
+  settledAt?: number;
+  /** A bystander: nobody who matters until something makes them matter. May be dropped when far away. */
+  ephemeral?: boolean;
+  /** Written by hand into the world rather than rolled. */
+  authored?: boolean;
 }
 
 export interface Feature {
@@ -192,6 +207,12 @@ export interface Location {
   graffiti: number;
   /** Gang that claims this turf this run (a per-run situational variable). */
   territory: string | null;
+  /** Which factions lean on this place, summing to 1. Absent means just whoever holds `territory`. */
+  influence?: Record<Id, number>;
+  /** The faction the place itself belongs to (its staff are drawn from it). */
+  faction?: Id;
+  /** Its people have been made. See roster.ts. */
+  populated?: boolean;
 }
 
 /** Per-run situational variables, layered on the persistent macro-Neo. */
@@ -222,10 +243,13 @@ export interface Flight {
 export interface World {
   seed: string;
   beat: number;
+  /** World minutes. Advances a little every beat, and more when something takes time. See clock.ts. */
+  clock: number;
   rngPosition: number;
   hero: Hero;
   mind: Mind;
   npcs: Record<Id, Npc>;
+  factions: Record<Id, Faction>;
   features: Record<Id, Feature>;
   locations: Record<Id, Location>;
   /** Wanted level per faction, decays over time. */

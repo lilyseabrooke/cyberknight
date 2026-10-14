@@ -9,6 +9,7 @@ import { wielded } from './arms';
 import { buyGear, restockShelf } from './supply';
 import { shopStock } from './plans';
 import type { Item, Npc } from './types';
+import { addNpc, moveNpc } from './population';
 
 const world = (seed: string, competence = 0.9): World => createWorld({ seed, competence, personality: personalityFrom({}) });
 const ctxOf = (w: World, seed: string) => {
@@ -137,8 +138,8 @@ describe('using them', () => {
     w.hero.hp = w.hero.maxHp = hp;
     w.hero.locationId = 'halo_alley';
     w.hero.ammo = { slugs: 99, shells: 99, rails: 99, gauss: 99, cells: 99 };
-    target.locationId = 'halo_alley';
-    w.npcs[target.id] = target;
+    addNpc(w, target);
+    moveNpc(w, target, 'halo_alley');
     const r = ctxOf(w, seed);
     fight(r.c, [target], { cause: 'test', joiners: false });
     return { w, ...r };
@@ -226,10 +227,10 @@ describe('using them', () => {
         const w = world(`noise${i}`);
         w.hero.weapon = plain(8, { noise });
         w.hero.locationId = 'halo_alley';
-        for (const x of Object.values(w.npcs)) if (x.locationId === 'halo_alley') x.locationId = '_gone';
-        const patrons = [foe(`a${i}`, 'patron'), foe(`b${i}`, 'patron'), foe(`c${i}`, 'patron')].map((p) => ((p.locationId = 'halo_alley'), (w.npcs[p.id] = p), p));
+        for (const x of Object.values(w.npcs)) if (x.locationId === 'halo_alley') moveNpc(w, x, '_gone');
+        const patrons = [foe(`a${i}`, 'patron'), foe(`b${i}`, 'patron'), foe(`c${i}`, 'patron')].map((p) => (addNpc(w, p), moveNpc(w, p, 'halo_alley'), p));
         const victim = foe(`v${i}`, 'mugger', { locationId: 'halo_alley' });
-        w.npcs[victim.id] = victim;
+        addNpc(w, victim);
         void patrons;
         const r = ctxOf(w, `n${i}`);
         fight(r.c, [victim], { cause: 'test', joiners: false, assault: true });

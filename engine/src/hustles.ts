@@ -3,6 +3,7 @@ import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { clamp, levelRisk, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { skillLevel, synergy, train } from './skills';
+import { npcsAt } from './population';
 
 /** The hustle-specific skill formulas. These layer the new skills (grifting, hustling) as a
  * straight additive bonus on top of the original stat-driven baseline, rather than wrapping
@@ -66,7 +67,7 @@ export const oddJobReady = (w: World, n: Npc): boolean => n.alive && !n.hostile 
 export function tickHustles(c: Ctx): void {
   const { w, rng } = c;
   const crowd: Record<string, number> = {};
-  for (const n of Object.values(w.npcs)) if (n.alive && !n.hostile && n.downUntil <= w.beat) crowd[n.locationId] = (crowd[n.locationId] ?? 0) + 1;
+  for (const id of Object.keys(w.locations)) crowd[id] = npcsAt(w, id).filter((n) => !n.hostile).length;
   for (const n of Object.values(w.npcs)) {
     if (!n.alive || n.id.startsWith('tmp_') || n.hostile || n.tags.includes('robot') || n.locationId.startsWith('_')) continue;
     const busy = (crowd[n.locationId] ?? 1) - 1;

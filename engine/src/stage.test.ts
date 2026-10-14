@@ -7,6 +7,7 @@ import { mindAfter, mindBefore, goalLabel } from './goals';
 import { pursuitTick } from './pursuit';
 import { spawnNpc } from './content/archetypes';
 import type { Goal, Npc } from './types';
+import { addNpc, moveNpc } from './population';
 
 const world = (seed: string, traits: Parameters<typeof personalityFrom>[0] = {}, competence = 0.8): World =>
   createWorld({ seed, competence, personality: personalityFrom(traits) });
@@ -16,11 +17,11 @@ const ctxOf = (w: World, seed: string) => {
 };
 const npc = (w: World, id: string, archetype: string, loc: string, extra: Partial<Npc> = {}): Npc => {
   const n = Object.assign(spawnNpc(new Rng(id), id, archetype, loc, {}), extra);
-  w.npcs[id] = n;
+  addNpc(w, n);
   return n;
 };
 const clearRoom = (w: World, loc: string, keep: string[] = []) => {
-  for (const n of Object.values(w.npcs)) if (n.locationId === loc && !keep.includes(n.id)) n.locationId = '_gone';
+  for (const n of Object.values(w.npcs)) if (n.locationId === loc && !keep.includes(n.id)) moveNpc(w, n, '_gone');
 };
 
 describe('crowds get tired of her', () => {

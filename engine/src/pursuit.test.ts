@@ -8,6 +8,7 @@ import { learnFame, expectedFame } from './plans';
 import { isLethal } from './combat';
 import { spawnNpc } from './content/archetypes';
 import type { Goal, Npc } from './types';
+import { addNpc, moveNpc } from './population';
 
 const world = (seed: string, competence = 0.9, traits: Parameters<typeof personalityFrom>[0] = {}): World =>
   createWorld({ seed, competence, personality: personalityFrom(traits) });
@@ -23,11 +24,11 @@ const goal = (w: World, over: Partial<Goal>): Goal => {
 const foe = (w: World, id: string, archetype: string, loc: string, extra: Partial<Npc> = {}): Npc => {
   const n = spawnNpc(new Rng(id), id, archetype, loc, {});
   Object.assign(n, extra);
-  w.npcs[id] = n;
+  addNpc(w, n);
   return n;
 };
 const clearRoom = (w: World, loc: string, keep: string[] = []) => {
-  for (const n of Object.values(w.npcs)) if (n.locationId === loc && !keep.includes(n.id)) n.locationId = '_gone';
+  for (const n of Object.values(w.npcs)) if (n.locationId === loc && !keep.includes(n.id)) moveNpc(w, n, '_gone');
 };
 
 describe('sizing people up', () => {
@@ -144,7 +145,7 @@ describe('looking for the opportunity', () => {
     expect(pursuitTargets(w, g)).toEqual([{ loc: 'halo_floor', value: 2.8 }]);
     // He is not where she last saw him.
     w.hero.locationId = 'halo_floor';
-    w.npcs.skeeter!.locationId = 'halo_alley';
+    moveNpc(w, w.npcs.skeeter!, 'halo_alley');
     pursuitTick(c, g);
     expect(events.some((e) => e.type === 'pursuit' && e.data.variant === 'lost_trail')).toBe(true);
     expect(w.mind.lastSeen.skeeter).toBeUndefined();
