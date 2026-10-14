@@ -106,10 +106,10 @@ export function extraCandidates(w: World): Candidate[] {
   // ---- noodles
   const vendor = crowd.find((n) => n.archetype === 'noodler' || n.archetype === 'cook');
   if (vendor && h.cash >= 5) {
-    out.push({ key: 'buy_noodles', drives: { thirst: 0.2, curiosity: 0.15 }, bonus: (1 - h.hp / h.maxHp) * 0.6, run: (c) => buyNoodles(c, vendor) });
+    out.push({ key: 'buy_noodles', drives: { thirst: 0.2, curiosity: 0.15 }, bonus: 0.1, run: (c) => buyNoodles(c, vendor) });
   }
-  if (noodles && h.hp < h.maxHp * 0.85) {
-    out.push({ key: 'eat_noodles', drives: {}, smart: 0.7, bonus: (1 - h.hp / h.maxHp) * 1.1, run: eatNoodles });
+  if (noodles && h.drunk >= 2) {
+    out.push({ key: 'eat_noodles', drives: {}, smart: 0.7, bonus: h.drunk * 0.15, run: eatNoodles });
   }
 
   // ---- the tab
@@ -292,8 +292,7 @@ function eatNoodles(c: Ctx): void {
   const h = c.w.hero;
   const idx = h.inventory.findIndex((i) => i.id === 'noodles');
   if (idx >= 0) h.inventory.splice(idx, 1);
-  h.hp = Math.min(h.maxHp, h.hp + 12);
-  h.drunk = Math.max(0, h.drunk - 1);
+  h.drunk = Math.max(0, h.drunk - 1); // food sobers you up; it does not close wounds
   c.emit('eat_noodles', 'good', {});
 }
 
@@ -356,7 +355,7 @@ function rescue(c: Ctx): void {
   const damsel = w.npcs[d.npcId]!;
   const foes = d.foeIds.map((id) => w.npcs[id]).filter((n): n is Npc => alive(n));
   c.emit('rescue', 'mixed', { variant: 'intervene', npc: damsel.name });
-  const res = fight(c, foes, { cause: `rescuing ${damsel.name}`, joiners: false });
+  const res = fight(c, foes, { cause: `rescuing ${damsel.name}`, joiners: false, assault: true });
   if (w.over) return;
   w.damsel = null;
   if (res !== 'win') {

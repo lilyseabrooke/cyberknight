@@ -1,7 +1,10 @@
 import type { Ctx, Injury, Item, Npc, World } from './types';
 import { IMPLANTS } from './content/implants';
+import { AMMO } from './content/ammo';
 import { KINDS, removeCompanion } from './companions';
 import { hasImplantFlag, skillLevel, skillValue, train } from './skills';
+import { addAmmo, spendAmmo, wielded } from './arms';
+import { witnessAssault } from './witness';
 
 export const npcsAt = (w: World, loc: string): Npc[] => Object.values(w.npcs).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.beat);
 
@@ -40,10 +43,10 @@ export function remember(npc: Npc, what: string): void {
   if (npc.memories.length > 12) npc.memories.shift();
 }
 
-export function heroPower(w: World): number {
+export function heroPower(w: World, weapon: Item = wielded(w.hero)): number {
   const h = w.hero;
-  let p = h.level * 2 + h.muscle + h.weapon.power;
-  const style = weaponStyle(h.weapon.tags);
+  let p = h.level * 2 + h.muscle + weapon.power;
+  const style = weaponStyle(weapon.tags);
   if (style) p += skillValue(h, style) * 0.6;
   for (const b of h.buffs) if (b.until > w.beat) p += b.power;
   for (const a of h.companions) if (a.hp > 0) p += a.power;
@@ -61,10 +64,15 @@ export function heroPower(w: World): number {
 /** Equip an item if it's better; otherwise stash it. Emits an `equip` event. */
 export function acquire(c: Ctx, item: Item): void {
   const h = c.w.hero;
+  // Ammo goes straight into the pool; the box itself is just cardboard.
+  if (item.rounds && item.ammoType) {
+    addAmmo(h, item.ammoType, item.rounds);
+    return;
+  }
   if ((item.kind === 'weapon' || item.kind === 'gadget') && item.power > h.weapon.power) {
     const old = h.weapon;
     h.weapon = item;
-    if (old.id !== 'excalibur') h.inventory.push(old);
+    h.inventory.push(old); // keep the old one: when the good gun runs dry, the tire iron still works
     c.emit('equip', 'good', { item: item.name, old: old.name, slot: 'weapon', unstable: !!item.unstable });
   } else if (item.kind === 'armor' && item.power > (h.armor?.power ?? 0)) {
     const old = h.armor;
@@ -82,8 +90,7 @@ export function gainXp(c: Ctx, amount: number): void {
   while (h.xp >= 24 * h.level) {
     h.xp -= 24 * h.level;
     h.level++;
-    h.maxHp += 12;
-    h.hp = Math.min(h.maxHp, h.hp + Math.round(h.maxHp * 0.3));
+    h.maxHp += 12; // a bigger tank, not a refill: healing costs a med pack or a street doc
     const stat = (['muscle', 'reflex', 'charm', 'hack'] as const)[h.level % 4]!;
     h[stat]++;
     c.w.stats.maxLevel = Math.max(c.w.stats.maxLevel, h.level);
@@ -135,6 +142,8 @@ export type FightResult = 'win' | 'flee' | 'tossed' | 'arrested' | 'dead';
 export interface FightOpts {
   cause: string;
   joiners?: boolean;
+  /** She started this one, on people who weren't already trying to hurt her. Anyone who sees it will have opinions. */
+  assault?: boolean;
 }
 
 /** The big one. Multi-round, multi-foe, with joiners, injuries, loot and aftermath. */
@@ -159,6 +168,15 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       c.emit('brawl_joins', 'bad', { npcs: joined.map((j) => j.name).join(' and '), count: joined.length });
     }
   }
+  // Hitting people in front of people (or cameras) has consequences.
+  let seen = false;
+  let heatFaction = 'npd';
+  if (o.assault) {
+    const wit = witnessAssault(c, foes, { gun: !!wielded(h).ammoType });
+    seen = wit.seen;
+    heatFaction = wit.heatFaction;
+    foes.push(...wit.joiners);
+  }
   for (const f of foes) f.hostile = true;
   const lethal = isLethal(foes, w);
   const startHp = h.hp;
@@ -169,7 +187,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     cause: o.cause,
     foe: foes[0]!.name,
     foeRole: foes[0]!.role,
-    weapon: h.weapon.name,
+    weapon: wielded(h).name,
     boss: foes.some((f) => f.tags.includes('boss')),
     dragon: foes.find((f) => f.tags.includes('dragon'))?.archetype ?? '',
     hpPct: Math.round((h.hp / h.maxHp) * 100),
@@ -182,6 +200,9 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   let backfires = 0;
   let crits = 0;
   let assists = 0;
+  let ammoSpent = 0;
+  let wield = wielded(h);
+  let lastWield = h.weapon.id;
   const fleeAt = 0.1 + h.competence * 0.35;
   const armor = h.armor?.power ?? 0;
 
@@ -215,9 +236,15 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       result = 'win';
       break;
     }
-    // hero strikes
-    let dmg = Math.round(heroPower(w) * (0.45 + rng.next() * 0.6));
-    if (h.weapon.unstable) {
+    // hero strikes, with whatever still works
+    wield = wielded(h);
+    if (wield.id !== lastWield) {
+      if (wield.id !== h.weapon.id) c.emit('out_of_ammo', 'bad', { weapon: h.weapon.name, ammo: AMMO[h.weapon.ammoType ?? '']?.label ?? 'ammo', fallback: wield.name, bare: wield.id === 'fists' });
+      lastWield = wield.id;
+    }
+    ammoSpent += spendAmmo(h, wield);
+    let dmg = Math.round(heroPower(w, wield) * (0.45 + rng.next() * 0.6));
+    if (wield.unstable) {
       if (rng.chance(0.22)) {
         const back = Math.round(h.maxHp * (0.08 + rng.next() * 0.1));
         h.hp -= back;
@@ -284,7 +311,8 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     killed: killed.length,
     rounds,
     taken: Math.max(0, startHp - h.hp),
-    weapon: h.weapon.name,
+    weapon: wield.name,
+    ammoSpent,
     backfires,
     crits,
     allies: h.companions.filter((a) => a.hp > 0).map((a) => a.name).join(' and '),
@@ -353,8 +381,18 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     c.emit('death', 'bad', { killer: survivors[0]?.name ?? 'something', place: loc.name, cause: o.cause, level: h.level });
   }
 
+  // Bodies on the floor in front of witnesses turn assault into something the police take personally.
+  if (seen && !w.over) {
+    const bodies = foes.filter((f) => !f.alive).length;
+    if (bodies) {
+      const gain = Math.min(3, bodies);
+      addHeat(w, heatFaction, gain);
+      c.emit('heat_up', 'bad', { variant: heatFaction, gain, level: w.heat[heatFaction] ?? 0, source: 'bodies', calls: 0 });
+    }
+  }
+
   for (const f of foes) f.flags = f.flags.filter((x) => x !== 'disabled');
-  const style = weaponStyle(h.weapon.tags);
+  const style = weaponStyle(wield.tags);
   if (style && !w.over) train(c, style, 1 + Math.min(3, foes.length));
   if (result === 'flee' && !w.over) train(c, 'athletics', 2);
   if (result === 'win' && foes.length >= 3) h.fame += 1;

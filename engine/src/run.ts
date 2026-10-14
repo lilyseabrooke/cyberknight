@@ -11,6 +11,7 @@ import { ambientExtras, scoutSaves, tryTalkDown } from './extras';
 import { ambientDragons } from './dragons';
 import { ambientGraffiti } from './graffiti';
 import { hasImplantFlag, skillLevel } from './skills';
+import { expireBuffs } from './supply';
 
 export const MAX_BEATS = 600;
 
@@ -26,7 +27,7 @@ function score(w: World, cand: Candidate): number {
   // Baseline survival instinct (competence only makes it reliable): hurt heroes pick fewer fights.
   const hpRatio = h.hp / h.maxHp;
   if (hpRatio < 0.5 && AGGRESSIVE.has(cand.key.split(':')[0]!)) s -= (0.5 - hpRatio) * 5;
-  if (hpRatio < 0.4 && ['bandage', 'use_medkit', 'get_patched'].includes(cand.key.split(':')[0]!)) s += (0.4 - hpRatio) * 6;
+  if (hpRatio < 0.4 && ['use_med_pack', 'get_patched'].includes(cand.key.split(':')[0]!)) s += (0.4 - hpRatio) * 6;
   // Novelty: she gets bored of doing the same thing.
   const repeats = w.recent.filter((k) => k === cand.key).length;
   s -= repeats * 0.5;
@@ -115,14 +116,14 @@ export function step(w: World): GameEvent[] {
 function upkeep(c: Ctx): void {
   const { w } = c;
   const h = w.hero;
-  h.buffs = h.buffs.filter((b) => b.until > w.beat);
+  expireBuffs(c);
   w.flags.blackout = w.beat < w.blackoutUntil;
   if (w.beat % 10 === 0) for (const k of Object.keys(w.heat)) w.heat[k] = Math.max(0, (w.heat[k] ?? 0) - 1);
   if (w.beat % 8 === 0 && h.drunk > 0) h.drunk--;
   // Shipments arrive; tempers cool. No timers on her, just the world carrying on.
   if (w.beat % 30 === 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2);
   if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;
-  if (w.beat % 5 === 0) h.hp = Math.min(h.maxHp, h.hp + 2);
+  // No passive regeneration. Wounds stay until a med pack or a street doc deals with them.
   if (h.drunk >= 6 + Math.floor(skillLevel(h, 'tolerance') / 2)) {
     const lost = Math.round(h.cash * 0.4);
     h.cash -= lost;

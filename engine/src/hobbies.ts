@@ -294,7 +294,6 @@ function eatDish(c: Ctx): void {
   const h = c.w.hero;
   const i = h.inventory.findIndex((x) => x.tags.includes('dish'));
   if (i >= 0) h.inventory.splice(i, 1);
-  h.hp = Math.min(h.maxHp, h.hp + 30);
   h.buffs = h.buffs.filter((b) => b.id !== 'fed');
   h.buffs.push({ id: 'fed', until: c.w.beat + 25, power: 2 });
   c.emit('eat_dish', 'good', {});

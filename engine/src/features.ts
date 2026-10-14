@@ -1,6 +1,7 @@
-import type { Ctx, Feature, World } from './types';
+import type { Ctx, Feature, Item, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
-import { makeItem } from './content/items';
+import { makeAmmoBox, makeItem } from './content/items';
+import { AMMO_IDS } from './content/ammo';
 import { hasAlly } from './companions';
 import { makeCan } from './graffiti';
 import { skillLevel, synergy, train } from './skills';
@@ -31,7 +32,7 @@ export function featureCandidates(w: World): Candidate[] {
         out.push({ key, drives: { pride: 1.2 }, run: mirror });
         break;
       case 'fridge':
-        out.push({ key, drives: { curiosity: 0.5, thirst: 0.2 }, bonus: (1 - h.hp / h.maxHp) * 0.8, risk: present(w, 'bao') ? 0.5 : 0, run: fridge });
+        out.push({ key, drives: { curiosity: 0.5, thirst: 0.2 }, bonus: 0.1, risk: present(w, 'bao') ? 0.5 : 0, run: fridge });
         break;
       case 'laser_tag':
         if (h.cash >= 15) out.push({ key, drives: { bravery: 0.5, pride: 0.7, curiosity: 0.3, lust: 0.1 }, bonus: 0.3, run: laserTag });
@@ -132,7 +133,7 @@ function pool(c: Ctx): void {
     c.emit('pool', 'bad', { variant: 'lose', npc: rival.name, amount: bet });
     if (rng.chance(0.3)) {
       c.emit('pool', 'bad', { variant: 'accuse', npc: rival.name });
-      fight(c, [rival], { cause: 'accusing someone of hustling at pool' });
+      fight(c, [rival], { cause: 'accusing someone of hustling at pool', assault: true });
     }
   }
 }
@@ -162,7 +163,7 @@ function fridge(c: Ctx): void {
     h.hp -= 10;
     c.emit('fridge', 'bad', { variant: 'poison' });
   } else {
-    h.hp = Math.min(h.maxHp, h.hp + Math.round(h.maxHp * 0.12));
+    h.drunk = Math.max(0, h.drunk - 1);
     c.emit('fridge', 'good', { variant: 'snack' });
   }
 }
@@ -237,14 +238,14 @@ function dumpster(c: Ctx, f: Feature): void {
   f.uses++;
   const sniff = hasAlly(w, 'sniff') ? 0.08 : 0;
   const roll = rng.next();
-  const find = (id: string, variant: string) => {
-    const it = makeItem(id);
+  const find = (what: string | Item, variant: string) => {
+    const it = typeof what === 'string' ? makeItem(what) : what;
     c.emit('dumpster', 'good', { variant, item: it.name, sniff: sniff > 0 });
     acquire(c, it);
   };
-  if (roll < 0.1 + sniff) find(rng.pick(['credchip', 'memory_shard', 'fake_id', 'medkit']), 'loot');
+  if (roll < 0.1 + sniff) find(rng.pick(['credchip', 'memory_shard', 'fake_id', 'patch_kit', 'med_pack']), 'loot');
   else if (roll < 0.17 + sniff) find(rng.pick(['pool_cue', 'switchblade', 'zip_pistol', 'kevlar_duster', 'leather_jacket']), 'gear');
-  else if (roll < 0.4) find(rng.pick(['eyeballs', 'mom_photo', 'neural_gum', 'gold_tooth', 'walkman']), 'junk');
+  else if (roll < 0.4) find(rng.chance(0.3) ? makeAmmoBox(rng.pick(AMMO_IDS), rng.int(4, 10)) : makeItem(rng.pick(['eyeballs', 'mom_photo', 'neural_gum', 'gold_tooth', 'walkman'])), 'junk');
   else if (roll < 0.55) {
     c.emit('dumpster', 'bad', { variant: 'rats' });
     const [rats] = spawnGroup(c, 'mugger', 1);
@@ -262,7 +263,7 @@ function dumpster(c: Ctx, f: Feature): void {
   } else if (roll < 0.65 && revealExit(w, 'halo_alley', 'club_maintenance')) {
     c.emit('dumpster', 'good', { variant: 'hatch' });
   } else if (roll < 0.72) {
-    h.inventory.push(makeItem('medkit'));
+    h.inventory.push(makeItem('med_pack'));
     c.emit('dumpster', 'good', { variant: 'vagrant' });
   } else if (roll < 0.84) {
     makeCan(h, 1);
@@ -277,7 +278,6 @@ function vending(c: Ctx): void {
   const h = w.hero;
   const roll = rng.next();
   if (roll < 0.4) {
-    h.hp = Math.min(h.maxHp, h.hp + 6);
     c.emit('vending', 'good', { variant: 'snack' });
   } else if (roll < 0.6) {
     const cash = rng.int(10, 60);
@@ -332,7 +332,7 @@ function fusePanel(c: Ctx): void {
 function crates(c: Ctx): void {
   const { w, rng } = c;
   if (rng.chance(0.55)) {
-    const it = makeItem(rng.pick(['helix_sample', 'memory_shard', 'corp_creds', 'medkit', 'corp_plate']));
+    const it = makeItem(rng.pick(['helix_sample', 'memory_shard', 'corp_creds', 'med_pack', 'corp_plate']));
     c.emit('crates', 'good', { variant: 'loot', item: it.name });
     acquire(c, it);
   } else {

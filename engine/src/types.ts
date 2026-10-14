@@ -22,12 +22,22 @@ export interface Item {
   /** Experimental tech: huge power, but it may bite back. */
   unstable?: boolean;
   tags: string[];
+  /** Guns: the kind of ammunition they burn, and how much each round of shooting costs. */
+  ammoType?: string;
+  perRound?: number;
+  /** Ammo boxes: how many rounds are inside. Picking one up pours it into `hero.ammo`. */
+  rounds?: number;
 }
 
 export interface Buff {
   id: string;
   until: number;
   power: number;
+  /** Stimulants that raise a stat: applied on use, taken back off when the buff lapses. */
+  stat?: 'muscle' | 'reflex' | 'hack' | 'charm';
+  amount?: number;
+  /** Power penalty she eats once it wears off. */
+  crash?: number;
 }
 
 export interface Companion {
@@ -63,6 +73,8 @@ export interface Hero {
   weapon: Item;
   armor: Item | null;
   inventory: Item[];
+  /** Rounds on hand by ammo type (see content/ammo.ts). Shooting spends them; no rounds, no shooting. */
+  ammo: Record<string, number>;
   buffs: Buff[];
   companions: Companion[];
   /** Skill XP by id; see skills.ts for levels. */
@@ -137,6 +149,8 @@ export interface Location {
   /** Where the hero scrambles when fleeing. */
   fleeTo: Id;
   visits: number;
+  /** Security cameras. They see everything she does, unless the power is out. */
+  cameras: number;
   /** Pieces of her graffiti up here. Drives diminishing fame and local consequences. */
   graffiti: number;
   /** Gang that claims this turf this run (a per-run situational variable). */

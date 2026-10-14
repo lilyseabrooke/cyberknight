@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AMMO,
   ARCHETYPES,
   Rng,
+  STIMS,
+  medPacks,
+  medStock,
+  wielded,
   createRun,
   gangName,
   IMPLANTS,
@@ -33,6 +38,11 @@ interface Snapshot {
   cash: number;
   drunk: number;
   weapon: string;
+  /** What she is actually swinging right now (different if the gun is dry). */
+  wielding: string;
+  ammo: [string, number][];
+  medPacks: string;
+  medStock: number;
   armor: string;
   injuries: string[];
   inventory: string[];
@@ -66,7 +76,7 @@ const SPEEDS = [
 
 const HEAT_NAMES: Record<string, string> = { npd: 'Police', atlas: 'Atlas', halo: 'The Halo', club: 'Neon Pharaoh' };
 const heatName = (k: string) => HEAT_NAMES[k] ?? gangName(k);
-const DRAMA = new Set(['fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout']);
+const DRAMA = new Set(['heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout']);
 const MAX_LINES = 600;
 
 function snap(w: World): Snapshot {
@@ -80,15 +90,19 @@ function snap(w: World): Snapshot {
     cash: h.cash,
     drunk: h.drunk,
     weapon: h.weapon.name,
+    wielding: wielded(h).name,
+    ammo: Object.entries(h.ammo).filter(([, n]) => n > 0).map(([t, n]) => [AMMO[t]?.label ?? t, n] as [string, number]),
+    medPacks: Object.entries(medPacks(h).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => `${k} ${n}`).join(' · '),
+    medStock: medStock(h),
     armor: h.armor?.name ?? 'nothing but attitude',
     injuries: [...h.injuries],
-    inventory: Object.entries(h.inventory.reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => (k > 1 ? `${n} ×${k}` : n)),
+    inventory: Object.entries(h.inventory.filter((i) => !i.tags.includes('med')).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => (k > 1 ? `${n} ×${k}` : n)),
     companions: h.companions.map((a) => ({ name: a.name, kind: a.kind, hp: a.hp, maxHp: a.maxHp, loyalty: a.loyalty })),
     location: w.locations[h.locationId]?.name ?? '?',
     beat: w.beat,
     kills: w.stats.kills,
     heat: Object.entries(w.heat).filter(([, v]) => v > 0),
-    buffs: h.buffs.filter((b) => b.until > w.beat).map((b) => b.id),
+    buffs: h.buffs.filter((b) => b.until > w.beat).map((b) => STIMS[b.id.replace('stim:', '')]?.name ?? b.id),
     ending: w.ending,
     fame: Math.floor(h.fame),
     art: w.locations[h.locationId]?.graffiti ?? 0,
@@ -258,7 +272,9 @@ export default function NightViewer() {
             <dl>
               <dt>Location</dt><dd>{status.location}</dd>
               <dt>Neodollars</dt><dd>{status.cash}</dd>
-              <dt>Weapon</dt><dd>{status.weapon}</dd>
+              <dt>Weapon</dt><dd>{status.weapon}{status.wielding !== status.weapon && <span className="bad"> (dry: using {status.wielding})</span>}</dd>
+              <dt>Medical</dt><dd className={status.medStock === 0 ? 'bad' : undefined}>{status.medPacks ? `${status.medPacks} (${status.medStock} HP)` : 'none (she cannot heal)'}</dd>
+              <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
               <dt>Armor</dt><dd>{status.armor}</dd>
               <dt>Drunk</dt><dd>{'🍸'.repeat(Math.min(status.drunk, 6)) || 'sober (suspicious)'}</dd>
               {status.companions.length > 0 && (

@@ -221,7 +221,7 @@ function threatenClerk(c: Ctx): void {
   } else {
     clerk.affinity -= 10;
     c.emit('paint_shop', 'bad', { variant: 'threat_fail', npc: clerk.name });
-    fight(c, [clerk], { cause: 'threatening the paint-shop clerk', joiners: false });
+    fight(c, [clerk], { cause: 'threatening the paint-shop clerk', joiners: false, assault: true });
   }
 }
 
@@ -231,7 +231,7 @@ function robShop(c: Ctx): void {
   const clerk = w.npcs.clerk!;
   c.emit('paint_shop', 'mixed', { variant: 'rob_start', npc: clerk.name });
   clerk.affinity -= 20;
-  const res = fight(c, [clerk], { cause: 'robbing the paint shop', joiners: false });
+  const res = fight(c, [clerk], { cause: 'robbing the paint shop', joiners: false, assault: true });
   if (res !== 'win' || w.over) return;
   const n = stock(w);
   w.counters.paint_stock = 0;

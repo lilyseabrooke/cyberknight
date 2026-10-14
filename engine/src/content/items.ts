@@ -1,4 +1,7 @@
 import type { Item, ItemKind } from '../types';
+import { AMMO, AMMO_IDS, WEAPON_AMMO } from './ammo';
+import { STIMS } from './stims';
+import { MEDS } from './meds';
 
 type Def = Omit<Item, 'id'>;
 const w = (name: string, power: number, value: number, tags: string[] = []): Def => ({ name, kind: 'weapon', power, value, tags });
@@ -53,12 +56,17 @@ export const ITEMS: Record<string, Def> = {
   dragon_scale: l('Artemis scale (still warm)', 250, ['dragon']),
   vipers_patch: l('Chrome Vipers colors', 20, ['gang']),
   // ---- consumables ----
-  medkit: c('field medkit', 45, 60),
-  stim: c('combat stim', 6, 40),
+  ...Object.fromEntries(Object.entries(MEDS).map(([id, m]) => [id, c(m.name, m.heal, m.price, ['med'])])),
+  stim: c(STIMS.stim!.name, 6, 40, ['stim']),
+  stim_iron: c(STIMS.stim_iron!.name, 0, 50, ['stim']),
+  stim_twitch: c(STIMS.stim_twitch!.name, 0, 45, ['stim']),
+  stim_cortex: c(STIMS.stim_cortex!.name, 0, 45, ['stim']),
+  stim_silver: c(STIMS.stim_silver!.name, 0, 35, ['stim']),
   noodles: c('mystery-meat noodle bowl', 12, 5),
   spray_can: c('can of spray paint (5 left)', 5, 15, ['paint']),
   dish_good: c('a plated noodle special (it is, shockingly, good)', 30, 40, ['dish']),
   cocktail_molotov: c('Molotov Mule (the cocktail, mostly)', 18, 25, ['throwable', 'fire']),
+  ...Object.fromEntries(AMMO_IDS.map((t) => [`ammo_${t}`, c(`box of ${AMMO[t]!.label}`, 0, Math.round(AMMO[t]!.price / 2), ['ammo'])])),
   vintage_guitar: l('vintage guitar (previous owner: a band)', 400, ['instrument']),
 };
 
@@ -80,3 +88,17 @@ const STYLE: Record<string, string[]> = {
   judgment: ['melee'], switchblade: ['melee', 'throwable'], arc_gauntlet: ['melee'], monowhip: ['melee'], thermal_katana: ['melee'],
 };
 for (const [id, tags] of Object.entries(STYLE)) ITEMS[id]!.tags.push(...tags);
+
+for (const [id, a] of Object.entries(WEAPON_AMMO)) Object.assign(ITEMS[id]!, { ammoType: a.type, perRound: a.perRound });
+for (const t of AMMO_IDS) ITEMS[`ammo_${t}`]!.ammoType = t;
+
+/** A full box of the given ammo type (rounds default to the shop box size). */
+export function makeAmmoBox(type: string, rounds: number = AMMO[type]!.box): Item {
+  const it = makeItem(`ammo_${type}`);
+  it.rounds = rounds;
+  it.name = `${rounds} ${AMMO[type]!.label}`;
+  return it;
+}
+
+/** Bare fists: what she swings when the gun is dry and there is nothing else in her pockets. */
+export const FISTS: Item = { id: 'fists', name: 'bare fists', kind: 'weapon', power: 1, value: 0, tags: ['melee'] };

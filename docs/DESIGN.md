@@ -157,6 +157,16 @@ About 26 skills across music (music, singing, guitar, DJing, beatboxing), aim an
 - **Consequences:** police may fine her or chase her ("itinerant vandal"), drones file a review, and tagging indoors angers owners (the Halo's staff, club security, Helix guards). Tagging **gang turf** (a per-run variable: two districts belong to the warring gangs) raises that gang's heat, so crews come hunting her; their enemies like her more; and gangs can paint over her work.
 - **Design rule: no artificial cooldowns.** If something is limited, the limit comes from the world: finite stock, saturation, diminishing returns, heat, grudges that fade on their own over time. The only explicit timer left is teaching allies tricks, which genuinely needs rest. Removed this pass: graffiti, cue-grabbing, billboard-hacking and DJ-block timers.
 
+### Resources and consequences (fifth pass)
+
+Things for the hero AI to plan around. All state is JSON on `World`; all of it is smart-object driven, with no timers.
+
+- **Healing costs something.** No bandage, passive regen, level-up refill or healing food. HP comes back only from a **med pack** (`Chem-Mart`, 55nd, or looted from cops/gangers/dumpsters; she starts with 3) or the **street doc**. Med kits come in three tiers that each restore a fixed amount: **patch kit** (30 HP, 25nd), **med pack** (60 HP, cures 1 injury, 55nd) and **trauma kit** (110 HP, cures 2, 100nd); she starts with two patch kits and a med pack. Only the doc restores full HP (20-32nd, cures up to two injuries, occasionally botches into a stat swap).
+- **Shooting costs ammo.** Guns burn typed rounds (`slugs`, `shells`, `rails`, `gauss`, `cells`; see `content/ammo.ts`), each gun at its own rate per round of shooting. A dry gun falls back to the best working weapon in her pockets, then fists (`arms.ts: wielded`). Ammo is bought at **Bullets & Bagels**, carried by armed NPCs, and found in dumpsters.
+- **Attacks have witnesses.** Fights she starts (`FightOpts.assault`) are seen by people, drones and cameras (`Location.cameras`, dead in a blackout). Anything that sees it adds police heat (Atlas heat on Atlas premises); gunfire, crowds, calls and a cop in the room add more; bodies add more again. Bystanders react (`witness.ts`): cops and security join in, kin join in, civilians call the police, flee, film it, or (less often) cheer. Everyone who saw remembers. Nobody saw means no heat.
+- **Gear and stimulants.** The gun shop sells weapons and armor (a starter box of ammo comes with each gun); the chem-mart sells five stims that each boost something different (power, muscle, reflex, hack, charm), with a crash afterwards and a real chance of overdose when stacked. The dealer sells them cheaper, cut with something.
+- **Balance.** Police heat is deliberately steep: going around flatlining randos is not a viable strategy. With scarce healing and real heat, the current (pre-strategy) Blackbird dies in roughly 15-80 beats depending on competence, and nobody reaches the dragon. That is the gap the strategy layer is for. Tune with `npm run sim`.
+
 ### The dragon family
 
 Cyberdragons are Atlas "protection" platforms, in three models that behave differently:

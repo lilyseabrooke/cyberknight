@@ -1,6 +1,6 @@
 import type { Rng } from '../rng';
 import type { Item, Npc } from '../types';
-import { makeItem } from './items';
+import { makeAmmoBox, makeItem } from './items';
 
 export interface ArchetypeDef {
   role: string;
@@ -54,7 +54,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   ganger: {
     role: 'ganger', level: [2, 3], tags: ['rowdy', 'ganger'], faction: 'ganger',
     names: 'person', weapons: ['switchblade', 'zip_pistol', 'pool_cue', 'broken_bottle'], armors: ['leather_jacket'],
-    armorChance: 0.5, loot: ['vipers_patch', 'credchip', 'gold_tooth'], lootChance: 0.6, cash: [10, 60],
+    armorChance: 0.5, loot: ['vipers_patch', 'credchip', 'gold_tooth', 'med_pack', 'patch_kit'], lootChance: 0.6, cash: [10, 60],
     desc: ['a ganger in a jacket covered in more patches than a quilt'],
   },
   corpo: {
@@ -77,7 +77,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   },
   doc: {
     role: 'street doc', level: [2, 2], tags: ['doc'], faction: null,
-    names: 'person', weapons: ['cleaver'], loot: ['medkit', 'eyeballs'], lootChance: 1, cash: [40, 100],
+    names: 'person', weapons: ['cleaver'], loot: ['med_pack', 'eyeballs'], lootChance: 1, cash: [40, 100],
     desc: ['a street doc who runs an illegal clinic out of the bathroom stall'],
   },
   dealer: {
@@ -108,7 +108,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   },
   mugger: {
     role: 'mugger', level: [2, 3], tags: ['ganger', 'rowdy'], faction: 'ganger',
-    names: 'person', weapons: ['switchblade', 'zip_pistol'], loot: ['credchip', 'gold_tooth'], lootChance: 0.6, cash: [10, 50],
+    names: 'person', weapons: ['switchblade', 'zip_pistol'], loot: ['credchip', 'gold_tooth', 'med_pack', 'patch_kit'], lootChance: 0.6, cash: [10, 50],
     desc: ['a mugger with a knife and a deadline'],
   },
   noodler: {
@@ -120,7 +120,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   club_security: {
     role: 'Neon Pharaoh security', level: [4, 5], tags: ['security', 'strong', 'augmented', 'nonlethal'], faction: 'club',
     names: 'person', weapons: ['stunner_mk3'], armors: ['kevlar_duster'], armorChance: 0.8,
-    loot: ['gold_tooth'], lootChance: 0.3, cash: [30, 100],
+    loot: ['gold_tooth', 'med_pack', 'patch_kit'], lootChance: 0.3, cash: [30, 100],
     desc: ['a club security guard in mirrored shades, at night, indoors, because he is a professional'],
   },
   dj: {
@@ -148,7 +148,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   helix_guard: {
     role: 'Helix security', level: [6, 7], tags: ['security', 'corp', 'augmented'], faction: 'atlas',
     names: 'person', weapons: ['pulse_rifle'], armors: ['corp_plate'], armorChance: 0.8,
-    loot: ['corp_creds', 'memory_shard'], lootChance: 0.6, cash: [60, 200],
+    loot: ['corp_creds', 'memory_shard', 'med_pack', 'trauma_kit'], lootChance: 0.6, cash: [60, 200],
     desc: ['a Helix guard in matte-black plating, visor down, personality off'],
   },
   scientist: {
@@ -171,6 +171,16 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['switchblade'], loot: ['memory_shard', 'credchip'], lootChance: 0.5, cash: [40, 120],
     desc: ['a paint-shop clerk with a neon-pink streak in her hair and paint to the elbows'],
   },
+  pharmacist: {
+    role: 'night pharmacist', level: [3, 3], tags: ['staff', 'shopkeeper'], faction: 'shop',
+    names: 'person', weapons: ['switchblade'], loot: ['med_pack', 'stim_cortex'], lootChance: 1, cash: [60, 160],
+    desc: ['a night pharmacist with a laminated license, a lanyard of expired keycards and the calm of someone who has seen every possible rash'],
+  },
+  gunsmith: {
+    role: 'gunsmith', level: [5, 5], tags: ['staff', 'shopkeeper', 'strong'], faction: 'shop',
+    names: 'person', weapons: ['riot_shotgun'], armors: ['kevlar_duster'], armorChance: 1, loot: [], lootChance: 0, cash: [150, 400],
+    desc: ['a gunsmith with forearms like cargo cranes who sells bagels out of the same display case as the grenades'],
+  },
   // ---------------- street life ----------------
   street_kid: {
     role: 'street kid', level: [1, 1], tags: ['kid'], faction: null,
@@ -186,13 +196,13 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   npd_officer: {
     role: 'NPD officer', level: [4, 5], tags: ['cop', 'security', 'augmented'], faction: 'npd',
     names: 'person', weapons: ['riot_shotgun', 'service_pistol'], armors: ['riot_vest'], armorChance: 0.9,
-    loot: ['credchip'], lootChance: 0.4, cash: [30, 90],
+    loot: ['credchip', 'med_pack'], lootChance: 0.4, cash: [30, 90],
     desc: ['a Neo Protective Division officer in full riot kit'],
   },
   npd_sergeant: {
     role: 'NPD sergeant', level: [7, 7], tags: ['cop', 'security', 'augmented', 'strong'], faction: 'npd',
     names: 'person', weapons: ['gauss_smg'], armors: ['riot_vest'], armorChance: 1,
-    loot: ['credchip', 'memory_shard'], lootChance: 0.7, cash: [80, 200],
+    loot: ['credchip', 'memory_shard', 'med_pack', 'trauma_kit'], lootChance: 0.7, cash: [80, 200],
     desc: ['an NPD sergeant with the thousand-yard stare of a man who bills overtime'],
   },
   apollo: {
@@ -251,6 +261,9 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
     loadout.push(wpn);
     weaponPower = wpn.power;
   }
+  // Shooters carry spare rounds, which is how she ends up with any.
+  const gun = loadout[0];
+  if (gun?.ammoType && rng.chance(0.65)) loadout.push(makeAmmoBox(gun.ammoType, (gun.perRound ?? 1) * rng.int(3, 7)));
   if (def.armors && rng.chance(def.armorChance ?? 0)) loadout.push(makeItem(rng.pick(def.armors)));
   if (def.loot.length && rng.chance(def.lootChance)) loadout.push(makeItem(rng.pick(def.loot)));
   const hp = def.hp ?? 18 + level * 12;
