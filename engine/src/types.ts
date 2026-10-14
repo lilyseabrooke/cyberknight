@@ -65,6 +65,8 @@ export interface Hero {
   xp: number;
   cash: number;
   drunk: number;
+  /** 0..1. How content she is, romantically, for now. Decays slowly; amorous company speeds it up. */
+  satiety?: number;
   muscle: number;
   reflex: number;
   hack: number;
@@ -140,7 +142,7 @@ export interface Exit {
 export interface Location {
   id: Id;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home';
   exits: Exit[];
   /** 0..10. Raises the chance of being spotted while sneaking. */
   security: number;

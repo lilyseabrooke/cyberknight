@@ -62,6 +62,7 @@ interface Snapshot {
   skills: [string, number][];
   implants: string[];
   goals: GoalView[];
+  satiety: number;
 }
 
 interface Night {
@@ -114,6 +115,7 @@ function snap(w: World): Snapshot {
     skills: (Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((k) => [SKILL_LABELS[k], skillLevel(h, k)] as [string, number]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]),
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
     goals: goalViews(w),
+    satiety: h.satiety ?? 0,
   };
 }
 
@@ -294,6 +296,7 @@ export default function NightViewer() {
               <dt>Medical</dt><dd className={status.medStock === 0 ? 'bad' : undefined}>{status.medPacks ? `${status.medPacks} (${status.medStock} HP)` : 'none (she cannot heal)'}</dd>
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
               <dt>Armor</dt><dd>{status.armor}</dd>
+              {status.satiety > 0.08 && (<><dt>Afterglow</dt><dd>{'♥'.repeat(Math.max(1, Math.round(status.satiety * 5)))} <span className="muted">sated</span></dd></>)}
               <dt>Drunk</dt><dd>{'🍸'.repeat(Math.min(status.drunk, 6)) || 'sober (suspicious)'}</dd>
               {status.companions.length > 0 && (
                 <>

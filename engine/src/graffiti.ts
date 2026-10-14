@@ -5,6 +5,7 @@ import { makeItem } from './content/items';
 import { ODDS } from './hobbies';
 import { odds, skillLevel, synergy, train } from './skills';
 import { scoutSaves } from './extras';
+import { kindle } from './romance';
 
 /** Fame from a piece falls off with each piece already on that spot. No timers: the wall just gets full. */
 export const FAME_DECAY = 0.6;
@@ -190,6 +191,7 @@ function seduceClerk(c: Ctx): void {
   const clerk = w.npcs.clerk!;
   const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + clerk.affinity / 200, 0.05, 0.9);
   train(c, 'romance', 1);
+  kindle(h, 0.04);
   if (rng.chance(p)) {
     const n = rng.int(2, 3);
     clerk.affinity += 20;

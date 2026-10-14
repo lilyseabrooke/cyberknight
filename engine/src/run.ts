@@ -16,6 +16,7 @@ import { expireBuffs } from './supply';
 import { discretion } from './discretion';
 import { scanBounties } from './bounty';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
+import { satietyBias, tickSatiety } from './romance';
 
 export const MAX_BEATS = 600;
 
@@ -28,6 +29,7 @@ export function score(w: World, cand: Candidate): number {
   for (const d of DRIVES) s += (cand.drives[d] ?? 0) * weights[d];
   s += traitBias(w, cand);
   s += goalBias(w, cand);
+  s += satietyBias(w, cand);
   s += (cand.smart ?? 0) * h.competence;
   // Not in front of people. Not where the police will hear about it.
   s -= discretion(w, cand);
@@ -35,7 +37,6 @@ export function score(w: World, cand: Candidate): number {
   // Baseline survival instinct (competence only makes it reliable): hurt heroes pick fewer fights.
   const hpRatio = h.hp / h.maxHp;
   if (hpRatio < 0.5 && AGGRESSIVE.has(cand.key.split(':')[0]!)) s -= (0.5 - hpRatio) * 5;
-  if (hpRatio < 0.4 && ['use_med_pack', 'get_patched'].includes(cand.key.split(':')[0]!)) s += (0.4 - hpRatio) * 6;
   // Novelty: she gets bored of doing the same thing.
   const repeats = w.recent.filter((k) => k === cand.key).length;
   s -= repeats * 0.5;
@@ -136,6 +137,7 @@ function upkeep(c: Ctx): void {
   w.flags.blackout = w.beat < w.blackoutUntil;
   if (w.beat % 10 === 0) for (const k of Object.keys(w.heat)) w.heat[k] = Math.max(0, (w.heat[k] ?? 0) - 1);
   if (w.beat % 8 === 0 && h.drunk > 0) h.drunk--;
+  tickSatiety(h);
   // Shipments arrive; tempers cool. No timers on her, just the world carrying on.
   if (w.beat % 30 === 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2);
   if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;

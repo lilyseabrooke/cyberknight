@@ -3,6 +3,7 @@ import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { makeAmmoBox, makeItem } from './content/items';
 import { AMMO_IDS } from './content/ammo';
 import { hasAlly } from './companions';
+import { kindle } from './romance';
 import { makeCan } from './graffiti';
 import { skillLevel, synergy, train } from './skills';
 import { ODDS } from './hobbies';
@@ -305,6 +306,7 @@ function dance(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const dancers = here(w).filter((n) => n.tags.includes('romanceable'));
+  if (dancers.length) kindle(h, 0.02);
   const p = clamp(0.3 + h.charm * 0.025 + 0.06 * synergy(h, ['dancing', ['stat:charm', 0.5]]) + Math.min(h.drunk, 2) * 0.03, 0.15, 0.88);
   train(c, 'dancing', 2);
   if (rng.chance(p)) {

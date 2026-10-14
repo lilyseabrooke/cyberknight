@@ -13,6 +13,7 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   flirt: { impress: 1.6, romantic: 0.5, sociable: 0.4 },
   kiss: { impress: 0.8, romantic: 1.2 },
   pool_date: { impress: 0.7, romantic: 0.8 },
+  make_move: { impress: 1.2, romantic: 0.8, thrill: 0.6, mischief: 0.4, drink: 0.3 },
   serve_dish: { impress: 0.6, romantic: 0.8, appetite: 0.4 },
   dance: { impress: 1.0, sociable: 0.4, vanity: 0.3 },
   seduce_clerk: { impress: 1.0, mischief: 0.5, romantic: -0.8 },
@@ -104,7 +105,7 @@ export function flameOf(w: World): Npc | null {
   return best;
 }
 
-const ROMANCE = new Set(['flirt', 'kiss', 'pool_date', 'serve_dish']);
+const ROMANCE = new Set(['flirt', 'kiss', 'make_move', 'pool_date', 'serve_dish']);
 const FIGHTS = new Set(['challenge', 'sweep', 'threaten', 'join_brawl']);
 
 /** What her personality adds to (or takes from) how much she wants this. Neutral at 0.5 across the board. */

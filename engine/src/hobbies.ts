@@ -4,6 +4,7 @@ import { clamp, revealExit, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { odds, skillLevel, synergy, train } from './skills';
 import { hasKind } from './companions';
+import { kindle } from './romance';
 
 /**
  * Every skill formula in one place: baseline luck + a bonus per point of synergy, where synergy is the weighted
@@ -115,6 +116,7 @@ function poolDate(c: Ctx, n: Npc): void {
   const bet = Math.min(h.cash, rng.int(10, 30));
   const p = clamp(ODDS.poolDate(h, n), 0.05, 0.9);
   const skilled = skillLevel(h, 'pool') >= 3;
+  kindle(h, 0.05);
   if (rng.chance(p)) {
     n.affinity += 22;
     remember(n, 'lost at pool to Blackbird and liked it');
@@ -304,6 +306,7 @@ function serveDish(c: Ctx, n: Npc): void {
   const h = w.hero;
   const i = h.inventory.findIndex((x) => x.tags.includes('dish'));
   if (i >= 0) h.inventory.splice(i, 1);
+  kindle(h, 0.04);
   if (rng.chance(ODDS.serve(h))) {
     n.affinity += 20;
     remember(n, 'was cooked for by Blackbird');

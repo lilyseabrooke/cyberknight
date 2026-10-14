@@ -8,6 +8,7 @@ import { MEDS, MED_IDS } from './content/meds';
 import { DOC_FEE, GEAR_MARKUP, PHARMACY_STIMS, SHOP_AMMO, SHOP_ARMOR, SHOP_WEAPONS, gearPrice } from './content/shops';
 import { addAmmo, ammoOf, gunsOwned, isArm, medPacks, medStock, shotsLeft, wielded } from './arms';
 import { skillLevel, train } from './skills';
+import { healUrge } from './urges';
 
 /**
  * Everything she has to spend money on to stay alive and stay dangerous: med packs, ammo,
@@ -61,12 +62,12 @@ export function supplyUrge(w: World, dest: string): { bonus: number; smart: numb
   if (dest === 'chem_mart') {
     if (h.cash < price(h, MEDS.patch_kit!.price)) return none;
     const stock = medStock(h);
-    return stock === 0 ? { bonus: 0.3 + hurt, smart: 1.4 } : stock < 60 ? { bonus: 0, smart: 0.4 } : none;
+    return stock === 0 ? { bonus: 0.3 + healUrge(h), smart: 1.4 } : stock < 60 ? { bonus: 0.4 * healUrge(h), smart: 0.4 } : none;
   }
   if (dest === 'halo_restroom') {
     // The street doc is the cheap way back to full health, and the only one that is not in her pockets.
     if (h.cash < DOC_FEE[0] || medPacks(h).length || (hurt < 0.4 && !h.injuries.length)) return none;
-    return { bonus: hurt * 2.4, smart: 1.2 };
+    return { bonus: 0.9 * healUrge(h), smart: 1.2 };
   }
   if (dest === 'gun_shop') {
     const need = ammoNeeds(h)[0];
@@ -104,7 +105,7 @@ export function supplyCandidates(w: World): Candidate[] {
       if (h.cash < cost) continue;
       out.push({
         key: `buy_med:${id}`, drives: { curiosity: 0.1 }, smart: 1.2,
-        bonus: (stock < 60 ? 0.9 : stock < 120 ? 0.3 : stock < 200 ? -0.2 : -0.8) + hurt - (id === 'patch_kit' && stock >= 60 ? 0.3 : 0) + (id === 'trauma_kit' && stock < 60 ? -0.3 : 0),
+        bonus: (stock < 60 ? 0.9 : stock < 120 ? 0.3 : stock < 200 ? -0.2 : -0.8) + healUrge(h) * (stock < 60 ? 1 : stock < 120 ? 0.6 : 0.25) - (id === 'patch_kit' && stock >= 60 ? 0.3 : 0) + (id === 'trauma_kit' && stock < 60 ? -0.3 : 0),
         run: (c) => buyMed(c, pharmacist, id, cost),
       });
     }
@@ -149,7 +150,7 @@ export function supplyCandidates(w: World): Candidate[] {
   const packs = medPacks(h);
   if (packs.length && (h.hp < h.maxHp * 0.6 || h.injuries.length)) {
     out.push({
-      key: 'use_med_pack', drives: {}, smart: 1.6, bonus: hurt * 3 + h.injuries.length * 0.5,
+      key: 'use_med_pack', drives: {}, smart: 1.6, bonus: healUrge(h) + h.injuries.length * 0.5,
       run: (c) => useMedPack(c, bestFit(h)),
     });
   }

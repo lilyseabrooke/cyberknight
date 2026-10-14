@@ -5,7 +5,7 @@ import type { EventData } from './events';
 import type { Trait } from './personality';
 import { heroPower, here } from './combat';
 import { flameOf } from './traits';
-import { buyGear } from './supply';
+import { buyGear, supplyUrge } from './supply';
 import { getImplant } from './extras';
 import { MAX_IMPLANTS } from './content/implants';
 import {
@@ -332,6 +332,7 @@ const KINDS: Record<GoalKind, Kind> = {
       if (!here(w).some((n) => n.id === g.npc)) return 0;
       if (id === g.npc) {
         if (fam === 'kiss') return 3.6;
+        if (fam === 'make_move') return 3.4;
         if (fam === 'flirt') return 3.0;
         if (fam === 'pool_date' || fam === 'serve_dish') return 2.2;
       }
@@ -603,6 +604,7 @@ function formGoals(c: Ctx): void {
   // A girl across the room.
   for (const n of here(w)) {
     if (!n.tags.includes('romanceable') || n.hostile || hasGoal(w, 'romance', n.id) || cooling(w, `romance:${n.id}`)) continue;
+    if ((h.satiety ?? 0) > 0.35 || (w.counters[`moves_${n.id}`] ?? 0) > 0 || (w.counters[`kisses_${n.id}`] ?? 0) >= 2) continue;
     const p = 0.02 + 0.22 * Math.max(0, t.impress - 0.5 + 0.7 * (t.romantic - 0.5)) + (n.affinity >= 10 ? 0.04 : 0);
     if (rng.chance(p)) {
       adopt(c, { kind: 'romance', npc: n.id, why: 'she is exactly her type', desire: clamp(0.3 + 0.5 * Math.max(t.romantic, t.impress) - 0.1, 0.25, 0.8), variant: 'crush', extra: { npc: n.name } });
@@ -697,7 +699,8 @@ export function goalBias(w: World, cand: { key: string }): number {
   if (!m.goals.length) return 0;
   const [fam, id] = cand.key.split(':') as [string, string | undefined];
   let s = 0;
-  if (fam === 'go' && id) s += m.hops[id] ?? 0;
+  // A route hop doesn't override an errand: while she's standing where a pressing need can be met (ammo, a med pack, the doc), she finishes it first.
+  if (fam === 'go' && id) s += (m.hops[id] ?? 0) * (errandHere(w) ? 0.2 : 1);
   for (const d of m.drive) {
     const g = goalById(w, d.id);
     if (g) s += KINDS[g.kind].bias(w, g, fam, id) * d.weight;
@@ -708,6 +711,12 @@ export function goalBias(w: World, cand: { key: string }): number {
     s -= saving * focusFactor(w) * 2.5;
   }
   return s;
+}
+
+/** Is she somewhere that satisfies something she badly needs right now? */
+function errandHere(w: World): boolean {
+  const u = supplyUrge(w, w.hero.locationId);
+  return u.bonus > 0.3 || u.smart > 0.3;
 }
 
 /** Things only a goal makes possible: buying the exact thing she came for. */

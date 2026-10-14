@@ -91,6 +91,18 @@ const LOCATIONS: Record<Id, LocDef> = {
       ex('club_backlot', 'the fire exit'),
     ],
   },
+  home_stacks: {
+    name: 'The Stacks, unit 4C', kind: 'home', security: 0, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
+    exits: [ex('street_main', 'the stairwell down to Strand Street')],
+  },
+  home_hab: {
+    name: 'a capsule hab in the Honeycomb', kind: 'home', security: 0, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
+    exits: [ex('street_main', 'the corridor out to Strand Street')],
+  },
+  home_penthouse: {
+    name: 'a corporate penthouse with a view of the dragon patrols', kind: 'home', security: 0, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
+    exits: [ex('street_main', 'the express lift down to Strand Street')],
+  },
   paint_shop: {
     name: 'Spray & Pray Paint Supply', kind: 'shop', security: 1, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
     exits: [ex('street_main', 'the street')],
@@ -275,6 +287,7 @@ export function createWorld(opts: RunOptions): World {
     xp: 0,
     cash: 60,
     drunk: 0,
+    satiety: 0,
     muscle: 3,
     reflex: 3,
     hack: 2,
