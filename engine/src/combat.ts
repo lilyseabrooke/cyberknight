@@ -1,10 +1,10 @@
 import type { Ctx, Hero, Injury, Item, Npc, World } from './types';
 import { IMPLANTS } from './content/implants';
-import { AMMO } from './content/ammo';
 import { KINDS, removeCompanion } from './companions';
-import { hasImplantFlag, skillLevel, skillValue, train } from './skills';
-import { addAmmo, spendAmmo, wielded } from './arms';
-import { foeArmor, fxOf, rating, vsMult } from './weapons';
+import { skillLevel, skillValue, train } from './skills';
+import { addAmmo, wielded } from './arms';
+import { fxOf, rating } from './weapons';
+import { Sim, highlights, type Arrival, type Hooks } from './tactics';
 import { witnessAssault } from './witness';
 import { collectBounties } from './bounty';
 
@@ -33,8 +33,6 @@ export function relocate(w: World, to: string): void {
   for (const e of dest?.exits ?? []) if (e.to === from) e.hidden = false;
 }
 
-const loadedFor = (h: Hero, it: Item): boolean => !it.ammoType || (h.ammo[it.ammoType] ?? 0) > 0;
-
 export const hasInjury = (w: World, i: Injury): boolean => w.hero.injuries.includes(i);
 
 export function addHeat(w: World, faction: string | null, n: number): void {
@@ -47,13 +45,14 @@ export function remember(npc: Npc, what: string): void {
   if (npc.memories.length > 12) npc.memories.shift();
 }
 
-export function heroPower(w: World, weapon: Item = wielded(w.hero)): number {
+/** `allies: false` leaves her companions out: in a fight they are on the board as people of their own. */
+export function heroPower(w: World, weapon: Item = wielded(w.hero), allies = true): number {
   const h = w.hero;
   let p = h.level * 2 + h.muscle + weapon.power;
   const style = weaponStyle(weapon.tags);
   if (style) p += skillValue(h, style) * 0.6;
   for (const b of h.buffs) if (b.until > w.beat) p += b.power;
-  for (const a of h.companions) if (a.hp > 0) p += a.power;
+  if (allies) for (const a of h.companions) if (a.hp > 0) p += a.power;
   for (const i of h.implants) p += IMPLANTS[i]?.power ?? 0;
   if (w.situation.weather === 'heatwave' && w.locations[h.locationId]?.outdoors) p -= 2;
   p -= Math.max(0, h.drunk - skillLevel(h, 'tolerance') * 0.4) * 1.2;
@@ -151,7 +150,25 @@ export interface FightOpts {
   assault?: boolean;
 }
 
-/** The big one. Multi-round, multi-foe, with joiners, injuries, loot and aftermath. */
+/** Crowd members who might pile in on the other side, and how likely each is to. */
+function crowdJoiners(c: Ctx, foes: Npc[]): Npc[] {
+  const { w, rng } = c;
+  const h = w.hero;
+  const joined: Npc[] = [];
+  for (const n of npcsAt(w, h.locationId)) {
+    if (foes.includes(n) || h.companions.some((a) => a.npcId === n.id) || joined.length >= 3) continue;
+    const p = n.tags.includes('owner') ? 0.5 : n.tags.includes('rowdy') && n.affinity < 25 ? 0.22 : 0;
+    if (p && rng.chance(p)) joined.push(n);
+  }
+  return joined;
+}
+
+const HOOKS: Hooks = { heroPower, kill, maybeInjure, hasInjury, throwDamage };
+
+/**
+ * The big one. Sets the stage (who is here, who turns up late, who saw), plays the fight out on a small grid
+ * (tactics.ts), then settles up: injuries, loot, heat, XP, where she wakes up.
+ */
 export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   const { w, rng } = c;
   const h = w.hero;
@@ -160,18 +177,10 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   if (!foes.length) return 'win';
   w.stats.fights++;
 
+  // Bystanders pile in, but they come through the doors a few rounds later rather than standing around from the start.
+  const arrivals: Arrival[] = [];
   if (o.joiners !== false && loc.crowded) {
-    const joined: Npc[] = [];
-    for (const n of npcsAt(w, loc.id)) {
-      if (foes.includes(n) || h.companions.some((a) => a.npcId === n.id) || joined.length >= 3) continue;
-      const p = n.tags.includes('owner') ? 0.5 : n.tags.includes('rowdy') && n.affinity < 25 ? 0.22 : 0;
-      if (p && rng.chance(p)) joined.push(n);
-    }
-    if (joined.length) {
-      foes.push(...joined);
-      for (const j of joined) if (j.tags.includes('cop')) addHeat(w, 'npd', 1);
-      c.emit('brawl_joins', 'bad', { npcs: joined.map((j) => j.name).join(' and '), count: joined.length });
-    }
+    for (const n of crowdJoiners(c, foes)) arrivals.push({ npc: n, round: rng.int(2, 4), why: 'joiner' });
   }
   // Hitting people in front of people (or cameras) has consequences.
   let seen = false;
@@ -182,10 +191,10 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     seen = wit.seen;
     heatFaction = wit.heatFaction;
     warranted = wit.warranted;
-    foes.push(...wit.joiners);
+    for (const j of wit.joiners) arrivals.push({ npc: j, round: rng.int(2, 5), why: j.tags.includes('cop') || j.tags.includes('security') ? 'law' : 'joiner' });
   }
   for (const f of foes) f.hostile = true;
-  const lethal = isLethal(foes, w);
+  const lethal = isLethal([...foes, ...arrivals.map((a) => a.npc)], w);
   const startHp = h.hp;
   const names = foes.map((f) => f.name).join(', ');
   c.emit('fight_start', 'mixed', {
@@ -202,156 +211,53 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     level: h.level,
   });
 
-  let rounds = 0;
-  let result: FightResult | null = null;
-  let backfires = 0;
-  let crits = 0;
-  let assists = 0;
-  let ammoSpent = 0;
-  let wield = wielded(h, foes);
-  let lastWield = h.weapon.id;
-  const stunned = new Set<string>();
-  const burning = new Map<string, number>();
-  const procs = new Set<string>();
-  const proc = (kind: string, foe: Npc) => {
-    if (procs.has(kind)) return;
-    procs.add(kind);
-    c.emit('weapon_proc', 'good', { variant: kind, weapon: wield.name, foe: foe.name });
-  };
-  const fleeAt = 0.1 + h.competence * 0.35;
-  const armor = h.armor?.power ?? 0;
+  const factions = new Set(foes.map((f) => f.faction).filter((f): f is string => !!f));
+  const backup = () =>
+    npcsAt(w, loc.id).filter(
+      (n) =>
+        !foes.includes(n) &&
+        !arrivals.some((a) => a.npc === n) &&
+        !h.companions.some((a) => a.npcId === n.id) &&
+        !!n.faction &&
+        factions.has(n.faction) &&
+        n.archetype !== 'puppy' &&
+        n.tags.some((t) => ['rowdy', 'ganger', 'security', 'cop', 'strong'].includes(t)) &&
+        !n.tags.some((t) => ['kid', 'pet', 'robot', 'dragon'].includes(t)),
+    );
+  const maxRounds = (foes.some((f) => f.tags.includes('boss')) ? 26 : 14) + 2;
+  const sim = new Sim(c, HOOKS, { foes, arrivals, lethal, assault: !!o.assault, maxRounds, backup });
+  const res = sim.run();
+  let result: FightResult = res.result;
+  const wield = res.wield;
+  const { backfires, crits, ammoSpent } = res.stats;
+  const rounds = res.rounds;
 
-  const down = new Set<string>();
-  const standing = () => foes.filter((f) => f.alive && !down.has(f.id));
-  const hit = (target: Npc, dmg: number) => {
-    target.hp -= dmg;
-    if (target.hp <= 0 && target.alive && !down.has(target.id)) {
-      if (lethal) kill(c, w, target, h.weapon.name);
-      else down.add(target.id);
-    }
-  };
-  // She might lob something first. Cues, bottles, knives, and cocktails.
-  const throwables = h.inventory.filter((i) => i.tags.includes('throwable'));
-  if (throwables.length && rng.chance(0.3 + (h.personality.weights.pride - 0.5) * 0.3 + skillValue(h, 'throwing') * 0.03)) {
-    const item = throwables.find((i) => i.tags.includes('fire')) ?? throwables.find((i) => i.id === 'switchblade') ?? throwables.find((i) => i.tags.includes('cue')) ?? throwables[0]!;
-    h.inventory.splice(h.inventory.indexOf(item), 1);
-    const dmg = Math.round(throwDamage(w, item) * (0.8 + rng.next() * 0.6));
-    const target = standing()[0]!;
-    hit(target, dmg);
-    if (item.tags.includes('fire')) for (const f of standing()) hit(f, Math.round(dmg * 0.4));
-    train(c, 'throwing', 2);
-    if (item.tags.includes('cue')) train(c, 'pool', 1);
-    c.emit('throw', 'good', { variant: item.id, foe: target.name, dmg, cop: target.tags.includes('cop'), skilled: item.tags.includes('cue') && skillLevel(h, 'pool') >= 3 });
+  // Whoever never got there wasn't part of it after all; whoever did, was.
+  for (const a of arrivals) if (!res.arrived.includes(a.npc)) a.npc.hostile = false;
+  for (const n of res.arrived) {
+    n.hostile = true;
+    if (n.tags.includes('cop')) addHeat(w, 'npd', 1);
   }
-  const maxRounds = foes.some((f) => f.tags.includes("boss")) ? 26 : 14;
-  while (!result && rounds < maxRounds) {
-    rounds++;
-    const living = standing();
-    if (!living.length) {
-      result = 'win';
-      break;
-    }
-    // hero strikes, with whatever still works
-    wield = wielded(h, living);
-    if (wield.id !== lastWield) {
-      if (!loadedFor(h, h.weapon)) c.emit('out_of_ammo', 'bad', { weapon: h.weapon.name, ammo: AMMO[h.weapon.ammoType ?? '']?.label ?? 'ammo', fallback: wield.name, bare: wield.id === 'fists' });
-      else if (wield.id !== h.weapon.id) c.emit('weapon_swap', 'mixed', { weapon: wield.name, old: lastWield === 'fists' ? 'bare fists' : h.weapon.name, foe: living[0]!.name });
-      lastWield = wield.id;
-    }
-    const fx = fxOf(wield);
-    ammoSpent += spendAmmo(h, wield);
-    let dmg = Math.round(heroPower(w, wield) * (0.45 + rng.next() * 0.6));
-    if (wield.unstable) {
-      if (rng.chance(0.22)) {
-        const back = Math.round(h.maxHp * (0.08 + rng.next() * 0.1));
-        h.hp -= back;
-        backfires++;
-        dmg = Math.round(dmg * 0.4);
-      } else if (rng.chance(0.3)) {
-        dmg *= 2;
-        crits++;
-      }
-    }
-    const target = living[0]!;
-    // What the weapon does besides hit: edge against this sort of enemy, crits, and plating it gets through.
-    dmg = Math.round(dmg * vsMult(fx, target));
-    if (rng.chance(fx.crit)) {
-      dmg = Math.round(dmg * fx.critMult);
-      proc('crit', target);
-    }
-    dmg = Math.max(1, dmg - Math.round(Math.max(0, foeArmor(target) * 0.5 - fx.pierce)));
-    // Allies pitch in: bites, zaps, bricks, pigeon-based interference.
-    let absorb = 0;
-    for (const a of h.companions) {
-      if (a.hp <= 0 || assists >= 3 || !rng.chance(0.4)) continue;
-      const spec = KINDS[a.kind]!.assist;
-      assists++;
-      if (spec.dmg) dmg += spec.dmg;
-      if (spec.absorb) absorb += spec.absorb;
-      if (a.abilities.includes('guard')) absorb += 4;
-      if (spec.disable) living.forEach((f) => !f.flags.includes('disabled') && f.flags.push('disabled'));
-      if (assists === 1) c.emit('ally_assist', 'good', { name: a.name, kind: a.kind, dmg: spec.dmg ?? 0, absorb: spec.absorb ?? 0, foe: target.name });
-    }
-    hit(target, dmg); // non-lethal fights knock people out; they remember
-    if (target.alive && !down.has(target.id)) {
-      if (rng.chance(fx.stun)) {
-        stunned.add(target.id);
-        proc('stun', target);
-      }
-      if (rng.chance(fx.burn)) {
-        burning.set(target.id, 3);
-        proc('burn', target);
-      }
-    }
-    for (const [id, left] of [...burning]) {
-      const f = foes.find((x) => x.id === id)!;
-      if (left <= 0 || !f.alive || down.has(id)) burning.delete(id);
-      else {
-        hit(f, Math.max(2, Math.round(heroPower(w, wield) * 0.15)));
-        burning.set(id, left - 1);
-      }
-    }
-    // foes strike
-    let taken = 0;
-    let biggest = 0;
-    for (const f of standing()) {
-      if (stunned.delete(f.id)) continue; // reeling
-      if (!f.tags.includes('hera') && !rng.chance(0.8)) continue; // Hera does not miss
-      let fp = f.power - (f.flags.includes('disabled') ? 3 : 0);
-      if (f.tags.includes('apollo') && w.flags.dragon_weak) fp *= 0.65;
-      const d = Math.max(1, Math.round(fp * (0.2 + rng.next() * 0.4)) - armor - fx.armor);
-      taken += d;
-      biggest = Math.max(biggest, d);
-    }
-    taken = Math.max(0, taken - absorb);
-    h.hp -= taken;
-    maybeInjure(c, biggest);
-
-    if (!standing().length) {
-      result = 'win';
-    } else if (h.hp <= 0 && lethal) {
-      if (hasImplantFlag(h, 'defib') && !w.flags.defib_used) {
-        w.flags.defib_used = true;
-        h.hp = Math.round(h.maxHp * 0.3);
-        c.emit('defib', 'mixed', {});
-        result = 'flee';
-      } else {
-        result = foes.some((f) => f.tags.includes('cop')) && rng.chance(0.55) ? 'arrested' : 'dead';
-      }
-    } else if (!lethal && h.hp < h.maxHp * 0.2) {
-      result = 'tossed';
-    } else if (rounds >= 2 && h.hp / h.maxHp < fleeAt && !hasInjury(w, 'broken_leg') && rng.chance(0.55 + h.reflex * 0.03 + skillValue(h, 'athletics') * 0.02)) {
-      result = 'flee';
-    }
+  foes.push(...res.arrived);
+  // The ones who ran are gone for a while and have opinions.
+  for (const f of foes) {
+    if (!res.fled.has(f.id)) continue;
+    f.hostile = false;
+    f.downUntil = w.beat + 15 + rng.int(0, 15);
+    f.affinity -= 20;
+    remember(f, 'fled from Blackbird');
   }
-  result ??= 'flee';
+  for (const e of highlights(res.log)) c.emit(e.type, e.outcome, e.data);
 
+  const gone = (f: Npc) => res.fled.has(f.id);
+  const standing = () => foes.filter((f) => f.alive && !res.down.has(f.id) && !gone(f));
   const survivors = standing();
-  const killed = foes.filter((f) => !f.alive || down.has(f.id));
+  const killed = foes.filter((f) => !f.alive || res.down.has(f.id));
   const base = {
     foes: names,
     count: foes.length,
     killed: killed.length,
+    fled: res.fled.size,
     rounds,
     taken: Math.max(0, startHp - h.hp),
     weapon: wield.name,
@@ -373,7 +279,12 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     for (const f of foes) {
       const defeats = f.memories.filter((m) => m === 'was beaten by Blackbird').length;
       const over = Math.max(0, h.level - f.level);
-      xp += ((f.level * 10) / (1 + defeats)) * Math.max(0.1, 1 - over * 0.15);
+      const worth = ((f.level * 10) / (1 + defeats)) * Math.max(0.1, 1 - over * 0.15);
+      if (gone(f)) {
+        xp += worth * 0.5; // they ran; she gets no loot and half the glory
+        continue;
+      }
+      xp += worth;
       cash += f.cash;
       f.cash = 0;
       if (f.alive) {
@@ -391,7 +302,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       }
     }
     h.cash += cash;
-    collectBounties(c, foes);
+    collectBounties(c, foes.filter((f) => !gone(f)));
     h.hp = Math.max(h.hp, 1);
     c.emit('fight_end', 'good', { ...base, variant: 'win', cash, xp: Math.round(xp), loot: found.slice(0, 3).join(', ') });
     gainXp(c, xp);
@@ -451,16 +362,15 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   }
   if (w.flight && foes.some((f) => w.flight!.ids.includes(f.id))) w.flight = null;
   if (result === 'win' && foes.some((f) => f.tags.includes('boss'))) h.fame += 10;
-  // Allies share the risk, and the loyalty.
+  // Allies took their own knocks on the board. Those who went down are lost; the rest share the loyalty.
   if (!w.over) {
     for (const a of [...h.companions]) {
+      if (a.hp <= 0) {
+        removeCompanion(c, a, 'lost');
+        continue;
+      }
       if (result === 'win') a.loyalty = Math.min(100, a.loyalty + 3);
       else a.loyalty -= 4;
-      const hurt = h.hp < h.maxHp * 0.3 ? 0.4 : 0.15;
-      if (rng.chance(hurt)) {
-        a.hp -= rng.int(4, Math.max(5, Math.round(a.maxHp * 0.5)));
-        if (a.hp <= 0) removeCompanion(c, a, 'lost');
-      }
     }
   }
   return result;
