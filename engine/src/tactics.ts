@@ -1,0 +1,1013 @@
+import type { Companion, Ctx, Injury, Item, Npc, World } from './types';
+import type { EventData, Outcome } from './events';
+import { KINDS } from './companions';
+import { foeArmor, fxOf, rating, vsMult } from './weapons';
+import { loaded, spendAmmo, wielded } from './arms';
+import { skillLevel, skillValue, train } from './skills';
+import { dist, hasLos, idx, inCover, makeGrid, nearestFree, passable, pathTo, posOf, reach, same, terrainAt, type Grid, type Pos, type Reach } from './grid';
+import { techniquesFor, type Technique } from './techniques';
+
+/**
+ * A fight, played out on a small grid. Nobody watches it: the player gets a report of the interesting bits and the result.
+ * Every unit (Blackbird, her allies, the other side, whoever turns up late) acts by the same rule: look at every tile
+ * you can reach and everything you could do from there, score each (damage dealt, danger stood in, cover, where the
+ * exits are) and take the best. Retreat means walking to an exit tile and stepping off the board; so does an enemy's.
+ *
+ * `fight()` in combat.ts sets the stage and settles the aftermath; this file is the middle.
+ */
+
+export type Team = 'hero' | 'foe';
+export type UnitState = 'active' | 'down' | 'dead' | 'fled' | 'pending';
+export type TacticalResult = 'win' | 'flee' | 'tossed' | 'arrested' | 'dead';
+
+export interface Unit extends Pos {
+  id: string;
+  name: string;
+  team: Team;
+  kind: 'hero' | 'ally' | 'foe';
+  /** The real thing: Hero, Npc or Companion. Damage lands on it directly. */
+  ref: { hp: number; maxHp: number };
+  npc?: Npc;
+  comp?: Companion;
+  state: UnitState;
+  speed: number;
+  flying: boolean;
+  power: number;
+  hit: number;
+  /** Shortest and longest distance its basic attack reaches. */
+  reach: [number, number];
+  assist?: { dmg?: number; absorb?: number; disable?: boolean };
+  caution: number;
+  canFlee: boolean;
+  /** Knows there's a fight on. Unaware enemies can be ambushed. */
+  alert: boolean;
+  stunned: boolean;
+  disabled: boolean;
+  burning: number;
+  fleeing: boolean;
+  scared: boolean;
+  watching: boolean;
+  interposed: boolean;
+  cd: Record<string, number>;
+}
+
+export interface Hooks {
+  heroPower(w: World, weapon: Item, allies: boolean): number;
+  kill(c: Ctx, w: World, npc: Npc, by: string): void;
+  maybeInjure(c: Ctx, hit: number, chance?: number): void;
+  hasInjury(w: World, i: Injury): boolean;
+  throwDamage(w: World, item: Item): number;
+}
+
+/** Somebody who turns up part-way through. */
+export interface Arrival {
+  npc: Npc;
+  round: number;
+  why: 'joiner' | 'law';
+}
+
+export interface SimOpts {
+  foes: Npc[];
+  arrivals: Arrival[];
+  lethal: boolean;
+  /** Blackbird started it on people who weren't looking for trouble. */
+  assault: boolean;
+  maxRounds: number;
+  /** Same-faction friends of the other side who might wade in. */
+  backup?: () => Npc[];
+}
+
+export interface LogEntry {
+  type: string;
+  outcome: Outcome;
+  data: EventData;
+  weight: number;
+  key: string;
+}
+
+export interface SimResult {
+  result: TacticalResult;
+  rounds: number;
+  /** Knocked out, in a fight where nobody dies. */
+  down: Set<string>;
+  /** Left the board alive and on their own feet (or were thrown out). */
+  fled: Set<string>;
+  /** Who joined part-way through. */
+  arrived: Npc[];
+  wield: Item;
+  stats: Sim['stats'];
+  log: LogEntry[];
+}
+
+const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
+
+/** How far a weapon reaches: knives and fists a step, a whip two, guns by the kind of gun. */
+export function weaponReach(it: Item): [number, number] {
+  const fx = fxOf(it);
+  if (it.tags.includes('gun')) return [1, ({ pistol: 5, smg: 5, shotgun: 3, rifle: 8, energy: 5 } as Record<string, number>)[fx.cls] ?? 5];
+  return [1, fx.cls === 'whip' ? 2 : 1];
+}
+
+export interface FoeProfile {
+  reach: [number, number];
+  speed: number;
+  flying: boolean;
+  hit: number;
+  caution: number;
+  canFlee: boolean;
+}
+
+/** What an enemy does on the board, read off what they are and carry. */
+export function foeProfile(n: Npc): FoeProfile {
+  const t = n.tags;
+  const arms = n.loadout.filter((i) => i.kind === 'weapon' || i.kind === 'gadget');
+  const best = arms.sort((a, b) => rating(b) - rating(a))[0];
+  let reach: [number, number] = best ? weaponReach(best) : [1, 1];
+  let speed = 3;
+  let flying = false;
+  if (t.includes('kid')) speed = 4;
+  if (t.includes('robot') && /drone/i.test(n.role)) {
+    flying = true;
+    speed = 4;
+    if (reach[1] < 4) reach = [1, 4];
+  }
+  if (/scrapper|lab-bot/i.test(n.role)) speed = 2;
+  if (t.includes('dragon')) {
+    flying = true;
+    reach = [1, t.includes('boss') ? 7 : 6];
+  }
+  const big = t.includes('boss') || t.includes('dragon');
+  const canFlee = !t.some((x) => ['robot', 'dragon', 'boss', 'cop', 'security'].includes(x));
+  return { reach, speed, flying, hit: t.includes('hera') ? 1 : 0.8, caution: big ? 1 : t.includes('cop') || t.includes('security') ? 3 : 4.5, canFlee };
+}
+
+const ALLY_SHAPE: Record<string, { reach: [number, number]; speed: number; flying?: boolean }> = {
+  puppy: { reach: [1, 1], speed: 4 },
+  drone: { reach: [1, 4], speed: 4, flying: true },
+  kids: { reach: [1, 3], speed: 4 },
+  pigeon: { reach: [1, 1], speed: 5, flying: true },
+  scrapper: { reach: [1, 1], speed: 2 },
+  hacker: { reach: [1, 3], speed: 3 },
+  courier: { reach: [1, 3], speed: 4 },
+};
+
+const hazardDmg = (u: Unit): number => Math.max(3, Math.round(u.ref.maxHp * 0.06));
+
+interface Option {
+  tile: Pos;
+  mode: 'stay' | 'walk' | 'dash' | 'leap';
+  r: Reach | null;
+  tech: Technique | null;
+  target: Unit | null;
+  score: number;
+}
+
+interface TurnCtx {
+  enemies: Unit[];
+  caution: number;
+  fleeing: boolean;
+  /** Steps to the nearest free exit from each tile, when running. */
+  exitDist: Map<number, number> | null;
+  enemyDist: Map<number, number>;
+  pos: Map<number, number>;
+}
+
+export class Sim {
+  readonly c: Ctx;
+  readonly w: World;
+  readonly hooks: Hooks;
+  readonly o: SimOpts;
+  readonly grid: Grid;
+  readonly units: Unit[] = [];
+  hero!: Unit;
+  wield: Item;
+  round = 0;
+  threw = false;
+  readonly throwOk: boolean;
+  readonly log: LogEntry[] = [];
+  readonly down = new Set<string>();
+  readonly fled = new Set<string>();
+  readonly arrived: Npc[] = [];
+  readonly stats = { ammoSpent: 0, backfires: 0, crits: 0, ambushes: 0, hacks: 0, scares: 0, shoves: 0, threw: 0, overwatch: 0, leaps: 0, flurries: 0, assists: 0 };
+  private result: TacticalResult | null = null;
+  private lastWield: string;
+  private readonly procs = new Set<string>();
+  private readonly queue: { unit: Unit; round: number; why: 'joiner' | 'law' | 'backup' }[] = [];
+  private backups = 0;
+  private foeTotal = 0;
+  private pw = new Map<string, number>();
+  private dmgCache = new Map<string, number>();
+  private readonly firstAssist = new Set<string>();
+  private readonly fleeAt: number;
+
+  constructor(c: Ctx, hooks: Hooks, o: SimOpts) {
+    this.c = c;
+    this.w = c.w;
+    this.hooks = hooks;
+    this.o = o;
+    const h = c.w.hero;
+    const loc = c.w.locations[h.locationId]!;
+    this.grid = makeGrid(c.rng, loc.kind, loc.crowded);
+    this.wield = wielded(h, o.foes);
+    this.lastWield = h.weapon.id;
+    this.fleeAt = 0.1 + h.competence * 0.35;
+    // She might lob something first. Cues, bottles, knives, and cocktails.
+    this.throwOk = c.rng.chance(0.3 + (h.personality.weights.pride - 0.5) * 0.3 + skillValue(h, 'throwing') * 0.03);
+
+    this.hero = this.heroUnit();
+    this.units.push(this.hero);
+    for (const a of h.companions) if (a.hp > 0) this.units.push(this.allyUnit(a));
+    for (const f of o.foes) this.units.push(this.foeUnit(f, !o.assault));
+    this.foeTotal = o.foes.length;
+    for (const a of o.arrivals) this.queue.push({ unit: this.foeUnit(a.npc, true, 'pending'), round: a.round, why: a.why === 'law' ? 'law' : 'joiner' });
+    this.place();
+  }
+
+  // ------------------------------------------------------------------ setup
+
+  private heroUnit(): Unit {
+    const h = this.w.hero;
+    const speed = clamp(3 + (h.reflex >= 6 ? 1 : 0) + (h.implants.includes('hydraulic_calves') ? 1 : 0) - (this.hooks.hasInjury(this.w, 'broken_leg') ? 1 : 0), 1, 6);
+    return this.blank({ id: 'hero', name: 'Blackbird', team: 'hero', kind: 'hero', ref: h, speed, hit: 0.94, reach: weaponReach(this.wield), caution: 4, canFlee: true, alert: true });
+  }
+
+  private allyUnit(a: Companion): Unit {
+    const k = KINDS[a.kind]!;
+    const shape = ALLY_SHAPE[a.kind] ?? { reach: [1, 1] as [number, number], speed: 3 };
+    return this.blank({
+      id: a.id,
+      name: a.name,
+      team: 'hero',
+      kind: 'ally',
+      ref: a,
+      comp: a,
+      speed: shape.speed,
+      flying: !!shape.flying,
+      power: a.power,
+      hit: 0.75,
+      reach: shape.reach,
+      assist: k.assist,
+      caution: 3,
+      canFlee: false,
+      alert: true,
+    });
+  }
+
+  private foeUnit(n: Npc, alert: boolean, state: UnitState = 'active'): Unit {
+    const p = foeProfile(n);
+    return this.blank({ id: n.id, name: n.name, team: 'foe', kind: 'foe', ref: n, npc: n, speed: p.speed, flying: p.flying, power: n.power, hit: p.hit, reach: p.reach, caution: p.caution, canFlee: p.canFlee, alert, state });
+  }
+
+  private blank(p: Partial<Unit> & Pick<Unit, 'id' | 'name' | 'team' | 'kind' | 'ref'>): Unit {
+    return {
+      x: 0,
+      y: 0,
+      state: 'active',
+      speed: 3,
+      flying: false,
+      power: 0,
+      hit: 0.8,
+      reach: [1, 1],
+      caution: 4,
+      canFlee: false,
+      alert: true,
+      stunned: false,
+      disabled: false,
+      burning: 0,
+      fleeing: false,
+      scared: false,
+      watching: false,
+      interposed: false,
+      cd: {},
+      ...p,
+    };
+  }
+
+  private occupant(p: Pos, except?: Unit): Unit | undefined {
+    return this.units.find((u) => u.state === 'active' && u !== except && same(u, p));
+  }
+
+  /** Blackbird comes in by a door; the other side is across the room (or, if they jumped her, right on top of her). */
+  private place(): void {
+    const g = this.grid;
+    const rng = this.c.rng;
+    const placed: Unit[] = [];
+    const taken = (p: Pos) => placed.some((u) => same(u, p));
+    const put = (u: Unit, p: Pos) => {
+      u.x = p.x;
+      u.y = p.y;
+      placed.push(u);
+    };
+    const entry = rng.pick(g.exits);
+    const start = nearestFree(g, rng, entry, taken)[0] ?? entry;
+    put(this.hero, start);
+    for (const u of this.units) if (u.kind === 'ally') put(u, nearestFree(g, rng, start, taken, u.flying)[0] ?? start);
+    const far = nearestFree(g, rng, start, taken)
+      .map((p) => ({ p, d: dist(p, start) }))
+      .sort((a, b) => (this.o.assault ? b.d - a.d : Math.abs(a.d - 3) - Math.abs(b.d - 3)));
+    const anchor = far[0]?.p ?? start;
+    for (const u of this.units) if (u.kind === 'foe') put(u, nearestFree(g, rng, anchor, taken, u.flying)[0] ?? anchor);
+  }
+
+  // ------------------------------------------------------------------ queries (used by techniques too)
+
+  enemiesOf(u: Unit): Unit[] {
+    return this.units.filter((e) => e.state === 'active' && e.team !== u.team);
+  }
+
+  private friendsOf(u: Unit): Unit[] {
+    return this.units.filter((e) => e.state === 'active' && e.team === u.team && e !== u);
+  }
+
+  private standingFoes(): Unit[] {
+    return this.units.filter((u) => u.team === 'foe' && u.state === 'active');
+  }
+
+  private lostFraction(): number {
+    return this.foeTotal ? clamp(1 - this.standingFoes().length / this.foeTotal, 0, 1) : 0;
+  }
+
+  armorOf(t: Unit): number {
+    return t.kind === 'hero' ? (this.w.hero.armor?.power ?? 0) + fxOf(this.wield).armor : 0;
+  }
+
+  /** Is someone else on the same side standing next to the target (so it's being pincered)? */
+  flanked(att: Unit, tgt: Unit, from: Pos): boolean {
+    if (dist(from, tgt) > 1) return false;
+    return this.units.some((u) => u.state === 'active' && u.team === att.team && u !== att && dist(u, tgt) <= 1);
+  }
+
+  /** A foe or an ally's chance to hit. */
+  hitChance(att: Unit, tgt: Unit, from: Pos): number {
+    if (att.npc?.tags.includes('hera')) return 1;
+    let p = att.hit;
+    if (att.reach[1] > 1) {
+      if (inCover(this.grid, from, tgt)) p -= 0.25;
+      const far = Math.ceil(att.reach[1] * 0.6);
+      const d = dist(from, tgt);
+      if (d > far) p -= 0.07 * (d - far);
+    }
+    if (this.flanked(att, tgt, from)) p += 0.08;
+    return clamp(p, 0.1, 0.97);
+  }
+
+  heroHitChance(t: Unit, from: Pos, weapon: Item, thrown = false): number {
+    const h = this.w.hero;
+    const gun = weapon.tags.includes('gun');
+    const ranged = gun || thrown;
+    let p = 0.94;
+    if (thrown) p += skillValue(h, 'throwing') * 0.008;
+    else if (gun) p += skillValue(h, 'marksmanship') * 0.008;
+    else if (weapon.tags.includes('melee')) p += skillValue(h, 'melee') * 0.008;
+    if (this.hooks.hasInjury(this.w, 'concussion')) p -= 0.05;
+    if (ranged && this.hooks.hasInjury(this.w, 'fried_optics')) p -= 0.12;
+    const d = dist(from, t);
+    if (ranged) {
+      const max = thrown ? 4 : weaponReach(weapon)[1];
+      if (inCover(this.grid, from, t)) p -= 0.25;
+      const far = Math.ceil(max * 0.6);
+      if (d > far) p -= 0.07 * (d - far);
+      const cls = fxOf(weapon).cls;
+      if (!thrown && cls === 'shotgun') p += d <= 2 ? 0.08 : d >= 4 ? -0.08 : 0;
+      if (!thrown && cls === 'rifle' && d <= 1) p -= 0.1;
+    }
+    if (this.flanked(this.hero, t, from)) p += 0.08;
+    return clamp(p, 0.1, 0.99);
+  }
+
+  private power(weapon: Item): number {
+    let p = this.pw.get(weapon.id);
+    if (p === undefined) {
+      p = this.hooks.heroPower(this.w, weapon, false);
+      this.pw.set(weapon.id, p);
+    }
+    return p;
+  }
+
+  heroExpected(t: Unit, weapon: Item, mult: number, ignoreArmor = false): number {
+    const fx = fxOf(weapon);
+    let d = this.power(weapon) * 0.75 * vsMult(fx, t.npc) * (1 + fx.crit * (fx.critMult - 1));
+    if (!ignoreArmor && t.npc) d -= Math.max(0, foeArmor(t.npc) * 0.5 - fx.pierce);
+    return Math.max(1, d * mult);
+  }
+
+  /** What one attack from `att` does to `tgt` on average, when it lands. */
+  avgDamage(att: Unit, tgt: Unit): number {
+    const key = `${att.id}>${tgt.id}`;
+    const hit = this.dmgCache.get(key);
+    if (hit !== undefined) return hit;
+    let d: number;
+    if (att.kind === 'hero') d = this.heroExpected(tgt, this.wield, 1);
+    else if (att.kind === 'ally') d = (att.assist?.dmg ?? Math.max(2, Math.round(att.power * 1.2))) * 0.55;
+    else {
+      let fp = att.power - (att.disabled ? 3 : 0);
+      if (att.npc?.tags.includes('apollo') && this.w.flags.dragon_weak) fp *= 0.65;
+      d = Math.max(1, fp * 0.4 - this.armorOf(tgt));
+      if (tgt.kind === 'ally') d *= 0.6;
+    }
+    this.dmgCache.set(key, d);
+    return d;
+  }
+
+  // ------------------------------------------------------------------ the log
+
+  note(type: string, outcome: Outcome, data: EventData, weight: number, key: string): void {
+    this.log.push({ type, outcome, data, weight, key });
+  }
+
+  private proc(kind: string, foe: Unit): void {
+    if (this.procs.has(kind)) return;
+    this.procs.add(kind);
+    this.note('weapon_proc', 'good', { variant: kind, weapon: this.wield.name, foe: foe.name }, 2.5, `proc:${kind}`);
+  }
+
+  // ------------------------------------------------------------------ damage and its consequences
+
+  damage(_att: Unit | null, tgt: Unit, amount: number): number {
+    let n = Math.max(0, Math.round(amount));
+    if (tgt.kind === 'hero') n = this.interpose(n);
+    tgt.ref.hp -= n;
+    tgt.alert = true;
+    if (tgt.ref.hp <= 0 && tgt.state === 'active') this.defeat(tgt);
+    return n;
+  }
+
+  /** A guard ally steps in front: it takes half of what it soaks. */
+  private interpose(n: number): number {
+    if (n <= 1) return n;
+    const guard = this.units.find((u) => u.kind === 'ally' && u.state === 'active' && !u.interposed && (u.assist?.absorb ?? 0) > 0 && dist(u, this.hero) <= 2);
+    if (!guard) return n;
+    guard.interposed = true;
+    const soaked = Math.min(n - 1, Math.round((guard.assist!.absorb ?? 0) * 0.6));
+    guard.ref.hp -= Math.round(soaked * 0.5);
+    if (guard.ref.hp <= 0) this.defeat(guard);
+    if (!this.firstAssist.has(guard.id)) {
+      this.firstAssist.add(guard.id);
+      this.note('ally_assist', 'good', { name: guard.name, kind: guard.comp!.kind, dmg: 0, absorb: guard.assist!.absorb ?? 0, foe: this.standingFoes()[0]?.name ?? 'them' }, 2, `assist:${guard.id}`);
+    }
+    return n - soaked;
+  }
+
+  private defeat(t: Unit): void {
+    if (t.kind === 'hero') return;
+    if (t.kind === 'ally') {
+      // Out of the fight. Usually they come round with a dent; sometimes, when it's for keeps, they don't.
+      if (!this.o.lethal || !this.c.rng.chance(0.4)) t.ref.hp = 1;
+      t.state = 'down';
+      this.note('ally_down', 'bad', { name: t.name, kind: t.comp!.kind, lost: t.ref.hp <= 0 }, 4, `down:${t.id}`);
+      return;
+    }
+    if (this.o.lethal) {
+      this.hooks.kill(this.c, this.w, t.npc!, this.w.hero.weapon.name);
+      t.state = 'dead';
+    } else {
+      t.state = 'down';
+      this.down.add(t.id);
+    }
+  }
+
+  private panicIfCan(t: Unit): boolean {
+    const free = this.exitMap(t);
+    if (!free.size || !free.has(idx(this.grid, t))) return false;
+    t.fleeing = true;
+    return true;
+  }
+
+  // ------------------------------------------------------------------ strikes
+
+  heroStrike(t: Unit, o: { mult: number; ignoreArmor?: boolean; sure?: boolean }): number {
+    const h = this.w.hero;
+    const wield = this.wield;
+    const fx = fxOf(wield);
+    this.stats.ammoSpent += spendAmmo(h, wield);
+    if (!o.sure && !this.c.rng.chance(this.heroHitChance(t, this.hero, wield))) return 0;
+    const rng = this.c.rng;
+    let dmg = Math.round(this.power(wield) * (0.45 + rng.next() * 0.6));
+    if (wield.unstable) {
+      if (rng.chance(0.22)) {
+        h.hp -= Math.round(h.maxHp * (0.08 + rng.next() * 0.1));
+        this.stats.backfires++;
+        dmg = Math.round(dmg * 0.4);
+      } else if (rng.chance(0.3)) {
+        dmg *= 2;
+        this.stats.crits++;
+      }
+    }
+    // What the weapon does besides hit: edge against this sort of enemy, crits, and plating it gets through.
+    dmg = Math.round(dmg * vsMult(fx, t.npc));
+    if (rng.chance(fx.crit)) {
+      dmg = Math.round(dmg * fx.critMult);
+      this.proc('crit', t);
+    }
+    if (!o.ignoreArmor && t.npc) dmg = Math.max(1, dmg - Math.round(Math.max(0, foeArmor(t.npc) * 0.5 - fx.pierce)));
+    if (this.flanked(this.hero, t, this.hero)) dmg = Math.round(dmg * 1.2);
+    dmg = Math.max(1, Math.round(dmg * o.mult));
+    const dealt = this.damage(this.hero, t, dmg);
+    if (t.state === 'active') {
+      if (rng.chance(fx.stun)) {
+        t.stunned = true;
+        this.proc('stun', t);
+      }
+      if (rng.chance(fx.burn)) {
+        t.burning = 3;
+        this.proc('burn', t);
+      }
+    }
+    return dealt;
+  }
+
+  unitStrike(att: Unit, tgt: Unit): void {
+    const rng = this.c.rng;
+    if (!rng.chance(this.hitChance(att, tgt, att))) return;
+    let fp = att.power - (att.disabled ? 3 : 0);
+    if (att.npc?.tags.includes('apollo') && this.w.flags.dragon_weak) fp *= 0.65;
+    let d = Math.max(1, Math.round(fp * (0.2 + rng.next() * 0.4)) - this.armorOf(tgt));
+    if (tgt.kind === 'ally') d = Math.round(d * 0.6);
+    const dealt = this.damage(att, tgt, d);
+    if (tgt.kind === 'hero') this.hooks.maybeInjure(this.c, dealt);
+  }
+
+  allyStrike(me: Unit, t: Unit, base: number): void {
+    const rng = this.c.rng;
+    if (!rng.chance(this.hitChance(me, t, me))) return;
+    let d = Math.round(base * (0.6 + rng.next() * 0.5) * 0.9);
+    if (t.npc) d = Math.max(1, d - Math.round(foeArmor(t.npc) * 0.5));
+    this.damage(me, t, d);
+    if (!this.firstAssist.has(me.id)) {
+      this.firstAssist.add(me.id);
+      this.stats.assists++;
+      this.note('ally_assist', 'good', { name: me.name, kind: me.comp!.kind, dmg: me.assist?.dmg ?? 0, absorb: 0, foe: t.name }, 2, `assist:${me.id}`);
+    }
+  }
+
+  heroThrow(t: Unit, item: Item): void {
+    const h = this.w.hero;
+    const rng = this.c.rng;
+    this.threw = true;
+    this.stats.threw++;
+    h.inventory.splice(h.inventory.indexOf(item), 1);
+    train(this.c, 'throwing', 2);
+    if (item.tags.includes('cue')) train(this.c, 'pool', 1);
+    if (!rng.chance(this.heroHitChance(t, this.hero, item, true))) return;
+    const dmg = Math.round(this.hooks.throwDamage(this.w, item) * (0.8 + rng.next() * 0.6));
+    this.damage(this.hero, t, dmg);
+    if (item.tags.includes('fire')) {
+      if (t.state === 'active') t.burning = 3;
+      for (const f of this.standingFoes()) if (f !== t && dist(f, t) <= 1) this.damage(this.hero, f, dmg * 0.4);
+    }
+    this.note('throw', 'good', { variant: item.id, foe: t.name, dmg, cop: !!t.npc?.tags.includes('cop'), skilled: item.tags.includes('cue') && skillLevel(h, 'pool') >= 3 }, 3, 'throw');
+  }
+
+  ambushMult(): number {
+    return 1.8 + skillValue(this.w.hero, 'sneak') * 0.15;
+  }
+
+  heroAmbush(t: Unit): void {
+    const dealt = this.heroStrike(t, { mult: this.ambushMult(), ignoreArmor: true, sure: true });
+    this.stats.ambushes++;
+    train(this.c, 'sneak', 2);
+    this.note('tactic', 'good', { variant: 'ambush', foe: t.name, weapon: this.wield.name, dmg: dealt, kill: t.state !== 'active' }, 4, 'ambush');
+  }
+
+  heroFlurry(t: Unit): void {
+    this.stats.flurries++;
+    this.heroStrike(t, { mult: 0.6 });
+    if (t.state === 'active') this.heroStrike(t, { mult: 0.6 });
+    this.note('tactic', 'good', { variant: 'flurry', foe: t.name }, 3, 'flurry');
+  }
+
+  // ------------------------------------------------------------------ shoving, hacking, scaring
+
+  shoveOutcome(me: Unit, t: Unit): { kind: 'out' | 'hazard' | 'slam' | 'push'; dmg: number; dest: Pos } | null {
+    const dest = { x: t.x + Math.sign(t.x - me.x), y: t.y + Math.sign(t.y - me.y) };
+    if (same(dest, me)) return null;
+    const h = this.w.hero;
+    const slam = Math.round(h.muscle * 1.2 + h.level);
+    const terrain = terrainAt(this.grid, dest.x, dest.y);
+    if (terrain === null || terrain === 'wall' || terrain === 'cover' || this.occupant(dest)) return { kind: 'slam', dmg: slam, dest };
+    if (terrain === 'exit') return { kind: 'out', dmg: 0, dest };
+    if (terrain === 'hazard' && !t.flying) return { kind: 'hazard', dmg: hazardDmg(t), dest };
+    return { kind: 'push', dmg: 0, dest };
+  }
+
+  shoveChance(t: Unit): number {
+    const h = this.w.hero;
+    return clamp(0.55 + (h.muscle - (t.npc?.level ?? 1) * 0.5) * 0.05 - (t.npc?.tags.includes('strong') ? 0.1 : 0), 0.25, 0.9);
+  }
+
+  heroShove(t: Unit): void {
+    const o = this.shoveOutcome(this.hero, t);
+    if (!o || !this.c.rng.chance(this.shoveChance(t))) return;
+    this.stats.shoves++;
+    if (o.kind === 'slam') {
+      this.damage(this.hero, t, o.dmg);
+      if (t.state === 'active') t.stunned = true;
+      this.note('tactic', 'good', { variant: 'slam', foe: t.name, dmg: o.dmg }, 3, `shove:${t.id}`);
+    } else if (o.kind === 'out') {
+      this.eject(t, 'thrown_out');
+    } else {
+      t.x = o.dest.x;
+      t.y = o.dest.y;
+      if (o.kind === 'hazard') {
+        this.damage(this.hero, t, o.dmg);
+        if (t.state === 'active') t.stunned = true;
+        this.note('tactic', 'good', { variant: 'hazard_shove', foe: t.name, dmg: o.dmg }, 3.5, `shove:${t.id}`);
+      }
+    }
+    train(this.c, 'athletics', 1);
+  }
+
+  hackChance(me: Unit, t: Unit): number {
+    if (me.kind !== 'hero') return 0.6;
+    const h = this.w.hero;
+    return clamp(0.35 + h.hack * 0.07 + skillValue(h, 'tinkering') * 0.03 - ((t.npc?.level ?? 1) - h.level) * 0.04, 0.1, 0.9);
+  }
+
+  doHack(me: Unit, t: Unit): void {
+    if (!this.c.rng.chance(this.hackChance(me, t))) return;
+    t.stunned = true;
+    t.disabled = true;
+    if (me.kind === 'hero') {
+      this.stats.hacks++;
+      const dmg = t.npc?.tags.includes('robot') ? Math.round(this.w.hero.hack * 2.2) : 0;
+      if (dmg) this.damage(me, t, dmg);
+      train(this.c, 'tinkering', 1);
+      this.note('tactic', 'good', { variant: 'hack', foe: t.name, robot: !!t.npc?.tags.includes('robot') }, 3, `hack:${t.id}`);
+    } else {
+      this.note('ally_assist', 'good', { name: me.name, kind: me.comp!.kind, dmg: 0, absorb: 0, foe: t.name }, 2, `assist:${me.id}`);
+    }
+  }
+
+  scareChance(t: Unit): number {
+    const h = this.w.hero;
+    const lvl = t.npc?.level ?? 1;
+    const hurt = t.ref.hp / t.ref.maxHp < 0.5 ? 0.2 : 0;
+    return clamp(0.1 + skillValue(h, 'intimidation') * 0.06 + (h.level - lvl) * 0.05 + h.fame * 0.004 + hurt + this.lostFraction() * 0.2, 0.02, 0.7);
+  }
+
+  doIntimidate(t: Unit): void {
+    if (!this.c.rng.chance(this.scareChance(t))) return;
+    if (!this.panicIfCan(t)) return;
+    t.scared = true;
+    this.stats.scares++;
+    train(this.c, 'intimidation', 2);
+    this.note('tactic', 'good', { variant: 'intimidate', foe: t.name }, 3.5, `scare:${t.id}`);
+  }
+
+  setWatch(me: Unit): void {
+    me.watching = true;
+  }
+
+  /** Off the board alive: through an exit, or thrown out of one. */
+  private eject(t: Unit, how: 'thrown_out' | 'ran' | 'scared'): void {
+    t.state = 'fled';
+    if (t.npc) {
+      this.fled.add(t.npc.id);
+      this.note('foe_flees', 'good', { variant: how, foe: t.name, role: t.npc.role }, how === 'thrown_out' ? 4.5 : 3.5, `flee:${t.id}`);
+    }
+  }
+
+  leave(me: Unit): void {
+    if (me.kind === 'foe') this.eject(me, me.scared ? 'scared' : 'ran');
+    else me.state = 'fled';
+  }
+
+  // ------------------------------------------------------------------ the round
+
+  run(): SimResult {
+    const rng = this.c.rng;
+    while (!this.result && this.round < this.o.maxRounds) {
+      this.round++;
+      this.beginRound();
+      const order = this.units
+        .filter((u) => u.state === 'active')
+        .map((u) => ({ u, init: this.initiative(u) + rng.next() * 4 }))
+        .sort((a, b) => b.init - a.init)
+        .map((x) => x.u);
+      for (const u of order) {
+        if (this.result) break;
+        this.turn(u);
+        this.checkEnd();
+      }
+      // Whoever she crept up on has noticed her by the second round.
+      if (this.round >= 2 || !this.o.assault) for (const f of this.units) if (f.team === 'foe') f.alert = true;
+    }
+    return {
+      result: this.result ?? 'flee',
+      rounds: this.round,
+      down: this.down,
+      fled: this.fled,
+      arrived: this.arrived,
+      wield: this.wield,
+      stats: this.stats,
+      log: this.log,
+    };
+  }
+
+  private initiative(u: Unit): number {
+    const h = this.w.hero;
+    if (u.kind === 'hero') return 2 + h.reflex * 0.8 + skillValue(h, 'athletics') * 0.3 + (this.round === 1 && this.o.assault ? 10 : 0);
+    if (u.kind === 'ally') return 3 + u.speed * 0.4;
+    return 2 + (u.npc?.level ?? 1) * 0.3 + u.speed * 0.3;
+  }
+
+  private beginRound(): void {
+    const rng = this.c.rng;
+    for (const u of this.units) u.interposed = false;
+    // Late arrivals come through the doors.
+    const now = this.queue.filter((q) => q.round <= this.round);
+    const groups = new Map<string, Unit[]>();
+    for (const q of now) {
+      this.queue.splice(this.queue.indexOf(q), 1);
+      if (this.arriveAt(q.unit)) {
+        this.units.push(q.unit);
+        this.arrived.push(q.unit.npc!);
+        this.foeTotal++;
+        groups.set(q.why, [...(groups.get(q.why) ?? []), q.unit]);
+      }
+    }
+    // Friends of the other side hear the noise.
+    if (this.o.backup && this.round >= 3 && this.backups < 2 && this.lostFraction() > 0 && rng.chance(0.22)) {
+      const pals = this.o.backup().filter((n) => !this.units.some((u) => u.id === n.id));
+      const pal = pals.length ? rng.pick(pals) : null;
+      if (pal) {
+        const u = this.foeUnit(pal, true);
+        if (this.arriveAt(u)) {
+          this.backups++;
+          pal.hostile = true;
+          pal.affinity -= 15;
+          this.units.push(u);
+          this.arrived.push(pal);
+          this.foeTotal++;
+          groups.set('backup', [...(groups.get('backup') ?? []), u]);
+        }
+      }
+    }
+    for (const [why, us] of groups) {
+      const names = us.map((u) => u.name).join(' and ');
+      const key = why === 'joiner' ? 'join' : `reinforce:${why}`;
+      const prior = this.log.find((e) => e.key === key);
+      if (prior) {
+        prior.data.npcs = `${prior.data.npcs} and ${names}`;
+        prior.data.count = Number(prior.data.count) + us.length;
+      } else if (why === 'joiner') this.note('brawl_joins', 'bad', { npcs: names, count: us.length }, 4.5, key);
+      else this.note('reinforce', 'bad', { variant: why, npcs: names, count: us.length }, 4.5, key);
+    }
+  }
+
+  /** Put a newcomer on or beside a free door. */
+  private arriveAt(u: Unit): boolean {
+    const g = this.grid;
+    const door = this.grid.exits.find((e) => !this.occupant(e));
+    const spot = door ?? nearestFree(g, this.c.rng, this.c.rng.pick(g.exits), (p) => !!this.occupant(p))[0];
+    if (!spot) return false;
+    u.x = spot.x;
+    u.y = spot.y;
+    u.state = 'active';
+    return true;
+  }
+
+  private turn(u: Unit): void {
+    if (u.state !== 'active') return;
+    this.pw.clear();
+    this.dmgCache.clear();
+    u.watching = false;
+    for (const k of Object.keys(u.cd)) if (u.cd[k]! > 0) u.cd[k]!--;
+    if (u.burning > 0) {
+      u.burning--;
+      this.damage(null, u, Math.max(2, Math.round((u.kind === 'foe' ? this.power(this.wield) : u.power) * 0.15)));
+      if (u.state !== 'active') return;
+    }
+    if (u.stunned) {
+      u.stunned = false;
+      return;
+    }
+    if (u.kind === 'hero') this.heroUpkeep();
+    if (u.kind === 'foe') this.foeMorale(u);
+    const opt = this.plan(u);
+    if (opt) this.execute(u, opt);
+    if (u.state === 'active' && !u.flying && terrainAt(this.grid, u.x, u.y) === 'hazard') {
+      this.damage(null, u, hazardDmg(u));
+      this.note('tactic', u.kind === 'foe' ? 'good' : 'bad', { variant: 'hazard', who: u.name, hero: u.kind !== 'foe' }, 2.5, `hazard:${u.id}`);
+    }
+  }
+
+  private heroUpkeep(): void {
+    const h = this.w.hero;
+    const living = this.standingFoes().map((f) => f.npc!);
+    this.wield = wielded(h, living);
+    this.hero.reach = weaponReach(this.wield);
+    if (this.wield.id !== this.lastWield) {
+      const foe = living[0]?.name ?? 'them';
+      if (!loaded(h, h.weapon)) this.note('out_of_ammo', 'bad', { weapon: h.weapon.name, ammo: h.weapon.ammoType ?? 'ammo', fallback: this.wield.name, bare: this.wield.id === 'fists' }, 3, 'ammo');
+      else if (this.wield.id !== h.weapon.id) this.note('weapon_swap', 'mixed', { weapon: this.wield.name, old: this.lastWield === 'fists' ? 'bare fists' : h.weapon.name, foe }, 1.5, 'swap');
+      this.lastWield = this.wield.id;
+    }
+    if (!this.hero.fleeing && this.round >= 2 && h.hp / h.maxHp < this.fleeAt && this.c.rng.chance(0.55 + h.reflex * 0.03 + skillValue(h, 'athletics') * 0.02) && this.exitMap(this.hero).has(idx(this.grid, this.hero))) {
+      this.hero.fleeing = true;
+      this.note('tactic', 'mixed', { variant: 'retreat', hpPct: Math.round((h.hp / h.maxHp) * 100) }, 3, 'retreat');
+    }
+  }
+
+  private foeMorale(u: Unit): void {
+    if (!u.canFlee || u.fleeing) return;
+    const r = u.ref.hp / u.ref.maxHp;
+    if (r < 0.28 && this.c.rng.chance(0.35 + 0.35 * this.lostFraction())) this.panicIfCan(u);
+  }
+
+  private checkEnd(): void {
+    if (this.result) return;
+    const h = this.w.hero;
+    const rng = this.c.rng;
+    if (!this.standingFoes().length) this.result = 'win';
+    else if (this.hero.state === 'fled') this.result = 'flee';
+    else if (h.hp <= 0 && this.o.lethal) {
+      if (this.w.hero.implants.some((i) => i === 'emergency_defib') && !this.w.flags.defib_used) {
+        this.w.flags.defib_used = true;
+        h.hp = Math.round(h.maxHp * 0.3);
+        this.note('defib', 'mixed', {}, 5, 'defib');
+        this.result = 'flee';
+      } else {
+        const foes = [...this.o.foes, ...this.arrived];
+        this.result = foes.some((f) => f.tags.includes('cop')) && rng.chance(0.55) ? 'arrested' : 'dead';
+      }
+    } else if (!this.o.lethal && h.hp < h.maxHp * 0.2) this.result = 'tossed';
+  }
+
+  // ------------------------------------------------------------------ deciding what to do
+
+  /** Steps to the nearest exit nobody is standing on, from every tile. */
+  private exitMap(u: Unit): Map<number, number> {
+    const g = this.grid;
+    const best = new Map<number, number>();
+    for (const e of g.exits) {
+      if (this.occupant(e, u)) continue;
+      const r = reach(g, e, 40, () => false, u.flying);
+      for (const [i, c] of r.cost) if (c < (best.get(i) ?? Infinity)) best.set(i, c);
+    }
+    return best;
+  }
+
+  private enemyDistMap(u: Unit, enemies: Unit[]): Map<number, number> {
+    const best = new Map<number, number>();
+    for (const e of enemies) {
+      const r = reach(this.grid, e, 30, () => false, u.flying);
+      for (const [i, c] of r.cost) if (c < (best.get(i) ?? Infinity)) best.set(i, c);
+    }
+    return best;
+  }
+
+  private danger(u: Unit, tile: Pos, enemies: Unit[]): number {
+    let d = 0;
+    for (const e of enemies) {
+      if (e.stunned || e.fleeing) continue;
+      const gap = dist(e, tile);
+      if (gap > e.speed + e.reach[1] + (e.flying ? 1 : 0)) continue;
+      let p = e.npc?.tags.includes('hera') ? 1 : e.hit;
+      if (e.reach[1] > 1 && inCover(this.grid, e, tile)) p -= 0.25;
+      d += Math.min(1, this.avgDamage(e, u) / Math.max(1, u.ref.hp)) * Math.max(0.05, p);
+    }
+    return d;
+  }
+
+  private posScore(u: Unit, tile: Pos, k: TurnCtx): number {
+    const key = idx(this.grid, tile);
+    const cached = k.pos.get(key);
+    if (cached !== undefined) return cached;
+    let s = -this.danger(u, tile, k.enemies) * k.caution;
+    if (k.fleeing && k.exitDist) {
+      s -= (k.exitDist.get(key) ?? 60) * 6;
+    } else {
+      const path = k.enemyDist.get(key) ?? 40;
+      const near = Math.min(...k.enemies.map((e) => dist(e, tile)));
+      const [, max] = u.reach;
+      if (max <= 1) s -= 0.7 * Math.max(0, path - 1);
+      else {
+        s -= 0.9 * Math.max(0, path - max);
+        if (near <= 1) s -= 2.5;
+      }
+      if (u.kind === 'ally') {
+        const gap = dist(tile, this.hero);
+        s -= (u.assist?.absorb ? 1.5 : 0.6) * Math.max(0, gap - (u.assist?.absorb ? 1 : 3));
+      }
+    }
+    if (!u.flying && terrainAt(this.grid, tile.x, tile.y) === 'hazard') s -= k.fleeing ? 4 : 14;
+    k.pos.set(key, s);
+    return s;
+  }
+
+  private plan(u: Unit): Option | null {
+    const g = this.grid;
+    const rng = this.c.rng;
+    const enemies = this.enemiesOf(u);
+    if (!enemies.length) return null;
+    let fleeing = u.fleeing;
+    let exitDist: Map<number, number> | null = null;
+    if (fleeing) {
+      exitDist = this.exitMap(u);
+      if (!exitDist.has(idx(g, u))) fleeing = false; // nowhere to run: fight
+    }
+    const ratio = u.ref.hp / u.ref.maxHp;
+    const caution = u.kind === 'hero' ? 4 + 10 * Math.pow(1 - ratio, 1.5) + 3 * this.w.hero.competence : u.caution * (1 + (1 - ratio) * 2);
+    const k: TurnCtx = { enemies, caution: fleeing ? 1 : caution, fleeing, exitDist, enemyDist: this.enemyDistMap(u, enemies), pos: new Map() };
+    const techs = fleeing ? techniquesFor(this, u).filter((t) => t.id === 'leave') : techniquesFor(this, u);
+    const blocked = (p: Pos) => enemies.some((e) => same(e, p));
+    const walk = reach(g, u, u.speed, blocked, u.flying);
+    const sprint = reach(g, u, u.speed * 2, blocked, u.flying);
+
+    const cands: { tile: Pos; mode: Option['mode']; r: Reach | null; cost: number }[] = [];
+    for (const [i, c] of sprint.cost) {
+      const tile = posOf(g, i);
+      if (!same(tile, u) && this.occupant(tile, u)) continue;
+      const walkCost = walk.cost.get(i);
+      if (same(tile, u)) cands.push({ tile, mode: 'stay', r: null, cost: 0 });
+      else if (walkCost !== undefined) cands.push({ tile, mode: 'walk', r: walk, cost: walkCost });
+      else cands.push({ tile, mode: 'dash', r: sprint, cost: c });
+    }
+    if (u.kind === 'hero' && this.w.hero.implants.includes('hydraulic_calves') && !u.cd.leap) {
+      for (let y = Math.max(0, u.y - 4); y <= Math.min(g.h - 1, u.y + 4); y++) {
+        for (let x = Math.max(0, u.x - 4); x <= Math.min(g.w - 1, u.x + 4); x++) {
+          const tile = { x, y };
+          if (!passable(g, x, y, false) || this.occupant(tile, u) || cands.some((c) => same(c.tile, tile))) continue;
+          cands.push({ tile, mode: 'leap', r: null, cost: 0 });
+        }
+      }
+    }
+
+    let best: Option | null = null;
+    const consider = (o: Option) => {
+      o.score += rng.next() * 0.4;
+      if (!best || o.score > best.score) best = o;
+    };
+    for (const cand of cands) {
+      const pos = this.posScore(u, cand.tile, k) - (cand.mode === 'walk' ? 0.12 * cand.cost : cand.mode === 'dash' ? 0.12 * cand.cost + 1.6 : cand.mode === 'leap' ? 1.2 : 0);
+      consider({ tile: cand.tile, mode: cand.mode, r: cand.r, tech: null, target: null, score: pos });
+      if (cand.mode === 'dash') continue;
+      for (const tech of techs) {
+        if (tech.targets === 'self') {
+          const v = tech.value(this, u, cand.tile, null);
+          if (v !== null) consider({ tile: cand.tile, mode: cand.mode, r: cand.r, tech, target: null, score: pos + v });
+          continue;
+        }
+        for (const e of enemies) {
+          const d = dist(cand.tile, e);
+          if (d < tech.range[0] || d > tech.range[1]) continue;
+          if (tech.los && !hasLos(g, cand.tile, e)) continue;
+          const v = tech.value(this, u, cand.tile, e);
+          if (v !== null) consider({ tile: cand.tile, mode: cand.mode, r: cand.r, tech, target: e, score: pos + v });
+        }
+      }
+    }
+    return best;
+  }
+
+  private execute(u: Unit, o: Option): void {
+    if (o.mode === 'leap') {
+      u.x = o.tile.x;
+      u.y = o.tile.y;
+      u.cd.leap = 3;
+      this.stats.leaps++;
+      this.note('tactic', 'good', { variant: 'leap' }, 2, `leap:${this.round}`);
+      this.triggerWatch(u);
+    } else if (o.mode !== 'stay' && o.r) {
+      for (const step of pathTo(this.grid, o.r, o.tile)) {
+        if (u.state !== 'active') return;
+        u.x = step.x;
+        u.y = step.y;
+        this.triggerWatch(u);
+      }
+    }
+    if (u.state !== 'active' || !o.tech) return;
+    const t = o.target;
+    if (t) {
+      const d = dist(u, t);
+      if (t.state !== 'active' || d < o.tech.range[0] || d > o.tech.range[1] || (o.tech.los && !hasLos(this.grid, u, t))) return;
+    }
+    o.tech.run(this, u, t);
+  }
+
+  /** Blackbird on overwatch gets a free shot at the first enemy to step into her sights. */
+  private triggerWatch(mover: Unit): void {
+    const w = this.hero;
+    if (!w.watching || w.state !== 'active' || mover.team === w.team || mover.state !== 'active') return;
+    if (dist(w, mover) > w.reach[1] || (w.reach[1] > 1 && !hasLos(this.grid, w, mover))) return;
+    w.watching = false;
+    this.stats.overwatch++;
+    this.heroStrike(mover, { mult: 0.75 });
+    this.note('tactic', 'good', { variant: 'overwatch', foe: mover.name, weapon: this.wield.name }, 3, `watch:${this.round}`);
+  }
+}
+
+/** The handful of moments worth telling, in the order they happened. */
+export function highlights(log: LogEntry[], max = 5): LogEntry[] {
+  const seen = new Set<string>();
+  const unique = log.filter((e) => (seen.has(e.key) ? false : (seen.add(e.key), true)));
+  const keep = new Set(
+    unique
+      .map((e, i) => ({ e, i }))
+      .sort((a, b) => b.e.weight - a.e.weight || a.i - b.i)
+      .slice(0, max)
+      .map((x) => x.e),
+  );
+  return unique.filter((e) => keep.has(e));
+}

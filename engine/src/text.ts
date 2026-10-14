@@ -390,7 +390,7 @@ const T: Record<string, Entry> = {
         ];
       }
       const spoils = [Number(d.cash) > 0 ? `${d.cash} neodollars` : '', d.loot ? String(d.loot) : ''].filter(Boolean).join(' and ');
-      const cost = Number(d.taken) > 0 ? `${d.taken} damage taken` : 'not a scratch';
+      const cost = (Number(d.taken) > 0 ? `${d.taken} damage taken` : 'not a scratch') + (Number(d.fled) > 0 ? `, ${d.fled} got away` : '');
       return [
         `${Number(d.killed) > 1 ? `${d.killed} down` : 'One down'} in ${d.rounds} rounds: ${cost}.${spoils ? ` Spoils: ${spoils}.` : ''}`,
         `Blackbird wins. ${d.rounds} rounds, ${cost}.${spoils ? ` She helps herself to ${spoils}.` : ''}${d.puppy ? ' Sprocket barks a victory bark.' : ''}`,
@@ -423,6 +423,32 @@ const T: Record<string, Entry> = {
     (d) => (d.dragon === 'hera' ? ['...Huh.', 'I regret nothing. Mostly the part where I looked up.'] : d.dragon === 'artemis' ? ['There were THREE of them. That was just unfair.', 'Should have gone for the one on the left.'] : ['Okay, that one might actually hurt.', 'This is fine.']),
   ),
   brawl_joins: e((d) => [`${d.npcs} ${Number(d.count) > 1 ? 'jump' : 'jumps'} in. Because why not.`, `Somebody shouts "BRAWL!" and ${d.npcs} ${Number(d.count) > 1 ? 'are' : 'is'} suddenly involved.`], ['More the merrier.', "Don't worry, I take all comers."]),
+  // ---- the fight on the floor: what happens on the board (tactics.ts)
+  'tactic:ambush': e(
+    (d) => [
+      `${d.foe} never sees it coming. The ${d.weapon} goes in from behind: ${d.dmg} damage.${d.kill ? ' That is the whole fight for them.' : ''}`,
+      `Blackbird slides along the wall, comes up on ${d.foe}'s blind side, and gives them the ${d.weapon}. ${d.dmg} damage, delivered politely.`,
+    ],
+    ['Rule one: hit them before they stand up straight.', 'Stealth is just patience with a knife.'],
+  ),
+  'tactic:flurry': e((d) => [`Mantis blades out. ${d.foe} gets a quick flurry of very small cuts.`], ['Retract is more of a suggestion.']),
+  'tactic:slam': e((d) => [`Blackbird shoves ${d.foe} into the nearest solid object. ${d.dmg} damage and a ringing sound.`, `${d.foe} meets a wall at speed. ${d.dmg} damage.`], ['Furniture is a weapon if you believe in it.']),
+  'tactic:hazard_shove': e((d) => [`Blackbird puts ${d.foe} into the live wire on the floor. ${d.dmg} damage and a smell.`, `A shove, a spark, ${d.foe} twitching. ${d.dmg} damage.`], ['I read the room. The room had a hazard.']),
+  'tactic:hazard': e((d) => (d.hero ? [`${d.who} finds the hazard on the floor the hard way.`] : [`${d.who} steps on the hazard in the floor and finds out what it is.`]), ['Watch your step. Mine, I mean. I did that on purpose.']),
+  'tactic:hack': e((d) => [d.robot ? `Blackbird pings ${d.foe}'s controller from across the room. It locks up and starts playing a jingle.` : `Blackbird jacks ${d.foe}'s chrome from across the room. ${d.foe} stops mid-swing, confused about its own hand.`], ['Behind every great hero is a firewall I just walked through.']),
+  'tactic:intimidate': e(
+    (d) => [`Blackbird gives ${d.foe} The Look. ${d.foe} remembers a prior engagement elsewhere.`, `${d.foe} meets her eye, counts the odds, and starts looking for a door.`],
+    ['It is called presence.', 'Never underestimate a good squint.'],
+  ),
+  'tactic:overwatch': e((d) => [`Blackbird sets up behind cover and waits. ${d.foe} steps into the open; the ${d.weapon} does the talking.`], ['Patience. I have it. In short bursts.']),
+  'tactic:leap': e(() => ['Hydraulic calves, one hop, and Blackbird is across the room before anyone reacts.'], ['Landing was not included. I planned that.']),
+  'tactic:retreat': e((d) => [`Blackbird is at ${d.hpPct}% and doing the math. She starts backing towards the exit.`, `Blackbird breaks off and heads for the door, tactically.`], ['Strategic repositioning. Toward the exit. Quickly.']),
+  'foe_flees:ran': e((d) => [`${d.foe} loses interest in the fight and goes out the door at speed.`, `${d.foe} (${d.role}) decides they have somewhere else to be.`], ['Yeah. Run.']),
+  'foe_flees:scared': e((d) => [`${d.foe} takes one look at Blackbird and bolts for the nearest exit.`], ['They always know.']),
+  'foe_flees:thrown_out': e((d) => [`Blackbird shoves ${d.foe} through the door and onto the pavement.`, `${d.foe} leaves the fight through the exit, not entirely of their own choosing.`], ['Out. Door is that way.']),
+  'reinforce:law': e((d) => [`Boots in the doorway: ${d.npcs} ${Number(d.count) > 1 ? 'arrive' : 'arrives'}, on the other side.`, `${d.npcs} ${Number(d.count) > 1 ? 'push' : 'pushes'} through the door with badge-shaped intentions.`], ['Oh good. More company.']),
+  'reinforce:backup': e((d) => [`${d.npcs} ${Number(d.count) > 1 ? 'hear' : 'hears'} the noise and ${Number(d.count) > 1 ? 'come' : 'comes'} in swinging.`, `Friends of the other side: ${d.npcs} ${Number(d.count) > 1 ? 'show' : 'shows'} up late.`], ['Fine. The more, the faster the story gets told.']),
+  'ally_down': e((d) => [`${d.name} goes down in the middle of the floor and does not get back up.`], ['That was a good one. They were a good one.']),
   'injury:broken_leg': e(() => ['A leg gives out with a sound like a snapped pipe. Blackbird has a broken leg.'], ["It's just a leg. I have another one."]),
   'injury:cracked_ribs': e(() => ['Cracked ribs. Every breath now is a negotiation.'], ["Breathing's overrated."]),
   'injury:fried_optics': e(() => ['Her left optic sparks and fizzles. Half of Neo goes monochrome.'], ["Fashionable. Retro even."]),
