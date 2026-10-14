@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AMMO,
-  ARCHETYPES,
+  describePersonality,
   Rng,
   STIMS,
   medPacks,
@@ -123,7 +123,7 @@ function toLines(night: Night, events: GameEvent[]): LogLine[] {
   const out: LogLine[] = [];
   const h = night.world.hero;
   for (const ev of events) {
-    for (const l of render(ev, { rng: night.textRng, archetype: h.personality.archetypeId, realName: h.realName })) {
+    for (const l of render(ev, { rng: night.textRng, personality: h.personality, realName: h.realName })) {
       out.push({ id: night.nextId++, beat: ev.beat, voice: l.voice, text: l.text, outcome: ev.outcome, type: ev.type });
     }
   }
@@ -189,8 +189,8 @@ export default function NightViewer() {
   const world = nightRef.current?.world;
   const hero = world?.hero;
   const archetype = useMemo(
-    () => ARCHETYPES.find((a) => a.id === hero?.personality.archetypeId)?.label ?? '',
-    [hero?.personality.archetypeId],
+    () => (hero ? describePersonality(hero.personality) : ''),
+    [hero?.personality],
   );
   const over = !!status?.ending;
 

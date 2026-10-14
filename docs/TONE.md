@@ -46,15 +46,14 @@ Notes: success that is secretly the mistake; escalating numbers ("half a mil", "
 
 **Baseline:** cocky, self-assured, knows she's the hero.
 
-**Per-save personality:** every save's Blackbird is a *perturbation* from that baseline. The perturbation is expressed as drive weights in the decision AI (see DESIGN.md §4) and as voice quirks in the prose layer. Examples:
-- *Airheaded ditz* — dangerously curious; pokes everything.
-- *Hothead* — picks fights with enemies far above her level.
-- *Hopeless romantic* — flirts at the worst times; every bartender is The One.
-- *Lush* — thirst drive dominates; "just one" is a lie.
-- *Gambler*, *glutton for attention*, *tech-fetishist*, and so on (list grows with content).
+**Per-save personality:** every save's Blackbird is a *vector* of independent 0..1 traits (0.5 = unremarkable), not a type. The vector is rolled once per save (`engine/src/personality.ts`) and drives both the decision AI (see DESIGN.md §4) and the voice quirks in the prose layer. Traits:
+- *Wants:* `fame` (the whole city knows her name), `justice` (put bad guys through walls), `impress` (impress girls, all of them), `romantic` (The One, singular, and faithful to her), `drink`, `gamble`, `temper`.
+- *Nerve and judgement:* `courage`, `reckless`, `impulsive`, `thrill`.
+- *Appetites:* `curiosity`, `greed`, `appetite`, `techy`, `artistry`.
+- *Character:* `vanity`, `kindness`, `honesty`, `loyalty`, `grudge`, `mischief`, `sociable`, `animal`.
 
-A personality is a set of trait weights plus quirk tags the writing system can key on, so the same event reads differently for a ditz vs. a hothead.
+Characters emerge from combinations: a high-`impress`, low-`romantic` girl works the room; high `romantic` with low `impress` falls for the first bartender and then is loyal to her; high `justice` with high `temper` picks fights, but only with people who have it coming; high `fame` and low `honesty` is trouble with a hashtag. Traits at 0.7+ colour her thoughts, so the same event reads differently for a lush than for a showboat.
 
 ## Content tagging (for the template system)
 
-Lines are tagged by: voice (`report` | `thought`), event type, location type, mood, outcome (`good` | `bad` | `mixed`), relationship state, personality quirks, competence band. The engine picks the best match; variety and callbacks are preferred over repeating a line.
+Lines are tagged by: voice (`report` | `thought`), event type, location type, mood, outcome (`good` | `bad` | `mixed`), relationship state, personality traits (quirks surface at >= 0.7), competence band. The engine picks the best match; variety and callbacks are preferred over repeating a line.

@@ -1,6 +1,7 @@
 import type { Rng } from './rng';
 import type { GameEvent, EventData } from './events';
 import { GANGS } from './content/archetypes';
+import { TRAITS, type Personality, type Trait } from './personality';
 
 export interface TextLine {
   /** `report` = neutral field report. `thought` = Blackbird's own cocky inner voice. */
@@ -10,8 +11,8 @@ export interface TextLine {
 
 export interface RenderCtx {
   rng: Rng;
-  /** Personality archetype id, for quirk-specific thoughts. */
-  archetype: string;
+  /** Her personality vector, for trait-specific thoughts. */
+  personality: Personality;
   realName: string;
 }
 
@@ -637,17 +638,19 @@ const T: Record<string, Entry> = {
   dawn: e((d) => [`Dawn over Neo. Blackbird, somehow still alive, slumps in ${d.place}. The night ran out before she did.`], ['Next time I\'ll start earlier.']),
 };
 
-const QUIRK: Record<string, Record<string, string[]>> = {
-  ditz: {
+/** Thoughts that surface when a trait is turned up high (>= QUIRK_AT), keyed by event type. */
+const QUIRK: Partial<Record<Trait, Record<string, string[]>>> = {
+  curiosity: {
     dumpster: ['Ooh, what\'s THIS?', 'I wonder what it does when I lick it.'],
     go: ['What\'s over there? Is it shiny?', 'Is that a door? I like doors.'],
     hack: ['I\'ll just press everything.', 'Wait, which one is the on button?'],
     fuse_panel: ['I\'ll just press the red one. Red means good.'],
   },
-  hothead: {
+  temper: {
     challenge: ['Nobody looks at me like that.', 'He looked at me. That is a violation.'],
     fight_start: ["I don't care how big he is.", 'Hit me first. I dare you.'],
     pickpocket: ["Oh, you caught me? Good. Let's fight."],
+    flirt: ["No? NO? Say that to my face. Again."],
   },
   romantic: {
     flirt: ["This is it. I can feel it. This is The One.", 'Her eyes are like twin neon moons.'],
@@ -655,18 +658,74 @@ const QUIRK: Record<string, Record<string, string[]>> = {
     chat: ['They have the nicest voice.'],
     dance: ['Dance with me forever. Or until the music ends.'],
   },
-  lush: {
+  impress: {
+    flirt: ['Watch this. Girls love a hero.', 'Is she looking? She is looking. Act natural. Act heroic.'],
+    kiss: ['Add one to the list. A short, dignified list.'],
+    dance: ['Every eye in the room. Mine especially.'],
+    buy_round: ['Drinks for everyone! Especially her. Is she watching?'],
+  },
+  drink: {
     order_drink: ["Just the one. Or four.", "It's medicinal."],
     karaoke: ["I've had exactly the right amount for this."],
     buy_round: ['To me!', 'Everyone drink. That is an order from a hero.'],
   },
-  gambler: {
+  gamble: {
     pool: ['Double or nothing. Triple. Whatever.', "I never lose. I just run out of money."],
     safe: ['Feeling lucky. Always feeling lucky.'],
     rob_till: ["Let's see what the house has."],
     karaoke: ['Ten neodollars says I hit the high note.'],
+    poker: ['All in. I have a feeling. The feeling is wrong, but it is a big feeling.'],
+  },
+  fame: {
+    dj_set: ['They will remember this. They will have to.', 'Somebody is filming. Somebody had better be filming.'],
+    gig: ['Put my name on the poster. Larger.'],
+    busk: ['Every pedestrian is a future fan.'],
+    karaoke: ['Autograph line forms on the left.'],
+    graffiti: ['A signature is just a tiny billboard.'],
+    mirror: ['The face of a legend. Hello, legend.'],
+  },
+  justice: {
+    challenge: ['Somebody has to. Might as well be the hero.', 'This one has it coming. Probably. Almost certainly.'],
+    fight_start: ['Justice has a left hook.', 'For the city. And also for me.'],
+    rescue: ['Hold on. The cavalry is here. It is me. I am the cavalry.'],
+  },
+  kindness: {
+    pet_puppy: ['Who is a good robot. You are. Yes.'],
+    chat: ['Everyone is carrying something. Even the guys who are carrying guns.'],
+  },
+  mischief: {
+    dumpster: ['What is the worst that could happen. Do not answer that.'],
+    hack: ['Let us see what this does to the lights.'],
+    fuse_panel: ['It says DO NOT. So, you know. Do.'],
+  },
+  grudge: {
+    challenge: ['I remember you. I remember everything.'],
+    recognition: ['Oh, I remember you too.'],
+  },
+  thrill: {
+    parkour: ['Gravity is more of a suggestion.'],
+    join_brawl: ['Finally. Something with a pulse.'],
+  },
+  appetite: {
+    eat_noodles: ['Second dinner. First dinner was a lie.'],
+    cook: ['I will taste it as I go. All of it.'],
+  },
+  vanity: {
+    mirror: ['Hello, gorgeous. Yes, you. Yes, me.'],
+    flirt: ['Honestly, who could say no to this?'],
+  },
+  techy: {
+    hack: ['Ooh. Firmware. Talk dirty to me in assembly.'],
+    terminal: ['A real terminal. Look at that bloated, glorious thing.'],
+  },
+  animal: {
+    pet_puppy: ['Best boy. Best robot boy. Best boy.'],
+    feed_pigeon: ['Hello, tiny dinosaur. Have a crumb.'],
   },
 };
+
+/** How far above unremarkable a trait has to be before it colours her thoughts. */
+const QUIRK_AT = 0.7;
 
 const FALLBACK_KEYS = (e_: GameEvent): string[] => {
   const d = e_.data;
@@ -677,6 +736,22 @@ const FALLBACK_KEYS = (e_: GameEvent): string[] => {
   keys.push(`${e_.type}:${e_.outcome}`, e_.type);
   return keys;
 };
+
+/** The thought from her most pronounced trait that has something to say about this event. */
+function quirkFor(ev: GameEvent, p: Personality): string[] | undefined {
+  let best: string[] | undefined;
+  let bestVal = QUIRK_AT;
+  for (const t of TRAITS) {
+    const v = p.traits[t];
+    if (v < bestVal) continue;
+    const q = QUIRK[t]?.[ev.type] ?? QUIRK[t]?.[`${ev.type}_${ev.data.variant}`];
+    if (q) {
+      best = q;
+      bestVal = v;
+    }
+  }
+  return best;
+}
 
 function lines(l: Lines | undefined, d: EventData): string[] {
   if (!l) return [];
@@ -708,7 +783,7 @@ export function render(ev: GameEvent, ctx: RenderCtx): TextLine[] {
     out.push({ voice: 'report', text: BLURBS[ev.data.toId]! });
   }
   const alwaysThought = ['death', 'victory', 'level_up', 'depart', 'fight_end', 'dragon_confront'].includes(ev.type);
-  const quirk = QUIRK[ctx.archetype]?.[ev.type] ?? QUIRK[ctx.archetype]?.[`${ev.type}_${ev.data.variant}`];
+  const quirk = quirkFor(ev, ctx.personality);
   const ts = lines(entry.t, ev.data);
   if (quirk && ctx.rng.chance(0.4)) {
     out.push({ voice: 'thought', text: ctx.rng.pick(quirk) });
