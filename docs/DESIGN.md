@@ -234,3 +234,21 @@ A flight gives her a few beats to react: **engage**, **hide**, **gawk**, or **fi
 - Exact beat pacing curve and real-time run length per stage.
 - Cipher cost tuning (1 word = 1 Cipher is fixed).
 - Whether to cap daily Cipher conversion (currently: no).
+
+## Heat and lying low (seventh pass)
+
+Police response now scales with NPD heat instead of jumping straight to riot gear (`engine/src/laylow.ts`).
+
+- **Heat 1-3:** only drones. `npd_drone` is a weak, non-lethal patrol unit (stun nets: losing means being tossed, not killed). One drone at heat 1-2, two from 3.
+- **Heat 4+:** officers (two, three from 6, plus a drone sometimes); a sergeant joins at 8. Officers are still lethal, so a hot night is still rough.
+- Only outdoors. Inside a hideout nothing finds her.
+
+Heat sets a **heat urge** (`heatUrge`): about 0.6 at heat 1, 2.4 at 3, 5 at 5, 10 at 8. Recklessness, thrill-seeking and drunkenness shrink it, because she thinks she's fine.
+
+- **Lay low** (`lay_low:here`): offered in a hideout (restroom, basement arcade, maintenance crawlspace, any home). Each beat there has a good chance to shave a point off NPD and Atlas heat. This is the safe default.
+- **Head for cover** (`heatBias`): `go:` candidates are pulled towards the nearest hideout and away from leaving one, and crime and noisy families are pushed down while hot.
+- **Bribe a cop** (`bribe_cop:street`): street only, heat 2+. Cost rises with heat and with every bribe she has already made (cops learn her rate); she balks at spending most of her cash. A wrong cop makes it worse, and sometimes a fight.
+- **Fix the record** (`fix_record:madame`): Madame Zero, expensive, reliable, knocks 3-5 off.
+- **Frame someone** (`frame:<id>`): pins it on a bystander, who is pulled off the board for 70 beats. Prefers bad guys and avoids friends. Gets harder with every frame-up and botches into a fight.
+
+No cooldowns: price inflation, finite cash and a finite supply of fall guys do the limiting.

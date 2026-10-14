@@ -19,6 +19,11 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   seduce_clerk: { impress: 1.0, mischief: 0.5, romantic: -0.8 },
   buy_round: { impress: 0.8, fame: 0.5, drink: 0.5, sociable: 0.5 },
   rescue: { impress: 0.6, justice: 1.0, kindness: 1.0 },
+  // heat
+  lay_low: { thrill: -0.8, reckless: -0.6, curiosity: -0.2 },
+  bribe_cop: { honesty: -0.8, mischief: 0.3, greed: -0.4 },
+  fix_record: { honesty: -0.6 },
+  frame: { honesty: -1.0, kindness: -0.9, mischief: 0.6, justice: -0.5 },
   // fights
   challenge: { temper: 1.6, courage: 0.4, grudge: 0.6 },
   sweep: { temper: 1.0, courage: 0.6, thrill: 0.6 },

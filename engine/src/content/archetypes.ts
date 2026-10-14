@@ -106,6 +106,11 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'robot', weapons: ['stunner_mk3'], loot: ['memory_shard'], lootChance: 0.5, cash: [0, 0], hp: 55, power: 12,
     desc: ['an Atlas surveillance drone, hovering with the confidence of something that has never been punched'],
   },
+  npd_drone: {
+    role: 'NPD patrol drone', level: [3, 3], tags: ['robot', 'patrol', 'nonlethal'], faction: 'npd',
+    names: 'robot', weapons: ['stunner_mk3'], loot: ['memory_shard'], lootChance: 0.4, cash: [0, 0], hp: 42, power: 9,
+    desc: ['an NPD patrol drone with a stun-net launcher and a voice like a parking ticket'],
+  },
   mugger: {
     role: 'mugger', level: [2, 3], tags: ['ganger', 'rowdy'], faction: 'ganger',
     names: 'person', weapons: ['switchblade', 'zip_pistol'], loot: ['credchip', 'gold_tooth', 'med_pack', 'patch_kit'], lootChance: 0.6, cash: [10, 50],

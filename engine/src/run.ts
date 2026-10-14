@@ -16,6 +16,7 @@ import { expireBuffs } from './supply';
 import { discretion } from './discretion';
 import { scanBounties } from './bounty';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
+import { heatBias, npdResponse } from './laylow';
 import { satietyBias, tickSatiety } from './romance';
 
 export const MAX_BEATS = 600;
@@ -30,6 +31,7 @@ export function score(w: World, cand: Candidate): number {
   s += traitBias(w, cand);
   s += goalBias(w, cand);
   s += satietyBias(w, cand);
+  s += heatBias(w, cand);
   s += (cand.smart ?? 0) * h.competence;
   // Not in front of people. Not where the police will hear about it.
   s -= discretion(w, cand);
@@ -169,16 +171,8 @@ function ambient(c: Ctx): void {
     return;
   }
 
-  // Police ambush.
-  const npd = w.heat.npd ?? 0;
-  if (loc.outdoors && npd >= 3 && rng.chance(0.14 + npd * 0.04)) {
-    if (scoutSaves(c)) return;
-    const squad = spawnGroup(c, 'npd_officer', rng.int(2, 3));
-    if (npd >= 6) squad.push(...spawnGroup(c, 'npd_sergeant', 1));
-    c.emit('ambush', 'bad', { variant: 'npd', count: squad.length, heat: npd });
-    fight(c, squad, { cause: 'an NPD ambush', joiners: false });
-    return;
-  }
+  // Police response: drones at low heat, officers at high. Lying low indoors keeps her out of reach.
+  if (npdResponse(c)) return;
   // Atlas retrieval team.
   const atlas = w.heat.atlas ?? 0;
   if (loc.outdoors && atlas >= 5 && rng.chance(0.15)) {

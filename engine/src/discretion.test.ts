@@ -378,7 +378,8 @@ describe('the sim', () => {
       heat += events.filter((e) => e.type === 'heat_up' && e.data.variant === 'npd').length;
       beats += world.beat;
     }
-    expect(heat / 60).toBeLessThan(3);
+    // Per hundred beats (she lasts much longer now that laying low works, so nights have more beats to get into trouble).
+    expect((heat / beats) * 100).toBeLessThan(4.5);
     expect(beats / 60).toBeGreaterThan(40);
   });
 
