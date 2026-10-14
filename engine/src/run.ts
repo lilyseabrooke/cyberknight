@@ -18,6 +18,7 @@ import { scanBounties } from './bounty';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
 import { heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
+import { tickHustles } from './hustles';
 import { satietyBias, tickSatiety } from './romance';
 
 export const MAX_BEATS = 600;
@@ -146,6 +147,7 @@ function upkeep(c: Ctx): void {
   if (w.beat % 30 === 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2);
   if (w.beat % 90 === 0) restockShelf(c);
   tickVenues(w);
+  tickHustles(c);
   if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;
   // No passive regeneration. Wounds stay until a med pack or a street doc deals with them.
   if (h.drunk >= 6 + Math.floor(skillLevel(h, 'tolerance') / 2)) {

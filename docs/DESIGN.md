@@ -326,3 +326,21 @@ She is meant to be about three things: **getting famous, getting rich, killing c
 | beat battle (`beat_battle`) | beatboxing | rowdy regulars |
 
 Known thin spots: guitar and DJ branches are gated (she has to find a guitar, kids have to be around), and art/other skills have one or two acts each. The framework (`ACT_SKILL`, `FAME_ACTS`, `CALLING`) takes new acts without other changes.
+
+## Hustles without cooldowns (eleventh pass)
+
+The ten hustles used to be throttled by timers (18 to 140 beats since she last did it to that person). Each is now limited by something that is true about the world (`engine/src/hustles.ts`, `tickHustles` once a beat):
+
+| hustle | what limits it |
+|---|---|
+| odd jobs | staff have a stock of chores (2 or 3). Doing one uses it up. A place makes more work the busier it is, so the Halo on a crowded night has plenty and a quiet shop almost none |
+| security shift | open shifts on the club door (1, max 2); a shift fills one, and new ones open while the club is crowded |
+| courier run | a fixer or dealer has parcels waiting; shipments bring more slowly; nobody hands her a package while the NPD is on her (heat 4+) |
+| bodyguard gig | only for someone who actually needs an escort: patrons and girls come to need one at random as the night goes on, and the need goes when she does it |
+| burglary | the house has to have something in it (cash 60+). She takes it, the victim is poorer, and she only robs a place once |
+| protection | the shopkeeper's till empties as she takes from it and fills from takings (faster in a busy shop) |
+| scam / fake goods | a mark falls for it once. The room also hears about it (`location.wary`), which makes the next one harder and, after a few, not worth trying; that fades |
+| fortune-telling | the same person pays half as much the second time and won't pay a third time; the room tires of it |
+| odd requests | only people who actually have a favour to ask, which they come to have at random |
+
+Because nothing is on a clock, she can do two chores for the same boss back to back if there are two to do. Competent heroes do fewer odd jobs per night than before (about 24 versus 32) and hustle income fell a third; goals and deaths over 300 nights are the same.

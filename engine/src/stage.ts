@@ -50,10 +50,17 @@ export function freshness(w: World, locId: string, skill: string): number {
 
 export function tickVenues(w: World): void {
   for (const loc of Object.values(w.locations)) {
+    if (loc.wary) {
+      for (const k of Object.keys(loc.wary)) {
+        loc.wary[k] = Math.max(0, loc.wary[k]! - 0.003);
+        if (loc.wary[k]! < 1e-9) delete loc.wary[k];
+      }
+      if (!Object.keys(loc.wary).length) delete loc.wary;
+    }
     if (!loc.fatigue) continue;
     for (const k of Object.keys(loc.fatigue)) {
       loc.fatigue[k] = Math.max(0, loc.fatigue[k]! - RECOVERY);
-      if (loc.fatigue[k] === 0) delete loc.fatigue[k];
+      if (loc.fatigue[k]! < 1e-9) delete loc.fatigue[k];
     }
     if (!Object.keys(loc.fatigue).length) delete loc.fatigue;
   }

@@ -186,6 +186,8 @@ export interface Location {
   cameras: number;
   /** How tired this place's crowd is of her, per skill she performs with (singing, guitar...). Recovers with time. */
   fatigue?: Record<string, number>;
+  /** How wary this place is of tricks she's pulled here (scams, fake goods, fortune-telling). Fades. */
+  wary?: Record<string, number>;
   /** Pieces of her graffiti up here. Drives diminishing fame and local consequences. */
   graffiti: number;
   /** Gang that claims this turf this run (a per-run situational variable). */
