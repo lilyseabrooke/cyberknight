@@ -48,6 +48,7 @@ A **utility AI** with needs, traits and a competence knob.
 - **Drives:** thirst, lust, greed, bravery, curiosity, pride, plus the real objective.
 - **Decision:** each beat, score the available actions and choose via softmax. A **temperature** (inverse competence) controls how often she makes a dumb choice. Early: high temperature, low quest weight.
 - **Flaws are traits**, specific and funny and learnable: *can't resist a blue-haired bartender*, *starts bar fights*, *says yes to every dare*. Upgrades can raise quest weight, add considerations (risk checks, retreat thresholds, route planning) and lower noise. Some flaws can be tamed; some should probably never go away.
+- **Per-save personality:** the hero is **Blackbird**, with a randomly generated, astonishingly uncool government name per save. Baseline is "cocky, self-assured hero who knows she's the hero." Each save rolls a **perturbation** from that baseline: a set of drive-weight modifiers and quirk tags (airheaded ditz → dangerously curious; hothead → picks fights far above her level; hopeless romantic; lush; gambler; etc.). Personality is persistent for the save and also drives voice in the prose layer. See `docs/TONE.md`.
 - **Assists (spend Cipher mid-run):** cash, healing, ammo, sober-up, temporary competence boost, etc. Costs scale so assists are a strong rescue, never the primary strategy.
 - **No runtime LLM.** Determinism, cost and latency. Writing is hand-authored templates (§9). An optional LLM flavor layer is a possible later experiment, not a dependency.
 
@@ -106,12 +107,76 @@ Gated by world-state flags:
 - **Sync:** the client runs the sim and autosaves snapshots plus the run's input log. A `rev` counter provides optimistic concurrency so two devices can't silently overwrite each other.
 - **Draft tables:** `saves(id, key_hash, created_at)`, `save_state(save_id, rev, state jsonb)`, `runs`, `chronicle_events` (bounded/compacted), `writing_log`.
 
+## 7a. The smart-object system ("the Sims, but cyberpunk action RPG")
+
+The gameplay *is* the unpredictability of what Blackbird chooses, so the core engine feature is an **affordance system**:
+
+- Every NPC, object, exit and her own state **advertises candidate actions** (`Candidate`: key, drive weights, risk, state-driven bonus, a `run` that mutates the world and emits events).
+- Each beat she scores everything available against her **personality-weighted drives** and picks by softmax. **Competence** lowers the temperature, raises the weight of "smart" options (patch up, medkit) and makes her respect **risk**. A clueless hero barely sees risk at all.
+- Choice is **family-normalised**: she picks a *kind* of action, then a target, so a bar with 14 patrons doesn't make "start a fight" 14x likelier than flirting.
+- Baseline survival instinct (hurt heroes pick fewer fights) is not tied to competence; competence only makes it reliable.
+- **Consequences chain** through shared world state: heat per faction (NPD, Atlas, the bar, the club), injuries (a broken leg means no fleeing and a power penalty), per-NPC `affinity` and `memories`, hidden exits revealed by rumors/dumpsters/fleeing, misrouted ductwork, gates (bouncers, locks, guards, jumps), joiners in crowded brawls, and ambient events (ambushes, raids, muggings, drone sweeps, gang-war spillover).
+- **Everything is plain JSON** and the RNG position is stored in the world, so a run can be saved, resumed on another device, or fast-forwarded for offline catch-up with identical results (tested).
+
+## 7b. Vertical slice content (shipping in `engine/`)
+
+**Setting:** one stretch of Neo. 16 locations: the Rusty Halo (bar floor, restroom with a street doc, kitchen, laser-tag basement, backroom with the fixer and a wall safe, roof), the alley behind it (dumpster, surveillance drone, a hidden maintenance hatch), Strand Street, the Neon Pharaoh nightclub (bouncers, security, dancers, a corporate heir), the maintenance crawlspace, the Helix Biotech loading dock, lobby and research wing (prototype vault with an experimental device), and the Kowloon Overpass where the cyberdragon CINDERJAW patrols.
+
+**People:** ~40 NPCs with rolled names and rolled loadouts, including two romanceable women (the bartender and a hacker with a jealous streak), a robot puppy that can be pet or stolen, a six-armed cook, a twitchy dealer, a street prophet, an off-duty cop, a "monitored" corpo with half a million in tracking implants, and a barkeep with a bat named Judgment.
+
+**Per-run situational variables:** which two gangs are at war, and what the police are cracking down on this week.
+
+**Things Blackbird can do** (~50 kinds, each with several outcomes): chat/rumors, flirt, kiss (witnessed kisses trigger jealous fights), pickpocket, threaten, challenge anyone, arm-wrestle, hack implants, ask for work, fence loot, get patched by a bathroom doc (sometimes "upgraded"), buy stims, order drinks, buy a round, karaoke, hustle pool, pep talk in the mirror, raid the fridge, laser tag, rob the till, crack the safe, pick locks, dumpster-dive, kick vending machines, dance, mess with fuse panels, break into Helix, steal the experimental device, jump rooftops, and take on the dragon.
+
+### Deepened sandbox (second pass)
+
+New systems layered on the same affordance engine:
+
+- **Companions (max 3).** Each has HP, loyalty (fades if neglected; at zero they leave), abilities and combat assists. Sources: steal the **robot puppy**; **jack a surveillance drone** (or scrapper-bot) instead of blowing it up; **beatbox with the street kids** behind the club until they adopt her; **recruit the hacker** after a kiss and enough affinity; **rescue a damsel** (random street scene with a time limit; ignoring it means she rescues herself); feed noodles to a **judgmental pigeon**. Allies assist in fights (bites, zaps, bricks, tanking, disabling weapons), scout ambushes and hidden doors, sniff out loot, lift cash, and can be petted or repaired.
+- **Skills that grow by use:** music (karaoke, DJ booth, beatboxing), drinking, tinkering, sneaking. Music makes a DJ set land, wins over the street kids and (rarely) beatboxes her way out of a beating by security. It does not help against the dragon (she tries anyway: `serenade`).
+- **Fame:** earned from DJ sets, karaoke, dancing, billboard hacks, rescues, big brawls, killing the dragon. Bouncers wave her in, bartenders pour for free, fans give her tips.
+- **Bar tab:** she drinks on credit, and Tiny eventually collects.
+- **Chrome with a catch:** ten black-market implants from the bathroom doc (third thumb, chrome larynx, mantis blades, hydraulic calves, emergency defibrillator = one extra life), each with a stated pitch and an honest catch.
+- **Per-run weather** (acid rain, neon fog, heatwave), **Atlas propaganda ads**, **hangovers**, **laser-tag championship**, **gossip**: NPCs reference what she did to them (and what she did to their friends).
+- **Dragon intel:** buy it from the fixer, hack it from a Helix terminal, or pry it from a talkative scientist, and CINDERJAW's targeting stutters. A competent, prepared hero now knows when it's time and commits; the clueless one still stumbles into it.
+
+### Layered skills (third pass)
+
+About 26 skills across music (music, singing, guitar, DJing, beatboxing), aim and combat (pool, throwing, shooting, melee, athletics), stealth and tech (sneaking, sleight of hand, lockpicking, tinkering), social (romance, dancing, intimidation, streetwise, haggling, cards, animal rapport) and crafts (drinking, mixology, cooking, first aid, graffiti).
+
+- **Combination rule.** An action lists the skills and stats that feed it. They combine as a **weighted geometric mean on a 0-10 scale** (`synergy()` in `engine/src/skills.ts`), and the result adds to a baseline luck chance (`ODDS` in `engine/src/hobbies.ts`). Any zero factor zeroes the skill part (music 10 + guitar 0 = baseline luck only), while a related skill improves a new one (guitar 3 + music 8 = about 4.9, better than guitar 3 alone). Stats count as factors (`stat:charm`).
+- **Spillover.** Training a skill gives a share of XP to related skills (guitar nudges music; pool nudges throwing), so learning something new carries her old knowledge with it.
+- **Additive bonuses** are used where the user's rule is "mostly regular stats": a thrown pool cue uses muscle, level and throwing, plus a pool bonus; guns and melee weapons add shooting or melee skill to power.
+- **Things to do with skills:** a band's green room with a vintage guitar to jam on, steal (and busk with), and gig on; pool as a hustle (bet size grows with skill) and as seduction (pool x romance); darts; cooking dishes that heal or woo; tending bar and crafting Molotov Mules to throw; graffiti (fame, gang drama); rooftop parkour; asking around for tips and marks; teaching allies tricks; and thrown items in fights.
+- Only milestone levels (3, 5, 8) are announced in the log, with a flavor title ("reads the room through the subwoofers"); the status panel tracks the rest.
+
+### Graffiti (fourth pass)
+
+- **Supplies:** tagging needs a spray can (5 charges). Buy one at **Spray & Pray Paint Supply** (stock is finite; shipments arrive on their own), fish a nearly-empty can out of a dumpster, or get it from the clerk by **seducing her** (romance x charm), **threatening her** (intimidation x muscle), **shoplifting** (sleight of hand), or **taking her down and robbing the shop**. If the clerk is knocked out, Blackbird helps herself.
+- **Saturation, not timers:** every location tracks how many pieces she has put up. Each one pays `0.6^existing` of the fame (total fame from one wall is capped), and the wall text escalates from "a bare wall" to "no room left, she paints over her own work".
+- **Consequences:** police may fine her or chase her ("itinerant vandal"), drones file a review, and tagging indoors angers owners (the Halo's staff, club security, Helix guards). Tagging **gang turf** (a per-run variable: two districts belong to the warring gangs) raises that gang's heat, so crews come hunting her; their enemies like her more; and gangs can paint over her work.
+- **Design rule: no artificial cooldowns.** If something is limited, the limit comes from the world: finite stock, saturation, diminishing returns, heat, grudges that fade on their own over time. The only explicit timer left is teaching allies tricks, which genuinely needs rest. Removed this pass: graffiti, cue-grabbing, billboard-hacking and DJ-block timers.
+
+### The dragon family
+
+Cyberdragons are Atlas "protection" platforms, in three models that behave differently:
+
+| Model | Behavior | Role in the sandbox |
+|---|---|---|
+| **Apollo Mk. II** (CINDERJAW) | Stationary boss on the Kowloon Overpass | The current win condition. Brutal; beatable with allies, gear, a good build and dragon intel. |
+| **Artemis Mk. I** | Roaming patrol flights of 1-3 over the outdoor districts | A competent Blackbird (power ~35+, healthy) beats a lone Artemis essentially every time. Packs of 2-3 are the real threat: they make her run or die. Kills drop wing plating/scales and give fame. |
+| **Hera Mk. V** | Rare once-per-night fly-through (~10-20% of nights) | Effectively unkillable: it kills any plausible Blackbird in a round or two, and even a level-45 hero dies 90%+ of the time. The point is how she reacts. |
+
+A flight gives her a few beats to react: **engage**, **hide**, **gawk**, or **film it for fame**. Clueless heroes engage, gawk and film (and sometimes get noticed and flattened); competent ones weigh the power ratio against their current HP and hide. Scouts and the sonic-ear implant can warn her in time.
+
+**Known balance notes (for M5):** a clueless Blackbird beats the dragon ~5% of nights by luck, a mid-competence one ~15%, a highly competent and prepared one ~17%. Meta-progression (Firmware, starting gear) should push the smart end much higher. Events: ~250 distinct kinds per sampling, every one with templates (tested).
+
 ## 8. Roadmap
 
 | | Milestone | Notes |
 |---|---|---|
 | M0 | Scaffold | Repo, TypeScript setup, tests, seeded RNG, engine skeleton, CLI sim harness |
-| M1 | Vertical slice | One district, one dragon, a bar, gangers, death, the lab, ~8 upgrades, Cipher entry, text-log UI. **Must be funny before moving on.** |
+| M1 | Vertical slice | **Engine + content done** (see §7a/7b): dense bar-and-beyond sandbox, text layer in two voices, tests, CLI. Remaining: log UI, the lab (death → rebuild), ~8 upgrades, Cipher entry. **Must be funny before moving on.** |
 | M2 | Persistence | Supabase, passphrase login, cross-device sync, offline catch-up, Vercel deploy |
 | M3 | Living world | Macro/micro world generation, relationships, memory, rumors, situational variables |
 | M4 | Content breadth | More districts, dragon types, rescues, the police arc |
@@ -121,7 +186,7 @@ Gated by world-state flags:
 ## 9. Writing and content
 
 - Prose is generated from structured events via a template/grammar layer (Tracery-like): tagged lines, variation, callbacks to remembered events, and voice that shifts as the hero grows more competent.
-- Claude drafts the content; the author is happy to be surprised. Before writing in volume, Claude gathers tone references and examples from the author.
+- Claude drafts the content; the author is happy to be surprised. Voice, humor level and samples live in `docs/TONE.md`. Reports interleave a neutral field-report voice with Blackbird's own cocky first-person thoughts.
 - Content must be tagged (location type, mood, relationship state) so the right line appears at the right moment.
 
 ## 10. Open items
