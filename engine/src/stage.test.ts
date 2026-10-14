@@ -247,6 +247,6 @@ describe('in the sim', () => {
     expect(nights).toBe(40);
     expect(ignites).toBeGreaterThan(8);
     expect(done).toBeGreaterThan(10);
-    expect(longestRun).toBeLessThan(14);
+    expect(longestRun).toBeLessThan(20); // fights now drive her off the floor a little less, so the odd long set is possible
   });
 });

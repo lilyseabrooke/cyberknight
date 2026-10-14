@@ -355,7 +355,7 @@ export class Sim {
     const h = this.w.hero;
     const gun = weapon.tags.includes('gun');
     const ranged = gun || thrown;
-    let p = 0.94;
+    let p = 0.98;
     if (thrown) p += skillValue(h, 'throwing') * 0.008;
     else if (gun) p += skillValue(h, 'marksmanship') * 0.008;
     else if (weapon.tags.includes('melee')) p += skillValue(h, 'melee') * 0.008;
@@ -803,7 +803,10 @@ export class Sim {
       else if (this.wield.id !== h.weapon.id) this.note('weapon_swap', 'mixed', { weapon: this.wield.name, old: this.lastWield === 'fists' ? 'bare fists' : h.weapon.name, foe }, 1.5, 'swap');
       this.lastWield = this.wield.id;
     }
-    if (!this.hero.fleeing && this.round >= 2 && h.hp / h.maxHp < this.fleeAt && this.c.rng.chance(0.55 + h.reflex * 0.03 + skillValue(h, 'athletics') * 0.02) && this.exitMap(this.hero).has(idx(this.grid, this.hero))) {
+    // No point running from a fight she's about to finish.
+    const finishing = this.standingFoes().every((f) => f.ref.hp <= this.heroExpected(f, this.wield, 1) * 1.25);
+    if (finishing) this.hero.fleeing = false;
+    if (!finishing && !this.hero.fleeing && this.round >= 2 && h.hp / h.maxHp < this.fleeAt && this.c.rng.chance(0.55 + h.reflex * 0.03 + skillValue(h, 'athletics') * 0.02) && this.exitMap(this.hero).has(idx(this.grid, this.hero))) {
       this.hero.fleeing = true;
       this.note('tactic', 'mixed', { variant: 'retreat', hpPct: Math.round((h.hp / h.maxHp) * 100) }, 3, 'retreat');
     }
@@ -908,7 +911,7 @@ export class Sim {
       if (!exitDist.has(idx(g, u))) fleeing = false; // nowhere to run: fight
     }
     const ratio = u.ref.hp / u.ref.maxHp;
-    const caution = u.kind === 'hero' ? 4 + 10 * Math.pow(1 - ratio, 1.5) + 3 * this.w.hero.competence : u.caution * (1 + (1 - ratio) * 2);
+    const caution = u.kind === 'hero' ? 2.5 + 10 * Math.pow(1 - ratio, 1.5) + 3 * this.w.hero.competence : u.caution * (1 + (1 - ratio) * 2);
     const k: TurnCtx = { enemies, caution: fleeing ? 1 : caution, fleeing, exitDist, enemyDist: this.enemyDistMap(u, enemies), pos: new Map() };
     const techs = fleeing ? techniquesFor(this, u).filter((t) => t.id === 'leave') : techniquesFor(this, u);
     const blocked = (p: Pos) => enemies.some((e) => same(e, p));

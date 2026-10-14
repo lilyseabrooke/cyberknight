@@ -184,6 +184,7 @@ describe('cons: a mark falls for it once, and a room hears about it', () => {
         m.hostile = false;
         m.alive = true;
         m.downUntil = 0;
+      m.affinity = 0;
         m.locationId = 'halo_floor';
       }
       if (!keys(w, `scam_mark:m${i}`).length) break; // the room has stopped biting
@@ -194,6 +195,7 @@ describe('cons: a mark falls for it once, and a room hears about it', () => {
       m.hostile = false;
       m.alive = true;
       m.downUntil = 0;
+      m.affinity = 0;
       m.locationId = 'halo_floor';
     }
     // The room has heard about it.
@@ -206,6 +208,7 @@ describe('cons: a mark falls for it once, and a room hears about it', () => {
       m.hostile = false;
       m.alive = true;
       m.downUntil = 0;
+      m.affinity = 0;
       m.locationId = 'halo_floor';
     }
     w.hero.hp = w.hero.maxHp;

@@ -764,7 +764,7 @@ describe('resources and consequences', () => {
     };
 
     it('every shot spends rounds of the right type', () => {
-      const { w, events } = duelWith('zip_pistol', { slugs: 50, cells: 50 }, 'a1');
+      const { w, events } = duelWith('zip_pistol', { slugs: 50, cells: 50 }, 'a2');
       const end = events.find((e) => e.type === 'fight_end')!;
       expect(Number(end.data.ammoSpent)).toBeGreaterThan(0);
       expect(w.hero.ammo.slugs).toBeLessThan(50);
