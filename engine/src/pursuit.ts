@@ -2,7 +2,7 @@ import type { Ctx, Goal, Id, Npc, Pursuit, World } from './types';
 import { clamp } from './candidate';
 import { heroPower, here, npcsAt } from './combat';
 import { hasBounty, knowsBounty, tippable } from './bounty';
-import { caution, exposure, lawShare, quietSpot } from './discretion';
+import { caution, discretion, exposure, lawShare } from './discretion';
 import { oddJobReady } from './hustles';
 import { routeTo } from './plans';
 import { sneakBonus } from './extras';
@@ -73,8 +73,8 @@ export function assessFoe(w: World, g: Goal, n: Npc): { verdict: Verdict; odds: 
   // Paper on him spares her the police, but a crowd still sees, talks, and takes sides.
   const wary = ex.p * Math.max(0.5, lawShare(w, n)) * caution(w);
   if (wary >= 0.35) {
-    const spot = quietSpot(w, w.hero.locationId, n);
-    if (spot && spot.p < ex.p - 0.15) return { verdict: 'lure', odds };
+    // Nowhere quieter next door? She'll wait a while for the room to thin out before she gives up on discretion (see sizeUp).
+    return { verdict: 'lure', odds };
   }
   return { verdict: 'take', odds };
 }
@@ -283,7 +283,8 @@ export function pursuitBias(w: World, g: Goal, fam: string, id: string | undefin
   if (p.plan === 'ask') return fam === 'chat' ? 3.5 : 0;
   if (p.phase !== 'assess') return 0;
   switch (p.verdict ?? 'take') {
-    case 'take': return fight ? 4.5 : quiet ? 0.5 : 0;
+    // She has decided to do it here: her usual reluctance to be seen doing it is part of the decision already made.
+    case 'take': return fight ? 4.5 + discretion(w, { key: `${fam}:${id}`, drives: {}, run: () => {} }) : quiet ? 0.5 : 0;
     case 'lure': return quiet ? 4 : fight ? 0.6 : 0;
     case 'wait': return fight ? 0.3 : 0;
     case 'prep': return 0;

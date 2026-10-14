@@ -54,16 +54,29 @@ describe('sizing people up', () => {
 
   it('is not a fight she should take when she is hurt, too weak, or watched', () => {
     const w = world('verdicts');
-    w.hero.locationId = 'street_main';
-    clearRoom(w, 'street_main');
+    w.hero.locationId = 'halo_alley';
+    clearRoom(w, 'halo_alley');
     const g = goal(w, { kind: 'kill' });
-    const n = foe(w, 'v', 'mugger', 'street_main');
+    const n = foe(w, 'v', 'mugger', 'halo_alley');
     expect(assessFoe(w, g, n).verdict).toBe('take');
     w.hero.hp = Math.round(w.hero.maxHp * 0.3);
     expect(assessFoe(w, g, n).verdict).toBe('wait');
     w.hero.hp = w.hero.maxHp;
-    const boss = foe(w, 'boss', 'npd_sergeant', 'street_main', { power: 60, hp: 400 });
+    const boss = foe(w, 'boss', 'npd_sergeant', 'halo_alley', { power: 60, hp: 400 });
     expect(assessFoe(w, g, boss).verdict).toBe('prep');
+  });
+});
+
+describe('being watched', () => {
+  it('under cameras she wants him somewhere quieter, and having decided to do it here, her reluctance no longer blocks her', () => {
+    const w = world('watched');
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const g = goal(w, { kind: 'kill', npc: 'v2' });
+    const n = foe(w, 'v2', 'mugger', 'street_main');
+    expect(assessFoe(w, g, n).verdict).toBe('lure');
+    g.pursuit = { plan: 'hunt', npc: 'v2', phase: 'assess', since: 0, passed: {}, searched: [], verdict: 'take' };
+    expect(pursuitBias(w, g, 'challenge', 'v2')).toBeGreaterThan(8);
   });
 });
 
@@ -141,11 +154,11 @@ describe('looking for the opportunity', () => {
 
   it('sizes him up when he is in the room and the verdict steers her actions', () => {
     const w = world('size');
-    clearRoom(w, 'street_main');
-    w.hero.locationId = 'street_main';
-    const n = foe(w, 'mark', 'mugger', 'street_main');
+    clearRoom(w, 'halo_alley');
+    w.hero.locationId = 'halo_alley';
+    const n = foe(w, 'mark', 'mugger', 'halo_alley');
     const g = goal(w, { kind: 'kill', npc: 'mark' });
-    w.mind.lastSeen.mark = 'street_main';
+    w.mind.lastSeen.mark = 'halo_alley';
     const { c, events } = ctxOf(w, 'p2');
     pursuitTick(c, g);
     expect(g.pursuit!.phase).toBe('assess');
