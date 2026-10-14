@@ -1,5 +1,5 @@
 /** Watch one night in Neo. npm run play -- [seed] [competence] */
-import { Rng, createRun, step, render } from '../engine/src/index';
+import { Rng, createRun, step, render, describePersonality } from '../engine/src/index';
 
 const seed = process.argv[2] ?? 'neo-1';
 const competence = Number(process.argv[3] ?? 0.1);
@@ -11,12 +11,12 @@ const IT = '\x1b[3;36m';
 const DIM = '\x1b[2m';
 const RST = '\x1b[0m';
 
-console.log(`${DIM}BLACKBIRD (${h.realName}) — ${h.personality.archetypeId}, competence ${competence}${RST}`);
+console.log(`${DIM}BLACKBIRD (${h.realName}) — ${describePersonality(h.personality)}, competence ${competence}${RST}`);
 console.log(`${DIM}Tonight in Neo: ${world.situation.warringGangs.join(' vs ')} gang war; police crackdown on ${world.situation.crackdown}.${RST}\n`);
 
 const print = (events: typeof first) => {
   for (const ev of events) {
-    for (const l of render(ev, { rng: trng, archetype: h.personality.archetypeId, realName: h.realName })) {
+    for (const l of render(ev, { rng: trng, personality: h.personality, realName: h.realName })) {
       console.log(l.voice === 'thought' ? `    ${IT}“${l.text}”${RST}` : `[${String(ev.beat).padStart(3)}] ${l.text}`);
     }
   }

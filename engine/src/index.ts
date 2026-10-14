@@ -1,6 +1,7 @@
 export * from './rng';
 export * from './events';
 export * from './personality';
+export * from './traits';
 export * from './types';
 export { createWorld, gangName, type RunOptions } from './world';
 export { createRun, step, runToEnd, MAX_BEATS } from './run';

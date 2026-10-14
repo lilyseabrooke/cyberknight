@@ -227,6 +227,7 @@ function flirt(c: Ctx, n: Npc): void {
     n.affinity -= 8;
     h.hp -= 2;
     c.emit('flirt', 'bad', { variant: 'slapped', npc: n.name });
+    if (h.personality.traits.temper > 0.75 && rng.chance(0.5)) fight(c, [n], { cause: `losing it at ${n.name}`, assault: true });
   } else {
     n.affinity -= 4;
     c.emit('flirt', 'bad', { variant: 'cringe', npc: n.name });

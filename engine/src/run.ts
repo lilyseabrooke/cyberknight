@@ -7,6 +7,7 @@ import type { Candidate } from './candidate';
 import { spawnGroup } from './candidate';
 import { addHeat, fight, here, npcsAt, relocate } from './combat';
 import { DRIVES } from './personality';
+import { riskScale, temperatureScale, traitBias } from './traits';
 import { ambientExtras, scoutSaves, tryTalkDown } from './extras';
 import { ambientDragons } from './dragons';
 import { ambientGraffiti } from './graffiti';
@@ -22,8 +23,9 @@ function score(w: World, cand: Candidate): number {
   const weights = h.personality.weights;
   let s = cand.bonus ?? 0;
   for (const d of DRIVES) s += (cand.drives[d] ?? 0) * weights[d];
+  s += traitBias(w, cand);
   s += (cand.smart ?? 0) * h.competence;
-  s -= (cand.risk ?? 0) * (0.25 + h.competence * 1.5);
+  s -= (cand.risk ?? 0) * (0.25 + h.competence * 1.5) * riskScale(w);
   // Baseline survival instinct (competence only makes it reliable): hurt heroes pick fewer fights.
   const hpRatio = h.hp / h.maxHp;
   if (hpRatio < 0.5 && AGGRESSIVE.has(cand.key.split(':')[0]!)) s -= (0.5 - hpRatio) * 5;
@@ -36,7 +38,7 @@ function score(w: World, cand: Candidate): number {
 
 /** Softmax pick. Competence lowers the temperature, so a sharper mind picks the best option more reliably. */
 export function choose(w: World, rng: Rng, cands: Candidate[]): Candidate {
-  const temperature = 0.2 + (1 - w.hero.competence) * 0.6;
+  const temperature = (0.2 + (1 - w.hero.competence) * 0.6) * temperatureScale(w);
   // Pick a kind of thing first, then a target: normalise by how many options share a family
   // so a crowded bar doesn't make "start a fight" fourteen times more likely than anything else.
   const family = (c: Candidate) => c.key.split(':')[0]!;
