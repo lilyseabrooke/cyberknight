@@ -25,6 +25,8 @@ const talkable = (n: Npc): boolean => !n.hostile && !n.tags.includes('boss') && 
 /** Per-NPC hustles are tempting but one-at-a-time: this is a cooldown gate so the whole crowd
  * doesn't all become fresh marks for every scam at once, the same way `teach_trick` throttles itself. */
 const ready = (w: World, tag: string, id: string, window: number): boolean => w.beat - (w.counters[`${tag}_${id}`] ?? -9999) > window;
+/** Staff who could use a hand right now. */
+export const oddJobReady = (w: World, n: Npc): boolean => n.alive && !n.hostile && n.tags.includes('staff') && n.affinity >= -10 && ready(w, 'odd_jobs', n.id, 18);
 const mark = (c: Ctx, tag: string, id: string): void => {
   c.w.counters[`${tag}_${id}`] = c.w.beat;
 };

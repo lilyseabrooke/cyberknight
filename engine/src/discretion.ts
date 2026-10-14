@@ -5,6 +5,7 @@ import { fight, heroPower, npcsAt, relocate, remember } from './combat';
 import { sneakBonus } from './extras';
 import { hasBounty, knowsBounty } from './bounty';
 import { hasGoal } from './mind';
+import { isHunted } from './pursuit';
 import { skillLevel } from './skills';
 import { workingCameras } from './witness';
 
@@ -50,7 +51,7 @@ export function caution(w: World): number {
 const police = (w: World): boolean => w.locations[w.hero.locationId]?.kind !== 'corp';
 
 /** What the police would make of an attack on this person, as a share of the usual: wanted people are cheap to hit. */
-const lawShare = (w: World, target: Npc): number => (police(w) && knowsBounty(w, target.id) && hasBounty(target) ? 0.2 : 1);
+export const lawShare = (w: World, target: Npc): number => (police(w) && knowsBounty(w, target.id) && hasBounty(target) ? 0.2 : 1);
 
 /** A reluctance, subtracted from the score of picking a fight (or a pocket) in view of people. */
 export function discretion(w: World, cand: Candidate): number {
@@ -88,7 +89,7 @@ function wanted(w: World, n: Npc): boolean {
 const mobile = (n: Npc): boolean => !n.tags.some((t) => ['staff', 'owner', 'security', 'fixer', 'doc', 'boss', 'robot', 'rumor'].includes(t));
 
 /** Quietest place next door: low exposure, nothing weird about it. */
-function quietSpot(w: World, from: Id, target: Npc): { id: Id; p: number } | null {
+export function quietSpot(w: World, from: Id, target: Npc): { id: Id; p: number } | null {
   let best: { id: Id; p: number } | null = null;
   for (const e of w.locations[from]?.exits ?? []) {
     const dest = w.locations[e.to];
@@ -120,7 +121,7 @@ export function discretionCandidates(w: World): Candidate[] {
     }
 
     // Needs it quieter than this. Only worth the bother if people are watching.
-    if (here.p < 0.35 || !hasGoal(w, 'kill', n.id)) continue;
+    if (here.p < 0.35 || !(hasGoal(w, 'kill', n.id) || isHunted(w, n.id))) continue;
     const spot = quietSpot(w, h.locationId, n);
     if (!spot || spot.p > here.p - 0.15) continue;
     if (n.affinity > -35 && !n.tags.includes('staff') && !n.tags.includes('owner') && !n.tags.includes('security')) {

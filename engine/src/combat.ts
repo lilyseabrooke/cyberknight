@@ -100,6 +100,7 @@ export function gainXp(c: Ctx, amount: number): void {
 }
 
 export function isLethal(foes: Npc[], w: World): boolean {
+  if (foes.length && foes.every((f) => f.tags.includes('nonlethal'))) return false;
   if (foes.some((f) => f.tags.some((t) => ['robot', 'cop', 'corp', 'boss'].includes(t)) && !f.tags.includes('nonlethal'))) return true;
   const kind = w.locations[w.hero.locationId]?.kind;
   return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home');

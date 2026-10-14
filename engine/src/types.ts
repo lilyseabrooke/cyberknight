@@ -257,6 +257,28 @@ export interface Goal {
   blown?: boolean;
   /** Last beat this goal was steering her, to notice when she has drifted off it. */
   lastFocus: number;
+  /** The opportunity she is working right now. See pursuit.ts. */
+  pursuit?: Pursuit;
+}
+
+/** Decide what to do, then look for the chance to do it: who she's after, how, and how far along she is. */
+export interface Pursuit {
+  /** hunt: the goal's own target. bounty / odd_jobs: ways to raise cash. ask: looking for a lead. */
+  plan: 'hunt' | 'bounty' | 'odd_jobs' | 'ask';
+  npc?: Id;
+  /** search: where is he? approach: on the way. assess: in the room, sizing him up. act: doing it. */
+  phase: 'search' | 'approach' | 'assess' | 'act';
+  since: number;
+  /** Her read on the fight, from the last time she sized the target up. */
+  verdict?: 'take' | 'lure' | 'wait' | 'prep';
+  assessedAt?: number;
+  lureBeats?: number;
+  /** People she has written off as too much for her right now, until this beat. */
+  passed: Record<Id, number>;
+  /** Rooms she has already looked in while searching. */
+  searched: Id[];
+  /** The best option's score when she committed, so she only switches for something clearly better. */
+  eff?: number;
 }
 
 /** Something she's seen for sale. */

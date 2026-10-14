@@ -222,6 +222,7 @@ function chat(c: Ctx, n: Npc): void {
     if (what === 'bounty') {
       const wanted = rng.pick(tips);
       (w.mind.bounties ??= {})[wanted.id] = 'tip';
+      w.mind.lastSeen[wanted.id] = w.mind.lastSeen[wanted.id] ?? wanted.locationId;
       n.affinity += 3;
       c.emit('chat', 'good', { variant: 'rumor_bounty', npc: n.name, target: wanted.name, role: wanted.role, amount: wanted.bounty!.amount, place: w.locations[w.mind.lastSeen[wanted.id] ?? wanted.locationId]?.name ?? 'around' });
       return;

@@ -6,6 +6,8 @@ import type { Trait } from './personality';
 import { heroPower, here } from './combat';
 import { flameOf } from './traits';
 import { buyGear, supplyUrge } from './supply';
+import { heatUrge } from './laylow';
+import { pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { MAX_IMPLANTS } from './content/implants';
 import {
@@ -175,7 +177,9 @@ const KINDS: Record<GoalKind, Kind> = {
       }
     },
     metric: (w) => w.hero.cash + 0.5 * fenceValue(w.hero),
-    targets(w) {
+    targets(w, g) {
+      const chosen = pursuitTargets(w, g);
+      if (chosen) return chosen;
       const spots = new Map<Id, number>();
       const add = (loc: Id | undefined, v: number) => {
         if (loc && v > 0) spots.set(loc, Math.max(spots.get(loc) ?? 0, v));
@@ -195,10 +199,11 @@ const KINDS: Record<GoalKind, Kind> = {
       for (const [loc, e] of marks) if ((w.locations[loc]?.visits ?? 0) > 0 && !['corp', 'boss'].includes(w.locations[loc]!.kind)) add(loc, earnPull(Math.min(100, e)) * 0.7);
       return [...spots].map(([loc, value]) => ({ loc, value }));
     },
-    bias(w, _g, fam, id) {
+    bias(w, g, fam, id) {
       const e = expectedEarn(w, fam, id);
-      if (e <= 0) return 0;
-      return 1.8 * Math.log1p(e / 25) * (fam === 'fence' ? 1.3 : 1);
+      // While she has a particular score in mind, other ways of making money are only opportunism.
+      const generic = e <= 0 ? 0 : 1.8 * Math.log1p(e / 25) * (fam === 'fence' ? 1.3 : 1) * (pursuing(g) ? 0.35 : 1);
+      return generic + pursuitBias(w, g, fam, id);
     },
   },
 
@@ -269,8 +274,10 @@ const KINDS: Record<GoalKind, Kind> = {
       const est = n.power * (1 + noise);
       const need = est - heroPower(w);
       const foresight = 0.08 + 0.5 * h.competence + (g.setbacks > 0 ? 0.5 : 0);
-      if (need > 0 && !cooling(w, `prep:${n.id}`) && rng.chance(foresight)) {
-        const amount = Math.min(24, h.weapon.power + Math.ceil(need) + 1);
+      // Having just sized him up and not liked it, she is far more inclined to go and get ready.
+      const sized = g.pursuit?.verdict === 'prep';
+      if (((need > 0 && rng.chance(foresight)) || (sized && need > -3 && rng.chance(0.5))) && !cooling(w, `prep:${n.id}`)) {
+        const amount = Math.min(24, h.weapon.power + Math.max(2, Math.ceil(need) + 1));
         if (amount > h.weapon.power) {
           adopt(c, { kind: 'weapon', parent: g.id, amount, why: `${n.name} hits harder than she does`, desire: g.desire, variant: 'prep', extra: { npc: n.name } });
         }
@@ -290,18 +297,8 @@ const KINDS: Record<GoalKind, Kind> = {
       const loc = w.mind.lastSeen[n.id];
       return -(loc ? distTo(w, loc) : 12) + (1 - n.hp / n.maxHp) * 6 + (g.struck ? 2 : 0);
     },
-    targets(w, g) {
-      const n = g.npc ? w.npcs[g.npc] : undefined;
-      const loc = n && w.mind.lastSeen[n.id];
-      return loc ? [{ loc, value: 2.8 }] : [];
-    },
-    bias(w, g, fam, id) {
-      if (id !== g.npc) return 0;
-      // Getting him alone is part of the plan: she'll lead him off, or follow until he wanders somewhere quiet.
-      if (fam === 'lure' || fam === 'tail') return hpFrac(w) >= 0.6 ? 3.2 : 0.5;
-      if (fam !== 'challenge' && fam !== 'sweep') return 0;
-      return hpFrac(w) >= 0.6 ? 4.5 : 0.7;
-    },
+    targets: (w, g) => pursuitTargets(w, g) ?? [],
+    bias: (w, g, fam, id) => pursuitBias(w, g, fam, id),
   },
 
   // ------------------------------------------------------------------ romance
@@ -545,6 +542,7 @@ function review(c: Ctx, g: Goal): void {
   if (g.delayUntil > w.beat) return;
   kind.plan(c, g);
   if (!w.mind.goals.includes(g) || g.delayUntil > w.beat) return;
+  if (isLeaf(w, g)) pursuitTick(c, g);
 
   // Getting bored, getting frustrated.
   const t = traits(w);
@@ -624,6 +622,11 @@ function formGoals(c: Ctx): void {
     adopt(c, { kind: 'cash', amount: h.cash + 120 + rng.int(0, 180), why: 'being broke is embarrassing', desire: 0.35 + 0.4 * t.greed, variant: 'rich' });
   }
 
+  // Nothing on her mind and not much in her pocket: a sharper head stops drifting and decides to do something about it.
+  if (!w.mind.goals.length && h.cash < 300 && rng.chance(0.03 + 0.08 * h.competence + 0.04 * Math.max(0, t.greed - 0.4))) {
+    adopt(c, { kind: 'cash', amount: h.cash + 120 + rng.int(0, 200), why: t.justice > 0.6 ? 'there is paper out on people who deserve it' : 'a hero needs a cushion', desire: 0.3 + 0.35 * t.greed, variant: 'rich' });
+  }
+
   // The dragon is up there, and she is down here with a tire iron.
   const dragon = w.npcs.dragon;
   if (w.flags.dragon_known && dragon?.alive && !hasGoal(w, 'weapon') && heroPower(w) < dragon.power * 0.7 && rng.chance(0.004 + 0.01 * Math.max(0, t.courage + t.justice - 1))) {
@@ -682,15 +685,19 @@ function steer(w: World): void {
   m.drive = leaves.map(({ g }, i) => ({ id: g.id, weight: priority(w, g) * f * (i === 0 ? 1 : i === 1 ? 0.85 : 0.65) }));
   m.hops = {};
   m.focus = leaves[0]?.g.id ?? null;
+  let stay = 0;
   // Only her top goals pull her across town; the rest wait for her to run into an opening.
   for (const [i, { g }] of leaves.slice(0, 2).entries()) {
     const pull = (i === 0 ? 1 : 0.35) * priority(w, g) * f * 1.5;
     for (const t of KINDS[g.kind].targets(w, g)) {
       const r = routeTo(w, w.hero.locationId, t.loc);
+      if (r && r.dist === 0) stay += pull * t.value;
       if (!r || r.dist === 0) continue;
       m.hops[r.next] = (m.hops[r.next] ?? 0) + (pull * t.value) / (1 + 0.25 * (r.dist - 1));
     }
   }
+  // What's here counts too: she doesn't walk out of a place that has what she wants for one that has a bit more.
+  for (const k of Object.keys(m.hops)) m.hops[k] = m.hops[k]! - 0.9 * stay;
 }
 
 /** Everything she has decided to want, for one candidate. Added to its score. */
@@ -700,7 +707,11 @@ export function goalBias(w: World, cand: { key: string }): number {
   const [fam, id] = cand.key.split(':') as [string, string | undefined];
   let s = 0;
   // A route hop doesn't override an errand: while she's standing where a pressing need can be met (ammo, a med pack, the doc), she finishes it first.
-  if (fam === 'go' && id) s += (m.hops[id] ?? 0) * (errandHere(w) ? 0.2 : 1);
+  if (fam === 'go' && id) {
+    const pull = m.hops[id] ?? 0;
+    // Errands come first, and nothing drags her across town while the police are looking for her.
+    s += (pull * (errandHere(w) ? 0.2 : 1)) / (1 + 0.3 * heatUrge(w));
+  }
   for (const d of m.drive) {
     const g = goalById(w, d.id);
     if (g) s += KINDS[g.kind].bias(w, g, fam, id) * d.weight;
@@ -780,6 +791,8 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
 
   const lost = events.some((e) => e.type === 'fight_end' && e.data.variant !== 'win');
   const looted = events.some((e) => LOOT.has(e.type) && e.outcome === 'good');
+  // She remembers who has beaten her.
+  if (lost && id && (fam === 'challenge' || fam === 'sweep')) w.counters[`lost_to_${id}`] = (w.counters[`lost_to_${id}`] ?? 0) + 1;
   for (const g of m.goals) {
     const swung = g.kind === 'kill' && (fam === 'challenge' || fam === 'sweep') && id === g.npc;
     if (swung) g.struck = true;

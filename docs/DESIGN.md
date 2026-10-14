@@ -252,3 +252,20 @@ Heat sets a **heat urge** (`heatUrge`): about 0.6 at heat 1, 2.4 at 3, 5 at 5, 1
 - **Frame someone** (`frame:<id>`): pins it on a bystander, who is pulled off the board for 70 beats. Prefers bad guys and avoids friends. Gets harder with every frame-up and botches into a fight.
 
 No cooldowns: price inflation, finite cash and a finite supply of fall guys do the limiting.
+
+## Pursuits: decide what to do, then find the chance (eighth pass)
+
+Goals used to steer her by place: "this room looks valuable", then work out something to do there. Now a leaf goal that needs an opportunity runs a **pursuit** (`engine/src/pursuit.ts`), stored on the goal as `g.pursuit`:
+
+1. **Pick a specific thing.**
+   - Kill: the target.
+   - Cash: she weighs every option she knows about (a known bounty, a staff member who could use a hand) by expected value over time, with personality in the sum (courage, justice and thrill favour paper; honesty and kindness favour honest work). Sharper heads pick more greedily; hasty ones more randomly. With no options she asks a tipster, and with none of those the goal's generic pull applies.
+2. **Search.** `search` (don't know where), `approach` (on the way; the route is a committed target and not a sum of every place that looks valuable), `assess` (he is in the room), `act`. A trail gone cold is dropped from memory and she looks somewhere new.
+3. **Size him up** (`assessFoe`). Odds come from the real fight maths (rounds to put him down against what he and his friends do to her meanwhile; calibrated against actual outcomes), her memory of who has beaten her, and her competence (noisier reads when low). The verdict:
+   - `take`: go ahead.
+   - `lure`: too many eyes; try to get him somewhere quiet (`lure` and `tail` now also serve bounty hunts).
+   - `wait`: she's hurt.
+   - `prep`: too much for her. Kill goals go and get a better weapon; a bounty is written off for ~90 beats and she picks another.
+4. **Bias.** The verdict decides which actions on the target are boosted. While a particular score is in mind, the generic scramble-for-money pull is cut to about a third.
+
+Related changes: goals count the room she's already in (so she doesn't leave one that holds what she wants for one that holds a bit more); goal pulls fade while she's hot; an idle, broke hero decides to do something about it sooner; NPD drones can't kill her on the street.

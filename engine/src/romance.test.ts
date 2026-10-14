@@ -266,7 +266,7 @@ describe('making a move', () => {
     expect(homeFor(world('x').npcs.juno!)).toBe('home_hab');
   });
 
-  it('in a real run, a second encounter the same night is rare, and well spaced', () => {
+  it('in a real run, a second encounter the same night is the exception, and well spaced', () => {
     let first = 0;
     let second = 0;
     const gaps: number[] = [];
@@ -279,7 +279,7 @@ describe('making a move', () => {
       }
     }
     expect(first).toBeGreaterThan(15);
-    expect(second).toBeLessThan(first * 0.6);
+    expect(second).toBeLessThan(first * 0.8); // nights run long now that she lays low and survives
     gaps.sort((a, b) => a - b);
     if (gaps.length) expect(gaps[Math.floor(gaps.length / 2)]!).toBeGreaterThan(60);
   });
