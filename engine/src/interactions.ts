@@ -20,6 +20,7 @@ import { hustleCandidates } from './hustles';
 import { knowsBounty, tippable } from './bounty';
 import { healUrge } from './urges';
 import { laylowCandidates } from './laylow';
+import { stageCandidates } from './stage';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 
 const DRINKS = [
@@ -157,6 +158,7 @@ export function gather(w: World): Candidate[] {
   out.push(...graffitiCandidates(w));
   out.push(...romanceCandidates(w));
   out.push(...laylowCandidates(w));
+  out.push(...stageCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...discretionCandidates(w));
   out.push(...hustleCandidates(w));

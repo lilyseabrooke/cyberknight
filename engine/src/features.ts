@@ -8,6 +8,7 @@ import { makeCan } from './graffiti';
 import { skillLevel, synergy, train } from './skills';
 import { ODDS } from './hobbies';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
+import { fameFrom, tipScale } from './stage';
 
 const present = (w: World, id: string): boolean => !!w.npcs[id]?.alive && w.npcs[id]!.locationId === w.hero.locationId;
 
@@ -107,11 +108,11 @@ function karaoke(c: Ctx): void {
   train(c, 'vocals', 2);
   const roll = rng.next();
   if (roll < p) {
-    const tips = rng.int(20, 60);
+    const tips = Math.round(rng.int(20, 60) * tipScale(w, 'karaoke'));
     h.cash += tips;
     for (const n of here(w)) if (!n.hostile) n.affinity += 4;
     gainXp(c, 4);
-    h.fame += 1;
+    fameFrom(c, 1, 'karaoke');
     c.emit('karaoke', 'good', { variant: 'ovation', amount: tips, song: rng.pick(['"Chrome Heart"', '"Dial-Up Love"', '"Total Eclipse of the Uplink"', '"Never Gonna Patch You Up"']) });
   } else if (roll < p + (1 - p) * 0.6) {
     h.hp -= 5;

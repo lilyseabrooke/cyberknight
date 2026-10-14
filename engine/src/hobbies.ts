@@ -5,6 +5,7 @@ import { makeItem } from './content/items';
 import { odds, skillLevel, synergy, train } from './skills';
 import { hasKind } from './companions';
 import { kindle } from './romance';
+import { fameFrom, tipScale } from './stage';
 
 /**
  * Every skill formula in one place: baseline luck + a bonus per point of synergy, where synergy is the weighted
@@ -180,7 +181,7 @@ function jam(c: Ctx): void {
   }
   if (rng.chance(ODDS.jam(h))) {
     for (const b of band) b.affinity += 14;
-    h.fame += 1;
+    fameFrom(c, 1, 'jam');
     train(c, 'guitar', 3);
     gainXp(c, 5);
     c.emit('jam', 'good', { variant: band.length ? 'band' : 'solo', npc: band[0]?.name ?? '', level: skillLevel(h, 'guitar') });
@@ -201,9 +202,9 @@ function gig(c: Ctx): void {
   const h = w.hero;
   const band = here(w).filter((n) => n.tags.includes('band'));
   if (rng.chance(ODDS.gig(h))) {
-    const tips = rng.int(80, 220);
+    const tips = Math.round(rng.int(80, 220) * tipScale(w, 'gig'));
     h.cash += tips;
-    h.fame += 3;
+    fameFrom(c, 3, 'gig');
     for (const b of band) b.affinity += 8;
     train(c, 'guitar', 3);
     train(c, 'vocals', 1);
@@ -241,9 +242,9 @@ function busk(c: Ctx): void {
   const h = w.hero;
   const roll = rng.next();
   if (roll < ODDS.busk(h)) {
-    const tips = rng.int(15, 70);
+    const tips = Math.round(rng.int(15, 70) * tipScale(w, 'busk'));
     h.cash += tips;
-    h.fame += 1;
+    fameFrom(c, 1, 'busk');
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 10;
     train(c, 'guitar', 2);
     train(c, 'vocals', 1);

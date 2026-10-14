@@ -6,6 +6,7 @@ import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { addCompanion, alliesWith, hasAlly, hasKind, newCompanion, removeCompanion, slotsFree } from './companions';
 import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { spawnNpc } from './content/archetypes';
+import { fameFrom, tipScale } from './stage';
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive && n.downUntil <= 1e9;
 const PIGEONS = ['Gerald', 'Beatrice', 'Sir Coos-a-Lot', 'Officer Feathers', 'Kevin'];
@@ -192,9 +193,9 @@ function djSet(c: Ctx): void {
   const p = clamp(0.15 + 0.07 * synergy(h, ['djing', ['music', 0.7], ['tinkering', 0.2]]) + h.charm * 0.015 + (b2b ? 0.12 : 0) - h.drunk * 0.02, 0.05, 0.92);
   const roll = rng.next();
   if (roll < p) {
-    const tips = rng.int(40, 120);
+    const tips = Math.round(rng.int(40, 120) * tipScale(w, 'dj_set'));
     h.cash += tips;
-    h.fame += b2b ? 3 : 2;
+    fameFrom(c, b2b ? 3 : 2, 'dj_set');
     for (const n of here(w)) if (!n.hostile) n.affinity += n.tags.includes('romanceable') ? 8 : 3;
     train(c, 'djing', 3);
     gainXp(c, 6);
@@ -218,7 +219,7 @@ function beatbox(c: Ctx, kid: Npc): void {
   if (rng.chance(clamp(0.08 + 0.07 * synergy(h, ['beatbox', ['music', 0.5], ['stat:charm', 0.3]]) + h.charm * 0.01, 0.05, 0.9))) {
     kid.affinity += 30;
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 10;
-    h.fame += 1;
+    fameFrom(c, 1, 'beatbox');
     train(c, 'beatbox', 2);
     c.emit('beatbox', 'good', { variant: 'jam', npc: kid.name, lvl });
   } else {

@@ -17,6 +17,7 @@ import { discretion } from './discretion';
 import { scanBounties } from './bounty';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
 import { heatBias, npdResponse } from './laylow';
+import { passionBias, tickVenues } from './stage';
 import { satietyBias, tickSatiety } from './romance';
 
 export const MAX_BEATS = 600;
@@ -32,6 +33,7 @@ export function score(w: World, cand: Candidate): number {
   s += goalBias(w, cand);
   s += satietyBias(w, cand);
   s += heatBias(w, cand);
+  s += passionBias(w, cand);
   s += (cand.smart ?? 0) * h.competence;
   // Not in front of people. Not where the police will hear about it.
   s -= discretion(w, cand);
@@ -143,6 +145,7 @@ function upkeep(c: Ctx): void {
   // Shipments arrive; tempers cool. No timers on her, just the world carrying on.
   if (w.beat % 30 === 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2);
   if (w.beat % 90 === 0) restockShelf(c);
+  tickVenues(w);
   if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;
   // No passive regeneration. Wounds stay until a med pack or a street doc deals with them.
   if (h.drunk >= 6 + Math.floor(skillLevel(h, 'tolerance') / 2)) {

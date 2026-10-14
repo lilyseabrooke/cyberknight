@@ -6,6 +6,8 @@ import { caution, discretion, exposure, lawShare } from './discretion';
 import { oddJobReady } from './hustles';
 import { FAME_ACTS, FAME_FAMILIES, expectedFame, routeTo } from './plans';
 import { traitBias } from './traits';
+import { freshness, prestige } from './stage';
+import { skillLevel } from './skills';
 import { spawnNpc } from './content/archetypes';
 import { Rng } from './rng';
 import { sneakBonus } from './extras';
@@ -343,14 +345,22 @@ interface Gig {
   eff: number;
 }
 
-function fameOptions(w: World, blocked: Record<string, number>): Gig[] {
+function fameOptions(w: World, g: Goal, blocked: Record<string, number>): Gig[] {
   const out: Gig[] = [];
+  const passion = w.mind.passion;
   for (const a of FAME_ACTS) {
     if ((blocked[a.fam] ?? 0) > w.beat) continue;
     const loc = a.venue(w);
     if (!loc) continue;
     const taste = Math.exp(0.35 * traitBias(w, { key: a.fam } as never));
-    out.push({ fam: a.fam, loc, eff: (expectedFame(w, a.fam) * taste) / (2 + 2 * dist(w, loc)) });
+    // A crowd that has had enough of her isn't worth the trip; a bigger stage is.
+    const crowd = a.skill ? freshness(w, loc, a.skill) : 1;
+    const stage = prestige(w.locations[loc]!);
+    // What she is good at she gets better at: practice breeds appetite, and a calling breeds more.
+    const lvl = a.skill ? 1 + 0.08 * skillLevel(w.hero, a.skill as never) : 1;
+    const fire = a.skill && passion?.skill === a.skill ? 1 + passion.level : 1;
+    const calling = g.mode ? (a.skill === g.mode ? 3 : 0.3) : 1;
+    out.push({ fam: a.fam, loc, eff: (expectedFame(w, a.fam) * taste * crowd * stage * lvl * fire * calling) / (2 + 2 * dist(w, loc)) });
   }
   return out.sort((a, b) => b.eff - a.eff);
 }
@@ -363,7 +373,7 @@ function fameTick(c: Ctx, g: Goal): void {
   if (p?.act && ((blocked[p.act] ?? 0) > w.beat)) p = undefined;
   const review = !p || w.beat - p.since >= 10;
   if (review) {
-    const opts = fameOptions(w, blocked);
+    const opts = fameOptions(w, g, blocked);
     if (opts.length) {
       const exp = 1 + 2 * w.hero.competence;
       const cur = p?.act ? opts.find((o) => o.fam === p!.act) : undefined;

@@ -218,6 +218,8 @@ export function situationalEdge(w: World, ware: Ware): boolean {
 
 export interface FameAct {
   fam: string;
+  /** The skill it's built on, if any. */
+  skill?: string;
   /** What she'd expect it to do for her fame before experience says otherwise. */
   prior: number;
   /** Where she'd do it, if she knows of somewhere. */
@@ -228,18 +230,25 @@ const featureAt = (w: World, kind: string): Id | null => {
   const f = Object.values(w.features).find((x) => x.kind === kind);
   return f && (w.locations[f.locationId]?.visits ?? 0) > 0 ? f.locationId : null;
 };
+const seen = (w: World, id: Id): Id | null => ((w.locations[id]?.visits ?? 0) > 0 ? id : null);
 
 export const FAME_ACTS: FameAct[] = [
-  { fam: 'karaoke', prior: 1.0, venue: (w) => featureAt(w, 'karaoke') },
-  { fam: 'dj_set', prior: 2.0, venue: (w) => featureAt(w, 'dj_booth') },
-  { fam: 'gig', prior: 3.0, venue: (w) => featureAt(w, 'guitar') },
+  { fam: 'karaoke', skill: 'vocals', prior: 1.0, venue: (w) => featureAt(w, 'karaoke') },
+  { fam: 'sing_busk', skill: 'vocals', prior: 1.0, venue: (w) => seen(w, 'street_main') },
+  { fam: 'crash_gig', skill: 'vocals', prior: 3.0, venue: (w) => (w.npcs.kilobyte?.alive ? seen(w, 'neon_pharaoh') : null) },
+  { fam: 'dj_set', skill: 'djing', prior: 2.0, venue: (w) => featureAt(w, 'dj_booth') },
+  { fam: 'backlot_set', skill: 'djing', prior: 1.3, venue: (w) => seen(w, 'club_backlot') },
+  { fam: 'gig', skill: 'guitar', prior: 3.0, venue: (w) => featureAt(w, 'guitar') },
+  { fam: 'jam', skill: 'guitar', prior: 1.0, venue: (w) => featureAt(w, 'guitar') },
+  { fam: 'guitar_duel', skill: 'guitar', prior: 2.2, venue: (w) => featureAt(w, 'guitar') },
+  { fam: 'busk', skill: 'guitar', prior: 1.0, venue: (w) => (w.hero.inventory.some((i) => i.tags.includes('instrument')) ? seen(w, 'street_main') : null) },
+  { fam: 'beat_battle', skill: 'beatbox', prior: 1.2, venue: (w) => seen(w, 'halo_floor') },
   { fam: 'billboard', prior: 3.0, venue: (w) => featureAt(w, 'billboard') },
-  { fam: 'graffiti', prior: 1.2, venue: (w) => ((w.locations.street_main?.visits ?? 0) > 0 ? 'street_main' : null) },
-  { fam: 'busk', prior: 1.0, venue: (w) => (w.hero.inventory.some((i) => i.tags.includes('instrument')) && (w.locations.street_main?.visits ?? 0) > 0 ? 'street_main' : null) },
+  { fam: 'graffiti', skill: 'art', prior: 1.2, venue: (w) => seen(w, 'street_main') },
   { fam: 'parkour', prior: 0.8, venue: (w) => featureAt(w, 'parkour') },
 ];
 
-export const FAME_FAMILIES = new Set([...FAME_ACTS.map((a) => a.fam), 'film_flight', 'jam', 'beatbox', 'serenade', 'dancefloor']);
+export const FAME_FAMILIES = new Set([...FAME_ACTS.map((a) => a.fam), 'film_flight', 'beatbox', 'serenade', 'serenade_girl', 'dancefloor']);
 
 export const expectedFame = (w: World, fam: string): number => Math.max(0, w.mind.fame?.[fam] ?? FAME_ACTS.find((a) => a.fam === fam)?.prior ?? (FAME_FAMILIES.has(fam) ? 0.8 : 0));
 

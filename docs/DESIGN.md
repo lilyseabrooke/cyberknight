@@ -302,3 +302,27 @@ She is meant to be about three things: **getting famous, getting rich, killing c
 - **Fame** (`fame` goal): the pursuit picks an act (karaoke, DJ set, gig, billboard, graffiti, busk, parkour) by what she expects it to earn her fame, learned from experience, and her taste for it; goes to its venue and does it. If she gets there and can't go on she writes it off for a while and tries something else. Saturation does the limiting: repeated acts earn less, and what she has learned they are worth falls with them.
 - **Money** is the `cash` goal with the bounty and odd-job pursuits already described.
 - **Dragons** (`dragon` goal): flights can't be found, only waited for, so she **scans the skies** outdoors (each scan makes a flight likelier; a beat spent looking). When one arrives she sizes it up with the fight maths and either engages, hides, or goes to get something that works on dragons (a weapon goal aimed at the Apollo, so vs-dragon and vs-boss traits count). A scout's warning is a head start when she is ready, not a reason to hide. When she thinks she can take the Apollo she switches to that and goes to the Overpass.
+
+## Crowds, callings, and more to do with a voice (tenth pass)
+
+**Crowd fatigue** (`engine/src/stage.ts`). Every performing act wears out the crowd *for that skill* at that place (a bit less for her other skills there), and it recovers slowly with time (about 250 beats from fully worn out). Fame from an act is scaled by the stage (clubs 1.5, bars 1, the street 0.8) and by how fresh the crowd is; tips shrink too; and a worn-out crowd puts her off doing it again right there (a sharper head notices sooner). The way out is a different venue, a different act, or a bigger stage. No cooldowns: it's the audience that is finite. Billboard hijacks and graffiti keep their own saturation.
+
+**Callings.** A real showing (a big win from someone with at least some skill in it, or a level in the skill) can light her up. Her chance depends on artistry, fame, impulsiveness and how good she already is. While it lasts (`mind.passion`: a skill and a level, cooling with time, fed by good showings and starved by flops):
+
+- every act built on that skill appeals to her (+2.2 x level);
+- her fame goal becomes a calling ("become a superstar vocalist", "become a guitar legend", ...), or one is formed;
+- the fame pursuit weights acts of that skill threefold, and everything else down, so the run has a shape; the venue freshness and stage terms pull her to somewhere new when a crowd is spent;
+- practice breeds appetite: act choice also scales with her level in the skill.
+
+**New acts** (all with their own odds, skills and consequences; none usable on someone she's already close to: world-state limits, not timers):
+
+| act | skill | where / who |
+|---|---|---|
+| sing on the street (`sing_busk`) | singing | anywhere outdoors, no instrument needed |
+| crash a gig (`crash_gig`) | singing | the DJ at the Neon Pharaoh or the band in the green room; can end with her thrown out |
+| serenade someone (`serenade_girl`) | singing, romance | a romanceable girl in the room; builds affinity, stirs her appetite |
+| guitar duel (`guitar_duel`) | guitar | band members, with a guitar to hand |
+| set for the kids (`backlot_set`) | DJing | the lot behind the club, street kids present |
+| beat battle (`beat_battle`) | beatboxing | rowdy regulars |
+
+Known thin spots: guitar and DJ branches are gated (she has to find a guitar, kids have to be around), and art/other skills have one or two acts each. The framework (`ACT_SKILL`, `FAME_ACTS`, `CALLING`) takes new acts without other changes.

@@ -2,6 +2,8 @@ import type { Candidate } from './candidate';
 import { clamp } from './candidate';
 import type { Ctx, Goal, GoalKind, Id, Npc, Ware, World, GameEvent } from './types';
 import { armBest, edge, rating } from './weapons';
+import { ACT_SKILL, CALLING } from './stage';
+import { SKILL_LABELS, skillLevel } from './skills';
 import { wielded } from './arms';
 import type { EventData } from './events';
 import type { Trait } from './personality';
@@ -312,7 +314,7 @@ const KINDS: Record<GoalKind, Kind> = {
   // ------------------------------------------------------------------ fame
   fame: {
     decay: 0.0028, stick: ['fame', 'vanity'], patience: 60,
-    label: (_w, g) => `get famous (${g.amount ?? 0} fame)`,
+    label: (_w, g) => (g.mode && CALLING[g.mode] ? CALLING[g.mode]! : `get famous (${g.amount ?? 0} fame)`),
     check: (w, g) => (w.hero.fame >= (g.amount ?? 0) ? { done: 'famous' } : null),
     plan() {},
     metric: (w) => w.hero.fame,
@@ -691,6 +693,40 @@ function formGoals(c: Ctx): void {
 }
 
 /**
+ * A big showing, or a level in the skill, can light her up: for a while she wants more of that kind of thing, and her
+ * fame goal turns into a calling. Each good showing feeds it; flops starve it; time cools it.
+ */
+function passionAfter(c: Ctx, fam: string, gained: number, events: GameEvent[]): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  const skill = ACT_SKILL[fam]!;
+  const p = w.mind.passion;
+  const success = events.some((e) => e.type === fam && e.outcome === 'good') || gained >= 0.6;
+  const leveled = events.some((e) => e.type === 'skill_up' && e.data.id === skill);
+  if (p && p.skill === skill) {
+    p.level = clamp(p.level + (success ? 0.12 : -0.07) + (leveled ? 0.15 : 0), 0, 1);
+    return;
+  }
+  // Fluking a win isn't a calling: it takes a real showing from someone with some skill, or a level in it.
+  if (!success || (!leveled && (gained < 1.5 || skillLevel(h, skill as never) < 2)) || (p && p.level >= 0.35)) return;
+  const t = traits(w);
+  const chance = clamp(0.2 + 0.3 * (t.artistry - 0.5) + 0.25 * (t.fame - 0.5) + 0.2 * (t.impulsive - 0.5) + 0.04 * skillLevel(h, skill as never), 0.05, 0.8);
+  if (!rng.chance(chance)) return;
+  w.mind.passion = { skill, level: 0.55, since: w.beat };
+  c.emit('passion', 'good', { variant: 'ignite', skill: SKILL_LABELS[skill as keyof typeof SKILL_LABELS] ?? skill, calling: CALLING[skill] ?? '' });
+  const amount = Math.floor(h.fame) + rng.int(8, 14);
+  const existing = w.mind.goals.find((g) => g.kind === 'fame');
+  if (existing) {
+    existing.mode = skill;
+    existing.amount = Math.max(existing.amount ?? 0, amount);
+    existing.desire = Math.min(1, Math.max(existing.desire, 0.7));
+    existing.pursuit = undefined;
+  } else {
+    adopt(c, { kind: 'fame', amount, mode: skill, why: 'this is what she is for', desire: 0.7, variant: 'passion', extra: { calling: CALLING[skill] ?? '' } });
+  }
+}
+
+/**
  * Nothing on her mind. She's a cyberknight with three things she's actually about: getting famous, getting rich,
  * and putting cyberdragons in the ground. She picks one.
  */
@@ -701,7 +737,7 @@ function formIdle(c: Ctx): void {
   if (topLevel(w).length) return;
   if (w.beat > 3 && !rng.chance(0.5)) return;
   const opts = [
-    { k: 'fame' as const, wt: 0.5 + 1.6 * (t.fame - 0.5) + 0.6 * (t.vanity - 0.5) + 0.5 * (t.artistry - 0.5) + 0.4 * (t.impress - 0.5) },
+    { k: 'fame' as const, wt: 0.5 + 1.6 * (w.mind.passion?.level ?? 0) + 1.6 * (t.fame - 0.5) + 0.6 * (t.vanity - 0.5) + 0.5 * (t.artistry - 0.5) + 0.4 * (t.impress - 0.5) },
     { k: 'cash' as const, wt: 0.6 + 1.5 * (t.greed - 0.5) + (h.cash < 150 ? 0.6 : 0) },
     { k: 'dragon' as const, wt: 0.35 + 1.4 * (t.courage - 0.5) + 0.9 * (t.justice - 0.5) + 0.6 * (t.thrill - 0.5) },
   ].filter((o) => !hasGoal(w, o.k)).map((o) => ({ ...o, wt: Math.max(0.05, o.wt) }));
@@ -866,6 +902,7 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
   const h = w.hero;
   const [fam, id] = (pick?.key ?? '').split(':') as [string, string | undefined];
   if (pick && fam !== 'go' && fam) learnEarning(w, fam, wealth(h) - before.wealth);
+  if (pick && ACT_SKILL[fam]) passionAfter(c, fam, h.fame - before.fame, events);
   if (pick && FAME_FAMILIES.has(fam)) {
     learnFame(w, fam, h.fame - before.fame);
     for (const g of m.goals) if (g.kind === 'fame' && g.pursuit?.act === fam) g.pursuit.arrived = undefined;

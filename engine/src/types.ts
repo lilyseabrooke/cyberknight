@@ -184,6 +184,8 @@ export interface Location {
   visits: number;
   /** Security cameras. They see everything she does, unless the power is out. */
   cameras: number;
+  /** How tired this place's crowd is of her, per skill she performs with (singing, guitar...). Recovers with time. */
+  fatigue?: Record<string, number>;
   /** Pieces of her graffiti up here. Drives diminishing fame and local consequences. */
   graffiti: number;
   /** Gang that claims this turf this run (a per-run situational variable). */
@@ -347,6 +349,8 @@ export interface Mind {
   /** The leaf goal that has been steering her most lately (so she doesn't flip-flop). */
   focus: number | null;
   tally: { done: number; dropped: number; revised: number; delayed: number };
+  /** What she's currently inspired to get good at, if anything. See stage.ts. */
+  passion?: { skill: string; level: number; since: number };
   /** What she expects each kind of act to do for her fame, learned from experience. */
   fame?: Record<string, number>;
   /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */

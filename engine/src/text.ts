@@ -24,7 +24,7 @@ interface Entry {
 const e = (r: Lines, t?: Lines): Entry => ({ r, t });
 const $ = (n: unknown): string => Number(n).toLocaleString('en-US');
 /** An act of fame, as a phrase. */
-const ACTS: Record<string, string> = { karaoke: 'a karaoke number', dj_set: 'a DJ set', gig: 'a gig with the band', billboard: 'hijacking a billboard', graffiti: 'a big piece of graffiti', busk: 'busking', parkour: 'some rooftop parkour' };
+const ACTS: Record<string, string> = { karaoke: 'a karaoke number', dj_set: 'a DJ set', gig: 'a gig with the band', billboard: 'hijacking a billboard', graffiti: 'a big piece of graffiti', busk: 'busking', parkour: 'some rooftop parkour', sing_busk: 'singing on the street', crash_gig: 'crashing somebody else\'s gig', guitar_duel: 'a guitar duel', backlot_set: 'a set for the kids behind the club', beat_battle: 'a beat battle', jam: 'a jam with the band' };
 const act = (a: unknown): string => ACTS[String(a)] ?? String(a);
 
 export const BLURBS: Record<string, string> = {
@@ -477,6 +477,24 @@ const T: Record<string, Entry> = {
   'goal_done:famous': e(() => [`Blackbird has her fame, or enough of it. People recognize her in line for noodles. She tolerates it with enormous dignity.`], ['They know my name. Now to make them say it properly.']),
   'goal_done:slain': e(() => [`A dragon is down. Atlas will bill her for the wing. Blackbird will frame the scale.`], ['One for the wall.']),
   'goal_done:apollo': e(() => [`The Apollo is dead. Blackbird stands in the ruins of a forty-ton security product and thinks about breakfast.`], ['Nobody believes me. That is the best part.']),
+  'sing_busk:tips': e((d) => [`Blackbird plants herself on the sidewalk and sings, no instrument, no net. A crowd finds her. ${d.amount} neodollars land in the hat.`, `A street corner, a song, a hat. By the last chorus there are ${d.amount} neodollars in it and three people filming.`], ['Voice of an angel. A mildly criminal angel.', 'I should have done this years ago.']),
+  'sing_busk:complaint': e(() => ['Blackbird is mid-chorus when someone decides this is a noise violation. A patrol notes her name.'], ['Art is always a crime somewhere.']),
+  'sing_busk:heckled': e(() => ['Blackbird sings. A man across the street sings back, louder and worse. Someone throws a noodle.'], ['Everyone is a critic. Everyone is also a noodle thrower.']),
+  'sing_busk:ignored': e(() => ['Blackbird sings her heart out on the corner. Nobody stops. A pigeon looks on with something like pity.'], ['Tough crowd. Tougher pigeon.']),
+  'crash_gig:stole_the_show': e((d) => [`Blackbird strolls on stage during ${d.npc}'s set, takes the mic out of a hand that was not ready, and owns the room. ${d.amount} neodollars come flying. ${d.npc} is, after a second, delighted.`], ['Excuse me, I am the headliner now.', 'Technically that was crashing. Spiritually it was destiny.']),
+  'crash_gig:tossed': e((d) => [`Blackbird jumps on stage, grabs the mic, and is on the floor of ${d.to} within the verse. ${d.npc} did not appreciate the collaboration.`], ['Critics. They will want my autograph in a decade.']),
+  'crash_gig:flop': e((d) => [`Blackbird hops onstage mid-song with a big idea that does not survive contact with the audience. ${d.npc} lets her finish. Barely.`], ['Okay. That was a lot of confidence.']),
+  'serenade_girl:swoon': e((d) => [`Blackbird sings softly, only for ${d.npc}, in a crowded room that goes quiet. ${d.npc} does not look away.`, `A slow song, a long look. ${d.npc} is, by every measure, undone.`], ['It is the voice. It is always the voice.', 'Music: a weapon of last resort, deployed first.']),
+  'serenade_girl:cringe': e((d) => [`Blackbird serenades ${d.npc}. It is, politely, a lot. ${d.npc} looks for the exit.`], ['She loved it. She is just very quiet about it.']),
+  'guitar_duel:won': e((d) => [`Blackbird and ${d.npc} trade licks, each one nastier than the last. In the final bar, hers is the one the room remembers.`], ['I do not so much play as win.']),
+  'guitar_duel:lost': e((d) => [`Blackbird takes on ${d.npc} on guitar and learns exactly how much she has left to learn.`], ['They had a better guitar. Probably. Definitely.']),
+  'backlot_set:rave': e((d) => [`Behind the Pharaoh, Blackbird borrows a speaker and cranks a set for the lot full of kids. They dance like it is the last night in Neo. ${d.amount} neodollars, mostly in coins.`], ['The best crowd in the city: tiny, poor, and furious about it.']),
+  'backlot_set:dead_speaker': e(() => ['Blackbird drops the bass behind the club. The speaker coughs, shudders, and dies. The kids give a polite round of applause for the attempt.'], ['The speaker is not a professional. I am. Allegedly.']),
+  'beat_battle:won': e((d) => [`Blackbird and ${d.npc} go head to head with only mouths. Hers is the faster mouth. The whole bar shouts the verdict.`], ['Kick, snare, victory.']),
+  'beat_battle:lost': e((d) => [`${d.npc} out-beats Blackbird so thoroughly she loses her place. The bar offers condolences.`], ['It was a good loss. Very musical.']),
+  'crowd_tired': e((d) => [`${d.place} has heard a lot of Blackbird lately. The applause is polite, and a few people have gone to refill their drinks.`, `The regulars at ${d.place} clap the way people clap for a delayed train. Time to find a new stage.`], ['They are tired of me. How is that possible.', 'A good performer knows when to leave the building.']),
+  'passion:ignite': e((d) => [`Something clicks. Blackbird feels it in the back of the throat and the soles of the feet: ${d.skill}. This is the thing. She is going to ${d.calling}.`, `The night rearranges around one idea. Blackbird decides, with feeling, to ${d.calling}.`], ['I was born for this. Possibly just now, but still.', 'There is a feeling you get when it starts working. This is it.']),
+  'goal_new:passion': e((d) => [`New life goal, announced to nobody: ${d.calling}.`], ['Starting tonight.']),
   'ambush:atlas': e((d) => [`Black vans, matte-black armor, no insignia but the Atlas logo stitched on every sleeve. A Helix retrieval team (${d.count}) steps out of the dark.`], ['A real hero has real enemies. Welcome to my fan club.']),
   banned: e((d) => [`${d.npc} blocks the door of the Rusty Halo. "You're banned." Blackbird\'s name has been on the wall since Tuesday.`], ["Banned? I've never even been..."]),
   security_closes_in: e((d) => [`${d.npc} and the rest of Neon Pharaoh security close in around Blackbird, tapping stunners against their palms.`], ["I can hear them coming. Flattering."]),
