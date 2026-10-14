@@ -4,8 +4,9 @@ import { acquire, here } from './combat';
 import { makeAmmoBox, makeItem, ITEMS } from './content/items';
 import { AMMO } from './content/ammo';
 import { STIMS, type StimDef } from './content/stims';
-import { DOC_FEE, GEAR_MARKUP, MED_PACK_PRICE, PHARMACY_STIMS, SHOP_AMMO, SHOP_ARMOR, SHOP_WEAPONS, gearPrice } from './content/shops';
-import { addAmmo, ammoOf, gunsOwned, isArm, medPacks, shotsLeft, wielded } from './arms';
+import { MEDS, MED_IDS } from './content/meds';
+import { DOC_FEE, GEAR_MARKUP, PHARMACY_STIMS, SHOP_AMMO, SHOP_ARMOR, SHOP_WEAPONS, gearPrice } from './content/shops';
+import { addAmmo, ammoOf, gunsOwned, isArm, medPacks, medStock, shotsLeft, wielded } from './arms';
 import { skillLevel, train } from './skills';
 
 /**
@@ -56,9 +57,9 @@ export function supplyUrge(w: World, dest: string): { bonus: number; smart: numb
   const none = { bonus: 0, smart: 0 };
   const hurt = 1 - h.hp / h.maxHp;
   if (dest === 'chem_mart') {
-    if (h.cash < price(h, MED_PACK_PRICE)) return none;
-    const packs = medPacks(h).length;
-    return packs === 0 ? { bonus: 0.3 + hurt, smart: 1.4 } : packs === 1 ? { bonus: 0, smart: 0.4 } : none;
+    if (h.cash < price(h, MEDS.patch_kit!.price)) return none;
+    const stock = medStock(h);
+    return stock === 0 ? { bonus: 0.3 + hurt, smart: 1.4 } : stock < 60 ? { bonus: 0, smart: 0.4 } : none;
   }
   if (dest === 'halo_restroom') {
     // The street doc is the cheap way back to full health, and the only one that is not in her pockets.
@@ -94,13 +95,15 @@ export function supplyCandidates(w: World): Candidate[] {
   // ---- the pharmacy: med packs and legit stims
   const pharmacist = w.npcs.pharmacist;
   if (loc.id === 'chem_mart' && present(pharmacist, w)) {
-    const packs = medPacks(h).length;
-    const cost = price(h, MED_PACK_PRICE);
-    if (h.cash >= cost) {
+    // Three tiers of med kit. Cheap ones are the best deal per HP; the big ones close a gap in one go.
+    const stock = medStock(h);
+    for (const id of MED_IDS) {
+      const cost = price(h, MEDS[id]!.price);
+      if (h.cash < cost) continue;
       out.push({
-        key: 'buy_med_pack', drives: { curiosity: 0.1 }, smart: 1.2,
-        bonus: (packs === 0 ? 0.9 : packs === 1 ? 0.3 : packs === 2 ? -0.2 : -0.8) + hurt,
-        run: (c) => buyMedPack(c, pharmacist, cost),
+        key: `buy_med:${id}`, drives: { curiosity: 0.1 }, smart: 1.2,
+        bonus: (stock < 60 ? 0.9 : stock < 120 ? 0.3 : stock < 200 ? -0.2 : -0.8) + hurt - (id === 'patch_kit' && stock >= 60 ? 0.3 : 0) + (id === 'trauma_kit' && stock < 60 ? -0.3 : 0),
+        run: (c) => buyMed(c, pharmacist, id, cost),
       });
     }
     for (const id of PHARMACY_STIMS) {
@@ -145,7 +148,7 @@ export function supplyCandidates(w: World): Candidate[] {
   if (packs.length && (h.hp < h.maxHp * 0.6 || h.injuries.length)) {
     out.push({
       key: 'use_med_pack', drives: {}, smart: 1.6, bonus: hurt * 3 + h.injuries.length * 0.5,
-      run: (c) => useMedPack(c, packs[0]!),
+      run: (c) => useMedPack(c, bestFit(h)),
     });
   }
   const crowd = here(w);
@@ -173,13 +176,13 @@ export function supplyCandidates(w: World): Candidate[] {
 
 // ===================================================================== resolvers
 
-function buyMedPack(c: Ctx, keeper: Npc, cost: number): void {
+function buyMed(c: Ctx, keeper: Npc, id: string, cost: number): void {
   const h = c.w.hero;
   h.cash -= cost;
-  h.inventory.push(makeItem('med_pack'));
+  h.inventory.push(makeItem(id));
   keeper.affinity += 2;
   train(c, 'haggling', 1);
-  c.emit('buy_med_pack', 'good', { npc: keeper.name, cost, packs: medPacks(h).length });
+  c.emit('buy_med_pack', 'good', { npc: keeper.name, item: MEDS[id]!.name, cost, packs: medPacks(h).length });
 }
 
 function buyAmmo(c: Ctx, keeper: Npc, type: string, cost: number): void {
@@ -210,14 +213,23 @@ function buyGear(c: Ctx, keeper: Npc, id: string, cost: number): void {
   acquire(c, item);
 }
 
+/** The smallest kit that covers what she is missing, or else the biggest she has. */
+function bestFit(h: Hero): Item {
+  const missing = h.maxHp - h.hp;
+  const kits = [...medPacks(h)].sort((a, b) => a.power - b.power);
+  return kits.find((k) => k.power >= missing) ?? kits[kits.length - 1]!;
+}
+
 function useMedPack(c: Ctx, pack: Item): void {
   const h = c.w.hero;
+  const def = MEDS[pack.id]!;
   h.inventory.splice(h.inventory.indexOf(pack), 1);
-  const heal = pack.power + 20 + skillLevel(h, 'medicine') * 2;
+  const heal = def.heal + skillLevel(h, 'medicine') * 2;
   train(c, 'medicine', 1);
+  const before = h.hp;
   h.hp = Math.min(h.maxHp, h.hp + heal);
-  const cured = h.injuries.shift();
-  c.emit('use_med_pack', 'good', { heal, cured: cured ?? '', left: medPacks(h).length });
+  const cured = h.injuries.splice(0, def.cures);
+  c.emit('use_med_pack', 'good', { item: def.name, heal: h.hp - before, cured: cured[0] ?? '', left: medPacks(h).length });
 }
 
 export function buyStim(c: Ctx, keeper: Npc, id: string, cost: number, cut: boolean): void {

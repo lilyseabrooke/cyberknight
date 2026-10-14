@@ -39,4 +39,8 @@ export const gunsOwned = (h: Hero): Item[] => [h.weapon, ...h.inventory].filter(
 /** How many full rounds of shooting a gun has left. */
 export const shotsLeft = (h: Hero, it: Item): number => (it.ammoType ? Math.floor(ammoOf(h, it.ammoType) / (it.perRound ?? 1)) : Infinity);
 
-export const medPacks = (h: Hero): Item[] => h.inventory.filter((i) => i.id === 'med_pack');
+/** Every medical item she carries, of any tier. */
+export const medPacks = (h: Hero): Item[] => h.inventory.filter((i) => i.tags.includes('med'));
+
+/** Total HP her pockets could restore. */
+export const medStock = (h: Hero): number => medPacks(h).reduce((a, i) => a + i.power, 0);

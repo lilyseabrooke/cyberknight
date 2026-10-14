@@ -139,7 +139,7 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { gun: boolean }): Wit
         if (n.tags.includes('cop')) copSaw = true;
         break;
       case 'call_cops':
-        calls = Math.min(1, calls + 1);
+        if (calls < 2) calls++;
         n.affinity -= 10;
         break;
       case 'flee':
@@ -149,7 +149,7 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { gun: boolean }): Wit
       case 'film': {
         h.fame += 1;
         n.affinity -= 2;
-        if (rng.chance(0.25)) calls++;
+        if (rng.chance(0.4)) calls++;
         break;
       }
       case 'cheer':
@@ -177,10 +177,9 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { gun: boolean }): Wit
   if (seenBy.length > logged) c.emit('bystander', 'mixed', { variant: 'crowd', count: seenBy.length - logged });
 
   // Heat. Gunfire is loud, crowds and cameras make it stick, a cop in the room makes it official.
-  const fromWitnesses = seenBy.length ? 1 + (seenBy.length >= 4 ? 1 : 0) : 0;
-  const fromCameras = camSees || droneSees ? 1 + (cams >= 4 ? 1 : 0) : 0;
-  const gain = Math.min(3, Math.max(fromWitnesses, fromCameras) + (opts.gun ? 1 : 0) + (copSaw ? 1 : 0) + calls);
-  // (Witness heat is capped at 3 per incident: a brawl is a nuisance, bodies and gunfire are a file.)
+  const fromWitnesses = seenBy.length ? 1 + (seenBy.length >= 3 ? 1 : 0) : 0;
+  const fromCameras = camSees || droneSees ? 1 + (cams >= 3 ? 1 : 0) : 0;
+  const gain = Math.min(4, Math.max(fromWitnesses, fromCameras) + (opts.gun ? 1 : 0) + (copSaw ? 1 : 0) + calls);
   addHeat(w, heatFaction, gain);
   // A drone or a corporate camera answers to Atlas, wherever it hangs.
   if (heatFaction !== 'atlas' && droneSees) addHeat(w, 'atlas', 1);

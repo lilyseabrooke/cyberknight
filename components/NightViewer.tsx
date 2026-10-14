@@ -7,6 +7,7 @@ import {
   Rng,
   STIMS,
   medPacks,
+  medStock,
   wielded,
   createRun,
   gangName,
@@ -40,7 +41,8 @@ interface Snapshot {
   /** What she is actually swinging right now (different if the gun is dry). */
   wielding: string;
   ammo: [string, number][];
-  medPacks: number;
+  medPacks: string;
+  medStock: number;
   armor: string;
   injuries: string[];
   inventory: string[];
@@ -90,10 +92,11 @@ function snap(w: World): Snapshot {
     weapon: h.weapon.name,
     wielding: wielded(h).name,
     ammo: Object.entries(h.ammo).filter(([, n]) => n > 0).map(([t, n]) => [AMMO[t]?.label ?? t, n] as [string, number]),
-    medPacks: medPacks(h).length,
+    medPacks: Object.entries(medPacks(h).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => `${k} ${n}`).join(' · '),
+    medStock: medStock(h),
     armor: h.armor?.name ?? 'nothing but attitude',
     injuries: [...h.injuries],
-    inventory: Object.entries(h.inventory.filter((i) => i.id !== 'med_pack').reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => (k > 1 ? `${n} ×${k}` : n)),
+    inventory: Object.entries(h.inventory.filter((i) => !i.tags.includes('med')).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => (k > 1 ? `${n} ×${k}` : n)),
     companions: h.companions.map((a) => ({ name: a.name, kind: a.kind, hp: a.hp, maxHp: a.maxHp, loyalty: a.loyalty })),
     location: w.locations[h.locationId]?.name ?? '?',
     beat: w.beat,
@@ -270,7 +273,7 @@ export default function NightViewer() {
               <dt>Location</dt><dd>{status.location}</dd>
               <dt>Neodollars</dt><dd>{status.cash}</dd>
               <dt>Weapon</dt><dd>{status.weapon}{status.wielding !== status.weapon && <span className="bad"> (dry: using {status.wielding})</span>}</dd>
-              <dt>Med packs</dt><dd className={status.medPacks === 0 ? 'bad' : undefined}>{status.medPacks || 'none (she cannot heal)'}</dd>
+              <dt>Medical</dt><dd className={status.medStock === 0 ? 'bad' : undefined}>{status.medPacks ? `${status.medPacks} (${status.medStock} HP)` : 'none (she cannot heal)'}</dd>
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
               <dt>Armor</dt><dd>{status.armor}</dd>
               <dt>Drunk</dt><dd>{'🍸'.repeat(Math.min(status.drunk, 6)) || 'sober (suspicious)'}</dd>

@@ -54,7 +54,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   ganger: {
     role: 'ganger', level: [2, 3], tags: ['rowdy', 'ganger'], faction: 'ganger',
     names: 'person', weapons: ['switchblade', 'zip_pistol', 'pool_cue', 'broken_bottle'], armors: ['leather_jacket'],
-    armorChance: 0.5, loot: ['vipers_patch', 'credchip', 'gold_tooth', 'med_pack'], lootChance: 0.6, cash: [10, 60],
+    armorChance: 0.5, loot: ['vipers_patch', 'credchip', 'gold_tooth', 'med_pack', 'patch_kit'], lootChance: 0.6, cash: [10, 60],
     desc: ['a ganger in a jacket covered in more patches than a quilt'],
   },
   corpo: {
@@ -108,7 +108,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   },
   mugger: {
     role: 'mugger', level: [2, 3], tags: ['ganger', 'rowdy'], faction: 'ganger',
-    names: 'person', weapons: ['switchblade', 'zip_pistol'], loot: ['credchip', 'gold_tooth', 'med_pack'], lootChance: 0.6, cash: [10, 50],
+    names: 'person', weapons: ['switchblade', 'zip_pistol'], loot: ['credchip', 'gold_tooth', 'med_pack', 'patch_kit'], lootChance: 0.6, cash: [10, 50],
     desc: ['a mugger with a knife and a deadline'],
   },
   noodler: {
@@ -120,7 +120,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   club_security: {
     role: 'Neon Pharaoh security', level: [4, 5], tags: ['security', 'strong', 'augmented', 'nonlethal'], faction: 'club',
     names: 'person', weapons: ['stunner_mk3'], armors: ['kevlar_duster'], armorChance: 0.8,
-    loot: ['gold_tooth', 'med_pack'], lootChance: 0.3, cash: [30, 100],
+    loot: ['gold_tooth', 'med_pack', 'patch_kit'], lootChance: 0.3, cash: [30, 100],
     desc: ['a club security guard in mirrored shades, at night, indoors, because he is a professional'],
   },
   dj: {
@@ -148,7 +148,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   helix_guard: {
     role: 'Helix security', level: [6, 7], tags: ['security', 'corp', 'augmented'], faction: 'atlas',
     names: 'person', weapons: ['pulse_rifle'], armors: ['corp_plate'], armorChance: 0.8,
-    loot: ['corp_creds', 'memory_shard', 'med_pack'], lootChance: 0.6, cash: [60, 200],
+    loot: ['corp_creds', 'memory_shard', 'med_pack', 'trauma_kit'], lootChance: 0.6, cash: [60, 200],
     desc: ['a Helix guard in matte-black plating, visor down, personality off'],
   },
   scientist: {
@@ -202,7 +202,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   npd_sergeant: {
     role: 'NPD sergeant', level: [7, 7], tags: ['cop', 'security', 'augmented', 'strong'], faction: 'npd',
     names: 'person', weapons: ['gauss_smg'], armors: ['riot_vest'], armorChance: 1,
-    loot: ['credchip', 'memory_shard', 'med_pack'], lootChance: 0.7, cash: [80, 200],
+    loot: ['credchip', 'memory_shard', 'med_pack', 'trauma_kit'], lootChance: 0.7, cash: [80, 200],
     desc: ['an NPD sergeant with the thousand-yard stare of a man who bills overtime'],
   },
   apollo: {

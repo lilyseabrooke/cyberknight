@@ -243,7 +243,7 @@ function dumpster(c: Ctx, f: Feature): void {
     c.emit('dumpster', 'good', { variant, item: it.name, sniff: sniff > 0 });
     acquire(c, it);
   };
-  if (roll < 0.1 + sniff) find(rng.pick(['credchip', 'memory_shard', 'fake_id', 'med_pack']), 'loot');
+  if (roll < 0.1 + sniff) find(rng.pick(['credchip', 'memory_shard', 'fake_id', 'patch_kit', 'med_pack']), 'loot');
   else if (roll < 0.17 + sniff) find(rng.pick(['pool_cue', 'switchblade', 'zip_pistol', 'kevlar_duster', 'leather_jacket']), 'gear');
   else if (roll < 0.4) find(rng.chance(0.3) ? makeAmmoBox(rng.pick(AMMO_IDS), rng.int(4, 10)) : makeItem(rng.pick(['eyeballs', 'mom_photo', 'neural_gum', 'gold_tooth', 'walkman'])), 'junk');
   else if (roll < 0.55) {

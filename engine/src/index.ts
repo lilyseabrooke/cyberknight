@@ -12,4 +12,5 @@ export { ODDS } from './hobbies';
 export { heroPower, throwDamage } from './combat';
 export { AMMO } from './content/ammo';
 export { STIMS } from './content/stims';
-export { wielded, ammoOf, medPacks, shotsLeft } from './arms';
+export { wielded, ammoOf, medPacks, medStock, shotsLeft } from './arms';
+export { MEDS } from './content/meds';

@@ -1,6 +1,7 @@
 import type { Item, ItemKind } from '../types';
 import { AMMO, AMMO_IDS, WEAPON_AMMO } from './ammo';
 import { STIMS } from './stims';
+import { MEDS } from './meds';
 
 type Def = Omit<Item, 'id'>;
 const w = (name: string, power: number, value: number, tags: string[] = []): Def => ({ name, kind: 'weapon', power, value, tags });
@@ -55,7 +56,7 @@ export const ITEMS: Record<string, Def> = {
   dragon_scale: l('Artemis scale (still warm)', 250, ['dragon']),
   vipers_patch: l('Chrome Vipers colors', 20, ['gang']),
   // ---- consumables ----
-  med_pack: c('med pack', 45, 55, ['med']),
+  ...Object.fromEntries(Object.entries(MEDS).map(([id, m]) => [id, c(m.name, m.heal, m.price, ['med'])])),
   stim: c(STIMS.stim!.name, 6, 40, ['stim']),
   stim_iron: c(STIMS.stim_iron!.name, 0, 50, ['stim']),
   stim_twitch: c(STIMS.stim_twitch!.name, 0, 45, ['stim']),

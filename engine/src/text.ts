@@ -181,10 +181,13 @@ const T: Record<string, Entry> = {
   'vault:alarm': e(() => ['The vault locks Blackbird in with a polite chime. Then the klaxons. Then the lab-bot.'], ['It was bound to happen.']),
 
   use_med_pack: e(
-    (d) => [
-      d.cured ? `A med pack goes in. The ${String(d.cured).replace('_', ' ')} gets set and sealed. ${d.left ? d.left + ' left.' : 'That was the last one.'}` : `A med pack goes in with a hiss. Blackbird feels a lot less like a casualty. ${d.left ? d.left + ' left.' : 'That was the last one.'}`,
-      `Blackbird cracks a med pack and presses it to the worst of it. ${d.heal} points of her come back. ${d.left ? d.left + ' left.' : 'Pockets: empty.'}`,
-    ],
+    (d) => {
+      const left = d.left ? `${d.left} kit${d.left === 1 ? '' : 's'} left.` : 'That was the last one.';
+      return [
+        d.cured ? `A ${d.item} goes in. The ${String(d.cured).replace('_', ' ')} gets set and sealed, and ${d.heal} HP come back. ${left}` : `A ${d.item} goes in with a hiss. ${d.heal} HP come back. ${left}`,
+        `Blackbird cracks a ${d.item} and presses it to the worst of it. ${d.heal} points of her return. ${left}`,
+      ];
+    },
     ['Medical science. Paid for in advance.', 'Good as new. Better, if you do not look at the label.'],
   ),
   sober_up: e(() => ['Blackbird sticks her head in a bucket of ice water. The room stops spinning, but only as an experiment.'], ["I'm perfectly sober. Everyone else is blurry."]),
@@ -201,7 +204,7 @@ const T: Record<string, Entry> = {
   'stim_fade:clean': e((d) => [`The ${d.item} wears off. Everything goes back to its normal, dull shape.`], ['Back to baseline. Boring.']),
   'stim_fade:crash': e((d) => [`The ${d.item} wears off and takes something with it. Blackbird's limbs feel like wet laundry.`], ["I'm fine. I'm resting my eyes. With my whole body."]),
   buy_med_pack: e(
-    (d) => [`${d.npc} rings up a med pack for ${d.cost} neodollars. "Don't get stabbed," says the receipt. Blackbird now holds ${d.packs}.`, `A med pack, ${d.cost} neodollars, and a lecture about expiry dates. ${d.packs} in the pockets now.`],
+    (d) => [`${d.npc} rings up a ${d.item} for ${d.cost} neodollars. "Don't get stabbed," says the receipt. ${d.packs} kit${d.packs === 1 ? '' : 's'} in the pockets now.`, `A ${d.item}, ${d.cost} neodollars, and a lecture about expiry dates. ${d.packs} on hand.`],
     ['Insurance, but in a box.', 'Pricey. Cheaper than dying.'],
   ),
   buy_ammo: e(

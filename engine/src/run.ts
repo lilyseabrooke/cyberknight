@@ -153,14 +153,12 @@ function ambient(c: Ctx): void {
 
   // Police ambush.
   const npd = w.heat.npd ?? 0;
-  if (loc.outdoors && npd >= 5 && rng.chance(0.03 + npd * 0.025)) {
+  if (loc.outdoors && npd >= 3 && rng.chance(0.14 + npd * 0.04)) {
     if (scoutSaves(c)) return;
     const squad = spawnGroup(c, 'npd_officer', rng.int(2, 3));
     if (npd >= 6) squad.push(...spawnGroup(c, 'npd_sergeant', 1));
     c.emit('ambush', 'bad', { variant: 'npd', count: squad.length, heat: npd });
     fight(c, squad, { cause: 'an NPD ambush', joiners: false });
-    // They made their point. A squad that has found her has less reason to keep looking.
-    w.heat.npd = Math.max(0, (w.heat.npd ?? 0) - 2);
     return;
   }
   // Atlas retrieval team.

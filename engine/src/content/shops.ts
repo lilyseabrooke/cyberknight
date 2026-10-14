@@ -3,7 +3,9 @@ import { STIM_IDS } from './stims';
 import { ITEMS } from './items';
 
 /** What the two new shops on Strand Street carry. Prices are item value x markup unless noted. */
-export const MED_PACK_PRICE = 55;
+import { MEDS } from './meds';
+
+export const MED_PACK_PRICE = MEDS.med_pack!.price;
 export const DOC_FEE: [number, number] = [20, 32];
 export const GEAR_MARKUP = 1.8;
 

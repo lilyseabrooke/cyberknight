@@ -275,7 +275,7 @@ export function createWorld(opts: RunOptions): World {
     injuries: [],
     weapon: makeItem('excalibur'),
     armor: null,
-    inventory: Array.from({ length: 3 }, () => makeItem('med_pack')),
+    inventory: ['patch_kit', 'patch_kit', 'med_pack'].map((id) => makeItem(id)),
     ammo: {},
     buffs: [],
     companions: [],

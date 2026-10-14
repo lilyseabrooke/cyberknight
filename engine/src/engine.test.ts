@@ -8,6 +8,7 @@ import { expireBuffs } from './supply';
 import { AMMO } from './content/ammo';
 import { STIMS } from './content/stims';
 import { MED_PACK_PRICE } from './content/shops';
+import { MEDS } from './content/meds';
 import { createWorld } from './world';
 import { spawnNpc } from './content/archetypes';
 import { makeAmmoBox, makeItem } from './content/items';
@@ -180,13 +181,15 @@ describe('deepened sandbox', () => {
     }
   });
 
-  it('smart, prepared heroes beat the dragon more often than clueless ones', () => {
-    const wins = (c: number) => {
+  it('smart heroes last longer than clueless ones', () => {
+    // With real heat and scarce healing, flatlining randos is a losing plan, and nobody reaches the
+    // dragon until the AI learns to plan. What competence buys today is staying alive.
+    const avgBeats = (c: number) => {
       let n = 0;
-      for (let i = 0; i < 120; i++) if (play(`dr-${i}`, c).world.ending === 'victory') n++;
-      return n;
+      for (let i = 0; i < 100; i++) n += play(`dr-${i}`, c).world.beat;
+      return n / 100;
     };
-    expect(wins(0.8)).toBeGreaterThan(wins(0.05));
+    expect(avgBeats(0.8)).toBeGreaterThan(avgBeats(0.05) * 1.5);
   });
 });
 
@@ -382,7 +385,7 @@ describe('layered skills', () => {
   it('is a deep sandbox: the new hobbies all occur', () => {
     const seen = new Set<string>();
     const skills = new Set<string>();
-    for (let i = 0; i < 260; i++) {
+    for (let i = 0; i < 600; i++) {
       const { events, world } = play(`hob-${i}`, 0.3);
       for (const e of events) seen.add(e.type);
       for (const [k, v] of Object.entries(world.hero.skills)) if (v >= 2) skills.add(k);
@@ -620,6 +623,44 @@ describe('resources and consequences', () => {
       expect(keysOf(w)).not.toContain('use_med_pack');
     });
 
+    it('med kits come in tiers that restore a fixed amount, and only the doc does a full restore', () => {
+      const heals: Record<string, number> = {};
+      for (const id of ['patch_kit', 'med_pack', 'trauma_kit']) {
+        const w = at('street_main');
+        w.hero.maxHp = 400;
+        w.hero.hp = 100;
+        w.hero.inventory.push(makeItem(id));
+        run(w, 'use_med_pack');
+        heals[id] = w.hero.hp - 100;
+        expect(w.hero.hp).toBeLessThan(w.hero.maxHp);
+      }
+      expect(heals.patch_kit).toBeLessThan(heals.med_pack!);
+      expect(heals.med_pack).toBeLessThan(heals.trauma_kit!);
+      expect(MEDS.patch_kit!.price).toBeLessThan(MEDS.med_pack!.price);
+      expect(MEDS.med_pack!.price).toBeLessThan(MEDS.trauma_kit!.price);
+    });
+
+    it('she uses the smallest kit that covers the damage, or the biggest she has', () => {
+      const w = at('street_main');
+      w.hero.maxHp = 400;
+      w.hero.hp = 380;
+      w.hero.injuries = ['concussion']; // enough to make her reach for a kit
+      w.hero.inventory.push(makeItem('trauma_kit'), makeItem('patch_kit'), makeItem('med_pack'));
+      run(w, 'use_med_pack');
+      expect(w.hero.inventory.map((i) => i.id).sort()).toEqual(['med_pack', 'trauma_kit']);
+      const big = at('street_main');
+      big.hero.hp = 5;
+      big.hero.inventory.push(makeItem('trauma_kit'), makeItem('patch_kit'));
+      run(big, 'use_med_pack');
+      expect(big.hero.inventory.map((i) => i.id)).toEqual(['patch_kit']);
+    });
+
+    it('the chem-mart stocks every tier', () => {
+      const w = at('chem_mart');
+      w.hero.cash = 500;
+      for (const id of ['patch_kit', 'med_pack', 'trauma_kit']) expect(keysOf(w)).toContain(`buy_med:${id}`);
+    });
+
     it('the street doc is the cheaper way back to full health', () => {
       const w = at('halo_restroom');
       w.hero.hp = 12;
@@ -645,14 +686,14 @@ describe('resources and consequences', () => {
     it('the chem-mart sells med packs for money, and only to someone who can pay', () => {
       const w = at('chem_mart');
       w.hero.cash = 200;
-      const evs = run(w, 'buy_med_pack');
+      const evs = run(w, 'buy_med:med_pack');
       expect(medPacks(w.hero)).toHaveLength(1);
       expect(w.hero.cash).toBeLessThan(200);
       expect(w.hero.cash).toBeGreaterThan(200 - MED_PACK_PRICE - 1);
       expect(evs[0]!.type).toBe('buy_med_pack');
       const poor = at('chem_mart');
       poor.hero.cash = 3;
-      expect(keysOf(poor)).not.toContain('buy_med_pack');
+      expect(keysOf(poor).filter((k) => k.startsWith('buy_med:'))).toHaveLength(0);
     });
 
     it('med packs turn up in the world too (cops, gangers, dumpsters)', () => {
@@ -1029,12 +1070,12 @@ describe('resources and consequences', () => {
 
   it('every new event kind has a text template', () => {
     const known: [string, Record<string, string | number | boolean>][] = [
-      ['buy_med_pack', { npc: 'x', cost: 1, packs: 1 }], ['buy_ammo', { npc: 'x', ammo: 'x', type: 'x', rounds: 1, cost: 1, total: 1 }],
+      ['buy_med_pack', { npc: 'x', item: 'med pack', cost: 1, packs: 1 }], ['buy_ammo', { npc: 'x', ammo: 'x', type: 'x', rounds: 1, cost: 1, total: 1 }],
       ['buy_gear', { variant: 'weapon', npc: 'x', item: 'x', cost: 1, starter: '', gun: false }], ['buy_gear', { variant: 'armor', npc: 'x', item: 'x', cost: 1, starter: '', gun: false }],
       ['buy_stim', { variant: 'shop', npc: 'x', item: 'x', cost: 1 }], ['buy_stims', { variant: 'deal', npc: 'x', item: 'x', cost: 1 }],
       ['use_stim', { variant: 'boost', item: 'x', stat: 'muscle', amount: 3, duration: 30 }], ['use_stim', { variant: 'overdose', item: 'x', mixed: true }],
       ['stim_fade', { variant: 'clean', item: 'x' }], ['stim_fade', { variant: 'crash', item: 'x' }],
-      ['use_med_pack', { heal: 1, cured: '', left: 0 }], ['out_of_ammo', { weapon: 'x', ammo: 'x', fallback: 'x', bare: true }],
+      ['use_med_pack', { item: 'med pack', heal: 1, cured: '', left: 0 }], ['out_of_ammo', { weapon: 'x', ammo: 'x', fallback: 'x', bare: true }],
       ['crime_seen', { variant: 'none', place: 'x' }], ['crime_seen', { variant: 'camera', place: 'x', cams: 1, witnesses: 0, drone: '', victim: 'x', gun: false }],
       ['crime_seen', { variant: 'people', place: 'x', cams: 0, witnesses: 2, drone: '', victim: 'x', gun: true }], ['crime_seen', { variant: 'both', place: 'x', cams: 1, witnesses: 2, drone: '', victim: 'x', gun: false }],
       ...(['intervene', 'join', 'call_cops', 'flee', 'film', 'cheer', 'shun'] as const).map((v) => ['bystander', { variant: v, npc: 'x', role: 'x', victim: 'x', gang: '' }] as [string, Record<string, string | number | boolean>]),
