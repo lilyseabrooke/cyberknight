@@ -16,6 +16,7 @@ import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 import { goalCandidates } from './goals';
 import { discretionCandidates } from './discretion';
+import { hustleCandidates } from './hustles';
 import { knowsBounty, tippable } from './bounty';
 
 const DRINKS = [
@@ -153,6 +154,7 @@ export function gather(w: World): Candidate[] {
   out.push(...graffitiCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...discretionCandidates(w));
+  out.push(...hustleCandidates(w));
 
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.

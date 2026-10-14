@@ -38,12 +38,15 @@ export const SKILLS = {
   haggling: { label: 'haggling', group: 'social', spill: { streetwise: 0.1 }, titles: ['asks for a discount', 'walks away convincingly', 'makes fixers sweat', 'could sell a dragon its own wings'] },
   cards: { label: 'cards', group: 'social', spill: { streetwise: 0.1 }, titles: ['knows the poker hands, mostly', 'has a tell, and knows it', 'bluffs with her whole face', 'reads tables like open books'] },
   rapport: { label: 'animal rapport', group: 'social', spill: { medicine: 0.1 }, titles: ['pigeons do not flee', 'dogs, robot and otherwise, like her', 'drones coo when she walks by', 'speaks fluent beast'] },
+  grifting: { label: 'grifting', group: 'social', spill: { streetwise: 0.15, cards: 0.1 }, titles: ['can keep a straight face for one whole sentence', 'has a sob story for every occasion', 'could sell ice to a fridge', "Neo's most convincing liar, professionally"] },
   // ---- crafts and care
   tolerance: { label: 'drinking', group: 'craft', titles: ['has a favorite drink, and a second', 'holds it better than most', 'is hydrated by whiskey', 'a liver with its own union'] },
   mixology: { label: 'mixology', group: 'craft', spill: { tolerance: 0.2 }, titles: ['pours straight', 'knows what bitters are for', 'invents drinks with unfortunate names', 'a bar-top alchemist'] },
   cooking: { label: 'cooking', group: 'craft', spill: { mixology: 0.1 }, titles: ['can boil water, mostly', 'makes noodles that taste like noodles', 'plates food like it matters', 'a chef who fights'] },
   medicine: { label: 'first aid', group: 'craft', spill: { tinkering: 0.05 }, titles: ['knows where the bandage goes', 'stitches at an angle', 'talks people through their own surgery', 'fixes people like cars'] },
   art: { label: 'graffiti', group: 'craft', spill: { streetwise: 0.1 }, titles: ['draws a mean doodle', 'tags in two colors', 'fills walls with intent', 'her murals have critics'] },
+  scavenging: { label: 'scavenging', group: 'craft', spill: { tinkering: 0.15 }, titles: ['can tell trash from treasure, usually', 'has a system for dumpsters and scrap heaps', 'finds the good stuff before the rats do', 'could furnish an apartment from one back alley'] },
+  hustling: { label: 'hustling', group: 'craft', spill: { streetwise: 0.1, athletics: 0.1 }, titles: ['shows up, mostly on time', 'has done every odd job in the Halo at least once', 'a professional at being professional', 'the gig economy, personified'] },
 } as const satisfies Record<string, SkillDef>;
 
 export type SkillId = keyof typeof SKILLS;

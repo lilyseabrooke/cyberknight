@@ -183,6 +183,89 @@ const T: Record<string, Entry> = {
   'vault:success': e((d) => [d.creds ? `Atlas executive credentials swipe, and the Helix vault door opens. Inside: ${d.item}. The vault does not ask any questions.` : `Blackbird cracks the vault with a mix of hacking, prayer, and a tire iron. Inside: ${d.item}. It is humming.`], ['I am so great at this. What does it do? Who cares.']),
   'vault:alarm': e(() => ['The vault locks Blackbird in with a polite chime. Then the klaxons. Then the lab-bot.'], ['It was bound to happen.']),
 
+  // ------------------------------------------------------------------ scrap, sabotage, and the gig board
+  'scrap_pile:good': e(
+    (d) => {
+      if (d.variant === 'rare') return [`Buried under the junk: ${d.item}. Someone threw away a small fortune and didn't notice.`];
+      if (d.variant === 'find') return [`Blackbird digs ${d.item} out of the scrap heap. Rust, but usable rust.`];
+      return [`Blackbird sorts the scrap pile into "metal," "not metal," and "do not touch," and walks off with ${d.amount} neodollars of the first kind.`];
+    },
+    ['One woman\'s trash.', 'Recycling, basically. I\'m an environmentalist.'],
+  ),
+  'scrap_pile:bad': e(() => ['A jagged edge in the scrap pile finds Blackbird\'s palm before she finds anything in it.'], ['Tetanus is a state of mind.']),
+  'scrap_pile:mixed': e(() => ['The scrap pile is, on closer inspection, just scrap.'], ["It's metaphorical. Somehow."]),
+
+  'relay:good': e((d) => [`Blackbird pries the housing off the Atlas relay and feeds it a very bad afternoon. Somewhere, a surveillance map goes dark for a block. Atlas heat down ${d.drop}.${d.item ? ` A ${d.item} falls out the bottom.` : ''}`], ['Fewer eyes on me. More eyes for me.']),
+  'relay:bad': e(() => ['The relay was wired to notice exactly this. Lights flash. Something clanks awake nearby.'], ['In my defense, it started it.']),
+
+  'job_board:good': e(
+    (d) => {
+      if (d.variant === 'flyers') return [`Blackbird plasters half a block with flyers for a gig she does not understand. ${d.amount} neodollars, paid in cash, no questions.`];
+      if (d.variant === 'rumor_job') return [`Someone on the board wants gossip, specifically. Blackbird supplies it, some of it even true. ${d.amount} neodollars.`];
+      if (d.variant === 'skiptrace') return [`The flyer wanted a name found; Blackbird finds the name, and persuades the name to come quietly. ${d.amount} neodollars, bounty-hunter rates.`];
+      return [`Another day, another flyer off the board. ${d.amount} neodollars richer.`];
+    },
+    ['Gig economy. I am the gig.', 'Neo pays in cash and bad decisions. I take both.'],
+  ),
+  'job_board:bad': e(
+    (d) => (d.variant === 'skiptrace_fail'
+      ? ['The skip on the flyer does not want to be found, and definitely does not want to come quietly.']
+      : ['The "light pest control" job on the flyer was undersold. Considerably.']),
+    ['The fine print was, in fact, the whole point.'],
+  ),
+
+  // ------------------------------------------------------------------ odd jobs, gigs, and hustles
+  'panhandle:good': e(
+    (d) => (d.variant === 'stranger'
+      ? [`A stranger presses ${d.amount} neodollars into Blackbird's hand${d.item ? ` and, oddly, ${d.item}` : ''}, and keeps walking before she can say anything heroic about it.`]
+      : [`Blackbird sits on the curb with a cup and a sad expression. Neo, briefly, has a heart: ${d.amount} neodollars.`]),
+    ['Dignity is overrated. Cash is cash.', "I'm not pathetic. I'm resourceful with my face."],
+  ),
+  'panhandle:bad': e(() => ['Someone drops a coin in Blackbird\'s cup from a height clearly meant to be insulting.'], ["I've been hit by worse than spare change. Barely."]),
+  'panhandle:mixed': e(() => ['Neo walks past Blackbird\'s cup like it is part of the sidewalk.'], ['A hero, invisible. Great system.']),
+
+  'odd_jobs:good': e((d) => [`Blackbird spends an hour on ${d.chore} for ${d.npc}, like a regular person with a regular job. ${d.amount} neodollars for her trouble.`], ['Honest work. Weird feeling.', 'This is what the other heroes do, right? Chores?']),
+  'odd_jobs:bad': e((d) => [`The ${d.chore} fight back. ${d.npc} is unimpressed.`], ["That's a workplace injury. I'm suing somebody."]),
+
+  'security_shift:good': e((d) => [`Blackbird works the Neon Pharaoh's door for the night: mirrored shades, a bad attitude, and ${d.amount} neodollars by closing.`], ['Nobody gets past me. Nobody important, anyway.']),
+  'security_shift:bad': e((d) => (d.npc ? [`${d.npc} tries to get past Blackbird the hard way. It does not go the way ${d.npc} planned.`] : ['The night shift is long, loud, and entirely uncompensated for the bruises.'])),
+
+  'courier_run:good': e((d) => [`${d.npc} hands Blackbird a sealed package and an address. She delivers it without opening it, mostly. ${d.amount} neodollars.`], ['Discretion. My middle name. Allegedly.']),
+  'courier_run:bad': e((d) => [`Whatever ${d.npc} had Blackbird carrying, somebody official was looking for it. She drops it and walks fast.`], ["I'm sure it was legal. Mostly."]),
+
+  'bodyguard_gig:ambush': e((d) => [`Blackbird is three steps into walking ${d.npc} home when somebody steps out of the dark with a plan.`], ['This is why I charge extra.']),
+  'bodyguard_gig:good': e(
+    (d) => (d.variant === 'saved'
+      ? [`${d.npc} makes it home, rattled but intact. ${d.amount} neodollars, and a look that says she'll call again.`]
+      : [`Blackbird walks ${d.npc} all the way home, uneventfully, which is apparently worth ${d.amount} neodollars.`]),
+    ['A hero who moonlights. Shocking nobody.'],
+  ),
+
+  'burgle_home:good': e((d) => [`While ${d.npc} is otherwise occupied, Blackbird lets herself into their place and helps herself: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}. She locks the door behind her. Mostly out of habit.`], ['They weren\'t using it. Probably.']),
+  'burgle_home:bad': e((d) => [`${d.npc} comes home early. Blackbird is standing in their living room holding something that is not hers.`], ["I was just admiring the decor. With my hands."]),
+
+  'protection_racket:good': e((d) => [`Blackbird explains, calmly, that bad things happen to places without her protection. ${d.npc} pays ${d.amount} neodollars for a problem Blackbird invented.`], ['A classic business model. Mine now.']),
+  'protection_racket:bad': e((d) => [`${d.npc} has heard this pitch before, from someone scarier. Blackbird is asked, loudly, to leave.`], ["Tough market. I'll rebrand."]),
+
+  'scam_mark:good': e((d) => [`Three cards, one bent corner, and ${d.npc} never had a chance. ${d.amount} neodollars.`], ['Hand-eye coordination, but for crime.']),
+  'scam_mark:bad': e((d) => [`${d.npc} counts the cards back and realizes, slowly, how this works. Blackbird realizes it at the same time.`], ['Everyone\'s a critic.']),
+
+  'sell_fake_goods:good': e((d) => [`Blackbird sells ${d.npc} a stim that is mostly food coloring and confidence. ${d.amount} neodollars, and a very convincing pitch.`], ['Placebo effect is real. I am basically a doctor.']),
+  'sell_fake_goods:bad': e((d) => [`${d.npc} tries the goods on the spot. The goods do nothing. ${d.npc} notices.`], ['Quality control. Who has time.']),
+
+  'cold_read:good': e((d) => [`Blackbird tells ${d.npc} their future involves a tall, dark stranger and some financial trouble. ${d.npc}, delighted, tips ${d.amount} neodollars.`], ["I'm a hero AND a mystic. Multitalented."]),
+  'cold_read:bad': e((d) => [`${d.npc} points out that "you will face a challenge soon" describes literally everyone, always.`], ['Tough to please, this one.']),
+
+  'odd_request:fetch_item': e((d) => [d.amount ? `${d.npc} needed something fetched. Blackbird fetched it, no drama. ${d.amount} neodollars.` : `Whatever ${d.npc} wanted fetched, it was gone, guarded, or both. Blackbird comes back empty-handed.`], ['Errand hero. Has a nice ring to it.']),
+  'odd_request:deliver_message': e((d) => [d.amount ? `Blackbird delivers ${d.npc}'s message, verbatim, to someone who did not want to hear it. ${d.amount} neodollars for the privilege.` : `The message does not land the way ${d.npc} hoped. Neither does the reply.`], ["I'm basically a courier with opinions."]),
+  'odd_request:scare_someone': e((d) => [d.amount ? `Blackbird scares somebody off on ${d.npc}'s behalf, nothing permanent, just enough that they get it. ${d.amount} neodollars.` : `Blackbird tries to look scary on ${d.npc}'s behalf. The target looks unconvinced.`], ['Freelance intimidation. Growth industry.']),
+  'odd_request:watch_my_stuff': e((d) => [d.amount ? `Blackbird watches ${d.npc}'s bag for a while, no questions asked, and gets ${d.amount} neodollars for her discretion.` : `${d.npc}'s bag gets lighter on Blackbird's watch. ${d.npc} notices immediately.`], ['Unofficial luggage. Fine.']),
+  'odd_request:walk_me_home': e((d) => [d.amount ? `Blackbird walks ${d.npc} home, chatting the whole way. ${d.amount} neodollars for company that happens to hit hard.` : `Blackbird gets distracted halfway through walking ${d.npc} home. ${d.npc} notices.`], ['Easiest job in Neo.']),
+  odd_request: e((d) => [`${d.npc} has a small, strange favor to ask.`], ['Everyone needs something. I\'m available.']),
+
+  'hunt_drone': e((d) => [`Blackbird clocks an Atlas patrol drone, ${d.npc}, running its route like it owns the block. It does not, yet, know about her.`], ['One less set of eyes for Atlas. One more trophy for me.']),
+  'hunt_drone:good': e((d) => [`${d.npc} comes down in pieces. Blackbird pockets what's salvageable and Atlas's local surveillance gets a little blinder, heat down ${d.drop}.`], ['Vigilante justice. Also, free parts.']),
+
   use_med_pack: e(
     (d) => {
       const left = d.left ? `${d.left} kit${d.left === 1 ? '' : 's'} left.` : 'That was the last one.';

@@ -55,6 +55,8 @@ export const ITEMS: Record<string, Def> = {
   helix_sample: l('vial of glowing Helix sample', 200, ['corp']),
   dragon_scale: l('Artemis scale (still warm)', 250, ['dragon']),
   vipers_patch: l('Chrome Vipers colors', 20, ['gang']),
+  scrap_metal: l('bundle of salvaged scrap metal', 35),
+  drone_core: l('scavenged drone core', 90, ['corp']),
   // ---- consumables ----
   ...Object.fromEntries(Object.entries(MEDS).map(([id, m]) => [id, c(m.name, m.heal, m.price, ['med'])])),
   stim: c(STIMS.stim!.name, 6, 40, ['stim']),
