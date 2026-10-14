@@ -187,6 +187,7 @@ export interface World {
   beat: number;
   rngPosition: number;
   hero: Hero;
+  mind: Mind;
   npcs: Record<Id, Npc>;
   features: Record<Id, Feature>;
   locations: Record<Id, Location>;
@@ -205,6 +206,85 @@ export interface World {
   stats: { kills: number; fights: number; maxLevel: number };
   over: boolean;
   ending: null | 'dead' | 'victory' | 'dawn';
+}
+
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'heist';
+
+/**
+ * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
+ * weapon, which needs a shop's price in cash, which needs a heist. Only the innermost open goals
+ * steer her; the ones above them wait. See goals.ts.
+ */
+export interface Goal {
+  id: number;
+  kind: GoalKind;
+  parent: number | null;
+  /** The person (kill, romance). */
+  npc?: Id;
+  /** The thing (buy): a key into `Mind.wares`. */
+  ware?: string;
+  /** The place (heist). */
+  loc?: Id;
+  /** cash: the money she wants on hand. weapon: the power she wants to be swinging. */
+  amount?: number;
+  /** kill: 'kill' | 'beat_up'. heist: 'approach' | 'loot' | 'escape'. */
+  mode?: string;
+  /** Her reason, in her own words-ish; shown in the log and the status panel. */
+  why: string;
+  /** 0..1, how much she wants it right now. Decays as she gets bored of it. */
+  desire: number;
+  /** 0..1, how fed up she is with how it's going. */
+  frustration: number;
+  born: number;
+  lastProgress: number;
+  /** Last measure of how close she is (higher is nearer), to notice progress. */
+  metric: number;
+  /** On hold until this beat (0 = not delayed). */
+  delayUntil: number;
+  delayWhy?: string;
+  setbacks: number;
+  /** How many times she has reworked what she's after instead of quitting. */
+  revisions: number;
+  /** Kill: she has actually thrown a punch at them. */
+  struck?: boolean;
+  /** Heist bookkeeping. */
+  heat0?: number;
+  looted?: boolean;
+  blown?: boolean;
+  /** Last beat this goal was steering her, to notice when she has drifted off it. */
+  lastFocus: number;
+}
+
+/** Something she's seen for sale. */
+export interface Ware {
+  id: string;
+  name: string;
+  kind: 'weapon' | 'armor' | 'implant';
+  loc: Id;
+  price: number;
+  /** What it adds. Weapons and armor: power. */
+  power: number;
+  seen: number;
+}
+
+/** What she knows, what she wants, and how she's going about it. All plain JSON. */
+export interface Mind {
+  goals: Goal[];
+  nextId: number;
+  wares: Record<string, Ware>;
+  /** Where she last saw each person. */
+  lastSeen: Record<Id, Id>;
+  /** What she believes each kind of action earns her, by candidate family (learned from experience). */
+  earn: Record<string, number>;
+  /** Recomputed every beat: the goals steering her right now, and how hard. */
+  drive: { id: number; weight: number }[];
+  /** Recomputed every beat: the next step towards where her goals want her (location id -> pull). */
+  hops: Record<Id, number>;
+  /** Goals that ended, by `kind:subject`, so she doesn't pick the same one straight back up. */
+  cooldown: Record<string, number>;
+  /** The leaf goal that has been steering her most lately (so she doesn't flip-flop). */
+  focus: number | null;
+  tally: { done: number; dropped: number; revised: number; delayed: number };
 }
 
 export interface Ctx {

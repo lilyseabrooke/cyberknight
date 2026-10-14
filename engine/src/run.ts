@@ -13,6 +13,7 @@ import { ambientDragons } from './dragons';
 import { ambientGraffiti } from './graffiti';
 import { hasImplantFlag, skillLevel } from './skills';
 import { expireBuffs } from './supply';
+import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
 
 export const MAX_BEATS = 600;
 
@@ -24,6 +25,7 @@ function score(w: World, cand: Candidate): number {
   let s = cand.bonus ?? 0;
   for (const d of DRIVES) s += (cand.drives[d] ?? 0) * weights[d];
   s += traitBias(w, cand);
+  s += goalBias(w, cand);
   s += (cand.smart ?? 0) * h.competence;
   s -= (cand.risk ?? 0) * (0.25 + h.competence * 1.5) * riskScale(w);
   // Baseline survival instinct (competence only makes it reliable): hurt heroes pick fewer fights.
@@ -80,20 +82,27 @@ export function step(w: World): GameEvent[] {
     },
   };
 
+  const before = mindBefore(w);
+  let chosen: Candidate | null = null;
   upkeep(c);
   if (!w.over) ambientExtras(c);
   if (!w.over) ambientDragons(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambient(c);
+  if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientMind(c);
+  if (!w.over) mindTick(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) {
     const cands = gather(w);
     if (cands.length) {
       const pick = choose(w, rng, cands);
+      chosen = pick;
       w.recent.push(pick.key);
       if (w.recent.length > 14) w.recent.shift();
       pick.run(c);
     }
   }
+
+  if (!w.over) mindAfter(c, chosen, before, events);
 
   if (!w.over && w.hero.hp <= 0 && hasImplantFlag(w.hero, 'defib') && !w.flags.defib_used) {
     w.flags.defib_used = true;

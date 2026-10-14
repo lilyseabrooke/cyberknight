@@ -2,6 +2,7 @@ import { Rng } from './rng';
 import { rollGovernmentName, rollPersonality, type Personality } from './personality';
 import { GANGS, spawnNpc } from './content/archetypes';
 import { makeItem } from './content/items';
+import { newMind } from './mind';
 import type { Exit, Feature, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
@@ -294,6 +295,7 @@ export function createWorld(opts: RunOptions): World {
     beat: 0,
     rngPosition: new Rng(`run:${opts.seed}`).position,
     hero,
+    mind: newMind(),
     npcs,
     features,
     locations,

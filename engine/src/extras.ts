@@ -324,10 +324,11 @@ function hackBillboard(c: Ctx): void {
   }
 }
 
-function getImplant(c: Ctx, doc: Npc): void {
+/** The doc's chair. Without a `choice` she takes whatever is on the tray; with one, it's the one she came for. */
+export function getImplant(c: Ctx, doc: Npc, choice?: string): void {
   const { w, rng } = c;
   const h = w.hero;
-  const id = rng.pick(IMPLANT_IDS.filter((i) => !h.implants.includes(i)));
+  const id = choice ?? rng.pick(IMPLANT_IDS.filter((i) => !h.implants.includes(i) && !w.flags[`sold:${i}`]));
   const def = IMPLANTS[id]!;
   const price = Math.round(def.cost * (1 - Math.min(0.3, skillLevel(h, 'haggling') * 0.03)));
   train(c, 'haggling', 1);

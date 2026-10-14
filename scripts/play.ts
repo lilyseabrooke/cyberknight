@@ -1,5 +1,5 @@
 /** Watch one night in Neo. npm run play -- [seed] [competence] */
-import { Rng, createRun, step, render, describePersonality } from '../engine/src/index';
+import { Rng, createRun, step, render, describePersonality, goalViews } from '../engine/src/index';
 
 const seed = process.argv[2] ?? 'neo-1';
 const competence = Number(process.argv[3] ?? 0.1);
@@ -24,4 +24,8 @@ const print = (events: typeof first) => {
 print(first);
 let guard = 0;
 while (!world.over && guard++ < 1000) print(step(world));
+const open = goalViews(world);
+if (open.length) console.log(`\n${DIM}Still on her mind: ${open.map((g) => `${'  '.repeat(g.depth)}${g.label}`).join(' / ')}${RST}`);
+const t = world.mind.tally;
+console.log(`${DIM}Goals: ${t.done} done, ${t.dropped} dropped, ${t.revised} reworked, ${t.delayed} put off.${RST}`);
 console.log(`\n${DIM}— ${world.ending?.toUpperCase()} — level ${h.level}, ${world.stats.kills} kills, ${world.beat} beats, ${h.cash} neodollars —${RST}`);

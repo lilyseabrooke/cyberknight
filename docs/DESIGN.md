@@ -52,6 +52,24 @@ A **utility AI** with needs, traits and a competence knob.
 - **Assists (spend Cipher mid-run):** cash, healing, ammo, sober-up, temporary competence boost, etc. Costs scale so assists are a strong rescue, never the primary strategy.
 - **No runtime LLM.** Determinism, cost and latency. Writing is hand-authored templates (§9). An optional LLM flavor layer is a possible later experiment, not a dependency.
 
+### Goals and reasoning
+
+Utility AI alone makes her drift: every beat is a fresh pick, so nothing she wants ever carries over. On top of it sits a **mind** (`engine/src/goals.ts`, data in `mind.ts`, world knowledge in `plans.ts`): a bounded set of goals she sets for herself, remembers, works on, delays, reworks and drops. It plugs into the same softmax; it never takes the wheel.
+
+**Goals.** `buy` (a specific thing she saw in a shop or on the doc's tray), `cash` (raise N neodollars), `weapon` (find something better to swing), `kill` (flatline someone; settles for a beating), `romance` (impress someone) and `heist` (rob a place she has seen: approach, loot, escape). They come from what she notices: a ware that catches her eye, a slight in a crowd (`slight` events; whether it becomes a grudge depends on `grudge`, `temper`, `kindness`), a girl across the room (`impress`, `romantic`), being broke (`greed`), a dragon she can't hurt, a safe that is just sitting there (`thrill`, `greed`, `honesty`).
+
+**Nesting.** A goal can need another goal first, down to five deep: *flatline Skeeter* needs *a better weapon* (she notices he hits harder than she does; a sharper hero asks before swinging, anyone asks after the first beating), which means *buy the thermal katana*, which is *1,164 neodollars short*, which she decides to get by *robbing the Helix vault*. Only the innermost open goals steer her; the ones above wait on them. When the money's there, the purchase goal is a leaf again and pulls her back to the shop.
+
+**How goals steer.** Each beat `mindTick` reviews every goal (done? moot? hurt, so delay? bored? frustrated? still makes sense?), forms new ones, and ranks the leaves. `goalBias` adds to every candidate's score (the strongest leaf gets the most weight, the next most, the rest only when the opportunity is standing in front of her) and `hops` pull her one step along the route (`routeTo`, which respects gates) towards where a goal wants her. `focusFactor` scales all of it: competence helps, impulsiveness hurts, so a clueless hero still wanders off task. A girl she's trying to impress gets flirted at when she's in the room; across town, she's only a mild pull.
+
+**Weighing money.** With a cash goal active, every candidate is scored by what she *believes* it earns (`PRIOR` in `plans.ts`, then an EMA of what it actually paid, so a till she keeps getting caught at loses its shine) and spending (drinks, gadgets) is penalised. Loot she's carrying pulls her to the fixer. Corp sites aren't casual earning spots; those are heists.
+
+**Letting go.** Desire decays every beat (slower for the type of goal her traits favour: grudge and temper for kills, romantic/impress for crushes, greed for money), frustration builds while she makes no progress (progress = her metric for the goal improving: nearer, richer, healthier target), and either one ends it. Before quitting she tries to **rework** it: a pricey item becomes a cheaper one, a sold-out item becomes the next best, *flatline* becomes *teach a lesson*, a wish for the best weapon becomes the best one actually on offer. She **delays** rather than drops when she's hurt (until she's patched up) or has just been beaten. She only juggles `capacity` ambitions (3 to 5 by competence; the impulsive overcommit) and replaces her weakest goal for a clearly stronger one, otherwise she lets the new idea wave.
+
+**Heists.** Quiet is the point: approach and loot penalise loud candidates, and anything that raises heat other than the take itself blows the plan. A sharp hero bails at once; a clueless one presses on. Success reports a clean or messy haul. She only plans a robbery of a place she has seen and can find a way into.
+
+**Observability.** Events `goal_new`, `goal_done`, `goal_drop`, `goal_revise`, `goal_delay`, `goal_wake`, `goal_note`, `goal_resume`, `goal_pass`, `slight`, `impressed`. The status panel shows her goals as a tree (`goalViews`); `npm run play` prints what's still on her mind. All state is `world.mind`, plain JSON, replayed deterministically.
+
 ## 5. World model
 
 Two layers:
