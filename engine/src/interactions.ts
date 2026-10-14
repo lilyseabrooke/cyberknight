@@ -10,6 +10,9 @@ import { dragonCandidates } from './dragons';
 import { hasAlly } from './companions';
 import { odds, skillLevel, synergy, train } from './skills';
 import { hobbyCandidates } from './hobbies';
+import { buyStim, supplyCandidates, supplyUrge } from './supply';
+import { STIM_IDS } from './content/stims';
+import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 
 const DRINKS = [
@@ -67,7 +70,7 @@ export function gather(w: World): Candidate[] {
       risk: 0.4 + levelRisk(w, n) + (n.power > heroPower(w) * 1.5 ? 1 : 0),
       run: (c) => {
         c.emit('challenge', 'mixed', { npc: n.name, role: n.role, variant: String(c.rng.int(1, 6)) });
-        fight(c, [n], { cause: `picking a fight with ${n.name}` });
+        fight(c, [n], { cause: `picking a fight with ${n.name}`, assault: true });
       },
     });
     out.push({
@@ -95,13 +98,13 @@ export function gather(w: World): Candidate[] {
         });
       }
     }
-    if (n.tags.includes('doc') && h.cash >= 30 && (h.hp < h.maxHp * 0.85 || h.injuries.length)) {
+    if (n.tags.includes('doc') && h.cash >= DOC_FEE[0] && (h.hp < h.maxHp * 0.85 || h.injuries.length)) {
       out.push({
         key: 'get_patched', drives: { curiosity: 0.15 }, smart: 1.3,
         bonus: (1 - h.hp / h.maxHp) * 2.4 + h.injuries.length * 0.8, run: (c) => getPatched(c, n),
       });
     }
-    if (n.tags.includes('dealer') && h.cash >= 25) {
+    if (n.tags.includes('dealer') && h.cash >= 20) {
       out.push({ key: 'buy_stims', drives: { curiosity: 0.55, thirst: 0.3, bravery: 0.2 }, risk: 0.2, run: (c) => buyStims(c, n) });
     }
   }
@@ -145,31 +148,8 @@ export function gather(w: World): Candidate[] {
   out.push(...graffitiCandidates(w));
 
   // --------------------------------------------------------------- herself
-  if (h.hp < h.maxHp * 0.75) {
-    out.push({
-      key: 'bandage', drives: {}, smart: 1.0, bonus: (1 - h.hp / h.maxHp) * 1.6,
-      run: (c) => {
-        const heal = Math.round(h.maxHp * (0.22 + 0.02 * skillLevel(h, 'medicine')));
-        h.hp = Math.min(h.maxHp, h.hp + heal);
-        train(c, 'medicine', 1);
-        c.emit('bandage', 'good', { heal });
-      },
-    });
-  }
-  const medkit = h.inventory.find((i) => i.id === 'medkit');
-  if (medkit && (h.hp < h.maxHp * 0.6 || h.injuries.length)) {
-    out.push({
-      key: 'use_medkit', drives: {}, smart: 1.6, bonus: (1 - h.hp / h.maxHp) * 2 + h.injuries.length * 0.5,
-      run: (c) => {
-        h.inventory.splice(h.inventory.indexOf(medkit), 1);
-        const heal = medkit.power + 20 + skillLevel(h, 'medicine') * 2;
-        train(c, 'medicine', 1);
-        h.hp = Math.min(h.maxHp, h.hp + heal);
-        const cured = h.injuries.shift();
-        c.emit('use_medkit', 'good', { heal, cured: cured ?? '' });
-      },
-    });
-  }
+  // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.
+  out.push(...supplyCandidates(w));
   if (h.drunk >= 3) {
     out.push({
       key: 'sober_up', drives: {}, smart: 0.9, bonus: 0.1,
@@ -179,18 +159,6 @@ export function gather(w: World): Candidate[] {
       },
     });
   }
-  const stim = h.inventory.find((i) => i.id === 'stim');
-  if (stim) {
-    out.push({
-      key: 'use_stim', drives: { bravery: 0.4, curiosity: 0.2 }, smart: 0.3,
-      run: (c) => {
-        h.inventory.splice(h.inventory.indexOf(stim), 1);
-        h.buffs.push({ id: 'stim', until: w.beat + 20, power: stim.power });
-        c.emit('use_stim', 'good', {});
-      },
-    });
-  }
-
   // ------------------------------------------------------------------- exits
   for (const e of loc.exits) {
     if (e.hidden) continue;
@@ -198,11 +166,12 @@ export function gather(w: World): Candidate[] {
     const dest = w.locations[e.to]!;
     const toDragon = e.to === 'overpass';
     const dragonRisk = toDragon && alive(dragon) ? clamp(dragonPower / heroPower(w) - 0.6, 0, 4) : 0;
+    const urge = supplyUrge(w, e.to);
     out.push({
       key: `go:${e.to}`,
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },
-      bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0),
-      smart: toDragon && ready ? 2.4 : 0,
+      bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + urge.bonus,
+      smart: (toDragon && ready ? 2.4 : 0) + urge.smart,
       risk: dragonRisk * 1.4 + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0),
       run: (c) => moveThrough(c, e),
     });
@@ -298,7 +267,7 @@ function pickpocket(c: Ctx, n: Npc): void {
     n.affinity -= 30;
     remember(n, 'caught Blackbird\'s hand in their pocket');
     c.emit('pickpocket', 'bad', { variant: 'caught', npc: n.name });
-    fight(c, [n], { cause: `getting caught robbing ${n.name}` });
+    fight(c, [n], { cause: `getting caught robbing ${n.name}`, assault: true });
     return;
   }
   const items = n.loadout.filter((i) => i.kind !== 'armor' || !h.armor);
@@ -331,7 +300,7 @@ function threaten(c: Ctx, n: Npc): void {
     c.emit('threaten', 'good', { variant: 'cough', npc: n.name, amount: take });
   } else {
     c.emit('threaten', 'bad', { variant: 'laugh', npc: n.name });
-    fight(c, [n], { cause: `threatening ${n.name}` });
+    fight(c, [n], { cause: `threatening ${n.name}`, assault: true });
   }
 }
 
@@ -402,51 +371,45 @@ function askWork(c: Ctx, n: Npc): void {
 function fence(c: Ctx, n: Npc): void {
   const h = c.w.hero;
   const sellable = (i: { kind: string; tags: string[] }) => ['loot', 'weapon', 'armor', 'gadget'].includes(i.kind) && !i.tags.includes('instrument');
-  const loot = h.inventory.filter(sellable);
+  // Keep the best melee weapon: a gun with no rounds in it still needs a backup.
+  const backup = h.inventory.filter((i) => i.kind === 'weapon' && i.tags.includes('melee')).sort((a, b) => b.power - a.power)[0];
+  const loot = h.inventory.filter((i) => sellable(i) && i !== backup);
   const cut = 1 + skillLevel(h, 'haggling') * 0.04;
   const total = Math.round(loot.reduce((a, i) => a + i.value * (i.kind === 'loot' ? 0.7 : 0.4) * cut, 0));
-  h.inventory = h.inventory.filter((i) => !sellable(i));
+  h.inventory = h.inventory.filter((i) => !sellable(i) || i === backup);
   train(c, 'haggling', 2);
   h.cash += total;
   n.affinity += 6;
   c.emit('fence', 'good', { npc: n.name, amount: total, count: loot.length });
 }
 
+/** The street doc: cheaper than a med pack, and she walks out at full health. Sometimes with extras. */
 function getPatched(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const cost = Math.min(h.cash, rng.int(30, 60));
+  const cost = Math.min(h.cash, rng.int(DOC_FEE[0], DOC_FEE[1]));
   h.cash -= cost;
+  h.hp = h.maxHp;
   if (rng.chance(0.2)) {
     const stats = ['muscle', 'reflex', 'hack', 'charm'] as const;
     const up = rng.pick(stats);
     const down = rng.pick(stats.filter((s) => s !== up));
     h[up] += 2;
     h[down] = Math.max(1, h[down] - 1);
-    h.hp = Math.min(h.maxHp, h.hp + Math.round(h.maxHp * 0.3));
     c.emit('get_patched', 'mixed', { variant: 'botched', npc: n.name, up, down, cost });
   } else {
-    h.hp = Math.min(h.maxHp, h.hp + Math.round(h.maxHp * 0.55));
-    const cured = h.injuries.shift();
+    const cured = h.injuries.splice(0, 2);
     n.affinity += 4;
-    c.emit('get_patched', 'good', { variant: 'fixed', npc: n.name, cost, cured: cured ?? '' });
+    c.emit('get_patched', 'good', { variant: 'fixed', npc: n.name, cost, cured: cured[0] ?? '' });
   }
 }
 
+/** The dealer sells cheaper stims, cut with whatever was nearby. Some batches are bad. */
 function buyStims(c: Ctx, n: Npc): void {
-  const { w, rng } = c;
-  const h = w.hero;
-  const cost = Math.min(h.cash, rng.int(25, 40));
-  h.cash -= cost;
-  if (rng.chance(0.2)) {
-    h.hp -= 15;
-    h.drunk += 2;
-    c.emit('buy_stims', 'bad', { variant: 'overdose', npc: n.name, cost });
-  } else {
-    h.buffs.push({ id: 'stim', until: w.beat + 25, power: 6 });
-    h.reflex += 0;
-    c.emit('buy_stims', 'good', { variant: 'boost', npc: n.name, cost });
-  }
+  const { rng } = c;
+  const id = rng.pick(STIM_IDS);
+  const cost = Math.max(1, Math.min(c.w.hero.cash, rng.int(18, 28)));
+  buyStim(c, n, id, cost, true);
 }
 
 function stealPuppy(c: Ctx, pup: Npc): void {
@@ -510,7 +473,7 @@ function joinBrawl(c: Ctx): void {
   const side = gangers.filter((n) => n.faction === (gangers[0]!.faction));
   const hurt = [...side, ...gangers.filter((n) => !side.includes(n)).slice(0, 1)];
   c.emit('join_brawl', 'mixed', { foes: hurt.map((n) => n.name).join(' and ') });
-  fight(c, hurt, { cause: 'jumping into the gang war' });
+  fight(c, hurt, { cause: 'jumping into the gang war', assault: true });
 }
 
 export { spawnGroup, maybeInjure, hasInjury, makeItem };

@@ -34,7 +34,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
         arrive(c, to, 'charmed');
       } else if (guards[0] && rng.chance(0.3 + (h.personality.weights.pride - 0.5) * 0.3)) {
         c.emit('gate', 'bad', { variant: 'bounced_mouthy', npc: guards[0].name });
-        if (!tryTalkDown(c, [guards[0]])) fight(c, [guards[0]], { cause: 'mouthing off at the door', joiners: false });
+        if (!tryTalkDown(c, [guards[0]])) fight(c, [guards[0]], { cause: 'mouthing off at the door', joiners: false, assault: true });
       } else {
         c.emit('gate', 'bad', { variant: 'turned_away', npc: guards[0]?.name ?? 'the bouncer' });
       }

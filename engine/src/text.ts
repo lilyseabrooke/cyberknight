@@ -30,6 +30,8 @@ export const BLURBS: Record<string, string> = {
   halo_backroom: 'The backroom: poker table, cigar smoke, and a wall safe that wants to be loved.',
   halo_roof: 'The Halo roof. Wind, rust, and the whole megacity laid out like a circuit board.',
   club_greenroom: "The Neon Pharaoh's green room: a couch with a history, a cooler of warm beer, and a vintage guitar on a stand like a relic.",
+  chem_mart: 'Lucky Seven Chem-Mart: fluorescent lights, a rack of med packs behind glass, and a pharmacist who has seen worse than whatever you are about to describe.',
+  gun_shop: 'Bullets & Bagels: a long counter of guns, a short counter of bagels, and a sign that reads NO REFUNDS ON FIREARMS OR REGRETS.',
   club_backlot: 'The lot behind the Neon Pharaoh: milk crates, a boombox, and a few street kids with serious faces.',
   halo_alley: 'The alley behind the Halo. Steam vents, puddles with colors, and a dumpster that has seen things.',
   street_main: 'Strand Street. Rain, neon, ads for things that should not be advertised.',
@@ -133,10 +135,8 @@ const T: Record<string, Entry> = {
   'hack:prank': e((d) => [`Blackbird wiggles into ${d.npc}'s wiring and makes their prosthetic hand slap them. Twice. Nobody knows why.`], ['I regret nothing.']),
   ask_work: e((d) => [`${d.npc} slides a glowing card across the table: a dragon on the Kowloon Overpass, Atlas security up the street, and a maintenance hatch behind the Halo that goes places. "Don't die." Blackbird takes it as a compliment.`], ['A job! Look at that. Destiny in a glowing business card.']),
   fence: e((d) => [`${d.npc} appraises ${d.count} item${d.count === 1 ? '' : 's'} like a vulture at a buffet. ${d.amount} neodollars, cash, no questions.`], ['Neo economy, baby. Garbage in, money out.']),
-  'get_patched:fixed': e((d) => [`${d.npc} patches Blackbird up on a bathroom sink for ${d.cost} neodollars. The wound closes with a hiss.`], ['Doc is a genius. Do not look at the tools.']),
-  'get_patched:botched': e((d) => [`${d.npc} patches Blackbird up, then adds "a little extra". A new ${d.up}-boosting implant is in there. The ${d.down} is a bit off now. ${d.cost} neodollars.`], ["Free upgrade! I think."]),
-  'buy_stims:boost': e((d) => [`${d.npc} slides a stim into Blackbird's palm for ${d.cost} neodollars. Her pupils go wide. The world gets sharp.`], ['Everything is so clear. Why was it ever blurry?']),
-  'buy_stims:overdose': e((d) => [`${d.npc}'s stim hits like a truck. Blackbird sees colors that do not exist. The floor starts to move.`], ["I'm not stumbling. The room is."]),
+  'get_patched:fixed': e((d) => [`${d.npc} patches Blackbird up on a bathroom sink for ${d.cost} neodollars. Full health, no receipt. The wounds close with a hiss.`, `${d.cost} neodollars and ${d.npc} puts her back together like a cheap lamp. She walks out at full strength.`], ['Doc is a genius. Do not look at the tools.', 'Cheaper than a med pack and twice as thorough.']),
+  'get_patched:botched': e((d) => [`${d.npc} patches Blackbird up, then adds "a little extra". She walks out at full health. A new ${d.up}-boosting implant is in there. The ${d.down} is a bit off now. ${d.cost} neodollars.`], ["Free upgrade! I think."]),
   'order_drink:paid': e((d) => [`Blackbird orders ${d.drink} from ${d.npc} for ${d.cost} neodollars. It goes down in one. She orders another look.`, `${d.drink}. ${d.cost} neodollars. The bar-top is sticky and the evening is young.`], ['Liquid courage. Courage, at a discount.', 'One more and then I get serious.']),
   'order_drink:free': e((d) => [`${d.npc} slides Blackbird ${d.drink} on the house, along with a look that costs more than the drink.`], ['Perks of being a legend.']),
   buy_round: e((d) => [`Blackbird slaps down ${d.cost} neodollars and announces a round for the house. The bar roars. Several people think she is a billionaire.`], ["I'm the hero of this bar. The bar just doesn't know it yet."]),
@@ -164,7 +164,7 @@ const T: Record<string, Entry> = {
   'dumpster:junk': e((d) => [`Blackbird rummages the dumpster and surfaces with ${d.item}. She pockets it anyway.`, `Dumpster haul: ${d.item}. Value: unknowable.`], ['Someone might want it. Someday.', 'It\'s sentimental. Somehow.']),
   'dumpster:rats': e(() => ['The dumpster lid flips open and a swarm of cyber-rats pours out. Their eyes glow a very specific red.'], ['Aw. A welcoming committee.']),
   'dumpster:hatch': e(() => ['Behind the dumpster, Blackbird finds a rusty hatch marked MAINTENANCE — NO ADMITTANCE. It is not locked.'], ['Do not enter. That, historically, is my cue.']),
-  'dumpster:vagrant': e(() => ['A dumpster-dweller in a Neo PD jacket shoves a field medkit at her and a muttered threat about Wednesdays.'], ['Wise old man energy. Sort of.']),
+  'dumpster:vagrant': e(() => ['A dumpster-dweller in a Neo PD jacket shoves a med pack at her and a muttered threat about Wednesdays.'], ['Wise old man energy. Sort of.']),
   'dumpster:nothing': e(() => ['The dumpster contains garbage. Actual garbage. Blackbird is a little hurt about it.'], ["A true hero knows when she's been had."]),
   'vending:snack': e(() => ['Blackbird kicks the vending machine. It drops something shaped like a candy bar. It is edible. It was edible.'], ['Hero fuel.']),
   'vending:jackpot': e((d) => [`The vending machine coughs up ${d.amount} neodollars in coins. Blackbird looks around, then keeps them.`], ["The machine owed me."]),
@@ -180,10 +180,72 @@ const T: Record<string, Entry> = {
   'vault:success': e((d) => [d.creds ? `Atlas executive credentials swipe, and the Helix vault door opens. Inside: ${d.item}. The vault does not ask any questions.` : `Blackbird cracks the vault with a mix of hacking, prayer, and a tire iron. Inside: ${d.item}. It is humming.`], ['I am so great at this. What does it do? Who cares.']),
   'vault:alarm': e(() => ['The vault locks Blackbird in with a polite chime. Then the klaxons. Then the lab-bot.'], ['It was bound to happen.']),
 
-  bandage: e(() => ['Blackbird wraps a strip of duct tape around the worst of it. The bleeding says thank you.', 'Blackbird staples something that should not be stapled. It holds.', 'A quick patch with chewing gum and good intentions. Blackbird is mostly closed again.'], ["Duct tape. Half the world's problems, solved."]),
-  use_medkit: e((d) => [d.cured ? `A field medkit goes in. The ${String(d.cured).replace('_', ' ')} gets set and sealed. Blackbird exhales.` : 'A field medkit goes in. Blackbird feels a lot less like a casualty.'], ['Medical science.']),
+  use_med_pack: e(
+    (d) => [
+      d.cured ? `A med pack goes in. The ${String(d.cured).replace('_', ' ')} gets set and sealed. ${d.left ? d.left + ' left.' : 'That was the last one.'}` : `A med pack goes in with a hiss. Blackbird feels a lot less like a casualty. ${d.left ? d.left + ' left.' : 'That was the last one.'}`,
+      `Blackbird cracks a med pack and presses it to the worst of it. ${d.heal} points of her come back. ${d.left ? d.left + ' left.' : 'Pockets: empty.'}`,
+    ],
+    ['Medical science. Paid for in advance.', 'Good as new. Better, if you do not look at the label.'],
+  ),
   sober_up: e(() => ['Blackbird sticks her head in a bucket of ice water. The room stops spinning, but only as an experiment.'], ["I'm perfectly sober. Everyone else is blurry."]),
-  use_stim: e(() => ['Blackbird slaps a stim into her neck. The universe snaps to focus.'], ['Everything\'s a nail. I\'m a hammer.']),
+  'use_stim:boost': e(
+    (d) => [
+      d.stat === 'power' ? `Blackbird slaps a ${d.item} into her neck. The universe snaps to focus. +${d.amount} power for ${d.duration} beats.` : `Blackbird chugs a ${d.item}. +${d.amount} ${d.stat}, for about ${d.duration} beats. The edges of the world sharpen.`,
+    ],
+    ["Everything's a nail. I'm a hammer.", 'I can see the sound. This is fine.'],
+  ),
+  'use_stim:overdose': e(
+    (d) => [d.mixed ? `Blackbird adds a ${d.item} to the two things already in her bloodstream. Her heart files a formal complaint. The floor starts to move.` : `The ${d.item} was cut with something. Blackbird sees colors that do not exist. The floor starts to move.`],
+    ["I'm not stumbling. The room is.", 'Hello, floor. You look different today.'],
+  ),
+  'stim_fade:clean': e((d) => [`The ${d.item} wears off. Everything goes back to its normal, dull shape.`], ['Back to baseline. Boring.']),
+  'stim_fade:crash': e((d) => [`The ${d.item} wears off and takes something with it. Blackbird's limbs feel like wet laundry.`], ["I'm fine. I'm resting my eyes. With my whole body."]),
+  buy_med_pack: e(
+    (d) => [`${d.npc} rings up a med pack for ${d.cost} neodollars. "Don't get stabbed," says the receipt. Blackbird now holds ${d.packs}.`, `A med pack, ${d.cost} neodollars, and a lecture about expiry dates. ${d.packs} in the pockets now.`],
+    ['Insurance, but in a box.', 'Pricey. Cheaper than dying.'],
+  ),
+  buy_ammo: e(
+    (d) => [`${d.npc} slides over ${d.rounds} ${d.ammo} for ${d.cost} neodollars. Blackbird now has ${d.total}.`, `${d.cost} neodollars buys ${d.rounds} ${d.ammo}. Math is on her side for roughly one fight.`],
+    ['Bullets are just a loan against future problems.', 'Locked and loaded. Well, loaded.'],
+  ),
+  'buy_gear:weapon': e(
+    (d) => [`${d.npc} lays a ${d.item} on the counter. ${d.cost} neodollars. ${d.gun ? `It comes with ${d.starter}, because ${d.npc} is not a monster.` : 'The bagels are free with purchase. They are not good.'}`],
+    ["Now THAT is a hero's weapon.", "Pretty. Dangerous. Like me."],
+  ),
+  'buy_gear:armor': e(
+    (d) => [`${d.npc} hands over ${d.item} for ${d.cost} neodollars. "Stops most things," ${d.npc} says. "Not all." Blackbird chooses to hear only the first part.`],
+    ['Style and survival. Rare combo.'],
+  ),
+  'buy_stim:shop': e(
+    (d) => [`${d.npc} sells Blackbird a ${d.item} for ${d.cost} neodollars. Sealed, labeled, and legal in at least some districts.`],
+    ['Tomorrow-me can deal with the side effects.'],
+  ),
+  'buy_stims:deal': e(
+    (d) => [`${d.npc} slides a ${d.item} into Blackbird's palm for ${d.cost} neodollars. It is not labeled. It is not sealed. It is, strictly speaking, cheap.`],
+    ['A bargain. What could be in it?'],
+  ),
+  out_of_ammo: e(
+    (d) => [
+      d.bare ? `Click. The ${d.weapon} is out of ${d.ammo}. Blackbird has nothing else to swing. She uses her fists.` : `Click. The ${d.weapon} is out of ${d.ammo}. Blackbird switches to the ${d.fallback} and carries on, a little less glamorously.`,
+      d.bare ? `The ${d.weapon} coughs and gives up. Out of ${d.ammo}. Fists it is.` : `Out of ${d.ammo}. Blackbird flips the ${d.weapon} around like a club and wields the ${d.fallback} instead.`,
+    ],
+    ['It was a warning shot. For me.', "That was MY last round? I counted differently."],
+  ),
+  'crime_seen:none': e((d) => [`Nobody saw it. ${d.place} keeps its secrets, which is the only thing it does well.`], ['Perfect crime. Not that it was a crime.']),
+  'crime_seen:camera': e((d) => [d.drone ? `${d.drone} turns its lens toward the commotion and does not look away. Somebody is going to watch this later.` : `A camera in the corner pans around and locks on. Its red light blinks in a way that feels personal. ${d.cams} on this side of ${d.place} alone.`], ["I'm sure it's a flattering angle."]),
+  'crime_seen:people': e((d) => [`${d.witnesses} ${Number(d.witnesses) === 1 ? 'person sees' : 'people see'} Blackbird go for ${d.victim}. ${d.gun ? 'The gunshots are the kind of detail people remember.' : 'There are no cameras, but there are phones.'}`], ["They're just admiring the technique."]),
+  'crime_seen:both': e((d) => [`Blackbird goes for ${d.victim} in full view: ${d.witnesses} witness${Number(d.witnesses) === 1 ? '' : 'es'} and a camera that has not blinked since. ${d.gun ? 'The gunshots help no one.' : ''}`], ['Good lighting, at least. This will cut together nicely.']),
+  'bystander:intervene': e((d) => [`${d.npc} (${d.role}) steps in front of ${d.victim}. "That is enough." It is not enough. It is just beginning.`, `${d.npc} drops what they are holding and comes for Blackbird. Official business, apparently.`], ['Aw. Another fan who wants to meet me.']),
+  'bystander:join': e((d) => [`${d.npc} (${d.gang || d.role}) has known ${d.victim} for years. They roll up their sleeves.`, `${d.npc} does not like seeing ${d.victim} get hit. They pick up the nearest heavy thing.`], ['More the merrier. Technically.']),
+  'bystander:call_cops': e((d) => [`${d.npc} holds up a handset and says three words into it: "Neo Protective Division." The line crackles. Nobody has ever been this fast.`, `${d.npc} has the NPD on the line before the second punch lands.`], ['Snitches get stitches. Eventually.']),
+  'bystander:flee': e((d) => [`${d.npc} takes one look and heads for the door. They are not going to be around to testify. They are going to be around, later.`, `${d.npc} drops behind the nearest surface and does not come back up for a while.`], ['Smart. I would run too. If I were them.']),
+  'bystander:film': e((d) => [`${d.npc} has their phone up already. The clip of Blackbird and ${d.victim} is posted before the fight is finished.`], ["Camera loves me. I'll sign it later."]),
+  'bystander:cheer': e((d) => [`${d.npc} whoops. Somebody is clearly in her corner. ${d.victim} had it coming, apparently.`, `${d.npc} raises a glass. A small crowd forms. A very small crowd.`], ['Fans. I have fans. Remember the name.']),
+  'bystander:shun': e((d) => [`${d.npc} watches Blackbird hit ${d.victim} and quietly rearranges their opinion of her. It does not go well for her.`], ["They're just jealous."]),
+  'bystander:crowd': e((d) => [`${d.count} more ${Number(d.count) === 1 ? 'person has' : 'people have'} an opinion about this. All of them are taking notes.`], ['A tough crowd. They will come around.']),
+  'heat_up:npd': e((d) => [d.source === 'bodies' ? `The bodies change the paperwork. Police heat is ${d.level}.` : `Someone files a report. Police heat +${d.gain}, now ${d.level}.`, d.source === 'bodies' ? `A dead body in front of witnesses is a different sort of file. Police heat ${d.level}.` : `The NPD logs Blackbird's name against the incident. Heat: ${d.level}.`], ['They are going to write me a ticket. A big one.']),
+  'heat_up:atlas': e((d) => [d.source === 'bodies' ? `Atlas security finds the bodies. Atlas heat is ${d.level}.` : `Somebody at Atlas pulls the footage. Atlas heat +${d.gain}, now ${d.level}.`], ['Corporate footage. They love me up there.']),
+
 
   // ------------------------------------------------------------------ combat
   challenge: e(

@@ -6,7 +6,13 @@ import type { Exit, Feature, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
 
-type LocDef = Omit<Location, 'visits' | 'id' | 'graffiti' | 'territory'>;
+type LocDef = Omit<Location, 'visits' | 'id' | 'graffiti' | 'territory' | 'cameras'>;
+
+/** Security cameras by location. Anything she does in view of one gets reported. */
+const CAMERAS: Record<Id, number> = {
+  halo_floor: 1, halo_arcade: 1, halo_backroom: 1, street_main: 3, neon_pharaoh: 3, club_greenroom: 1, paint_shop: 1,
+  chem_mart: 2, gun_shop: 3, helix_dock: 3, helix_lobby: 4, helix_lab: 4, overpass: 2,
+};
 
 const LOCATIONS: Record<Id, LocDef> = {
   halo_floor: {
@@ -62,6 +68,8 @@ const LOCATIONS: Record<Id, LocDef> = {
       ex('halo_alley', 'the alley beside the Halo'),
       ex('neon_pharaoh', 'the Neon Pharaoh nightclub', { gate: 'bouncer' }),
       ex('paint_shop', 'Spray & Pray Paint Supply'),
+      ex('chem_mart', 'Lucky Seven Chem-Mart (open 24 hours, regrets sold separately)'),
+      ex('gun_shop', 'Bullets & Bagels'),
       ex('overpass', 'the Kowloon Overpass (where the dragon patrols)'),
     ],
   },
@@ -83,6 +91,14 @@ const LOCATIONS: Record<Id, LocDef> = {
   },
   paint_shop: {
     name: 'Spray & Pray Paint Supply', kind: 'shop', security: 1, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
+    exits: [ex('street_main', 'the street')],
+  },
+  chem_mart: {
+    name: 'Lucky Seven Chem-Mart', kind: 'shop', security: 2, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
+    exits: [ex('street_main', 'the street')],
+  },
+  gun_shop: {
+    name: 'Bullets & Bagels', kind: 'shop', security: 4, crowded: false, outdoors: false, tossTo: 'street_main', fleeTo: 'street_main',
     exits: [ex('street_main', 'the street')],
   },
   club_backlot: {
@@ -183,7 +199,7 @@ export function createWorld(opts: RunOptions): World {
 
   const locations: Record<Id, Location> = {};
   for (const [id, d] of Object.entries(LOCATIONS)) {
-    locations[id] = { id, visits: 0, graffiti: 0, territory: null, ...d, exits: d.exits.map((e) => ({ ...e })) };
+    locations[id] = { id, visits: 0, cameras: CAMERAS[id] ?? 0, graffiti: 0, territory: null, ...d, exits: d.exits.map((e) => ({ ...e })) };
   }
   locations.halo_alley!.territory = g1;
   locations.club_backlot!.territory = g2;
@@ -223,6 +239,8 @@ export function createWorld(opts: RunOptions): World {
   add('drone', 'halo_alley');
   add('noodler', 'street_main');
   add('paint_clerk', 'paint_shop', { id: 'clerk' });
+  add('pharmacist', 'chem_mart', { id: 'pharmacist' });
+  add('gunsmith', 'gun_shop', { id: 'gunsmith' });
   for (let i = 0; i < 3; i++) add('club_security', 'neon_pharaoh');
   add('dj', 'neon_pharaoh', { id: 'kilobyte', name: 'DJ Kilobyte' });
   for (let i = 0; i < 3; i++) add('street_kid', 'club_backlot');
@@ -257,7 +275,8 @@ export function createWorld(opts: RunOptions): World {
     injuries: [],
     weapon: makeItem('excalibur'),
     armor: null,
-    inventory: [],
+    inventory: Array.from({ length: 3 }, () => makeItem('med_pack')),
+    ammo: {},
     buffs: [],
     companions: [],
     skills: {},
