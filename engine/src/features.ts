@@ -356,7 +356,10 @@ function scrapPile(c: Ctx, f: Feature): void {
   const { w, rng } = c;
   const h = w.hero;
   f.uses++;
-  const roll = rng.next();
+  train(c, 'scavenging', 2);
+  // A sharper eye for scrap shifts the odds away from the bad/nothing outcomes and towards finds.
+  const boost = Math.min(0.18, skillLevel(h, 'scavenging') * 0.025);
+  const roll = clamp(rng.next() - boost, 0, 0.999);
   if (roll < 0.1) {
     h.hp -= 5;
     c.emit('scrap_pile', 'bad', { variant: 'cut' });
@@ -403,17 +406,19 @@ function jobBoard(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const gig = rng.pick(GIGS);
+  const lvl = skillLevel(h, 'hustling');
+  train(c, 'hustling', 1);
   if (gig === 'flyers') {
-    const pay = rng.int(10, 25);
+    const pay = rng.int(10, 25) + lvl;
     h.cash += pay;
     c.emit('job_board', 'good', { variant: 'flyers', amount: pay });
   } else if (gig === 'rumor_job') {
     train(c, 'streetwise', 2);
-    const pay = rng.int(15, 40);
+    const pay = rng.int(15, 40) + lvl;
     h.cash += pay;
     c.emit('job_board', 'good', { variant: 'rumor_job', amount: pay });
   } else if (gig === 'skiptrace') {
-    const p = clamp(0.45 + h.muscle * 0.03 + skillLevel(h, 'intimidation') * 0.04, 0.1, 0.85);
+    const p = clamp(0.45 + h.muscle * 0.03 + skillLevel(h, 'intimidation') * 0.04 + lvl * 0.02, 0.1, 0.85);
     if (rng.chance(p)) {
       const pay = rng.int(50, 140);
       h.cash += pay;
@@ -425,7 +430,7 @@ function jobBoard(c: Ctx): void {
       if (mark) fight(c, [mark], { cause: 'chasing down a skip for a flyer job' });
     }
   } else {
-    const p = clamp(0.5 + skillLevel(h, 'athletics') * 0.03, 0.15, 0.85);
+    const p = clamp(0.5 + skillLevel(h, 'athletics') * 0.03 + lvl * 0.02, 0.15, 0.85);
     if (rng.chance(p)) {
       const pay = rng.int(20, 50);
       h.cash += pay;

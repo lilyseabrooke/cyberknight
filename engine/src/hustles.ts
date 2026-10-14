@@ -1,8 +1,24 @@
-import type { Ctx, Npc, World } from './types';
+import type { Ctx, Hero, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { clamp, levelRisk, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { skillLevel, synergy, train } from './skills';
+
+/** The hustle-specific skill formulas. These layer the new skills (grifting, hustling) as a
+ * straight additive bonus on top of the original stat-driven baseline, rather than wrapping
+ * everything in `synergy()` — a brand-new skill starts at 0, and synergy's "any zero factor
+ * zeroes the whole thing" rule would otherwise silently kill the stat-driven baseline these
+ * actions already had before she's trained the new skill at all. */
+const HODDS = {
+  panhandle: (h: Hero) => 0.45 + h.charm * 0.02 + skillLevel(h, 'grifting') * 0.03,
+  coldRead: (h: Hero) => 0.3 + h.charm * 0.03 + skillLevel(h, 'streetwise') * 0.03 + skillLevel(h, 'grifting') * 0.03,
+  scamMark: (h: Hero) => 0.3 + skillLevel(h, 'cards') * 0.05 + skillLevel(h, 'sleight') * 0.03 + skillLevel(h, 'grifting') * 0.04,
+  sellFakeGoods: (h: Hero) => 0.4 + h.charm * 0.02 + skillLevel(h, 'haggling') * 0.04 + skillLevel(h, 'grifting') * 0.03,
+  oddJobs: (h: Hero) => 0.78 + skillLevel(h, 'athletics') * 0.02 + skillLevel(h, 'hustling') * 0.02,
+  securityShift: (h: Hero) => 0.55 + h.muscle * 0.02 + skillLevel(h, 'intimidation') * 0.03 + skillLevel(h, 'hustling') * 0.02,
+  courierRun: (h: Hero) => 0.6 + skillLevel(h, 'streetwise') * 0.03 + skillLevel(h, 'hustling') * 0.02,
+};
+
 
 const talkable = (n: Npc): boolean => !n.hostile && !n.tags.includes('boss') && !n.tags.includes('dragon') && n.archetype !== 'puppy';
 
@@ -44,13 +60,13 @@ export function hustleCandidates(w: World): Candidate[] {
   }
 
   // ---- bodyguard gig: somebody's willing to pay to not walk home alone
-  for (const n of crowd.filter((x) => (x.tags.includes('romanceable') || x.archetype === 'patron') && ready(w, 'bodyguard_gig', x.id, 45))) {
+  for (const n of crowd.filter((x) => (x.tags.includes('romanceable') || x.archetype === 'patron') && ready(w, 'bodyguard_gig', x.id, 70))) {
     out.push({ key: `bodyguard_gig:${n.id}`, drives: { greed: 0.3, bravery: 0.3, pride: 0.2 }, risk: 0.6, run: (c) => bodyguardGig(c, n) });
   }
 
   // ---- questionable: waiting for someone to be distracted, then robbing their place blind
   // (not the fixer: Madame Zero is a story contact, not a mark)
-  for (const n of crowd.filter((x) => !x.tags.includes('kid') && !x.tags.includes('robot') && !x.tags.includes('fixer') && ready(w, 'burgle_home', x.id, 90))) {
+  for (const n of crowd.filter((x) => !x.tags.includes('kid') && !x.tags.includes('robot') && !x.tags.includes('fixer') && ready(w, 'burgle_home', x.id, 140))) {
     out.push({
       key: `burgle_home:${n.id}`, drives: { greed: 0.55, curiosity: 0.2 }, risk: 1.2 + levelRisk(w, n),
       run: (c) => burgleHome(c, n),
@@ -58,7 +74,7 @@ export function hustleCandidates(w: World): Candidate[] {
   }
 
   // ---- shady: protection money from anyone running a till
-  for (const n of crowd.filter((x) => (x.tags.includes('shopkeeper') || x.tags.includes('owner')) && ready(w, 'protection_racket', x.id, 60))) {
+  for (const n of crowd.filter((x) => (x.tags.includes('shopkeeper') || x.tags.includes('owner')) && ready(w, 'protection_racket', x.id, 90))) {
     out.push({
       key: `protection_racket:${n.id}`, drives: { greed: 0.4, bravery: 0.3 }, risk: 0.6 + levelRisk(w, n),
       run: (c) => protectionRacket(c, n),
@@ -67,23 +83,23 @@ export function hustleCandidates(w: World): Candidate[] {
 
   // ---- shady: three-card monte on anyone standing still long enough
   if (h.cash >= 10) {
-    for (const n of crowd.filter((x) => (x.tags.includes('rowdy') || x.archetype === 'patron') && ready(w, 'scam_mark', x.id, 40))) {
+    for (const n of crowd.filter((x) => (x.tags.includes('rowdy') || x.archetype === 'patron') && ready(w, 'scam_mark', x.id, 60))) {
       out.push({ key: `scam_mark:${n.id}`, drives: { greed: 0.35, curiosity: 0.1 }, risk: 0.3, run: (c) => scamMark(c, n) });
     }
   }
 
   // ---- shady: selling bunk stims and fake implants to anyone gullible enough
-  for (const n of crowd.filter((x) => x.cash > 0 && !x.tags.includes('kid') && !x.tags.includes('fixer') && ready(w, 'sell_fake_goods', x.id, 40))) {
+  for (const n of crowd.filter((x) => x.cash > 0 && !x.tags.includes('kid') && !x.tags.includes('fixer') && ready(w, 'sell_fake_goods', x.id, 60))) {
     out.push({ key: `sell_fake_goods:${n.id}`, drives: { greed: 0.3, curiosity: 0.1 }, risk: 0.4, run: (c) => sellFakeGoods(c, n) });
   }
 
   // ---- shady but mostly harmless: cold-reading a mark's fortune for tip money
-  for (const n of crowd.filter((x) => !x.tags.includes('robot') && !x.tags.includes('fixer') && ready(w, 'cold_read', x.id, 35))) {
+  for (const n of crowd.filter((x) => !x.tags.includes('robot') && !x.tags.includes('fixer') && ready(w, 'cold_read', x.id, 55))) {
     out.push({ key: `cold_read:${n.id}`, drives: { greed: 0.2, curiosity: 0.2 }, run: (c) => coldRead(c, n) });
   }
 
   // ---- random favors: NPCs occasionally have a weird little job for her
-  for (const n of crowd.filter((x) => !x.tags.includes('robot') && !x.tags.includes('fixer') && x.affinity >= -5 && ready(w, 'odd_request', x.id, 50))) {
+  for (const n of crowd.filter((x) => !x.tags.includes('robot') && !x.tags.includes('fixer') && x.affinity >= -5 && ready(w, 'odd_request', x.id, 70))) {
     out.push({ key: `odd_request:${n.id}`, drives: { curiosity: 0.3, greed: 0.15 }, bonus: 0.1, risk: 0.2, run: (c) => oddRequest(c, n) });
   }
 
@@ -103,16 +119,18 @@ export function hustleCandidates(w: World): Candidate[] {
 function panhandle(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.45 + h.charm * 0.02 - (h.fame >= 3 ? 0.1 : 0), 0.1, 0.8);
+  const p = clamp(HODDS.panhandle(h) - (h.fame >= 3 ? 0.1 : 0), 0.1, 0.8);
   if (rng.chance(0.07)) {
     const cash = rng.int(20, 60);
     h.cash += cash;
+    train(c, 'grifting', 2);
     const it = rng.chance(0.4) ? makeItem(rng.pick(['neural_gum', 'mom_photo'])) : null;
     if (it) acquire(c, it);
     c.emit('panhandle', 'good', { variant: 'stranger', amount: cash, item: it?.name ?? '' });
   } else if (rng.chance(p)) {
     const cash = rng.int(3, 15);
     h.cash += cash;
+    train(c, 'grifting', 1);
     c.emit('panhandle', 'good', { variant: 'sympathy', amount: cash });
   } else if (rng.chance(0.3)) {
     h.hp -= rng.int(0, 3);
@@ -127,10 +145,11 @@ function oddJobs(c: Ctx, n: Npc): void {
   const h = w.hero;
   mark(c, 'odd_jobs', n.id);
   const chore = rng.pick(['kegs', 'tables', 'dishes', 'crates']);
-  if (rng.chance(clamp(0.78 + skillLevel(h, 'athletics') * 0.02, 0.5, 0.95))) {
+  if (rng.chance(clamp(HODDS.oddJobs(h), 0.5, 0.95))) {
     const pay = rng.int(10, 30);
     h.cash += pay;
     n.affinity += 4;
+    train(c, 'hustling', 2);
     train(c, 'athletics', 1);
     c.emit('odd_jobs', 'good', { variant: chore, chore, amount: pay, npc: n.name });
   } else {
@@ -144,8 +163,9 @@ function securityShift(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   mark(c, 'security_shift', 'x');
-  const p = clamp(0.55 + h.muscle * 0.02 + skillLevel(h, 'intimidation') * 0.03, 0.2, 0.9);
-  train(c, 'intimidation', 2);
+  const p = clamp(HODDS.securityShift(h), 0.2, 0.9);
+  train(c, 'hustling', 2);
+  train(c, 'intimidation', 1);
   if (rng.chance(p)) {
     const pay = rng.int(40, 100);
     h.cash += pay;
@@ -168,11 +188,12 @@ function courierRun(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   mark(c, 'courier_run', n.id);
-  const p = clamp(0.6 + skillLevel(h, 'streetwise') * 0.03 - (n.tags.includes('dealer') ? 0.1 : 0), 0.2, 0.9);
+  const p = clamp(HODDS.courierRun(h) - (n.tags.includes('dealer') ? 0.1 : 0), 0.2, 0.9);
   if (rng.chance(p)) {
     const pay = rng.int(30, 90);
     h.cash += pay;
     n.affinity += 3;
+    train(c, 'hustling', 2);
     train(c, 'streetwise', 1);
     c.emit('courier_run', 'good', { variant: 'clean', amount: pay, npc: n.name });
   } else {
@@ -185,7 +206,9 @@ function bodyguardGig(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   mark(c, 'bodyguard_gig', n.id);
-  if (rng.chance(0.4)) {
+  train(c, 'hustling', 2);
+  const ambushChance = clamp(0.4 - skillLevel(h, 'hustling') * 0.025, 0.15, 0.4);
+  if (rng.chance(ambushChance)) {
     const muggers = spawnGroup(c, 'mugger', rng.int(1, 2));
     c.emit('bodyguard_gig', 'mixed', { variant: 'ambush', npc: n.name });
     const res = muggers.length ? fight(c, muggers, { cause: `protecting ${n.name} from an ambush`, joiners: false }) : 'win';
@@ -255,8 +278,9 @@ function scamMark(c: Ctx, n: Npc): void {
   const h = w.hero;
   mark(c, 'scam_mark', n.id);
   const stake = Math.min(h.cash, rng.int(10, 30));
-  const p = clamp(0.3 + skillLevel(h, 'cards') * 0.05 + skillLevel(h, 'sleight') * 0.03, 0.1, 0.85);
-  train(c, 'cards', 2);
+  const p = clamp(HODDS.scamMark(h), 0.1, 0.85);
+  train(c, 'grifting', 2);
+  train(c, 'cards', 1);
   if (rng.chance(p)) {
     const take = stake + rng.int(5, 30);
     h.cash += take;
@@ -272,8 +296,9 @@ function sellFakeGoods(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   mark(c, 'sell_fake_goods', n.id);
-  const p = clamp(0.4 + h.charm * 0.02 + skillLevel(h, 'haggling') * 0.04 - (n.tags.includes('dealer') ? 0.2 : 0), 0.1, 0.85);
-  train(c, 'haggling', 2);
+  const p = clamp(HODDS.sellFakeGoods(h) - (n.tags.includes('dealer') ? 0.2 : 0), 0.1, 0.85);
+  train(c, 'grifting', 2);
+  train(c, 'haggling', 1);
   if (rng.chance(p)) {
     const take = Math.min(n.cash, rng.int(15, 50));
     n.cash -= take;
@@ -290,8 +315,8 @@ function coldRead(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   mark(c, 'cold_read', n.id);
-  const p = clamp(0.3 + h.charm * 0.03 + skillLevel(h, 'streetwise') * 0.03, 0.1, 0.85);
-  train(c, 'streetwise', 1);
+  const p = clamp(HODDS.coldRead(h), 0.1, 0.85);
+  train(c, 'grifting', 1);
   if (rng.chance(p)) {
     const tip = rng.int(10, 35);
     h.cash += tip;
@@ -311,8 +336,9 @@ function oddRequest(c: Ctx, n: Npc): void {
   mark(c, 'odd_request', n.id);
   const favor = rng.pick(FAVORS);
   const skill = favor === 'scare_someone' ? 'intimidation' : favor === 'walk_me_home' ? 'athletics' : 'streetwise';
-  const p = clamp(0.4 + skillLevel(h, skill) * 0.04 + synergy(h, ['streetwise', ['stat:charm', 0.3]]) * 0.02, 0.15, 0.88);
+  const p = clamp(0.4 + skillLevel(h, skill) * 0.04 + skillLevel(h, 'hustling') * 0.02 + synergy(h, ['streetwise', ['stat:charm', 0.3]]) * 0.02, 0.15, 0.88);
   train(c, skill, 1);
+  train(c, 'hustling', 1);
   if (rng.chance(p)) {
     const pay = rng.int(20, 70);
     h.cash += pay;
