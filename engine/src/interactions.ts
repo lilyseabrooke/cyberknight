@@ -14,6 +14,7 @@ import { buyStim, supplyCandidates, supplyUrge } from './supply';
 import { STIM_IDS } from './content/stims';
 import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
+import { goalCandidates } from './goals';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -146,6 +147,7 @@ export function gather(w: World): Candidate[] {
   out.push(...dragonCandidates(w));
   out.push(...hobbyCandidates(w));
   out.push(...graffitiCandidates(w));
+  out.push(...goalCandidates(w));
 
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.

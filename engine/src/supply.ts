@@ -27,11 +27,13 @@ const activeStims = (h: Hero, beat: number) => h.buffs.filter((b) => b.id.starts
 const reserve = (h: Hero): number => Math.round(h.competence * 80);
 
 /** Best affordable upgrade for a slot, or null. */
-function bestUpgrade(h: Hero, slot: 'weapon' | 'armor'): { id: string; cost: number } | null {
+function bestUpgrade(w: World, slot: 'weapon' | 'armor'): { id: string; cost: number } | null {
+  const h = w.hero;
   const have = slot === 'weapon' ? h.weapon.power : (h.armor?.power ?? 0);
   const ids = slot === 'weapon' ? SHOP_WEAPONS : SHOP_ARMOR;
   let best: { id: string; cost: number } | null = null;
   for (const id of ids) {
+    if (w.flags[`sold:${id}`]) continue;
     const cost = price(h, gearPrice(id));
     if (ITEMS[id]!.power <= have || cost > h.cash - reserve(h)) continue;
     if (!best || ITEMS[id]!.power > ITEMS[best.id]!.power) best = { id, cost };
@@ -75,7 +77,7 @@ export function supplyUrge(w: World, dest: string): { bonus: number; smart: numb
       bonus += need.urgency * 0.6;
       smart += need.urgency * 1.5;
     }
-    if (h.cash >= cheapest && (bestUpgrade(h, 'weapon') || bestUpgrade(h, 'armor'))) {
+    if (h.cash >= cheapest && (bestUpgrade(w, 'weapon') || bestUpgrade(w, 'armor'))) {
       bonus += 0.25;
       smart += 0.6;
     }
@@ -132,7 +134,7 @@ export function supplyCandidates(w: World): Candidate[] {
       });
     }
     for (const slot of ['weapon', 'armor'] as const) {
-      const up = bestUpgrade(h, slot);
+      const up = bestUpgrade(w, slot);
       if (!up) continue;
       const gain = ITEMS[up.id]!.power - (slot === 'weapon' ? h.weapon.power : (h.armor?.power ?? 0));
       out.push({
@@ -195,7 +197,7 @@ function buyAmmo(c: Ctx, keeper: Npc, type: string, cost: number): void {
   c.emit('buy_ammo', 'good', { npc: keeper.name, ammo: a.label, type, rounds: a.box, cost, total: ammoOf(h, type) });
 }
 
-function buyGear(c: Ctx, keeper: Npc, id: string, cost: number): void {
+export function buyGear(c: Ctx, keeper: Npc, id: string, cost: number): void {
   const h = c.w.hero;
   const item = makeItem(id);
   const slot = item.kind === 'armor' ? 'armor' : 'weapon';

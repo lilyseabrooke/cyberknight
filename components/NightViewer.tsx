@@ -11,6 +11,8 @@ import {
   wielded,
   createRun,
   gangName,
+  goalViews,
+  type GoalView,
   IMPLANTS,
   SKILL_LABELS,
   skillLevel,
@@ -59,6 +61,7 @@ interface Snapshot {
   tab: number;
   skills: [string, number][];
   implants: string[];
+  goals: GoalView[];
 }
 
 interface Night {
@@ -110,6 +113,7 @@ function snap(w: World): Snapshot {
     tab: h.tab,
     skills: (Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((k) => [SKILL_LABELS[k], skillLevel(h, k)] as [string, number]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]),
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
+    goals: goalViews(w),
   };
 }
 
@@ -269,6 +273,20 @@ export default function NightViewer() {
           <aside className="panel" aria-label="Blackbird status">
             <Bar label="HP" value={status.hp} max={status.maxHp} kind="hp" />
             <Bar label={`LVL ${status.level}`} value={status.xp} max={status.xpNeed} kind="xp" />
+            {status.goals.length > 0 && (
+              <div className="goals">
+                <h3>On her mind</h3>
+                <ul>
+                  {status.goals.map((g) => (
+                    <li key={g.id} className={`goal ${g.status}`} style={{ marginLeft: g.depth * 14 }}>
+                      <span className="mark" aria-hidden>{g.status === 'focus' ? '▶' : g.status === 'held' ? '⏸' : g.depth > 0 ? '↳' : '•'}</span>{' '}
+                      {g.label}
+                      <span className="muted"> · {g.why}{g.note ? ` (${g.note.replace('_', ' ')})` : ''}{g.status === 'held' ? ' · on hold' : ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <dl>
               <dt>Location</dt><dd>{status.location}</dd>
               <dt>Neodollars</dt><dd>{status.cash}</dd>

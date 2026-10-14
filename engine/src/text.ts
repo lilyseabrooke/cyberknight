@@ -22,6 +22,7 @@ interface Entry {
   t?: Lines;
 }
 const e = (r: Lines, t?: Lines): Entry => ({ r, t });
+const $ = (n: unknown): string => Number(n).toLocaleString('en-US');
 
 export const BLURBS: Record<string, string> = {
   halo_floor: 'The Rusty Halo: synth-whiskey, neon halos that flicker in Morse code, and a jukebox that has opinions.',
@@ -630,6 +631,98 @@ const T: Record<string, Entry> = {
   'paint_shop:lift_caught': e((d) => [`${d.npc} catches Blackbird with a can in each sleeve. "You rattle when you walk." Things escalate.`], ['That rattle was a feature.']),
   'paint_shop:unattended': e((d) => [`The counter at Spray & Pray is empty: no clerk, no one around. Blackbird helps herself to ${d.count} cans and leaves the money nowhere, with feeling.`], ['It is an honesty-box, spiritually.']),
   'dumpster:paint': e(() => ["Under a pile of takeout bags, Blackbird finds a spray can. It's mostly empty. It still has a little life in it, like her."], ['One tag. Maybe two. Let us make them count.']),
+
+  // ------------------------------------------------------------------ goals
+  // New ideas. `goal` is a verb phrase ("buy the thermal katana", "flatline Skeeter").
+  'goal_new:want_item': e(
+    (d) => [
+      d.implant
+        ? `On the doc's tray at ${d.shop}: the ${d.item}. ${$(d.price)} neodollars. Blackbird has ${$(d.cash)}. ${Number(d.short) > 0 ? `She is ${$(d.short)} short.` : 'She can afford it. It is a rare and unsettling feeling.'}`
+        : `Behind the glass at ${d.shop}: the ${d.item}. ${$(d.price)} neodollars. Blackbird has ${$(d.cash)}. ${Number(d.short) > 0 ? `She is ${$(d.short)} short.` : 'She can afford it. It is a rare and unsettling feeling.'}`,
+      `Blackbird stops dead at the ${d.item}. The price tag says ${$(d.price)}. Her wallet says ${$(d.cash)}. She has decided to listen to neither.`,
+    ],
+    ['That one. I want that one. Destiny wants that one.', 'It was made for me. Someone just forgot to tell the price tag.', "I'm not window shopping. I'm window *acquiring*."],
+  ),
+  'goal_new:short': e(
+    (d) => [`The ${d.item} costs ${$(d.price)}. Blackbird has ${$(d.cash)}. A new plan forms, and it is all about the word "more": ${$(d.short)} neodollars more.`, `Blackbird does the math on the ${d.item}. The math is rude. She needs ${$(d.short)} more, and she starts thinking about where money lives.`],
+    ['Money. Right. The boring part of being a hero.', "I just need to find {short} neodollars lying around. Neo is full of lying-around."],
+  ),
+  'goal_new:grudge': e((d) => [`Blackbird has not forgotten ${d.npc}. She starts a list. ${d.npc} is the list. New objective: ${d.goal}.`], ['Some people, you just never let go.', 'I have a long memory and a short list.']),
+  'goal_new:slight': e(
+    (d) => [`${d.npc} is going to pay for that. Blackbird has decided. New objective: ${d.goal}.`, `Blackbird files ${d.npc}'s face under "Later". The folder is labeled ${String(d.goal).toUpperCase()}.`],
+    ['He looked at me. Like *that*. In *my* city.', 'Unforgivable. Memorable. Both of those, and also fixable.'],
+  ),
+  'goal_new:crush': e(
+    (d) => [`Blackbird has noticed ${d.npc}. She has decided ${d.npc} is going to notice her back. New objective: ${d.goal}.`, `Something about ${d.npc} lodges in Blackbird like a good song. She starts to plan.`],
+    ['A plan. For a girl. I have been training for this.', "She's going to be so impressed. She just doesn't know it yet."],
+  ),
+  'goal_new:prep': e((d) => [`${d.npc} hits harder than Blackbird does. This is, to her credit, the first time she has noticed. New step: ${d.goal}.`, `Blackbird sizes up ${d.npc}, then her tire iron, then ${d.npc} again. A plan appears in the margins: ${d.goal}.`], ['Tactics. Look at me, doing tactics.', 'First, a better weapon. Then, the thing I was going to do anyway.']),
+  'goal_new:rich': e((d) => [`Blackbird checks her wallet. Blackbird checks it again. New objective: ${d.goal}.`], ['Rich. Soon. In a tasteful, flashy way.', 'Money is just score. I am going to win at score.']),
+  'goal_new:dragon': e((d) => [`The dragon is a lot of dragon. Blackbird has a tire iron. She makes a plan: ${d.goal}.`], ["Big dragon. Small tire iron. Let's fix one of those."]),
+  'goal_new:heist': e(
+    (d) => [`${d.place} has what Blackbird needs${Number(d.short) > 0 ? ` (${$(d.short)} neodollars' worth, give or take)` : ''}. New objective: ${d.goal}. Quietly, if she can manage the word.`, `Blackbird looks at ${d.place} the way a locksmith looks at a promise. Plan: ${d.goal}.`],
+    ["In, out, nobody the wiser. It's a plan with all the best qualities.", 'Crime is just fast work. For fast people. Like me.'],
+  ),
+  'goal_new:heist_idea': e((d) => [`Blackbird stares at ${d.place} for a long time. Nobody looks at a safe like that and walks away. New objective: ${d.goal}.`], ["It's there. I'm here. That's basically an invitation."]),
+  'goal_pass:full': e((d) => [`Blackbird has ${d.count} plans on the go and a new one is waving at her. She has enough on her plate. ("To ${d.goal}", it says.) She lets it wave.`], ["I'm a busy woman. Very busy. Don't look at my schedule."]),
+
+  // Finished.
+  'goal_done:bought': e((d) => [`The ${d.item} is hers. Blackbird counts the receipt out loud, twice, and feels it in her soul.`, `Blackbird walks out with the ${d.item}. The receipt is the saddest part of the transaction.`], ['Worth every neodollar. I will say that until it is true.', 'Mine. Finally. It was meant to be.']),
+  'goal_done:raised': e((d) => [d.nested ? 'Blackbird counts the money and there it is: all of it. One obstacle down.' : `Blackbird counts her cash. ${d.goal}: done. She feels, for a moment, like a person with a bank.`], ['Money. Got it. Now to spend it unwisely.', "That's the boring part done."]),
+  'goal_done:armed': e(() => ['Blackbird hefts her new piece and nods. A better weapon, at last. Somewhere in Neo, a grudge sharpens.'], ['That is what I call an upgrade.', 'Now we are talking.']),
+  'goal_done:kill': e((d) => [`${d.npc} is no longer a problem. Blackbird files it under "resolved".`, `${d.npc} will not be looking at anyone wrong again. Blackbird feels a lightness she cannot account for.`], ['He looked at me wrong. Past tense.', 'Closure. Not a lot of it. Enough.']),
+  'goal_done:beat_up': e((d) => [`${d.npc} has been taught a lesson. Blackbird is a thorough teacher.`], ['Let that be a lesson. You were the lesson.']),
+  'goal_done:settled': e((d) => [`The plan was to flatline ${d.npc}. The venue had rules about that. ${d.npc} is unconscious, which Blackbird decides will do.`], ["He's out cold. It's basically the same. It is, in a legal sense, completely different."]),
+  'goal_done:kiss': e((d) => [`${d.npc} kisses back. Blackbird takes this as proof the plan was sound.`], ['Mission accomplished. The mission was me.', 'The plan worked. Never doubted it.']),
+  'goal_done:smitten': e((d) => [`${d.npc} is, by every measurable sign, impressed. Blackbird counts it as a win and keeps the receipts.`], ["She's into it. She's into me. I know what I'm doing."]),
+  'goal_done:clean': e((d) => [`Nobody notices a thing. Blackbird strolls out of ${d.place} into the street like a woman remembering an appointment. The take: ${$(d.haul)} neodollars' worth.`], ['Perfect. Silent. Practically a ghost with taste.', 'Do not tell anyone how easy that was. They will want to try.']),
+  'goal_done:messy': e((d) => [`Blackbird gets away with ${d.place}. Technically. The trail behind her is mostly sirens. The take: ${$(d.haul)} neodollars' worth.`], ['Fine. It got loud. Loud is a vibe.', 'Perfectly clean. In my heart.']),
+
+  // Given up.
+  'goal_drop:bored': e((d) => [`Somewhere along the way, Blackbird stops caring about the plan to ${d.goal}. Nobody notices. Least of all her.`, `The plan to ${d.goal} quietly leaves Blackbird's head, like a guest who was never really invited.`], ['It was a phase.', 'I have grown. Mostly in other directions.']),
+  'goal_drop:frustrated': e((d) => [`Blackbird has had it with the plan to ${d.goal}. She drops it, loudly, in a way a few people overhear.`], ["Forget it. Forget the whole thing. I didn't want it anyway.", 'This is a bad plan. It was always a bad plan. I was always secretly aware.']),
+  'goal_drop:overloaded': e((d) => [d.replacement ? `Blackbird has too much going on. To make room for a plan to ${d.replacement}, she lets go of the plan to ${d.goal}.` : `Blackbird has too many plans and not enough hands. The plan to ${d.goal} goes overboard.`], ['I only have so much hero to go around.', 'Prioritizing. This is what leadership looks like.']),
+  'goal_drop:moot': e((d) => [`The plan to ${d.goal} no longer makes sense. Blackbird shrugs and lets it go.`], ['Plans change. Mine change fast.']),
+  'goal_drop:impossible': e((d) => [`There is no way to ${d.goal} anymore. Blackbird accepts it with grace and a muffled swear.`], ["Not meant to be. Probably. Ask me later."]),
+  'goal_drop:closed': e((d) => [`Nobody is left to sell the ${d.item}. The shop is closed, whatever the sign says. Blackbird gives up on it.`], ["Counter's empty. Dreams, too."]),
+  'goal_drop:got_better': e((d) => [`Blackbird comes by something as good as the ${d.item} some other way. The plan to ${d.goal} folds like a lawn chair.`], ["Turns out I didn't need to pay for it. Ha."]),
+  'goal_drop:someone_else': e((d) => [`Somebody else got to ${d.npc} first. Blackbird is not sure how to feel about that. She is, mostly, offended.`], ['My target. My plan. Somebody else did the work.']),
+  'goal_drop:cold': e((d) => [`${d.npc} makes it clear, with words and one gesture, that the plan to ${d.goal} is not happening. Blackbird takes it like a champ. A damp, sulking champ.`], ["She doesn't know what she's missing.", "It's fine. I'm fine. I'm doing great."]),
+  'goal_drop:gone': e((d) => [`${d.npc} is gone. The plan to ${d.goal} goes with her.`], ['That is not how that was supposed to go.']),
+  'goal_drop:devoted': e((d) => [`Blackbird has someone now. The plan to ${d.goal} no longer feels right. She lets it go, somewhat guiltily.`], ["I'm taken. That's the rule. I just made the rule."]),
+  'goal_drop:sold_out': e((d) => [`The ${d.item} is gone. Somebody else bought it. Blackbird stares at the empty spot on the shelf for a long, sad time.`], ['Some girl is wearing my future right now.']),
+  'goal_drop:nothing_better': e(() => ["Blackbird has looked at everything on offer and none of it beats what she's holding. She decides her old weapon was fine, and always had been."], ['Look at that. The tire iron is a classic.']),
+  'goal_drop:aborted': e((d) => [`Blackbird slips out of ${d.place}, empty-handed and hoping nobody noticed. The plan to ${d.goal} is off, for now.`], ['A tactical retreat. Retreats are tactical by definition.', "We'll do it properly next time. Which is the plan."]),
+
+  // Reworked.
+  'goal_revise:sold_out': e((d) => [`The ${d.old} is gone: sold to somebody who isn't Blackbird. She sets her sights on the ${d.item} instead.`], ['Fine. This one. I always liked this one more.']),
+  'goal_revise:cheaper': e((d) => [`The ${d.old} is not happening. Blackbird lowers her sights, a little, to the ${d.item}. Her pride takes it on the chin.`], ['Honestly this one fits my aesthetic better.', "Dream big. Buy medium."]),
+  'goal_revise:lower_sights': e((d) => [`Nothing in the shop quite does what she wanted. The ${d.item} will do. Blackbird recalibrates the plan.`], ['Close enough. Hero-adjacent.']),
+  'goal_revise:settle': e((d) => [`Blackbird looks at the plan to flatline ${d.npc} and rounds it down. A good beating, maybe. Something educational.`], ["It's about the lesson. Not about the body. This time."]),
+
+  // On hold.
+  'goal_delay:hurt': e((d) => [`Blackbird is in no state to ${d.goal}. She puts it on hold until she stops leaking.`], ['Later. I have a whole life.']),
+  'goal_delay:licking_wounds': e((d) => [`That did not go well. The plan to ${d.goal} will have to wait while Blackbird finds a wall to lean on.`], ['A setback is just a comeback with a bad start.', 'Round one: noted. Round two: pending.']),
+  'goal_wake:hurt': e((d) => [`Blackbird is feeling better. The plan to ${d.goal} is back on.`], ['Back in business.']),
+  'goal_wake:licking_wounds': e((d) => [`Blackbird has had time to think. The plan to ${d.goal} is, annoyingly, still a good one.`], ['Round two.']),
+  'goal_wake:later': e((d) => [`Blackbird remembers the plan to ${d.goal}. Time to get back to it.`], ['Right. That thing.']),
+  'goal_resume:buy': e((d) => [`Blackbird remembers the ${d.item}. The thought comes back like a song she was half-humming.`], ['Right. The thing I want. Still want it.']),
+  'goal_resume:cash': e(() => ["Blackbird remembers she is saving up. She puts the thing she was about to spend money on back in her pocket. Mostly."], ['Money. Right. Focus.']),
+  'goal_resume:kill': e((d) => [`${d.npc} drifts back into Blackbird's head. She had not forgotten, exactly. She had just been busy.`], ['Still on the list. Still at the top.']),
+  'goal_resume:romance': e((d) => [`Blackbird thinks of ${d.npc} and tidies her hair for no reason.`], ['Where was I. Right. Impressing someone.']),
+  'goal_resume:weapon': e(() => ['Blackbird looks down at her weapon, sighs, and remembers she was going to do something about that.'], ['A better weapon. I was getting to it.']),
+  'goal_resume:heist': e((d) => [`Blackbird glances toward ${d.place} and remembers the plan.`], ["The job's still there. I'm still going to do it."]),
+
+  // Mid-heist.
+  'goal_note:inside': e((d) => [`Blackbird is inside ${d.place}. Nobody has looked up. She tries to look like she belongs, and mostly pulls it off.`], ['Smooth. Silent. Incredibly well-dressed for a burglar.']),
+  'goal_note:haul': e((d) => [`Blackbird has what she came for from ${d.place}. Now to leave without telling anyone.`], ['Easy. Even I am surprised how easy.', "Don't run. Walk like it's yours."]),
+  'goal_note:blown': e((d) => [`Something goes wrong at ${d.place}: a camera, a sound, a heat signature. The quiet part of the plan is over. Blackbird presses on anyway.`], ['Plan B is just plan A, louder.', "Nobody saw anything. Nobody saw anything yet."]),
+  'goal_note:bail': e((d) => [`Something goes wrong at ${d.place}. Blackbird, for once, looks at the situation and decides to leave while she can.`], ['Strategic withdrawal. A thing I invented just now.', 'I could stay, but I have a feeling about it. The feeling is "run".']),
+  slight: e(
+    (d) => [d.taken ? `${d.npc} (${d.role}) looks at Blackbird wrong. Just once. The way you look at a thing you intend to step on. She notices. Oh, she notices.` : `${d.npc} (${d.role}) gives Blackbird a look that is at least a little bit rude. She lets it go. This time.`],
+    (d) => [d.taken ? 'Did you see that? Did you see that look? Nobody else saw that look.' : 'I am above this. I am a bigger person. I am a bigger person, and I am noting it.'],
+  ),
+  impressed: e((d) => [`${d.npc} watches Blackbird do her thing. ${d.npc} is, against her better judgment, a little impressed.`, `Out of the corner of her eye, ${d.npc} is looking. Blackbird makes it look effortless. It is not.`], ['Yes. Watch. Take notes.', 'Nailed it. Subtly. In a way that is not at all subtle.']),
   death: e(
     (d) => [`Blackbird is dead. Level ${d.level}. ${d.place}. Cause: ${d.cause}. Killed by ${d.killer}.`, `Blackbird flatlines in ${d.place}. Level ${d.level}. The report will say "${d.cause}".`],
     ['Huh. Okay. That was unexpected.', "Tell my fans I'll be back. Tell the cops I wasn't here."],

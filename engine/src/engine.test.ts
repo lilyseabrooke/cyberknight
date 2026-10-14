@@ -166,9 +166,22 @@ describe('deepened sandbox', () => {
   it('skills level with use, implants install, and fame is earned', () => {
     const { seen, worlds } = sweep(120, 0.3, 'prog');
     expect(seen.has('skill_up')).toBe(true);
-    expect(seen.has('implant:install')).toBe(true);
-    expect(worlds.some((w) => w.hero.implants.length > 0)).toBe(true);
     expect(worlds.some((w) => w.hero.fame >= 3)).toBe(true);
+  });
+
+  it('the street doc will install chrome, for a price (not left to luck: it is a rare pick in a short night)', () => {
+    let installed = false;
+    for (let i = 0; i < 20 && !installed; i++) {
+      const w = createWorld({ seed: 'implant', competence: 0.5 });
+      w.hero.locationId = 'halo_restroom';
+      w.hero.cash = 900;
+      const events: GameEvent[] = [];
+      const c = { w, rng: new Rng(`chair-${i}`), emit: (type: string, outcome: any, data: any = {}) => events.push({ beat: w.beat, type, outcome, data }) };
+      gather(w).find((x) => x.key === 'implant')!.run(c);
+      installed = events.some((e) => e.type === 'implant' && e.data.variant === 'install');
+      if (installed) expect(w.hero.implants).toHaveLength(1);
+    }
+    expect(installed).toBe(true);
   });
 
   it('allies are always valid, capped, and have sane loyalty', () => {
@@ -621,7 +634,8 @@ describe('resources and consequences', () => {
         const before = w.hero.hp;
         const evs = step(w);
         if (w.over) break;
-        if (!evs.some((e) => ['use_med_pack', 'get_patched'].includes(e.type))) expect(w.hero.hp).toBeLessThanOrEqual(before);
+        // Being thrown out or arrested after a fight leaves her on a small floor of HP; that is not a heal.
+        if (!evs.some((e) => ['use_med_pack', 'get_patched', 'fight_end'].includes(e.type))) expect(w.hero.hp).toBeLessThanOrEqual(before);
       }
       const w2 = at('halo_floor');
       w2.hero.hp = 20;
