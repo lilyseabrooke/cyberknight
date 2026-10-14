@@ -3,6 +3,7 @@ import { rollGovernmentName, rollPersonality, type Personality } from './persona
 import { GANGS, spawnNpc } from './content/archetypes';
 import { makeItem } from './content/items';
 import { newMind } from './mind';
+import { assignBounties } from './bounty';
 import type { Exit, Feature, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
@@ -259,6 +260,8 @@ export function createWorld(opts: RunOptions): World {
   add('lab_bot', 'helix_lab');
   add('scientist', 'helix_lab');
   add('apollo', 'overpass', { id: 'dragon' });
+
+  assignBounties(npcs, rng.fork('bounties'));
 
   const hero = {
     name: 'Blackbird',

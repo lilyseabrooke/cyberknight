@@ -586,7 +586,19 @@ describe('graffiti ecosystem', () => {
     for (let i = 0; i < 300; i++) {
       for (const e of play(`grf-${i}`, 0.3).events) seen.add(e.type + (e.type === 'vandal' ? ':' + e.data.variant : ''));
     }
-    for (const k of ['graffiti', 'vandal:scene', 'vandal:fined', 'vandal:escaped', 'gang_hunt', 'paint_shop', 'mural']) expect(seen.has(k), k).toBe(true);
+    for (const k of ['graffiti', 'vandal:scene', 'vandal:fined', 'vandal:escaped', 'paint_shop', 'mural']) expect(seen.has(k), k).toBe(true);
+  });
+
+  it('gangs she has angered come looking for her outdoors', () => {
+    const w = at('street_main', 'hunt');
+    const g = w.situation.warringGangs[0];
+    w.heat[g] = 6;
+    let hunted = false;
+    for (let i = 0; i < 80 && !w.over && !hunted; i++) {
+      w.heat[g] = 6;
+      hunted = step(w).some((e) => e.type === 'gang_hunt');
+    }
+    expect(hunted).toBe(true);
   });
 });
 

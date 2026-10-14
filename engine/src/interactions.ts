@@ -15,6 +15,8 @@ import { STIM_IDS } from './content/stims';
 import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 import { goalCandidates } from './goals';
+import { discretionCandidates } from './discretion';
+import { knowsBounty, tippable } from './bounty';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -66,8 +68,10 @@ export function gather(w: World): Candidate[] {
         run: (c) => pickpocket(c, n),
       });
     }
+    // Paper on somebody she knows about is a payday, and the police won't mind.
+    const paper = n.bounty && knowsBounty(w, n.id) ? Math.min(1.2, n.bounty.amount / 250) : 0;
     out.push({
-      key: `challenge:${n.id}`, drives: { bravery: 1.0, pride: 0.8 }, bonus: n.affinity < -10 ? 0.4 : 0,
+      key: `challenge:${n.id}`, drives: { bravery: 1.0, pride: 0.8, greed: paper ? 0.6 : 0 }, bonus: (n.affinity < -10 ? 0.4 : 0) + paper,
       risk: 0.4 + levelRisk(w, n) + (n.power > heroPower(w) * 1.5 ? 1 : 0),
       run: (c) => {
         c.emit('challenge', 'mixed', { npc: n.name, role: n.role, variant: String(c.rng.int(1, 6)) });
@@ -148,6 +152,7 @@ export function gather(w: World): Candidate[] {
   out.push(...hobbyCandidates(w));
   out.push(...graffitiCandidates(w));
   out.push(...goalCandidates(w));
+  out.push(...discretionCandidates(w));
 
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.
@@ -189,7 +194,9 @@ function chat(c: Ctx, n: Npc): void {
   if (!w.flags.dragon_known) options.push('dragon');
   if (w.locations.halo_alley!.exits.some((e) => e.hidden)) options.push('hatch');
   if (w.locations.neon_pharaoh!.exits.some((e) => e.hidden)) options.push('staffdoor');
-  const talky = n.tags.includes('rumor');
+  const talky = n.tags.includes('rumor') || n.tags.includes('dealer') || n.tags.includes('fixer');
+  const tips = tippable(w, n.id);
+  if (tips.length && talky) options.push('bounty', 'bounty'); // twice as likely: it's what they're paid in gossip for
   train(c, 'streetwise', 1);
   if (n.archetype === 'scientist' && !w.flags.dragon_weak && rng.chance(0.45)) {
     w.flags.dragon_weak = true;
@@ -204,6 +211,13 @@ function chat(c: Ctx, n: Npc): void {
   } else if (options.length && rng.chance((talky ? 0.8 : 0.3) + 0.03 * skillLevel(w.hero, 'streetwise'))) {
     const what = rng.pick(options);
     n.affinity += 3;
+    if (what === 'bounty') {
+      const wanted = rng.pick(tips);
+      (w.mind.bounties ??= {})[wanted.id] = 'tip';
+      n.affinity += 3;
+      c.emit('chat', 'good', { variant: 'rumor_bounty', npc: n.name, target: wanted.name, role: wanted.role, amount: wanted.bounty!.amount, place: w.locations[w.mind.lastSeen[wanted.id] ?? wanted.locationId]?.name ?? 'around' });
+      return;
+    }
     if (what === 'dragon') w.flags.dragon_known = true;
     if (what === 'hatch') revealExit(w, 'halo_alley', 'club_maintenance');
     if (what === 'staffdoor') revealExit(w, 'neon_pharaoh', 'club_maintenance');
