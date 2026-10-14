@@ -5,6 +5,7 @@ import { KINDS, removeCompanion } from './companions';
 import { hasImplantFlag, skillLevel, skillValue, train } from './skills';
 import { addAmmo, spendAmmo, wielded } from './arms';
 import { witnessAssault } from './witness';
+import { collectBounties } from './bounty';
 
 export const npcsAt = (w: World, loc: string): Npc[] => Object.values(w.npcs).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.beat);
 
@@ -171,10 +172,12 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   // Hitting people in front of people (or cameras) has consequences.
   let seen = false;
   let heatFaction = 'npd';
+  let warranted = false;
   if (o.assault) {
     const wit = witnessAssault(c, foes, { gun: !!wielded(h).ammoType });
     seen = wit.seen;
     heatFaction = wit.heatFaction;
+    warranted = wit.warranted;
     foes.push(...wit.joiners);
   }
   for (const f of foes) f.hostile = true;
@@ -348,6 +351,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       }
     }
     h.cash += cash;
+    collectBounties(c, foes);
     h.hp = Math.max(h.hp, 1);
     c.emit('fight_end', 'good', { ...base, variant: 'win', cash, xp: Math.round(xp), loot: found.slice(0, 3).join(', ') });
     gainXp(c, xp);
@@ -382,7 +386,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   }
 
   // Bodies on the floor in front of witnesses turn assault into something the police take personally.
-  if (seen && !w.over) {
+  if (seen && !warranted && !w.over) {
     const bodies = foes.filter((f) => !f.alive).length;
     if (bodies) {
       const gain = Math.min(3, bodies);

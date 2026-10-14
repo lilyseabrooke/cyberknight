@@ -65,7 +65,7 @@ const hpFrac = (w: World): number => w.hero.hp / w.hero.maxHp;
 
 /** Loud things. A hero trying to be quiet does not do these. */
 const NOISY = new Set([
-  'challenge', 'threaten', 'join_brawl', 'pickpocket', 'graffiti', 'karaoke', 'dj_set', 'gig', 'busk', 'serenade', 'jam', 'beatbox',
+  'challenge', 'sweep', 'threaten', 'join_brawl', 'pickpocket', 'graffiti', 'karaoke', 'dj_set', 'gig', 'busk', 'serenade', 'jam', 'beatbox',
   'laser_tag', 'billboard', 'engage_flight', 'challenge_dragon', 'steal_puppy', 'rob_paint_shop', 'threaten_clerk', 'armwrestle',
 ]);
 /** Things that look good to a girl who is watching. */
@@ -296,7 +296,10 @@ const KINDS: Record<GoalKind, Kind> = {
       return loc ? [{ loc, value: 2.8 }] : [];
     },
     bias(w, g, fam, id) {
-      if (fam !== 'challenge' || id !== g.npc) return 0;
+      if (id !== g.npc) return 0;
+      // Getting him alone is part of the plan: she'll lead him off, or follow until he wanders somewhere quiet.
+      if (fam === 'lure' || fam === 'tail') return hpFrac(w) >= 0.6 ? 3.2 : 0.5;
+      if (fam !== 'challenge' && fam !== 'sweep') return 0;
       return hpFrac(w) >= 0.6 ? 4.5 : 0.7;
     },
   },
@@ -769,7 +772,7 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
   const lost = events.some((e) => e.type === 'fight_end' && e.data.variant !== 'win');
   const looted = events.some((e) => LOOT.has(e.type) && e.outcome === 'good');
   for (const g of m.goals) {
-    const swung = g.kind === 'kill' && fam === 'challenge' && id === g.npc;
+    const swung = g.kind === 'kill' && (fam === 'challenge' || fam === 'sweep') && id === g.npc;
     if (swung) g.struck = true;
     if (swung && lost) {
       g.setbacks++;

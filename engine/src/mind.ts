@@ -16,6 +16,7 @@ export const newMind = (): Mind => ({
   cooldown: {},
   focus: null,
   tally: { done: 0, dropped: 0, revised: 0, delayed: 0 },
+  bounties: {},
 });
 
 export const goalById = (w: World, id: number | null): Goal | undefined => (id === null ? undefined : w.mind.goals.find((g) => g.id === id));

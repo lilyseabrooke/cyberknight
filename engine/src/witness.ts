@@ -3,6 +3,7 @@ import { GANGS } from './content/archetypes';
 import { addHeat, npcsAt, remember } from './combat';
 import { sneakBonus } from './extras';
 import { clamp } from './candidate';
+import { hasBounty } from './bounty';
 
 /**
  * Consequences for hitting people. If anyone sees it (a person, a drone, a security camera) the
@@ -19,6 +20,8 @@ export interface Witnessing {
   seen: boolean;
   /** Which faction took the heat (the police, or Atlas on its own premises). */
   heatFaction: string;
+  /** Everyone she hit has NPD paper out on them, so the police have nothing to add. */
+  warranted: boolean;
 }
 
 const isPerson = (n: Npc): boolean => !n.tags.includes('robot') && !n.tags.includes('dragon') && !n.tags.includes('boss') && n.archetype !== 'puppy';
@@ -85,7 +88,9 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { gun: boolean }): Wit
   const loc = w.locations[h.locationId]!;
   const victims = foes.filter(isPerson);
   const heatFaction = loc.kind === 'corp' ? 'atlas' : 'npd';
-  const none: Witnessing = { joiners: [], seen: false, heatFaction };
+  // A bounty is the NPD's; it doesn't cover Atlas's own premises.
+  const warranted = heatFaction === 'npd' && victims.length > 0 && victims.every(hasBounty);
+  const none: Witnessing = { joiners: [], seen: false, heatFaction, warranted };
   if (!victims.length) return none;
   const victim = victims[0]!;
 
@@ -180,15 +185,22 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { gun: boolean }): Wit
   const fromWitnesses = seenBy.length ? 1 + (seenBy.length >= 3 ? 1 : 0) : 0;
   const fromCameras = camSees || droneSees ? 1 + (cams >= 3 ? 1 : 0) : 0;
   const gain = Math.min(4, Math.max(fromWitnesses, fromCameras) + (opts.gun ? 1 : 0) + (copSaw ? 1 : 0) + calls);
-  addHeat(w, heatFaction, gain);
+  if (warranted) {
+    // Wanted people are the police's problem, not hers. Everyone else still saw what they saw.
+    c.emit('bounty_hit', 'good', { victim: victim.name, amount: victim.bounty!.amount, witnesses: seenBy.length });
+  } else {
+    addHeat(w, heatFaction, gain);
+  }
   // A drone or a corporate camera answers to Atlas, wherever it hangs.
   if (heatFaction !== 'atlas' && droneSees) addHeat(w, 'atlas', 1);
-  c.emit('heat_up', 'bad', {
-    variant: heatFaction,
-    gain,
-    level: w.heat[heatFaction] ?? 0,
-    source: camSees && seenBy.length ? 'both' : camSees || droneSees ? 'camera' : 'people',
-    calls,
-  });
-  return { joiners, seen: true, heatFaction };
+  if (!warranted) {
+    c.emit('heat_up', 'bad', {
+      variant: heatFaction,
+      gain,
+      level: w.heat[heatFaction] ?? 0,
+      source: camSees && seenBy.length ? 'both' : camSees || droneSees ? 'camera' : 'people',
+      calls,
+    });
+  }
+  return { joiners, seen: true, heatFaction, warranted };
 }

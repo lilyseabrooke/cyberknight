@@ -20,6 +20,7 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   rescue: { impress: 0.6, justice: 1.0, kindness: 1.0 },
   // fights
   challenge: { temper: 1.6, courage: 0.4, grudge: 0.6 },
+  sweep: { temper: 1.0, courage: 0.6, thrill: 0.6 },
   threaten: { temper: 0.8, mischief: 0.4, kindness: -0.8 },
   join_brawl: { temper: 1.0, thrill: 0.8, mischief: 0.5 },
   challenge_dragon: { fame: 0.8, justice: 0.8, thrill: 0.6 },
@@ -104,7 +105,7 @@ export function flameOf(w: World): Npc | null {
 }
 
 const ROMANCE = new Set(['flirt', 'kiss', 'pool_date', 'serve_dish']);
-const FIGHTS = new Set(['challenge', 'threaten', 'join_brawl']);
+const FIGHTS = new Set(['challenge', 'sweep', 'threaten', 'join_brawl']);
 
 /** What her personality adds to (or takes from) how much she wants this. Neutral at 0.5 across the board. */
 export function traitBias(w: World, cand: Candidate): number {

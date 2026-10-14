@@ -114,6 +114,8 @@ export interface Npc {
   flags: string[];
   /** Knocked out until this beat (non-lethal fights). */
   downUntil: number;
+  /** An outstanding NPD bounty. Hitting someone who has one doesn't bring the police down on her. See bounty.ts. */
+  bounty?: { amount: number; hidden: boolean };
 }
 
 export interface Feature {
@@ -285,6 +287,8 @@ export interface Mind {
   /** The leaf goal that has been steering her most lately (so she doesn't flip-flop). */
   focus: number | null;
   tally: { done: number; dropped: number; revised: number; delayed: number };
+  /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */
+  bounties?: Record<Id, 'scan' | 'scanner' | 'tip'>;
 }
 
 export interface Ctx {

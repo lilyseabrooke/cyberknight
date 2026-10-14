@@ -13,13 +13,15 @@ import { ambientDragons } from './dragons';
 import { ambientGraffiti } from './graffiti';
 import { hasImplantFlag, skillLevel } from './skills';
 import { expireBuffs } from './supply';
+import { discretion } from './discretion';
+import { scanBounties } from './bounty';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
 
 export const MAX_BEATS = 600;
 
-const AGGRESSIVE = new Set(['challenge', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates']);
+const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates']);
 
-function score(w: World, cand: Candidate): number {
+export function score(w: World, cand: Candidate): number {
   const h = w.hero;
   const weights = h.personality.weights;
   let s = cand.bonus ?? 0;
@@ -27,6 +29,8 @@ function score(w: World, cand: Candidate): number {
   s += traitBias(w, cand);
   s += goalBias(w, cand);
   s += (cand.smart ?? 0) * h.competence;
+  // Not in front of people. Not where the police will hear about it.
+  s -= discretion(w, cand);
   s -= (cand.risk ?? 0) * (0.25 + h.competence * 1.5) * riskScale(w);
   // Baseline survival instinct (competence only makes it reliable): hurt heroes pick fewer fights.
   const hpRatio = h.hp / h.maxHp;
@@ -85,6 +89,7 @@ export function step(w: World): GameEvent[] {
   const before = mindBefore(w);
   let chosen: Candidate | null = null;
   upkeep(c);
+  if (!w.over) scanBounties(c);
   if (!w.over) ambientExtras(c);
   if (!w.over) ambientDragons(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);

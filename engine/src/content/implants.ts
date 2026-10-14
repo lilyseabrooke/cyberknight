@@ -24,6 +24,7 @@ export const IMPLANTS: Record<string, ImplantDef> = {
   dragon_eye: { name: 'dragon-spec optics', pitch: 'See everything. Even in the dark.', catch: 'Sees the future, but blinks at the wrong times.', stats: { reflex: 2 }, cost: 130 },
   hydraulic_calves: { name: 'hydraulic calves', pitch: 'Leap tall buildings.', catch: 'Landing was not included.', stats: { reflex: 1, muscle: 1 }, cost: 120, flag: 'springs' },
   sonic_ear: { name: 'sonic ear', pitch: 'Hears trouble coming.', catch: 'Also hears everything about everybody.', skills: { sneak: 2 }, cost: 100, flag: 'sonic_ear' },
+  bounty_scanner: { name: 'bounty-grade scanner', pitch: 'Sees the paper on anyone. Even the ones who paid to hide it.', catch: 'Also sees how little most people are worth.', cost: 140, flag: 'bounty_scan' },
   ad_blocker: { name: 'Atlas ad-blocker', pitch: 'Mute the propaganda.', catch: 'Suppresses her own sense of irony, slightly.', stats: { hack: 1 }, cost: 60, flag: 'ad_blocker' },
   emergency_defib: { name: 'emergency defibrillator', pitch: 'Cheat death. Once.', catch: 'Once. Only once. Do not test it.', cost: 220, flag: 'defib' },
 };
