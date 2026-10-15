@@ -110,6 +110,15 @@ export function moveNpc(w: Population, n: Npc, to: Id): void {
   put(ix.byLoc, to, n.id);
 }
 
+/** Change what somebody is called. The name index has to follow, so this is the only way to do it. */
+export function renameNpc(w: Population, n: Npc, name: string): void {
+  if (n.name === name) return;
+  const ix = index(w);
+  drop(ix.byName, n.name, n.id);
+  n.name = name;
+  put(ix.byName, name, n.id);
+}
+
 /** Change where somebody turns up. */
 export function setHaunts(w: Population, n: Npc, haunts: Record<Id, number> | undefined): void {
   const ix = index(w);

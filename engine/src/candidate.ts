@@ -55,6 +55,7 @@ export function arrive(c: Ctx, to: string, variant: string, extra: Record<string
     toId: to,
     from: from.name,
     first: dest.visits === 1,
+    ...(dest.visits === 1 && dest.blurb ? { blurb: dest.blurb } : {}),
     ...extra,
   });
   // The world remembers: somebody here knows what she did.

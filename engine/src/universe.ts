@@ -8,6 +8,7 @@ import { nextEvening } from './clock';
 import { AWAY, allNpcs, everyoneAt, moveNpc, removeNpc } from './population';
 import { settleAt } from './movement';
 import { populate } from './roster';
+import { seedFrontier } from './mapgen';
 import { remember } from './combat';
 import { tiesFrom } from './ties';
 import { DROPS } from './content/drops';
@@ -28,11 +29,12 @@ import type { DeathRecord, Id, Npc, World } from './types';
  * it belongs on is a compile error rather than a bug in somebody's save file.
  */
 
-export const UNIVERSE_VERSION = 2;
+export const UNIVERSE_VERSION = 3;
 
 /**
  * Bring a universe saved by an older version forward. Version 2 added the lab (an account and
- * upgrades on the legacy) and the drop points (features); everything else is as it was.
+ * upgrades on the legacy) and the drop points (features). Version 3 added the generated map: the
+ * hand-built district gets its edges opened onto the rest of Neo; everything else is as it was.
  */
 export function upgradeUniverse(u: Universe): Universe {
   const l = u.legacy;
@@ -42,6 +44,7 @@ export function upgradeUniverse(u: Universe): Universe {
   for (const [kind, d] of Object.entries(DROPS)) {
     if (!u.features[kind] && u.locations[d.at]) u.features[kind] = { id: kind, name: d.name, kind, locationId: d.at, uses: 0, flags: [] };
   }
+  seedFrontier(u);
   u.version = UNIVERSE_VERSION;
   return u;
 }

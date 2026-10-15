@@ -584,10 +584,12 @@ describe('graffiti ecosystem', () => {
 
   it('police fine vandals and gangs hunt her in the sim', () => {
     const seen = new Set<string>();
-    for (let i = 0; i < 300; i++) {
+    const want = ['graffiti', 'vandal:scene', 'vandal:fined', 'vandal:escaped', 'paint_shop', 'mural'];
+    // Fines are rare, and more of the night now goes on exploring a city that grows, so keep going until everything has turned up.
+    for (let i = 0; i < 900 && !want.every((k) => seen.has(k)); i++) {
       for (const e of play(`grf-${i}`, 0.3).events) seen.add(e.type + (e.type === 'vandal' ? ':' + e.data.variant : ''));
     }
-    for (const k of ['graffiti', 'vandal:scene', 'vandal:fined', 'vandal:escaped', 'paint_shop', 'mural']) expect(seen.has(k), k).toBe(true);
+    for (const k of want) expect(seen.has(k), k).toBe(true);
   });
 
   it('gangs she has angered come looking for her outdoors', () => {
