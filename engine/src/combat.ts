@@ -11,6 +11,7 @@ import { collectBounties } from './bounty';
 import { npcsAt } from './population';
 import { pinAt, settleAt } from './movement';
 import { populate } from './roster';
+import { expand } from './mapgen';
 import { ensureDeep } from './deepen';
 import { spreadDeed } from './ties';
 import { settleContracts } from './contracts';
@@ -39,6 +40,7 @@ export function relocate(w: World, to: string): void {
   const dest = w.locations[to];
   if (dest) {
     dest.visits++;
+    expand(w, dest); // the city grows to meet her; see mapgen.ts
     settleAt(w, to, w.clock);
     populate(w, dest);
   }

@@ -1194,6 +1194,8 @@ export function render(ev: GameEvent, ctx: RenderCtx): TextLine[] {
   if (rs.length) out.push({ voice: 'report', text: interp(ctx.rng.pick(rs), ev.data, extra) });
   if (ev.type === 'go' && ev.data.first === true && typeof ev.data.toId === 'string' && BLURBS[ev.data.toId]) {
     out.push({ voice: 'report', text: BLURBS[ev.data.toId]! });
+  } else if (ev.type === 'go' && ev.data.first === true && typeof ev.data.blurb === 'string') {
+    out.push({ voice: 'report', text: ev.data.blurb }); // a place the city made up as she got there
   }
   const alwaysThought = ['death', 'victory', 'level_up', 'depart', 'fight_end', 'dragon_confront'].includes(ev.type);
   const quirk = quirkFor(ev, ctx.personality);

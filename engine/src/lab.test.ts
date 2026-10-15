@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { step } from './run';
-import { beginRun, endRun, newUniverse, splitWorld } from './universe';
+import { UNIVERSE_VERSION, beginRun, endRun, newUniverse, splitWorld } from './universe';
 import { MemoryStore, deserialize, makeSave, resume, serialize } from './store';
 import { NODES, NODE_IDS, TREE, parseNeed, describeFx } from './content/tree';
 import { DROPS } from './content/drops';
@@ -439,7 +439,7 @@ describe('the lab loop', () => {
     for (const k of Object.keys(DROPS)) delete feats[k];
     const text = JSON.stringify({ universe: { ...u, version: 1, legacy: old, features: feats }, run: null, savedAt: 9 });
     const save = deserialize(text);
-    expect(save.universe.version).toBe(2);
+    expect(save.universe.version).toBe(UNIVERSE_VERSION);
     expect(save.universe.legacy).toMatchObject({ account: 0, upgrades: {}, spent: 0 });
     expect(Object.keys(save.universe.features)).toEqual(expect.arrayContaining(Object.keys(DROPS)));
     const w = beginRun(save.universe, { seed: 'x' });

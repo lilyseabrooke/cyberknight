@@ -9,6 +9,7 @@ import { newFactions, setRelation } from './factions';
 import { link } from './ties';
 import { START_MINUTE } from './clock';
 import { DROPS } from './content/drops';
+import { seedFrontier } from './mapgen';
 import type { Exit, Feature, Gender, Hero, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
@@ -375,6 +376,7 @@ export function createWorld(opts: RunOptions): World {
     ending: null,
   };
   authoredTies(world);
+  seedFrontier(world); // the hand-built district opens onto a city that gets made as she walks into it
   return world;
 }
 

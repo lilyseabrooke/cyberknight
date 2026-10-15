@@ -34,7 +34,7 @@ export function deserialize(text: string): Save {
   const raw = JSON.parse(text) as Save;
   if (!raw || typeof raw !== 'object' || !raw.universe) throw new Error('not a Cyberknight save');
   const v = raw.universe.version;
-  if (v !== UNIVERSE_VERSION && v !== 1) throw new Error(`save is version ${v}; this game reads version ${UNIVERSE_VERSION}`);
+  if (!(v >= 1 && v <= UNIVERSE_VERSION)) throw new Error(`save is version ${v}; this game reads version ${UNIVERSE_VERSION}`);
   return { universe: upgradeUniverse(raw.universe), run: raw.run ?? null, savedAt: raw.savedAt ?? 0 };
 }
 

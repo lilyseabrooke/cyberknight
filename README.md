@@ -19,6 +19,8 @@ npm run analyze               # play lots of nights and report; --vs main compar
 
 The loop: Blackbird goes out, banks money at drop points around Neo, dies, and is rebuilt in the lab (a separate screen), where whatever made it into her account buys upgrades from a large set of skill trees. The browser keeps the save between visits.
 
+Neo is built as she explores: the Rusty Halo district is hand-made, and everything past it is generated when she first gets there and kept in the save (`engine/src/mapgen.ts`).
+
 `engine/` is pure, deterministic TypeScript (seeded RNG, no DOM). `app/` + `components/` are the Next.js log UI (no backend yet; Supabase saves/login come in M2).
 
 ## Deploying

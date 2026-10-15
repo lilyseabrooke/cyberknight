@@ -334,6 +334,31 @@ export interface Location {
   faction?: Id;
   /** Its people have been made. See roster.ts. */
   populated?: boolean;
+  /** Present on places the city grew rather than the hand-built district. See mapgen.ts. */
+  gen?: GenInfo;
+  /** One line about what she sees the first time she walks in (generated places only). */
+  blurb?: string;
+}
+
+export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
+
+/** What kind of generated place this is; decides what grows off it. */
+export type GenRole = 'street' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'tunnel' | 'backroom' | 'cellar' | 'vip';
+
+/** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
+export interface GenInfo {
+  role: GenRole;
+  parent: Id;
+  /** Which of the parent's children this is. The id is the parent's id plus this, so a place's id says where it is. */
+  slot: number;
+  /** Steps of street from the hand-built district. */
+  depth: number;
+  district: District;
+  /** Its own neighbours have been made. */
+  expanded: boolean;
+  /** For things that run on (corporate floors, tunnels): how far in this is, and how far it goes. */
+  rank?: number;
+  max?: number;
 }
 
 /** Per-run situational variables, layered on the persistent macro-Neo. */

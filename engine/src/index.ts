@@ -22,6 +22,7 @@ export { describe as describeWeapon, rating as weaponRating, genWeapon, fxOf } f
 export { clockLabel, phaseOf, dayOf, hourOf, catchUp, elapse, offlineMinutes, type Phase } from './clock';
 export { npcsAt, everyoneAt, hauntersOf, awayNpcs, addNpc, moveNpc, removeNpc, AWAY } from './population';
 export { populate, ROSTERS, type SlotDef } from './roster';
+export { expand, seedFrontier, childId } from './mapgen';
 export { relation, defaultOpinion, type Faction } from './factions';
 export { upgradeUniverse, UNIVERSE_VERSION, newUniverse, beginRun, endRun, splitWorld, joinWorld, extractUniverse, type Universe, type RunState, type BeginOptions } from './universe';
 export { makeSave, serialize, deserialize, resume, MemoryStore, type Save, type SaveStore } from './store';
