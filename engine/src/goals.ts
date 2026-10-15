@@ -1,6 +1,6 @@
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
-import type { Ctx, Goal, GoalKind, Id, Npc, Ware, World, GameEvent } from './types';
+import type { Ctx, Goal, GoalKind, Id, Location, Npc, Ware, World, GameEvent } from './types';
 import { armBest, edge, rating } from './weapons';
 import { ACT_SKILL, CALLING } from './stage';
 import { SKILL_LABELS, skillLevel } from './skills';
@@ -14,6 +14,7 @@ import { buyGear, supplyUrge } from './supply';
 import { heatUrge } from './laylow';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
+import { possessive } from './mapgen';
 import { MAX_IMPLANTS } from './content/implants';
 import {
   MAX_DEPTH, capacity, childrenOf, cool, cooling, depth, focusFactor, goalById, hasGoal, isHeld, isLeaf, priority, subjectOf, topLevel,
@@ -402,6 +403,29 @@ const KINDS: Record<GoalKind, Kind> = {
     },
   },
 
+  // ------------------------------------------------------------------ burgle
+  // The trip is ordinary travel: the goal wants her at their door, the usual route-hopping takes her there, and the
+  // engine reacts to whatever the streets do on the way. The job itself is the `burgle_home` hustle, offered at the door.
+  burgle: {
+    decay: 0.002, stick: ['greed', 'thrill'], patience: 40,
+    label: (w, g) => `burgle ${possessive(npcName(w, g.npc))} place`,
+    check(w, g) {
+      const n = g.npc ? w.npcs[g.npc] : undefined;
+      if (!n || !n.alive || !g.loc || !w.locations[g.loc]) return { drop: 'gone' };
+      if (n.flags.includes('burgled')) return { done: 'burgled' };
+      return null;
+    },
+    plan(c, g) {
+      if (c.w.hero.locationId !== g.loc && hpFrac(c.w) < 0.5) delay(c, g, 40, 'hurt');
+    },
+    metric: (w, g) => -distTo(w, g.loc!),
+    targets: (_w, g) => [{ loc: g.loc!, value: 3.2 }],
+    bias(_w, g, fam, id) {
+      if (fam === 'burgle_home') return id === g.npc ? 5 : 0;
+      return NOISY.has(fam) ? -2.2 : 0;
+    },
+  },
+
   // ------------------------------------------------------------------ heist
   heist: {
     decay: 0.003, stick: ['thrill', 'greed'], patience: 45,
@@ -456,6 +480,16 @@ const KINDS: Record<GoalKind, Kind> = {
     },
   },
 };
+
+/** She sets out to rob somebody's home. The goal does the walking; see `burgle` above. */
+export function startBurglary(c: Ctx, n: Npc, home: Location, extra: EventData = {}): Goal | null {
+  const g = adopt(c, { kind: 'burgle', loc: home.id, npc: n.id, why: 'she knows where the money sleeps', desire: 0.7, variant: 'burgle', extra: { npc: n.name, home: home.name, ...extra } });
+  if (!g) cool(c.w, `burgle:${n.id}`, 40);
+  return g;
+}
+
+/** Is she already on her way to this one (or has she just been told no)? */
+export const burglaryPending = (w: World, npcId: Id): boolean => hasGoal(w, 'burgle', npcId) || cooling(w, `burgle:${npcId}`);
 
 const earnPull = (e: number): number => 1.2 * Math.log1p(e / 25);
 

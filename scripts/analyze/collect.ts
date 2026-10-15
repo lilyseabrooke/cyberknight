@@ -40,7 +40,7 @@ export interface Night {
   pursuit: Record<string, number>;
 }
 
-export const HUSTLES = ['odd_jobs', 'security_shift', 'courier_run', 'bodyguard_gig', 'burgle_home', 'protection_racket', 'scam_mark', 'sell_fake_goods', 'cold_read', 'odd_request', 'panhandle'];
+export const HUSTLES = ['odd_jobs', 'security_shift', 'courier_run', 'bodyguard_gig', 'burgle_home', 'burgle_flat', 'protection_racket', 'scam_mark', 'sell_fake_goods', 'cold_read', 'odd_request', 'panhandle'];
 
 const bump = (m: Record<string, number>, k: string, by = 1) => {
   m[k] = (m[k] ?? 0) + by;

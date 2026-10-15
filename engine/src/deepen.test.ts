@@ -497,7 +497,8 @@ describe('whole nights', () => {
     let deep = 0;
     let total = 0;
     const kinds = new Set<string>();
-    for (let i = 0; i < 6; i++) {
+    // Twelve nights, not six: with burglary needing a known address there are fewer fights to deepen people, so fewer `learn`s per night.
+    for (let i = 0; i < 12; i++) {
       const w = createWorld({ seed: `depth${i}`, personality: personalityFrom({ curiosity: 0.9, sociable: 0.9, greed: 0.7, impress: 0.8 }) });
       for (let b = 0; b < 400 && !w.over; b++) {
         for (const e of step(w)) {

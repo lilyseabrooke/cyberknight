@@ -1,4 +1,4 @@
-import { Rng } from './rng';
+import { Rng, hashString } from './rng';
 import { inheritInfluence, pickFaction } from './factions';
 import type { District, Exit, GenRole, Id, Location, World } from './types';
 
@@ -38,7 +38,7 @@ const NEXT_TO: Record<District, District[]> = {
   slum: ['tenement', 'industrial', 'nightlife'],
 };
 
-type Lot = Exclude<GenRole, 'street' | 'backroom' | 'cellar' | 'vip'>;
+type Lot = Exclude<GenRole, 'street' | 'unit' | 'backroom' | 'cellar' | 'vip'>;
 
 /** What stands along a street, by district. */
 const LOTS: Record<District, Record<Lot, number>> = {
@@ -94,6 +94,7 @@ const MOOD: Record<District, string[]> = {
 };
 
 const BLURB: Record<Exclude<GenRole, 'street'>, string[]> = {
+  unit: ['{name}: a door, a lock and everything somebody owns.'],
   shop: ['{name}: shelves to the ceiling, a bell on the door, and a proprietor who has already priced everything on you.', '{name}: fluorescent, narrow and crammed, and everything has a handwritten tag that says PROBABLY FINE.', '{name}: a shop that is very proud of itself and has no right to be.'],
   bar: ['{name}: low light, sticky floor, a regular for every stool and the same song on the jukebox it was playing yesterday.', '{name}: a bar that has decided to be a mood. The taps are mostly decorative.', '{name}: dark wood, bad neon and a bartender who looks at her once and remembers it.'],
   club: ['{name}: bass you can feel in your implants, light that has opinions, and a crowd that has paid to forget.', '{name}: a dance floor, a strobe, and a ceiling covered in someone\'s old holiday lights.', '{name}: sweat, glitter and a velvet rope that hasn\'t decided about her yet.'],
@@ -253,10 +254,15 @@ interface ChildOpts {
   label?: string;
   rank?: number;
   max?: number;
+  /** Dwellings are made to order: what it's called, how well it's locked, what it looks like. */
+  name?: string;
+  security?: number;
+  cameras?: number;
+  blurb?: string;
 }
 
 const KIND: Record<GenRole, Location['kind']> = {
-  street: 'street', shop: 'shop', bar: 'bar', club: 'club', corp: 'corp', flat: 'home', tunnel: 'tunnel', backroom: 'bar', cellar: 'tunnel', vip: 'club',
+  street: 'street', shop: 'shop', bar: 'bar', club: 'club', corp: 'corp', flat: 'home', unit: 'home', tunnel: 'tunnel', backroom: 'bar', cellar: 'tunnel', vip: 'club',
 };
 
 const clampSec = (n: number): number => Math.max(0, Math.min(9, Math.round(n)));
@@ -276,8 +282,8 @@ function sketch(
   if (existing) return existing;
   const rng = stream(w, id);
   const street = role === 'street';
-  const interior = role === 'backroom' || role === 'cellar' || role === 'vip' || (role === 'corp' && o.rank !== undefined) || (role === 'tunnel' && o.rank !== undefined);
-  const name = nameFor(rng, role, district, parent, o.rank);
+  const interior = role === 'unit' || role === 'backroom' || role === 'cellar' || role === 'vip' || (role === 'corp' && o.rank !== undefined) || (role === 'tunnel' && o.rank !== undefined);
+  const name = o.name ?? nameFor(rng, role, district, parent, o.rank);
   const deep = Math.min(2, Math.floor(depth / 4));
 
   let security: number;
@@ -288,15 +294,16 @@ function sketch(
     case 'club': security = 3 + (district === 'nightlife' ? 1 : 0) + rng.int(0, 1); break;
     case 'corp': security = o.rank ? parent.security + rng.int(1, 2) : 5 + rng.int(0, 1) + deep; break;
     case 'flat': security = 0; break;
+    case 'unit': security = o.security ?? 1; break;
     case 'tunnel': security = o.rank ? parent.security : 1 + rng.int(0, 1); break;
     case 'backroom': security = parent.security + 2; break;
     case 'cellar': security = 1; break;
     case 'vip': security = parent.security + 1; break;
   }
-  security = clampSec(Math.min(security, role === 'corp' || role === 'backroom' || role === 'vip' ? 9 : 6));
+  security = clampSec(Math.min(security, role === 'unit' ? 9 : role === 'corp' || role === 'backroom' || role === 'vip' ? 9 : 6));
 
   const crowded = role === 'bar' ? rng.chance(0.3 + (district === 'nightlife' ? 0.3 : 0)) : role === 'club' || role === 'vip' ? true : street ? rng.chance(CROWDED[district]) : false;
-  const noCameras = role === 'flat' || role === 'tunnel' || role === 'cellar' || role === 'backroom';
+  const noCameras = role === 'flat' || (role === 'unit' && o.cameras === undefined) || role === 'tunnel' || role === 'cellar' || role === 'backroom';
   const blurbs = street ? [`${name}. ${pick(rng, MOOD[district])}`] : BLURB[role as Exclude<GenRole, 'street'>];
 
   // Its own corner of the city: a whiff of whoever is round about, and the owners where there are owners.
@@ -322,12 +329,12 @@ function sketch(
     tossTo: toStreet,
     fleeTo: parent.id,
     visits: 0,
-    cameras: noCameras ? 0 : clampSec(security / 2),
+    cameras: noCameras ? 0 : o.cameras ?? clampSec(security / 2),
     graffiti: 0,
     territory: gang && (influence[gang] ?? 0) >= 0.5 ? gang : null,
     influence,
     populated: false,
-    blurb: pick(rng, blurbs).replace('{name}', name.charAt(0).toUpperCase() + name.slice(1)),
+    blurb: o.blurb ?? pick(rng, blurbs).replace('{name}', name.charAt(0).toUpperCase() + name.slice(1)),
     gen: { role, parent: parent.id, slot, depth, district, expanded: false, ...(o.rank !== undefined ? { rank: o.rank } : {}), ...(o.max !== undefined ? { max: o.max } : {}) },
   };
   if (faction) loc.faction = faction;
@@ -360,6 +367,7 @@ function nameFor(rng: Rng, role: GenRole, district: District, parent: Location, 
     case 'corp': return rank ? `${parent.name.split(' ').slice(0, 2).join(' ')} ${FLOOR[(rng.int(0, FLOOR.length - 1) + rank) % FLOOR.length]}` : `${pick(rng, CORP)} ${pick(rng, DIVISION)}`;
     case 'flat': return `${pick(rng, FLAT_WORD)} ${pick(rng, FLAT_NAME)}`;
     case 'tunnel': return rank ? `${parent.name.replace(/, further in$/, '')}, further in` : `the ${pick(rng, TUNNEL_ADJ)} ${pick(rng, TUNNEL_NAME)}`;
+    case 'unit': return `a flat in ${parent.name}`;
     case 'backroom': return `${possessive(parent.name)} back room`;
     case 'cellar': return `${possessive(parent.name)} cellar`;
     case 'vip': return `${possessive(parent.name)} VIP lounge`;
@@ -369,3 +377,75 @@ function nameFor(rng: Rng, role: GenRole, district: District, parent: Location, 
 /** Is this place a district of the generated city (and how far out)? For tests and tooling. */
 export const generated = (loc: Location): boolean => !!loc.gen;
 export const allDistricts = (): District[] => [...DISTRICTS];
+
+// ===================================================================== dwellings
+
+export type Dwelling = 'capsule' | 'flat' | 'penthouse';
+
+/** What a person can afford to sleep in. It is a cramped megacity: most people get a capsule. */
+export const dwellingFor = (cash: number, corp: boolean): Dwelling => (corp || cash >= 450 ? 'penthouse' : cash >= 160 ? 'flat' : 'capsule');
+
+const DWELLING: Record<Dwelling, { label: string; security: [number, number]; blurbs: string[] }> = {
+  capsule: {
+    label: 'capsule hab',
+    security: [0, 1],
+    blurbs: ['{name}: a bunk, a hot plate and a shelf that is doing the work of a wardrobe. Everything within arm\'s reach, which is the point.', '{name}: two metres by three, one window onto an air shaft, and a lock that has seen worse.'],
+  },
+  flat: {
+    label: 'flat',
+    security: [1, 2],
+    blurbs: ['{name}: one room and a half, a kitchenette and a real door. Somebody has made it theirs.', '{name}: small, tidy and humming, with a plant in the window that is trying its best.'],
+  },
+  penthouse: {
+    label: 'penthouse',
+    security: [3, 5],
+    blurbs: ['{name}: glass on three sides, a view of the dragon patrols and a lock that costs more than a flat.', '{name}: quiet money. Pale floors, soft light and a door that logs everything that touches it.'],
+  },
+};
+
+/**
+ * Somewhere for somebody to live, on a street that already exists: the building (an existing flat lot if the street
+ * has one, else a new one) and their own door inside it. Ids come from the owner, not the order things were found
+ * in, so the same person lives in the same place in every run of the same save.
+ */
+export function addDwelling(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, street: Location, owner: { id: Id; name: string }, size: Dwelling): Location {
+  expand(w, street);
+  const district: District = street.gen?.district ?? 'tenement';
+  const depth = street.gen?.depth ?? 1;
+  const tag = hashString(`dwelling:${owner.id}`);
+  let block = street.exits.map((e) => w.locations[e.to]).find((l): l is Location => l?.gen?.role === 'flat' && l.gen.parent === street.id);
+  if (!block) block = sketch(w, street, 200 + (tag % 700), 'flat', district, depth);
+  const name = `${possessive(owner.name)} ${DWELLING[size].label}`;
+  return addUnit(w, block, 100 + (tag % 900), size, name, `${possessive(owner.name)} door`, owner.id);
+}
+
+/** A door in an apartment block: somebody's home, made to order. `key` seeds how it looks and how well it's locked. */
+export function addUnit(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, block: Location, slot: number, size: Dwelling, name: string, label: string, key: string): Location {
+  const district: District = block.gen?.district ?? 'tenement';
+  const depth = block.gen?.depth ?? 1;
+  const d = DWELLING[size];
+  const rng = stream(w, `${block.id}:${key}`);
+  const security = rng.int(d.security[0], d.security[1]);
+  return sketch(w, block, slot, 'unit', district, depth, {
+    name,
+    security,
+    cameras: size === 'penthouse' ? clampSec(security / 2) : 0,
+    blurb: pick(rng, d.blurbs).replace('{name}', name.charAt(0).toUpperCase() + name.slice(1)),
+    label,
+  });
+}
+
+/** What a block's doors are like, by district: the poor end of town is capsules, the rich end is not. */
+export function sizeOfDoor(w: Pick<World, 'worldSeed'>, block: Location, slot: number): Dwelling {
+  const rng = stream(w, `${block.id}:size:${slot}`);
+  switch (block.gen?.district) {
+    case 'corporate': return rng.chance(0.4) ? 'penthouse' : 'flat';
+    case 'market': case 'nightlife': return rng.chance(0.2) ? 'capsule' : 'flat';
+    default: return rng.chance(0.7) ? 'capsule' : 'flat';
+  }
+}
+
+export const flatName = (w: Pick<World, 'worldSeed'>, block: Location, slot: number): string => {
+  const rng = stream(w, `${block.id}:flat:${slot}`);
+  return `flat ${rng.int(1, 9)}${'ABCDEF'[rng.int(0, 5)]}`;
+};

@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { slow } from './testkit';
 import { Rng, personalityFrom, runToEnd, hasTemplate, type GameEvent, type World } from './index';
+import { step } from './run';
+import { relocate } from './combat';
+import { expand } from './mapgen';
 import { createWorld } from './world';
 import { chores, doorSlots, hustleCandidates, oddJobReady, parcels, tickHustles, wary } from './hustles';
 import { tickVenues } from './stage';
 import { spawnNpc } from './content/archetypes';
 import type { Npc } from './types';
 import { addNpc, moveNpc } from './population';
+import { knowsHome, learnHome, residenceOf, scanHomes } from './homes';
 
 const world = (seed: string, competence = 0.8): World => createWorld({ seed, competence, personality: personalityFrom({}) });
 const ctxOf = (w: World, seed: string) => {
@@ -125,14 +129,20 @@ describe('bodyguard gigs', () => {
 });
 
 describe('burglary and shakedowns take what is there', () => {
-  it('a house only has so much in it, and she only robs it once', () => {
+  it('she has to know where someone lives before she can rob them, and only robs a place once', () => {
     const w = world('burgle');
     empty(w, 'halo_floor');
     const mark = npc(w, 'rich', 'patron', 'halo_floor', { cash: 300, level: 1 });
     const poor = npc(w, 'poor', 'patron', 'halo_floor', { cash: 20 });
+    expect(keys(w, 'burgle_home:').length).toBe(0); // no address, no job
+    learnHome(mark);
+    learnHome(poor);
     expect(keys(w, 'burgle_home:rich').length).toBe(1);
-    expect(keys(w, 'burgle_home:poor').length).toBe(0);
+    expect(keys(w, 'burgle_home:poor').length).toBe(0); // nothing worth taking
     const before = w.hero.cash;
+    run(w, 'burgle_home:rich', 'bu0'); // decides to go
+    expect(mark.flags.includes('burgled')).toBe(false);
+    relocate(w, mark.residence!); // ...and gets there
     const ev = run(w, 'burgle_home:rich', 'bu1');
     expect(mark.flags.includes('burgled')).toBe(true);
     expect(keys(w, 'burgle_home:rich').length).toBe(0);
@@ -140,7 +150,97 @@ describe('burglary and shakedowns take what is there', () => {
       expect(w.hero.cash).toBeGreaterThan(before);
       expect(mark.cash).toBeLessThan(300);
     }
-    void poor;
+  });
+
+  it('their home is somewhere on the map; she travels there like anywhere else, and it all happens inside it', () => {
+    let arrived = 0;
+    for (const seed of ['b1', 'b2', 'b3', 'b4', 'b5', 'b6']) {
+      const w = world(seed);
+      empty(w, 'halo_floor');
+      const mark = npc(w, 'rich', 'patron', 'halo_floor', { cash: 300, level: 1 });
+      learnHome(mark);
+      const places0 = new Set(Object.keys(w.locations));
+      run(w, 'burgle_home:rich', `walk-${seed}`);
+      // Deciding to go moves nobody: the home is on the map, a few streets off, and she has a goal to get there.
+      const home = w.locations[mark.residence!]!;
+      expect(home.kind, seed).toBe('home');
+      expect(places0.has(home.id), seed).toBe(false);
+      expect(w.hero.locationId, seed).toBe('halo_floor');
+      expect(w.mind.goals.some((g) => g.kind === 'burgle' && g.loc === home.id), seed).toBe(true);
+      expect(keys(w, 'burgle_home:rich').length, seed).toBe(0); // she is already on her way
+      expect(w.locations[home.tossTo]!.outdoors).toBe(true);
+      // Then the ordinary sim carries her along.
+      const seen = new Set<string>();
+      const fights: GameEvent[] = [];
+      for (let b = 0; b < 150 && !w.over && !mark.flags.includes('burgled'); b++) {
+        for (const e of step(w)) {
+          if (e.type === 'fight_start' && /burgling/.test(String(e.data.cause))) fights.push(e);
+        }
+        seen.add(w.hero.locationId);
+        if (w.hero.locationId === home.id) break;
+      }
+      if (seen.has(home.id)) arrived++;
+      for (const f of fights) expect(f.data.foes, seed).toBe(mark.name);
+    }
+    expect(arrived).toBeGreaterThan(0);
+  }, 120_000);
+
+  it('richer people live in bigger places, and the address is the same every time', () => {
+    const w = world('sizes');
+    empty(w, 'halo_floor');
+    const poor = npc(w, 'p', 'patron', 'halo_floor', { cash: 80 });
+    const rich = npc(w, 'r', 'patron', 'halo_floor', { cash: 900 });
+    const { c } = ctxOf(w, 'x');
+    const a = residenceOf(c, poor);
+    const b = residenceOf(c, rich);
+    expect(a.name).toMatch(/capsule hab/);
+    expect(b.name).toMatch(/penthouse/);
+    expect(b.security).toBeGreaterThan(a.security);
+    expect(residenceOf(c, poor)).toBe(a);
+  });
+
+  it('an address scanner reads where people live; without one she has to be invited', () => {
+    const w = world('scan');
+    empty(w, 'halo_floor');
+    const mark = npc(w, 'm', 'patron', 'halo_floor', { cash: 300 });
+    const r = ctxOf(w, 's');
+    scanHomes(r.c);
+    expect(knowsHome(mark)).toBe(false);
+    w.hero.implants.push('address_scanner');
+    scanHomes(r.c);
+    expect(knowsHome(mark)).toBe(true);
+    expect(r.events.some((e) => e.type === 'home_scan')).toBe(true);
+  });
+
+  it('she can try the doors in an apartment block: listen first, and it is riskier than a mark she knows is out', () => {
+    const w = world('flats');
+    empty(w, 'halo_floor');
+    // Find an apartment block by growing the map outward from the street.
+    let block: string | undefined;
+    for (let round = 0; round < 8 && !block; round++) {
+      for (const l of Object.values(w.locations)) if (l.gen && !l.gen.expanded && l.outdoors) expand(w, l);
+      block = Object.values(w.locations).find((l) => l.gen?.role === 'flat')?.id;
+    }
+    expect(block).toBeDefined();
+    relocate(w, block!);
+    const outside = w.locations[block!]!.gen!.parent;
+    const events: GameEvent[] = [];
+    let tried = 0;
+    for (let i = 0; i < 6 && keys(w, 'burgle_flat').length; i++) {
+      const cand = hustleCandidates(w).find((x) => x.key === `burgle_flat:${block}`)!;
+      cand.run({ w, rng: new Rng(`flat-${i}`), emit: (type: string, outcome: any, data: any = {}) => events.push({ beat: w.beat, type, outcome, data }) });
+      tried++;
+      if (w.over) return;
+      // Whatever happened, she is not left standing in somebody's home.
+      expect(w.locations[w.hero.locationId]!.gen?.role === 'unit', `after ${tried}`).toBe(false);
+      relocate(w, block!);
+    }
+    expect(tried).toBe(3); // only so many doors
+    expect(keys(w, 'burgle_flat').length).toBe(0);
+    expect(w.locations[outside!]).toBeDefined();
+    const flats = events.filter((e) => e.type === 'burgle_flat');
+    expect(flats.length).toBeGreaterThan(0);
+    for (const e of flats) expect(hasTemplate(e), String(e.data.variant)).toBe(true);
   });
 
   it('shaking a shopkeeper down empties the till until the shop earns again', () => {

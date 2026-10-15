@@ -47,6 +47,17 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'robot', weapons: [], loot: [], lootChance: 0, cash: [0, 0], hp: 25, power: 3,
     desc: ['a chrome robot puppy with one flickering LED ear'], startAffinity: 10,
   },
+  // ---------------- what homes keep (stats are set by model and security; see hazards.ts) ----------------
+  guard_dog: {
+    role: 'robotic guard dog', level: [1, 1], tags: ['robot', 'guard'], faction: null,
+    names: 'robot', weapons: [], loot: ['memory_shard'], lootChance: 0.2, cash: [0, 0], hp: 25, power: 5,
+    desc: ['a chrome guard dog with a low, patient hum and a jaw like a vice'],
+  },
+  sentry_turret: {
+    role: 'automated sentry turret', level: [1, 1], tags: ['robot', 'guard'], faction: null,
+    names: 'robot', weapons: [], loot: ['memory_shard'], lootChance: 0.4, cash: [0, 0], hp: 60, power: 16,
+    desc: ['a sentry turret in a ceiling housing, tracking her with a small red eye'],
+  },
   bouncer: {
     role: 'bouncer', level: [6, 6], tags: ['strong', 'rowdy', 'augmented', 'security'], faction: 'halo',
     names: 'person', weapons: ['arc_gauntlet', 'judgment'], armors: ['kevlar_duster'], armorChance: 0.7,

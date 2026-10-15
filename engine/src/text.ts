@@ -259,8 +259,42 @@ const T: Record<string, Entry> = {
     ['A hero who moonlights. Shocking nobody.'],
   ),
 
-  'burgle_home:good': e((d) => [`While ${d.npc} is otherwise occupied, Blackbird lets herself into {their} place and helps herself: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}. She locks the door behind her. Mostly out of habit.`], ['{They} {was}n\'t using it. Probably.']),
-  'burgle_home:bad': e((d) => [`${d.npc} comes home early. Blackbird is standing in {their} living room holding something that is not hers.`], ["I was just admiring the decor. With my hands."]),
+  'home_scan': e((d) => [`The address scanner flickers behind Blackbird's eye and, unasked, hands over where ${d.npc} (${d.role}) sleeps: a street, a block, a door.`, `A line of tiny text unfurls across ${d.npc}'s shoulder: a home address. Blackbird did not ask. The scanner never does.`], ['Everyone has a front door. Now I know where yours is.', 'That is not a thing I was supposed to know. Filed.']),
+
+  // Guard dogs and traps at a home.
+  'home_hazard:dogs_slip': e((d) => [Number(d.count) > 1 ? `Something hums behind the door of ${d.place}: ${d.count} ${d.model}s, curled up on the rug with their eyes dark. Blackbird goes past them on the toes of her boots, counting each breath she isn't taking.` : `A ${d.model} lies across the hallway of ${d.place}, eyes dark, fans ticking over. Blackbird steps over it like a sleeping toddler and does not look down.`], ['Good boy. Great boy. Stay asleep.']),
+  'home_hazard:dogs_retreat': e((d) => [Number(d.count) > 1 ? `The ${d.model}s in ${d.place} lift their heads together. Blackbird takes one look at the jaws, and the second look at her tire iron, and backs out the way she came.` : `The ${d.model} in ${d.place} lifts its head and finds her with a small red light. Blackbird does the maths on her tire iron against its jaws, and backs out very, very slowly.`], ['No. Absolutely not. I have a policy about things that bite back.']),
+  'home_hazard:dogs': e((d) => [Number(d.count) > 1 ? `${d.count} ${d.model}s come up off the floor of ${d.place} in one smooth motion, jaws opening, and the quiet part of the job is officially over.` : `The ${d.model} in ${d.place} does not bark. It simply stands up, and keeps standing up, and then it is running.`], ['I was told they were more of a deterrent.']),
+  'home_hazard:trap_disarmed': e((d) => [
+    d.trap === 'grenade_string' ? `A glint across the doorway of ${d.place}: a fishing line and, at the end of it, a grenade with its pin half out. Blackbird spends a very long minute making it a grenade that is not a problem.`
+    : d.trap === 'shock_mat' ? `The mat inside ${d.place} has a wire coming out of the back of it, and the wire goes to a car battery. Blackbird steps around it, and also around the battery.`
+    : d.trap === 'gas_vent' ? `A faint chemical smell in ${d.place}, and a vent that is too new for the rest of the room. Blackbird tapes it shut and holds her breath for the rest.`
+    : `The ceiling of ${d.place} has a small red eye in it. Blackbird, with a glove and a lot of patience, tells it she is the landlord. It believes her.`,
+  ], ['A very small number of problems are solved by being sneakier than a thing that has no brain.', 'Booby traps are just a lock with an opinion.']),
+  'home_hazard:trap_failed': e((d) => [
+    d.trap === 'grenade_string' ? `Blackbird sees the grenade on a string, and the fishing line, and the pin, and reaches for the one and not the other.`
+    : d.trap === 'shock_mat' ? `Blackbird sees the wired mat and thinks she has it, right up until her boot touches it.`
+    : d.trap === 'gas_vent' ? `Blackbird finds the vent and works on it a little too long.`
+    : `Blackbird sees the sentry turret and makes her case to it. The case does not go well.`,
+  ], ['That was the bit where it was supposed to work.']),
+  'home_hazard:trap_sprung': e((d) => [
+    d.trap === 'grenade_string' ? `Blackbird walks into a fishing line in the dark. Somewhere behind her a pin makes the smallest possible sound.`
+    : d.trap === 'shock_mat' ? `The mat inside ${d.place} was not a mat. It was a car battery with a hat on.`
+    : d.trap === 'gas_vent' ? `A hiss from the ceiling of ${d.place}, and a smell like pear drops.`
+    : `A panel opens in the ceiling of ${d.place}. A red dot finds Blackbird's forehead and stays.`,
+  ], ["I looked at that room. I didn't see anything. That's the problem with traps."]),
+  'home_hazard:trap_hit': e((d) => [
+    d.trap === 'grenade_string' ? `The grenade goes off with a flat, apologetic bang. Blackbird takes ${d.damage} damage and a great deal of plaster. The whole block heard it.`
+    : d.trap === 'shock_mat' ? `The shock takes Blackbird up through the boots and out through her teeth: ${d.damage} damage, and a smell of hot copper.`
+    : `Blackbird goes down in a sweet, pear-scented fog. She wakes on the landing outside ${d.place} with ${d.damage} damage, a headache, and her dignity somewhere else.`,
+  ], ['Ow. In every sense.', 'Nobody warned me about the booby-trapped bit.']),
+
+  'burgle_flat:busy': e((d) => [`Blackbird presses an ear to ${d.place}. Voices, a television, somebody frying something. She straightens up, nods to nobody, and moves on down the landing.`], ['Occupied. I have standards. Low ones, but standards.']),
+  'burgle_flat:clean': e((d) => [d.listened ? `Blackbird listens at ${d.place}, hears nothing, and is inside in under a minute. ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''} from the places people keep things.` : `Blackbird picks the lock on ${d.place} without being sure anyone is out. Lucky: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}, and nobody home.`], ['People leave their whole lives in unlocked drawers. Rude, really.']),
+  'burgle_flat:caught': e((d) => [`Blackbird eases into ${d.place} and finds ${d.npc} in the kitchen, mid-sandwich. Nobody says anything for a very long second.`], ['I thought you were out. The shoes by the door were a decoy.']),
+  'burgle_flat:noise': e((d) => [`The lock at ${d.place} fights back, loudly. Somewhere down the landing a door opens a crack. Blackbird leaves with nothing and a neighbour's full attention.`], ['Quiet job. That was the plan. The plan had a lock in it.']),
+  'burgle_home:good': e((d) => [`While ${d.npc} is otherwise occupied, Blackbird lets herself into ${d.place} and helps herself: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}. She locks the door behind her. Mostly out of habit.`], ['{They} {was}n\'t using it. Probably.']),
+  'burgle_home:bad': e((d) => [`The key turns in the lock of ${d.place}. ${d.npc} is home early, and Blackbird is standing in {their} living room holding something that is not hers.`], ["I was just admiring the decor. With my hands."]),
 
   'protection_racket:good': e((d) => [`Blackbird explains, calmly, that bad things happen to places without her protection. ${d.npc} pays ${d.amount} neodollars for a problem Blackbird invented.`], ['A classic business model. Mine now.']),
   'protection_racket:bad': e((d) => [`${d.npc} has heard this pitch before, from someone scarier. Blackbird is asked, loudly, to leave.`], ["Tough market. I'll rebrand."]),
@@ -904,6 +938,10 @@ const T: Record<string, Entry> = {
     (d) => [`${d.place} has what Blackbird needs${Number(d.short) > 0 ? ` (${$(d.short)} neodollars' worth, give or take)` : ''}. New objective: ${d.goal}. Quietly, if she can manage the word.`, `Blackbird looks at ${d.place} the way a locksmith looks at a promise. Plan: ${d.goal}.`],
     ["In, out, nobody the wiser. It's a plan with all the best qualities.", 'Crime is just fast work. For fast people. Like me.'],
   ),
+  'goal_new:burgle': e(
+    (d) => [d.fresh ? `Blackbird has ${d.npc}'s address, but not the way there. She works it out: ${d.street}, a few blocks off, then up to ${d.home}. New objective: ${d.goal}.` : `Blackbird knows where ${d.npc} sleeps, and that it is unattended often enough. New objective: ${d.goal}.`],
+    ['Somewhere out there is a door with my name on it. Not literally.', 'I know the way. I know the lock. I know the neighbours are loud.'],
+  ),
   'goal_new:heist_idea': e((d) => [`Blackbird stares at ${d.place} for a long time. Nobody looks at a safe like that and walks away. New objective: ${d.goal}.`], ["It's there. I'm here. That's basically an invitation."]),
   'goal_pass:full': e((d) => [`Blackbird has ${d.count} plans on the go and a new one is waving at her. She has enough on her plate. ("To ${d.goal}", it says.) She lets it wave.`], ["I'm a busy woman. Very busy. Don't look at my schedule."]),
 
@@ -916,6 +954,7 @@ const T: Record<string, Entry> = {
   'goal_done:settled': e((d) => [`The plan was to flatline ${d.npc}. The venue had rules about that. ${d.npc} is unconscious, which Blackbird decides will do.`], ["{They} {is} out cold. It's basically the same. It is, in a legal sense, completely different."]),
   'goal_done:kiss': e((d) => [`${d.npc} kisses back. Blackbird takes this as proof the plan was sound.`], ['Mission accomplished. The mission was me.', 'The plan worked. Never doubted it.']),
   'goal_done:smitten': e((d) => [`${d.npc} is, by every measurable sign, impressed. Blackbird counts it as a win and keeps the receipts.`], ["She's into it. She's into me. I know what I'm doing."]),
+  'goal_done:burgled': e((d) => [`${d.npc}'s place is done. Blackbird is out the door and walking, with the unhurried gait of someone who owns the pavement.`], ['Another door that was only ever a suggestion.']),
   'goal_done:clean': e((d) => [`Nobody notices a thing. Blackbird strolls out of ${d.place} into the street like a woman remembering an appointment. The take: ${$(d.haul)} neodollars' worth.`], ['Perfect. Silent. Practically a ghost with taste.', 'Do not tell anyone how easy that was. They will want to try.']),
   'goal_done:messy': e((d) => [`Blackbird gets away with ${d.place}. Technically. The trail behind her is mostly sirens. The take: ${$(d.haul)} neodollars' worth.`], ['Fine. It got loud. Loud is a vibe.', 'Perfectly clean. In my heart.']),
 
@@ -954,6 +993,7 @@ const T: Record<string, Entry> = {
   'goal_resume:weapon': e(() => ['Blackbird looks down at her weapon, sighs, and remembers she was going to do something about that.'], ['A better weapon. I was getting to it.']),
   'goal_resume:fame': e(() => ['Blackbird catches her reflection in a window and remembers she is meant to be famous. She stands up straighter.'], ['Right. The adoring public. They are waiting.']),
   'goal_resume:dragon': e(() => ['Blackbird glances at the sky and remembers the dragons. They have not forgotten her. They do not know her. But they have not forgotten her.'], ['Back to the hunt.']),
+  'goal_resume:burgle': e((d) => [`Blackbird glances toward ${d.npc}'s street and remembers the plan.`], ["The door's still there. I'm still going to open it."]),
   'goal_resume:heist': e((d) => [`Blackbird glances toward ${d.place} and remembers the plan.`], ["The job's still there. I'm still going to do it."]),
 
   // Mid-heist.

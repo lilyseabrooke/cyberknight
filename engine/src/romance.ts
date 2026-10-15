@@ -5,6 +5,7 @@ import { synergy, train } from './skills';
 import { moveNpc } from './population';
 import { bondEvent, lovedHere, romanceMod, scruples, ensureBond } from './bonds';
 import { isFairGame } from './people';
+import { learnHome } from './homes';
 
 /**
  * Romance with consequences. Kissing leads to making a move; a move that lands leaves her sated for a while
@@ -289,6 +290,8 @@ function atTheirPlace(c: Ctx, n: Npc, origin: string, originName: string): void 
   }
   relocate(w, home);
   moveNpc(w, n, home);
+  n.residence ??= home; // she's seen the door now
+  learnHome(n);
   afterglow(c, n, 'home', 1, homeLoc.name);
 }
 

@@ -261,6 +261,8 @@ export interface Npc {
   bounty?: { amount: number; hidden: boolean };
   /** Where they live and work. Absent for people who never go anywhere. */
   home?: Id;
+  /** Where they sleep: a dwelling somewhere on the map, once somebody has gone looking for it. Not the same as `home`, which is where they work. See homes.ts. */
+  residence?: Id;
   /** Places they turn up, by weight. Absent means they stay where they are. See movement.ts. */
   haunts?: Record<Id, number>;
   /** Where they like to be at each time of day, overriding their haunts. */
@@ -304,6 +306,13 @@ export interface Exit {
   misroute?: Id;
 }
 
+/** What a home does to people who break in. Rolled from its security the first time anyone does. See hazards.ts. */
+export interface Hazards {
+  /** Robotic guard dogs: the BARK model number (100 to 530), and how many. */
+  dogs?: { model: number; count: number; cleared?: boolean };
+  trap?: { kind: string; spent?: boolean };
+}
+
 export interface Location {
   id: Id;
   name: string;
@@ -326,6 +335,8 @@ export interface Location {
   wary?: Record<string, number>;
   /** Pieces of her graffiti up here. Drives diminishing fame and local consequences. */
   graffiti: number;
+  /** Guard dogs and traps. Absent until somebody has had to find out. */
+  hazards?: Hazards;
   /** Gang that claims this turf this run (a per-run situational variable). */
   territory: string | null;
   /** Which factions lean on this place, summing to 1. Absent means just whoever holds `territory`. */
@@ -343,7 +354,7 @@ export interface Location {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'tunnel' | 'backroom' | 'cellar' | 'vip';
+export type GenRole = 'street' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -477,7 +488,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'heist' | 'fame' | 'dragon';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
