@@ -123,7 +123,7 @@ export function extraCandidates(w: World): Candidate[] {
 
   // ---- billboard
   if (feat('billboard')) {
-    out.push({ key: 'billboard', drives: { pride: 0.8, curiosity: 0.6, greed: 0.1 }, risk: 0.4, run: hackBillboard });
+    out.push({ key: 'billboard', drives: { pride: 0.8, curiosity: 0.6, greed: 0.1 }, risk: 0.4, intent: {}, run: hackBillboard });
   }
 
   // ---- implants from the doc

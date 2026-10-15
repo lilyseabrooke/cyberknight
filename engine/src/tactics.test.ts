@@ -313,11 +313,11 @@ describe('a fight on the grid', () => {
 
   it('highlights keep the best few, in the order they happened, one per key', () => {
     const log = [
-      { type: 'a', outcome: 'good' as const, data: {}, weight: 1, key: 'k1' },
-      { type: 'b', outcome: 'good' as const, data: {}, weight: 5, key: 'k2' },
-      { type: 'c', outcome: 'good' as const, data: {}, weight: 2, key: 'k1' },
-      { type: 'd', outcome: 'good' as const, data: {}, weight: 4, key: 'k3' },
-      { type: 'e', outcome: 'good' as const, data: {}, weight: 3, key: 'k4' },
+      { type: 'a', outcome: 'good' as const, data: {}, weight: 1, key: 'k1', round: 1 },
+      { type: 'b', outcome: 'good' as const, data: {}, weight: 5, key: 'k2', round: 1 },
+      { type: 'c', outcome: 'good' as const, data: {}, weight: 2, key: 'k1', round: 1 },
+      { type: 'd', outcome: 'good' as const, data: {}, weight: 4, key: 'k3', round: 1 },
+      { type: 'e', outcome: 'good' as const, data: {}, weight: 3, key: 'k4', round: 1 },
     ];
     expect(highlights(log, 2).map((e) => e.type)).toEqual(['b', 'd']);
     expect(highlights(log, 9).map((e) => e.type)).toEqual(['a', 'b', 'd', 'e']);

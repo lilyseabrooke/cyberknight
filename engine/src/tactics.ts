@@ -83,6 +83,23 @@ export interface LogEntry {
   data: EventData;
   weight: number;
   key: string;
+  /** Which round it happened in. */
+  round: number;
+}
+
+/** What one round of a fight came to, for telling it as it happened. */
+export interface RoundRecord {
+  round: number;
+  /** Damage Blackbird herself dealt, and to whom (the one who took most of it). */
+  dealt: number;
+  to: string;
+  /** What she lost this round (blows, backfires, fire), and who landed most of the blows. */
+  taken: number;
+  by: string;
+  /** Who stopped being a problem this round. */
+  down: string[];
+  foesLeft: number;
+  hpPct: number;
 }
 
 export interface SimResult {
@@ -97,6 +114,8 @@ export interface SimResult {
   wield: Item;
   stats: Sim['stats'];
   log: LogEntry[];
+  /** One record per round, in order. */
+  roundLog: RoundRecord[];
 }
 
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
@@ -191,6 +210,10 @@ export class Sim {
   threw = false;
   readonly throwOk: boolean;
   readonly log: LogEntry[] = [];
+  readonly roundLog: RoundRecord[] = [];
+  private dealt = new Map<string, number>();
+  private hitBy = new Map<string, number>();
+  private felled: string[] = [];
   readonly down = new Set<string>();
   readonly fled = new Set<string>();
   readonly arrived: Npc[] = [];
@@ -418,7 +441,7 @@ export class Sim {
   // ------------------------------------------------------------------ the log
 
   note(type: string, outcome: Outcome, data: EventData, weight: number, key: string): void {
-    this.log.push({ type, outcome, data, weight, key });
+    this.log.push({ type, outcome, data, weight, key, round: this.round });
   }
 
   private proc(kind: string, foe: Unit): void {
@@ -429,9 +452,13 @@ export class Sim {
 
   // ------------------------------------------------------------------ damage and its consequences
 
-  damage(_att: Unit | null, tgt: Unit, amount: number): number {
+  damage(att: Unit | null, tgt: Unit, amount: number): number {
     let n = Math.max(0, Math.round(amount));
     if (tgt.kind === 'hero') n = this.interpose(n);
+    if (n > 0 && att) {
+      if (tgt.kind === 'foe' && att.kind === 'hero') this.dealt.set(tgt.name, (this.dealt.get(tgt.name) ?? 0) + n);
+      else if (tgt.kind === 'hero') this.hitBy.set(att.name, (this.hitBy.get(att.name) ?? 0) + n);
+    }
     tgt.ref.hp -= n;
     tgt.alert = true;
     if (tgt.ref.hp <= 0 && tgt.state === 'active') this.defeat(tgt);
@@ -463,6 +490,7 @@ export class Sim {
       this.note('ally_down', 'bad', { name: t.name, kind: t.comp!.kind, lost: t.ref.hp <= 0 }, 4, `down:${t.id}`);
       return;
     }
+    this.felled.push(t.name);
     if (this.o.lethal) {
       this.hooks.kill(this.c, this.w, t.npc!, this.w.hero.weapon.name);
       t.state = 'dead';
@@ -684,6 +712,10 @@ export class Sim {
     const rng = this.c.rng;
     while (!this.result && this.round < this.o.maxRounds) {
       this.round++;
+      const hpBefore = this.w.hero.hp;
+      this.dealt.clear();
+      this.hitBy.clear();
+      this.felled = [];
       this.beginRound();
       const order = this.units
         .filter((u) => u.state === 'active')
@@ -695,6 +727,7 @@ export class Sim {
         this.turn(u);
         this.checkEnd();
       }
+      this.closeRound(hpBefore);
       // Whoever she crept up on has noticed her by the second round.
       if (this.round >= 2 || !this.o.assault) for (const f of this.units) if (f.team === 'foe') f.alert = true;
     }
@@ -707,7 +740,25 @@ export class Sim {
       wield: this.wield,
       stats: this.stats,
       log: this.log,
+      roundLog: this.roundLog,
     };
+  }
+
+  private closeRound(hpBefore: number): void {
+    const h = this.w.hero;
+    const top = (m: Map<string, number>): [string, number] => [...m.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
+    const [to] = top(this.dealt);
+    const [by] = top(this.hitBy);
+    this.roundLog.push({
+      round: this.round,
+      dealt: [...this.dealt.values()].reduce((a, n) => a + n, 0),
+      to,
+      taken: Math.max(0, hpBefore - h.hp),
+      by,
+      down: [...this.felled],
+      foesLeft: this.standingFoes().length,
+      hpPct: Math.max(0, Math.round((h.hp / h.maxHp) * 100)),
+    });
   }
 
   private initiative(u: Unit): number {

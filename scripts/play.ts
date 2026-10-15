@@ -1,5 +1,5 @@
 /** Watch one night in Neo. npm run play -- [seed] [competence] */
-import { Rng, createRun, step, render, describePersonality, goalViews } from '../engine/src/index';
+import { Rng, createRun, step, render, describePersonality, goalViews, depths } from '../engine/src/index';
 
 const seed = process.argv[2] ?? 'neo-1';
 const competence = Number(process.argv[3] ?? 0.1);
@@ -15,11 +15,13 @@ console.log(`${DIM}BLACKBIRD (${h.realName}) — ${describePersonality(h.persona
 console.log(`${DIM}Tonight in Neo: ${world.situation.warringGangs.join(' vs ')} gang war; police crackdown on ${world.situation.crackdown}.${RST}\n`);
 
 const print = (events: typeof first) => {
-  for (const ev of events) {
+  const depth = depths(events);
+  events.forEach((ev, i) => {
+    const pad = '  '.repeat(depth[i]!);
     for (const l of render(ev, { rng: trng, personality: h.personality, realName: h.realName })) {
-      console.log(l.voice === 'thought' ? `    ${IT}“${l.text}”${RST}` : `[${String(ev.beat).padStart(3)}] ${l.text}`);
+      console.log(l.voice === 'thought' ? `    ${pad}${IT}“${l.text}”${RST}` : `[${String(ev.beat).padStart(3)}] ${pad}${depth[i] ? '↳ ' : ''}${l.text}`);
     }
-  }
+  });
 };
 print(first);
 let guard = 0;

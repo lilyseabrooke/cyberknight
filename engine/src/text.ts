@@ -463,6 +463,32 @@ const T: Record<string, Entry> = {
   'challenge:4': e((d) => [`"I'm Blackbird," Blackbird tells ${d.npc} (${d.role}). "I'll be your hero tonight. Hit me."`], ['Great line.']),
   'challenge:5': e((d) => [`Blackbird takes ${d.npc} (${d.role})'s drink, sips it, and sets it back down wrong on purpose.`], ["Subtle. Let's see if {they} notice{s}."]),
   'challenge:6': e((d) => [`Blackbird looks ${d.npc} (${d.role}) up and down, sniffs, and says "Corpo?" It does not matter that {they} {is} not.`], ['Never wrong.']),
+  // ---- what she's setting out to do. These open a group; the result is told underneath.
+  'intent:armwrestle': e((d) => [`Blackbird slaps an elbow on the table and challenges ${d.npc} to arm wrestle.`, `"${d.npc}. Arm wrestle. Loser pays." Blackbird rolls up a sleeve.`]),
+  'intent:pickpocket': e((d) => [`Blackbird drifts toward ${d.npc}, hands loose and innocent.`, `Blackbird eyes ${d.npc}'s pockets with professional interest.`]),
+  'intent:hack': e((d) => [`Blackbird gets a good look at ${d.npc}'s chrome and starts to wonder what is in it.`, `Blackbird decides ${d.npc} is running outdated firmware. Somebody should do something about that.`]),
+  'intent:threaten': e((d) => [`Blackbird decides ${d.npc} looks like {they:npc} {has:npc} money, and that {they:npc} would be happier without it.`, `Blackbird steps into ${d.npc}'s space. Politely, at first.`]),
+  'intent:flirt': e((d) => [`Blackbird sidles over to ${d.npc}.`, `Blackbird picks a line and heads for ${d.npc}.`]),
+  'intent:pool_date': e((d) => [`Blackbird sees ${d.npc} at the pool table and racks the balls.`, `Blackbird takes a cue off the wall and nods ${d.npc} over to the pool table.`]),
+  'intent:grab_cue': e(() => ['Blackbird eyes the house pool cues on the wall.', 'Blackbird has been looking at the cues on the wall for a while. They look like they want to be somewhere.']),
+  'intent:darts': e(() => ['Blackbird puts money on the dartboard and picks up the darts.', 'Blackbird steps up to the oche and takes a dart.']),
+  'intent:tend_bar': e(() => ['Blackbird eyes the empty stretch behind the bar.', 'Nobody asked Blackbird to work the taps. She vaults the bar anyway.']),
+  'intent:panhandle': e(() => ['Blackbird finds a bit of sidewalk and sets her cup down.', 'Blackbird gets low on cash and flat on pride, and takes up a spot on the pavement.']),
+  'intent:scam_mark': e((d) => [`Blackbird decides ${d.npc} is a mark and goes to work.`, `Blackbird sizes up ${d.npc} with a friendly smile and an unfriendly plan.`]),
+  'intent:sell_fake_goods': e((d) => [`Blackbird opens her jacket for ${d.npc}. Inside: a very good deal.`, `Blackbird tells ${d.npc} she knows a guy. She is the guy.`]),
+  'intent:sing_busk': e(() => ['Blackbird finds a corner, drops her hat, and clears her throat.', 'Blackbird takes a breath on the corner. The city is about to get a song.']),
+  'intent:serenade_girl': e((d) => [`Blackbird takes a breath and turns toward ${d.npc}. A song is coming.`, `Blackbird decides ${d.npc} needs a song. Possibly written by Blackbird. Possibly right now.`]),
+  'intent:beat_battle': e((d) => [`Blackbird squares up to ${d.npc} for a beatbox battle.`, `${d.npc} throws down a beat. Blackbird answers.`]),
+  'intent:billboard': e(() => ['Blackbird eyes the billboard. It is begging for an update.', 'Blackbird has a feeling about that billboard. It is a feeling with a USB port.']),
+  'intent:till': e(() => ['Blackbird slides toward the till, looking at the ceiling.', 'Blackbird takes an interest in the till.']),
+  'intent:karaoke': e(() => ['Blackbird takes the mic.', 'Blackbird has added her name to the karaoke list, above everyone else.']),
+  'intent:pool': e(() => ['Blackbird racks the balls for a game with money on it.', 'Blackbird puts cash on the rail and chalks a cue.']),
+  // ---- a round of a fight, as it went
+  'fight_round:quiet': e((d) => [`Round ${d.round}. Nobody lands anything. ${d.left} still standing.`, `Round ${d.round}: feints, footwork, a chair that goes nowhere. ${d.left} still standing.`]),
+  'fight_round:clean': e((d) => [`Round ${d.round}. Blackbird puts ${d.dealt} into ${d.to} and takes nothing back.`, `Round ${d.round}: ${d.dealt} on ${d.to}. Not a scratch on Blackbird.`]),
+  'fight_round:trade': e((d) => [`Round ${d.round}. ${d.dealt} to ${d.to}, ${d.taken} back from ${d.by || 'somewhere'}. (HP ${d.hpPct}%)`, `Round ${d.round}: Blackbird deals ${d.dealt} and eats ${d.taken}. (HP ${d.hpPct}%)`]),
+  'fight_round:hurt': e((d) => [`Round ${d.round}. ${d.by ? `${d.by} lands ${d.taken}` : `Blackbird takes ${d.taken}`} and she has nothing to show for it. (HP ${d.hpPct}%)`, `Round ${d.round}: Blackbird connects with nothing. ${d.taken} comes back${d.by ? ` from ${d.by}` : ''}. (HP ${d.hpPct}%)`]),
+  'fight_round:down': e((d) => [`Round ${d.round}. ${d.down} ${Number(d.downCount) > 1 ? 'are' : 'is'} done.${Number(d.taken) > 0 ? ` Blackbird is out ${d.taken}. (HP ${d.hpPct}%)` : ''}${Number(d.left) > 0 ? ` ${d.left} left.` : ''}`, `Round ${d.round}: ${d.down} ${Number(d.downCount) > 1 ? 'go' : 'goes'} down.${Number(d.left) > 0 ? ` ${d.left} to go.` : ''}`]),
   fight_start: e(
     (d) =>
       d.dragon === 'hera'

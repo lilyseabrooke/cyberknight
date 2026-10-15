@@ -24,6 +24,7 @@ import {
   SKILL_LABELS,
   skillLevel,
   render,
+  depths,
   step,
   type GameEvent,
   type World,
@@ -38,6 +39,21 @@ interface LogLine {
   text: string;
   outcome: GameEvent['outcome'];
   type: string;
+  /** 0 at the top level; each group she's inside adds one. */
+  depth: number;
+  /** This line opens a group (what she set out to do, or a fight starting). */
+  head: boolean;
+}
+
+/**
+ * What the log shows in one go. A beat's top-level events appear together; the lines inside a group appear one at a time,
+ * so a fight can be watched as it unfolds. The status panel waits for the last chunk of a beat, so it doesn't spoil the ending.
+ */
+interface Chunk {
+  lines: LogLine[];
+  nested: boolean;
+  /** Set on the beat's last chunk: the status once everything above it has been shown. */
+  snap?: Snapshot;
 }
 
 interface Snapshot {
@@ -144,13 +160,24 @@ function newNight(universe: Universe, seed: string, competence: number): { night
 }
 
 function toLines(night: Night, events: GameEvent[]): LogLine[] {
-  const out: LogLine[] = [];
+  return toChunks(night, events).flatMap((c) => c.lines);
+}
+
+/** The events of one beat as things to show: runs of top-level lines together, every line inside a group on its own. */
+function toChunks(night: Night, events: GameEvent[]): Chunk[] {
+  const out: Chunk[] = [];
   const h = night.world.hero;
-  for (const ev of events) {
-    for (const l of render(ev, { rng: night.textRng, personality: h.personality, realName: h.realName })) {
-      out.push({ id: night.nextId++, beat: ev.beat, voice: l.voice, text: l.text, outcome: ev.outcome, type: ev.type });
-    }
-  }
+  const depth = depths(events);
+  events.forEach((ev, i) => {
+    const lines: LogLine[] = render(ev, { rng: night.textRng, personality: h.personality, realName: h.realName }).map((l) => ({
+      id: night.nextId++, beat: ev.beat, voice: l.voice, text: l.text, outcome: ev.outcome, type: ev.type, depth: depth[i]!, head: ev.id !== undefined,
+    }));
+    if (!lines.length) return;
+    const nested = depth[i]! > 0;
+    const last = out[out.length - 1];
+    if (!nested && last && !last.nested) last.lines.push(...lines);
+    else out.push({ lines, nested });
+  });
   return out;
 }
 
@@ -189,8 +216,11 @@ export default function NightViewer() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [follow, setFollow] = useState(true);
+  const [tick, setTick] = useState(0);
   const [screen, setScreen] = useState<'night' | 'lab'>('night');
   const nightRef = useRef<Night | null>(null);
+  /** What has happened but not been shown yet. */
+  const queueRef = useRef<Chunk[]>([]);
   const universeRef = useRef<Universe | null>(null);
   const started = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
@@ -200,6 +230,7 @@ export default function NightViewer() {
     universeRef.current ??= newUniverse(randomSeed());
     const { night, lines: first } = newNight(universeRef.current, s, c);
     nightRef.current = night;
+    queueRef.current = [];
     setSeed(s);
     setLines(first);
     setStatus(snap(night.world));
@@ -237,26 +268,63 @@ export default function NightViewer() {
     begin(q.get('seed') || randomSeed(), comp);
   }, [begin]);
 
-  const advance = useCallback((untilDrama = false) => {
-    const night = nightRef.current;
-    if (!night || night.world.over) return;
-    const added: LogLine[] = [];
-    let guard = 0;
-    do {
-      const events = step(night.world);
-      added.push(...toLines(night, events));
-      if (untilDrama && events.some((e) => DRAMA.has(e.type))) break;
-    } while (untilDrama && !night.world.over && guard++ < 400);
-    setLines((prev) => [...prev, ...added].slice(-MAX_LINES));
-    setStatus(snap(night.world));
-    if (night.world.over) setPlaying(false);
+  /** Show the next chunk of what has happened, if anything is waiting. */
+  const release = useCallback((): boolean => {
+    const chunk = queueRef.current.shift();
+    if (!chunk) return false;
+    setLines((prev) => [...prev, ...chunk.lines].slice(-MAX_LINES));
+    if (chunk.snap) {
+      setStatus(chunk.snap);
+      if (chunk.snap.ending) setPlaying(false);
+    }
+    return true;
   }, []);
+
+  /** Play one beat: the world takes a step, and what came of it goes into the queue. */
+  const stepWorld = useCallback((): GameEvent[] => {
+    const night = nightRef.current!;
+    const events = step(night.world);
+    const chunks = toChunks(night, events);
+    const snapshot = snap(night.world);
+    if (chunks.length) chunks[chunks.length - 1]!.snap = snapshot;
+    else chunks.push({ lines: [], nested: false, snap: snapshot });
+    queueRef.current.push(...chunks);
+    return events;
+  }, []);
+
+  /** One tick of the clock: finish telling the last beat, or take the next. */
+  const advance = useCallback(() => {
+    const night = nightRef.current;
+    if (!night) return;
+    if (!queueRef.current.length) {
+      if (night.world.over) return;
+      stepWorld();
+    }
+    release();
+    setTick((t) => t + 1);
+  }, [release, stepWorld]);
+
+  /** Skip ahead to the next fight, level-up or disaster, showing everything on the way. */
+  const skipToDrama = useCallback(() => {
+    const night = nightRef.current;
+    if (!night) return;
+    let guard = 0;
+    while (release());
+    do {
+      const events = stepWorld();
+      if (events.some((e) => DRAMA.has(e.type))) break;
+    } while (!night.world.over && guard++ < 400);
+    while (release());
+    setTick((t) => t + 1);
+  }, [release, stepWorld]);
 
   useEffect(() => {
     if (!playing) return;
-    const id = setInterval(() => advance(false), SPEEDS[speed]!.ms);
-    return () => clearInterval(id);
-  }, [playing, speed, advance]);
+    // Inside a group the lines come quicker than the beats do, so a fight reads as a fight.
+    const quick = queueRef.current[0]?.nested;
+    const id = setTimeout(advance, quick ? Math.round(SPEEDS[speed]!.ms * 0.4) : SPEEDS[speed]!.ms);
+    return () => clearTimeout(id);
+  }, [playing, speed, tick, advance]);
 
   useEffect(() => {
     if (follow && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -288,7 +356,7 @@ export default function NightViewer() {
             </button>
           )}
           {!over && (
-            <button className="btn" onClick={() => advance(true)} title="Skip ahead to the next fight, level-up or disaster">
+            <button className="btn" onClick={skipToDrama} title="Skip ahead to the next fight, level-up or disaster">
               ⏭ Next drama
             </button>
           )}
@@ -320,10 +388,10 @@ export default function NightViewer() {
           }}>
             {lines.map((l) =>
               l.voice === 'thought' ? (
-                <p key={l.id} className="line thought">“{l.text}”</p>
+                <p key={l.id} className="line thought" style={l.depth ? { marginLeft: 52 + l.depth * 20 } : undefined}>“{l.text}”</p>
               ) : (
-                <p key={l.id} className={`line report ${l.outcome}`}>
-                  <span className="beat">{String(l.beat).padStart(3, '0')}</span>
+                <p key={l.id} className={`line report ${l.outcome}${l.head ? ' head' : ''}${l.depth ? ' nested' : ''}`} style={l.depth ? { marginLeft: l.depth * 20 } : undefined}>
+                  <span className="beat">{l.depth ? '↳' : String(l.beat).padStart(3, '0')}</span>
                   <span>{l.text}</span>
                 </p>
               ),

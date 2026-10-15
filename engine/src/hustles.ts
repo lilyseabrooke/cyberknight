@@ -98,7 +98,7 @@ export function hustleCandidates(w: World): Candidate[] {
   // ---- panhandling: the last resort, the first instinct of a hero who is flat broke
   if (loc.outdoors && h.cash < 40) {
     const desperate = clamp((40 - h.cash) / 40, 0, 1);
-    out.push({ key: 'panhandle', drives: { greed: 0.25 }, bonus: desperate * 0.5, risk: 0.1, run: panhandle });
+    out.push({ key: 'panhandle', drives: { greed: 0.25 }, bonus: desperate * 0.5, risk: 0.1, intent: {}, run: panhandle });
   }
 
   // ---- odd jobs for the staff: hauling kegs, bussing tables, nothing heroic about it
@@ -152,13 +152,13 @@ export function hustleCandidates(w: World): Candidate[] {
   // ---- shady: three-card monte on anyone standing still long enough
   if (h.cash >= 10) {
     for (const n of crowd.filter((x) => (x.tags.includes('rowdy') || x.archetype === 'patron') && !has(x, 'wise') && wary(w, loc.id, 'scam') < 1.2)) {
-      out.push({ key: `scam_mark:${n.id}`, drives: { greed: 0.35, curiosity: 0.1 }, risk: 0.3, run: (c) => scamMark(c, n) });
+      out.push({ key: `scam_mark:${n.id}`, drives: { greed: 0.35, curiosity: 0.1 }, risk: 0.3, intent: { npc: n.name }, run: (c) => scamMark(c, n) });
     }
   }
 
   // ---- shady: selling bunk stims and fake implants to anyone gullible enough
   for (const n of crowd.filter((x) => x.cash >= 15 && !x.tags.includes('kid') && !x.tags.includes('fixer') && !has(x, 'duped') && wary(w, loc.id, 'fakes') < 1.2)) {
-    out.push({ key: `sell_fake_goods:${n.id}`, drives: { greed: 0.3, curiosity: 0.1 }, risk: 0.4, run: (c) => sellFakeGoods(c, n) });
+    out.push({ key: `sell_fake_goods:${n.id}`, drives: { greed: 0.3, curiosity: 0.1 }, risk: 0.4, intent: { npc: n.name }, run: (c) => sellFakeGoods(c, n) });
   }
 
   // ---- shady but mostly harmless: cold-reading a mark's fortune for tip money
