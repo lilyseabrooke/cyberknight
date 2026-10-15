@@ -140,7 +140,7 @@ export function stageCandidates(w: World): Candidate[] {
 
   // ---- a voice in the street, no instrument needed
   if (loc.outdoors && !['overpass', 'halo_roof'].includes(loc.id)) {
-    out.push({ key: 'sing_busk', drives: { pride: 0.6, greed: 0.4, curiosity: 0.3 }, bonus: vocals * 0.03, risk: 0.15, run: singBusk });
+    out.push({ key: 'sing_busk', drives: { pride: 0.6, greed: 0.4, curiosity: 0.3 }, bonus: vocals * 0.03, risk: 0.15, intent: {}, run: singBusk });
   }
 
   // ---- get up with whoever is playing
@@ -151,7 +151,7 @@ export function stageCandidates(w: World): Candidate[] {
 
   // ---- sing to someone
   for (const n of crowd.filter((x) => isFairGame(x) && x.affinity >= -5 && x.affinity < 40)) {
-    out.push({ key: `serenade_girl:${n.id}`, drives: { lust: 0.6, pride: 0.5, curiosity: 0.2 }, bonus: vocals * 0.03, risk: 0.2, run: (c) => serenadeGirl(c, n) });
+    out.push({ key: `serenade_girl:${n.id}`, drives: { lust: 0.6, pride: 0.5, curiosity: 0.2 }, bonus: vocals * 0.03, risk: 0.2, intent: { npc: n.name }, run: (c) => serenadeGirl(c, n) });
   }
 
   // ---- out-play the band
@@ -169,7 +169,7 @@ export function stageCandidates(w: World): Candidate[] {
 
   // ---- beat battle
   for (const n of crowd.filter((x) => x.tags.includes('rowdy') && x.affinity > -20 && x.affinity < 22)) {
-    out.push({ key: `beat_battle:${n.id}`, drives: { pride: 0.8, bravery: 0.3, curiosity: 0.3 }, bonus: skillLevel(h, 'beatbox') * 0.03, risk: 0.3, run: (c) => beatBattle(c, n) });
+    out.push({ key: `beat_battle:${n.id}`, drives: { pride: 0.8, bravery: 0.3, curiosity: 0.3 }, bonus: skillLevel(h, 'beatbox') * 0.03, risk: 0.3, intent: { npc: n.name }, run: (c) => beatBattle(c, n) });
   }
   return out;
 }

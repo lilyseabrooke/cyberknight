@@ -46,6 +46,13 @@ code { color: var(--cyan); }
 .report.mixed { border-left-color: var(--mixed); }
 .beat { color: var(--muted); flex: none; font-size: 12px; padding-top: 2px; }
 .thought { color: var(--cyan); font-style: italic; margin: 0 0 10px 52px; opacity: 0.92; }
+.line, .thought { animation: reveal 0.3s ease-out; }
+@keyframes reveal { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+/* A group: what she set out to do, with what came of it indented underneath. */
+.report.head { font-weight: 600; }
+.report.nested { font-size: 0.97em; margin-bottom: 4px; }
+.report.nested .beat { width: 26px; text-align: right; opacity: 0.6; }
+.thought { margin-bottom: 8px; }
 .jump { position: absolute; right: 14px; bottom: 14px; }
 
 .ending { margin: 18px 0 8px; padding: 16px; border: 1px solid var(--pink); border-radius: 8px; text-align: center; background: #1a0a2a; }
@@ -78,6 +85,7 @@ dd.bad { color: var(--bad); }
   .shell { padding: 12px 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .line, .thought { animation: none; }
   .fill { transition: none; }
 }
 

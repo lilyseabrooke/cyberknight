@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { Rng } from './rng';
-import { runToEnd, step } from './run';
+import { makeCtx, perform, runToEnd, step } from './run';
 import { gather } from './interactions';
 import { createWorld, type RunOptions } from './world';
 import type { Ctx, GameEvent, Id, World } from './types';
@@ -83,11 +83,7 @@ export function scenario(opts: ScenarioOptions = {}): Scenario {
   opts.setup?.(w);
   const events: GameEvent[] = [];
   let n = 0;
-  const ctx = (rng: Rng = new Rng(`${w.seed ?? 'scn'}:${n++}`)): Ctx => ({
-    w,
-    rng,
-    emit: (type, outcome, data = {}) => events.push({ beat: w.beat, type, outcome, data }),
-  });
+  const ctx = (rng: Rng = new Rng(`${w.seed ?? 'scn'}:${n++}`)): Ctx => makeCtx(w, rng, events);
   const mark = () => events.length;
   const s: Scenario = {
     w,
@@ -101,7 +97,7 @@ export function scenario(opts: ScenarioOptions = {}): Scenario {
     do(key, rng) {
       const cand = gather(w).find((x) => x.key === key);
       expect(cand, `"${key}" is not on offer here; on offer: ${s.offers().join(', ')}`).toBeDefined();
-      return s.run((c) => cand!.run(c), rng);
+      return s.run((c) => perform(c, cand!), rng);
     },
     offers: () => gather(w).map((x) => x.key),
     step(beats = 1) {

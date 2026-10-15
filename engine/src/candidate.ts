@@ -1,5 +1,6 @@
 import type { Drive } from './personality';
 import type { Ctx, Npc, World } from './types';
+import type { EventData } from './events';
 import { addHeat, fight, here, npcsAt, remember, relocate } from './combat';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
@@ -19,6 +20,11 @@ export interface Candidate {
   smart?: number;
   /** Danger; a competent hero is put off by it, a clueless one barely notices. */
   risk?: number;
+  /**
+   * Announce it: an `intent` event (variant = the key before any colon, plus this data) opens a group,
+   * and everything the action emits is told inside it. Needs an `intent:<variant>` line in text.ts.
+   */
+  intent?: EventData;
   run(c: Ctx): void;
 }
 

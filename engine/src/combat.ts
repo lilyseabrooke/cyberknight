@@ -5,7 +5,8 @@ import { skillLevel, skillValue, train } from './skills';
 import { perk } from './lab';
 import { addAmmo, wielded } from './arms';
 import { fxOf, rating } from './weapons';
-import { Sim, highlights, type Arrival, type Hooks } from './tactics';
+import { Sim, highlights, type Arrival, type Hooks, type LogEntry, type RoundRecord } from './tactics';
+import { nested } from './events';
 import { witnessAssault } from './witness';
 import { collectBounties } from './bounty';
 import { npcsAt } from './population';
@@ -189,11 +190,40 @@ const HOOKS: Hooks = { heroPower, kill, maybeInjure, hasInjury, throwDamage };
  * (tactics.ts), then settles up: injuries, loot, heat, XP, where she wakes up.
  */
 export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
+  const { w } = c;
+  const h = w.hero;
+  const foes = foesIn.filter((f) => f.alive);
+  if (!foes.length) return 'win';
+  // The fight is one story: it opens with the squaring-up, and everything after (who saw, how each round went, the end) is told inside it.
+  let result: FightResult = 'win';
+  nested(
+    c,
+    'fight_start',
+    'mixed',
+    {
+      foes: foes.map((f) => f.name).join(', '),
+      count: foes.length,
+      cause: o.cause,
+      foe: foes[0]!.name,
+      foeRole: foes[0]!.role,
+      weapon: wielded(h).name,
+      boss: foes.some((f) => f.tags.includes('boss')),
+      dragon: foes.find((f) => f.tags.includes('dragon'))?.archetype ?? '',
+      hpPct: Math.round((h.hp / h.maxHp) * 100),
+      power: Math.round(heroPower(w)),
+      level: h.level,
+    },
+    () => {
+      result = playFight(c, foes, o);
+    },
+  );
+  return result;
+}
+
+function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   const { w, rng } = c;
   const h = w.hero;
   const loc = w.locations[h.locationId]!;
-  const foes = foesIn.filter((f) => f.alive);
-  if (!foes.length) return 'win';
   w.stats.fights++;
   // Whoever she fights starts to matter: they get a character, and people who care about them.
   for (const f of foes) ensureDeep(w, f);
@@ -218,19 +248,6 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   const lethal = isLethal([...foes, ...arrivals.map((a) => a.npc)], w);
   const startHp = h.hp;
   const names = foes.map((f) => f.name).join(', ');
-  c.emit('fight_start', 'mixed', {
-    foes: names,
-    count: foes.length,
-    cause: o.cause,
-    foe: foes[0]!.name,
-    foeRole: foes[0]!.role,
-    weapon: wielded(h).name,
-    boss: foes.some((f) => f.tags.includes('boss')),
-    dragon: foes.find((f) => f.tags.includes('dragon'))?.archetype ?? '',
-    hpPct: Math.round((h.hp / h.maxHp) * 100),
-    power: Math.round(heroPower(w)),
-    level: h.level,
-  });
 
   const factions = new Set(foes.map((f) => f.faction).filter((f): f is string => !!f));
   const backup = () =>
@@ -268,7 +285,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     f.affinity -= 20;
     remember(f, 'fled from Blackbird');
   }
-  for (const e of highlights(res.log)) c.emit(e.type, e.outcome, e.data);
+  tellRounds(c, res.log, res.roundLog);
 
   const gone = (f: Npc) => res.fled.has(f.id);
   const standing = () => foes.filter((f) => f.alive && !res.down.has(f.id) && !gone(f));
@@ -402,4 +419,32 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     }
   }
   return result;
+}
+
+/** The most moments we'll single out in one fight, on top of a line for each round. */
+const MOMENTS = 8;
+
+/**
+ * Play the fight back round by round: the moments that stood out in each, then what the round came to.
+ * (The sim has already run; this is only the telling.)
+ */
+function tellRounds(c: Ctx, log: LogEntry[], rounds: RoundRecord[]): void {
+  const told = new Set(highlights(log, MOMENTS));
+  const moments = log.filter((e) => told.has(e));
+  for (const r of rounds) {
+    for (const e of moments.filter((m) => m.round === r.round)) c.emit(e.type, e.outcome, { ...e.data, round: r.round });
+    const quiet = !r.dealt && !r.taken && !r.down.length;
+    c.emit('fight_round', r.taken > r.dealt ? 'bad' : r.dealt ? 'good' : 'mixed', {
+      round: r.round,
+      dealt: r.dealt,
+      to: r.to,
+      taken: r.taken,
+      by: r.by,
+      down: r.down.join(', '),
+      downCount: r.down.length,
+      left: r.foesLeft,
+      hpPct: r.hpPct,
+      variant: r.down.length ? 'down' : quiet ? 'quiet' : r.dealt && r.taken ? 'trade' : r.dealt ? 'clean' : 'hurt',
+    });
+  }
 }
