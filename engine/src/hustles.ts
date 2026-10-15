@@ -1,10 +1,11 @@
-import type { Ctx, Hero, Npc, World } from './types';
-import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
+import type { Ctx, Hero, Location, Npc, World } from './types';
+import { acquire, addHeat, fight, gainXp, here, relocate, remember } from './combat';
 import { clamp, levelRisk, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
-import { skillLevel, synergy, train } from './skills';
+import { hasImplantFlag, skillLevel, synergy, train } from './skills';
+import { phaseOf } from './clock';
 import { npcsAt } from './population';
-import { knowsHome, leaveHome, ownerComesHome, residenceOf } from './homes';
+import { DOORS, doorsTried, isBlock, knowsHome, leaveHome, nextDoor, ownerComesHome, residenceOf } from './homes';
 import { burglaryPending, startBurglary } from './goals';
 import { isFairGame } from './people';
 
@@ -132,6 +133,11 @@ export function hustleCandidates(w: World): Candidate[] {
       key: `burgle_home:${n.id}`, drives: { greed: 0.55, curiosity: 0.2 }, risk: 1.2 + levelRisk(w, n),
       run: (c) => burgleHome(c, n),
     });
+  }
+
+  // ---- questionable: any door in an apartment block she's standing in, with nobody in particular in mind
+  if (isBlock(loc) && doorsTried(w, loc) < DOORS && (w.heat.npd ?? 0) < 4) {
+    out.push({ key: `burgle_flat:${loc.id}`, drives: { greed: 0.45, curiosity: 0.2 }, risk: 1.6, run: (c) => burgleFlat(c, loc) });
   }
 
   // ---- shady: protection money from anyone running a till
@@ -325,6 +331,50 @@ function burgleHome(c: Ctx, n: Npc): void {
     ownerComesHome(c, n, home, { cause: `getting caught burgling ${n.name}'s place` });
   }
   leaveHome(c, home);
+}
+
+/**
+ * Trying a door at random. She listens first, and may or may not learn whether anyone is in: if somebody is, she
+ * moves on; if she can't tell, she goes in blind, and whoever is home finds her. Nobody has told her they're out, so
+ * this is a lot riskier than a mark's place she knows is empty, and the take is whatever is lying around.
+ */
+function burgleFlat(c: Ctx, block: Location): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  const door = nextDoor(c, block);
+  const occupied = rng.chance(phaseOf(w.clock) === 'day' ? 0.35 : 0.7);
+  const hears = clamp(0.4 + skillLevel(h, 'sneak') * 0.05 + h.competence * 0.1 + (hasImplantFlag(h, 'sonic_ear') ? 0.3 : 0), 0.1, 0.95);
+  const knows = rng.chance(hears);
+  if (knows && occupied) {
+    c.emit('burgle_flat', 'mixed', { variant: 'busy', place: door.name });
+    return;
+  }
+  relocate(w, door.id);
+  const p = clamp(0.3 + skillLevel(h, 'lockpicking') * 0.05 + skillLevel(h, 'sneak') * 0.04 - door.security * 0.05 - (knows ? 0 : 0.05), 0.05, 0.8);
+  train(c, 'lockpicking', 2);
+  if (occupied) {
+    // Somebody is home, and she didn't know.
+    const resident = spawnGroup(c, 'patron', 1)[0]!;
+    c.emit('burgle_flat', 'bad', { variant: 'caught', place: door.name, npc: resident.name });
+    addHeat(w, 'npd', 1);
+    fight(c, [resident], { cause: `getting caught robbing ${door.name}`, assault: true, joiners: false });
+  } else if (!rng.chance(p)) {
+    addHeat(w, 'npd', 1);
+    c.emit('burgle_flat', 'bad', { variant: 'noise', place: door.name });
+  } else {
+    train(c, 'sneak', 2);
+    const size = door.security >= 3 ? 400 : door.security >= 1 ? 140 : 70;
+    const cash = rng.int(Math.round(size * 0.3), size);
+    h.cash += cash;
+    let item = '';
+    if (rng.chance(0.25)) {
+      const it = makeItem(rng.pick(['memory_shard', 'fake_id', 'credchip', 'walkman']));
+      item = it.name;
+      acquire(c, it);
+    }
+    c.emit('burgle_flat', 'good', { variant: 'clean', place: door.name, amount: cash, item, listened: knows });
+  }
+  leaveHome(c, door);
 }
 
 function protectionRacket(c: Ctx, n: Npc): void {

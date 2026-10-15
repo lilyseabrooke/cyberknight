@@ -415,15 +415,37 @@ export function addDwelling(w: Pick<World, 'worldSeed' | 'locations' | 'factions
   const tag = hashString(`dwelling:${owner.id}`);
   let block = street.exits.map((e) => w.locations[e.to]).find((l): l is Location => l?.gen?.role === 'flat' && l.gen.parent === street.id);
   if (!block) block = sketch(w, street, 200 + (tag % 700), 'flat', district, depth);
+  const name = `${possessive(owner.name)} ${DWELLING[size].label}`;
+  return addUnit(w, block, 100 + (tag % 900), size, name, `${possessive(owner.name)} door`, owner.id);
+}
+
+/** A door in an apartment block: somebody's home, made to order. `key` seeds how it looks and how well it's locked. */
+export function addUnit(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, block: Location, slot: number, size: Dwelling, name: string, label: string, key: string): Location {
+  const district: District = block.gen?.district ?? 'tenement';
+  const depth = block.gen?.depth ?? 1;
   const d = DWELLING[size];
-  const rng = stream(w, `${block.id}:${owner.id}`);
+  const rng = stream(w, `${block.id}:${key}`);
   const security = rng.int(d.security[0], d.security[1]);
-  const name = `${possessive(owner.name)} ${d.label}`;
-  return sketch(w, block, 100 + (tag % 900), 'unit', district, depth, {
+  return sketch(w, block, slot, 'unit', district, depth, {
     name,
     security,
     cameras: size === 'penthouse' ? clampSec(security / 2) : 0,
     blurb: pick(rng, d.blurbs).replace('{name}', name.charAt(0).toUpperCase() + name.slice(1)),
-    label: `${possessive(owner.name)} door`,
+    label,
   });
 }
+
+/** What a block's doors are like, by district: the poor end of town is capsules, the rich end is not. */
+export function sizeOfDoor(w: Pick<World, 'worldSeed'>, block: Location, slot: number): Dwelling {
+  const rng = stream(w, `${block.id}:size:${slot}`);
+  switch (block.gen?.district) {
+    case 'corporate': return rng.chance(0.4) ? 'penthouse' : 'flat';
+    case 'market': case 'nightlife': return rng.chance(0.2) ? 'capsule' : 'flat';
+    default: return rng.chance(0.7) ? 'capsule' : 'flat';
+  }
+}
+
+export const flatName = (w: Pick<World, 'worldSeed'>, block: Location, slot: number): string => {
+  const rng = stream(w, `${block.id}:flat:${slot}`);
+  return `flat ${rng.int(1, 9)}${'ABCDEF'[rng.int(0, 5)]}`;
+};

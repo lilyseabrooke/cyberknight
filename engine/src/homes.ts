@@ -1,7 +1,7 @@
 import { Rng } from './rng';
 import type { Ctx, Id, Location, Npc, World } from './types';
 import { addHeat, fight, here, relocate } from './combat';
-import { addDwelling, dwellingFor, expand } from './mapgen';
+import { addDwelling, addUnit, dwellingFor, expand, flatName, sizeOfDoor } from './mapgen';
 import { hasImplantFlag } from './skills';
 import { moveNpc } from './population';
 
@@ -111,4 +111,23 @@ export function ownerComesHome(c: Ctx, n: Npc, home: Location, o: { cause: strin
   moveNpc(w, n, home.id);
   fight(c, [n], { cause: o.cause, assault: true, joiners: false });
   if (n.alive && n.locationId === home.id) moveNpc(w, n, origin);
+}
+
+// ===================================================================== apartment blocks
+
+/** Doors in a block she can try. More than that and the neighbours have noticed. */
+export const DOORS = 3;
+export const doorsTried = (w: World, block: Location): number => w.counters[`doors:${block.id}`] ?? 0;
+
+/** An apartment block she is standing in, with doors she hasn't tried. */
+export const isBlock = (l: Location): boolean => l.gen?.role === 'flat' && l.kind === 'home';
+
+/** The next door in the block: somebody's home, made the first time anyone tries it. */
+export function nextDoor(c: Ctx, block: Location): Location {
+  const { w } = c;
+  const k = doorsTried(w, block);
+  w.counters[`doors:${block.id}`] = k + 1;
+  const slot = 10 + k;
+  const name = flatName(w, block, slot);
+  return addUnit(w, block, slot, sizeOfDoor(w, block, slot), name, `a door marked ${name}`, `door:${slot}`);
 }

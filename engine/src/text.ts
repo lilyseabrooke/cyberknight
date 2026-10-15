@@ -261,6 +261,10 @@ const T: Record<string, Entry> = {
 
   'home_scan': e((d) => [`The address scanner flickers behind Blackbird's eye and, unasked, hands over where ${d.npc} (${d.role}) sleeps: a street, a block, a door.`, `A line of tiny text unfurls across ${d.npc}'s shoulder: a home address. Blackbird did not ask. The scanner never does.`], ['Everyone has a front door. Now I know where yours is.', 'That is not a thing I was supposed to know. Filed.']),
 
+  'burgle_flat:busy': e((d) => [`Blackbird presses an ear to ${d.place}. Voices, a television, somebody frying something. She straightens up, nods to nobody, and moves on down the landing.`], ['Occupied. I have standards. Low ones, but standards.']),
+  'burgle_flat:clean': e((d) => [d.listened ? `Blackbird listens at ${d.place}, hears nothing, and is inside in under a minute. ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''} from the places people keep things.` : `Blackbird picks the lock on ${d.place} without being sure anyone is out. Lucky: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}, and nobody home.`], ['People leave their whole lives in unlocked drawers. Rude, really.']),
+  'burgle_flat:caught': e((d) => [`Blackbird eases into ${d.place} and finds ${d.npc} in the kitchen, mid-sandwich. Nobody says anything for a very long second.`], ['I thought you were out. The shoes by the door were a decoy.']),
+  'burgle_flat:noise': e((d) => [`The lock at ${d.place} fights back, loudly. Somewhere down the landing a door opens a crack. Blackbird leaves with nothing and a neighbour's full attention.`], ['Quiet job. That was the plan. The plan had a lock in it.']),
   'burgle_home:good': e((d) => [`While ${d.npc} is otherwise occupied, Blackbird lets herself into ${d.place} and helps herself: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}. She locks the door behind her. Mostly out of habit.`], ['{They} {was}n\'t using it. Probably.']),
   'burgle_home:bad': e((d) => [`The key turns in the lock of ${d.place}. ${d.npc} is home early, and Blackbird is standing in {their} living room holding something that is not hers.`], ["I was just admiring the decor. With my hands."]),
 

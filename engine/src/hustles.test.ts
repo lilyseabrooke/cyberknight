@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng, personalityFrom, runToEnd, hasTemplate, type GameEvent, type World } from './index';
 import { step } from './run';
 import { relocate } from './combat';
+import { expand } from './mapgen';
 import { createWorld } from './world';
 import { chores, doorSlots, hustleCandidates, oddJobReady, parcels, tickHustles, wary } from './hustles';
 import { tickVenues } from './stage';
@@ -208,6 +209,37 @@ describe('burglary and shakedowns take what is there', () => {
     scanHomes(r.c);
     expect(knowsHome(mark)).toBe(true);
     expect(r.events.some((e) => e.type === 'home_scan')).toBe(true);
+  });
+
+  it('she can try the doors in an apartment block: listen first, and it is riskier than a mark she knows is out', () => {
+    const w = world('flats');
+    empty(w, 'halo_floor');
+    // Find an apartment block by growing the map outward from the street.
+    let block: string | undefined;
+    for (let round = 0; round < 8 && !block; round++) {
+      for (const l of Object.values(w.locations)) if (l.gen && !l.gen.expanded && l.outdoors) expand(w, l);
+      block = Object.values(w.locations).find((l) => l.gen?.role === 'flat')?.id;
+    }
+    expect(block).toBeDefined();
+    relocate(w, block!);
+    const outside = w.locations[block!]!.gen!.parent;
+    const events: GameEvent[] = [];
+    let tried = 0;
+    for (let i = 0; i < 6 && keys(w, 'burgle_flat').length; i++) {
+      const cand = hustleCandidates(w).find((x) => x.key === `burgle_flat:${block}`)!;
+      cand.run({ w, rng: new Rng(`flat-${i}`), emit: (type: string, outcome: any, data: any = {}) => events.push({ beat: w.beat, type, outcome, data }) });
+      tried++;
+      if (w.over) return;
+      // Whatever happened, she is not left standing in somebody's home.
+      expect(w.locations[w.hero.locationId]!.gen?.role === 'unit', `after ${tried}`).toBe(false);
+      relocate(w, block!);
+    }
+    expect(tried).toBe(3); // only so many doors
+    expect(keys(w, 'burgle_flat').length).toBe(0);
+    expect(w.locations[outside!]).toBeDefined();
+    const flats = events.filter((e) => e.type === 'burgle_flat');
+    expect(flats.length).toBeGreaterThan(0);
+    for (const e of flats) expect(hasTemplate(e), String(e.data.variant)).toBe(true);
   });
 
   it('shaking a shopkeeper down empties the till until the shop earns again', () => {
