@@ -6,6 +6,8 @@ import { goalBias, goalCandidates, mindAfter, mindBefore, mindTick } from './goa
 import { MAX_DEPTH, capacity, depth, goalById, topLevel } from './mind';
 import { routeTo, shopStock, wareCost } from './plans';
 import { makeItem } from './content/items';
+import { addNpc, moveNpc } from './population';
+import { isFairGame } from './people';
 
 const world = (loc: string, traits: Parameters<typeof personalityFrom>[0] = {}, competence = 0.5): World => {
   const w = createWorld({ seed: 'goals', competence, personality: personalityFrom(traits) });
@@ -168,7 +170,7 @@ describe('goals', () => {
       const w = world('halo_floor', {}, 1);
       const foe = w.npcs.tiny!;
       foe.power = 60;
-      foe.locationId = 'halo_floor';
+      moveNpc(w, foe, 'halo_floor');
       const kill = want(w, { kind: 'kill', npc: foe.id, mode: 'kill' });
       const events = tick(w, 30, 'prep');
       const kid = w.mind.goals.find((g) => g.parent === kill.id);
@@ -384,11 +386,11 @@ describe('goals', () => {
   describe('not being overloaded', () => {
     it('never juggles more than she can, and the weakest goes first', () => {
       const w = tough(world('halo_floor', { romantic: 0.2, impress: 1 }, 0.1));
-      const girls = Object.values(w.npcs).filter((n) => n.tags.includes('romanceable'));
+      const girls = Object.values(w.npcs).filter((n) => isFairGame(n));
       expect(girls.length).toBeGreaterThan(0);
       const cap = capacity(w);
       for (let i = 0; i < cap + 3; i++) want(w, { kind: 'kill', npc: `foe${i}`, desire: 0.3 + i * 0.01 });
-      for (let i = 0; i < cap + 3; i++) w.npcs[`foe${i}`] = { ...w.npcs.tiny!, id: `foe${i}`, locationId: '_gone' };
+      for (let i = 0; i < cap + 3; i++) addNpc(w, { ...w.npcs.tiny!, id: `foe${i}`, locationId: '_gone' });
       const events = tick(w);
       expect(topLevel(w).length).toBeLessThanOrEqual(cap);
       expect(events.filter((e) => e.type === 'goal_drop' && e.data.variant === 'overloaded').length).toBe(3);

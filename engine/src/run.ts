@@ -15,13 +15,21 @@ import { hasImplantFlag, skillLevel } from './skills';
 import { expireBuffs, restockShelf } from './supply';
 import { discretion } from './discretion';
 import { scanBounties } from './bounty';
+import { recognizeRevenant } from './revenant';
+import { bondTick, partnerArrives } from './bonds';
+import { avengerTick, noticeTick } from './knowledge';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
 import { heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
 import { satietyBias, tickSatiety } from './romance';
+import { BASE_MIN_PER_BEAT } from './clock';
+import { npcNamed } from './population';
 
 export const MAX_BEATS = 600;
+
+/** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
+const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
 
 const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates']);
 
@@ -84,10 +92,18 @@ export function step(w: World): GameEvent[] {
   const rng = Rng.fromPosition(w.rngPosition);
   const events: GameEvent[] = [];
   w.beat++;
+  w.clock += BASE_MIN_PER_BEAT;
   const c: Ctx = {
     w,
     rng,
     emit(type: string, outcome: Outcome, data: EventData = {}) {
+      for (const k of PEOPLE_KEYS) {
+        const name = data[k];
+        if (typeof name === 'string' && data[`${k}_g`] === undefined) {
+          const who = npcNamed(w, name);
+          if (who) data[`${k}_g`] = who.gender;
+        }
+      }
       events.push({ beat: w.beat, type, outcome, data });
     },
   };
@@ -96,6 +112,11 @@ export function step(w: World): GameEvent[] {
   let chosen: Candidate | null = null;
   upkeep(c);
   if (!w.over) scanBounties(c);
+  if (!w.over) recognizeRevenant(c);
+  if (!w.over) bondTick(c);
+  if (!w.over) noticeTick(c);
+  if (!w.over) avengerTick(c);
+  if (!w.over) partnerArrives(c);
   if (!w.over) ambientExtras(c);
   if (!w.over) ambientDragons(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);

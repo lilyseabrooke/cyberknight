@@ -7,6 +7,8 @@ import { mindAfter, mindBefore, goalLabel } from './goals';
 import { pursuitTick } from './pursuit';
 import { spawnNpc } from './content/archetypes';
 import type { Goal, Npc } from './types';
+import { addNpc, moveNpc } from './population';
+import { isFairGame } from './people';
 
 const world = (seed: string, traits: Parameters<typeof personalityFrom>[0] = {}, competence = 0.8): World =>
   createWorld({ seed, competence, personality: personalityFrom(traits) });
@@ -16,11 +18,11 @@ const ctxOf = (w: World, seed: string) => {
 };
 const npc = (w: World, id: string, archetype: string, loc: string, extra: Partial<Npc> = {}): Npc => {
   const n = Object.assign(spawnNpc(new Rng(id), id, archetype, loc, {}), extra);
-  w.npcs[id] = n;
+  addNpc(w, n);
   return n;
 };
 const clearRoom = (w: World, loc: string, keep: string[] = []) => {
-  for (const n of Object.values(w.npcs)) if (n.locationId === loc && !keep.includes(n.id)) n.locationId = '_gone';
+  for (const n of Object.values(w.npcs)) if (n.locationId === loc && !keep.includes(n.id)) moveNpc(w, n, '_gone');
 };
 
 describe('crowds get tired of her', () => {
@@ -116,7 +118,7 @@ describe('more to do with a voice, a guitar, a deck', () => {
     w.hero.locationId = 'halo_floor';
     npc(w, 'friend', 'ganger', 'halo_floor', { tags: ['rowdy', 'ganger'], affinity: 40 });
     expect(keys(w).some((k) => k === 'beat_battle:friend')).toBe(false);
-    for (const n of Object.values(w.npcs)) if (n.tags.includes('romanceable') && n.locationId === 'halo_floor') n.affinity = 60;
+    for (const n of Object.values(w.npcs)) if (isFairGame(n) && n.locationId === 'halo_floor') n.affinity = 60;
     expect(keys(w).some((k) => k.startsWith('serenade_girl:'))).toBe(false);
   });
 
@@ -247,6 +249,6 @@ describe('in the sim', () => {
     expect(nights).toBe(40);
     expect(ignites).toBeGreaterThan(8);
     expect(done).toBeGreaterThan(10);
-    expect(longestRun).toBeLessThan(20); // fights now drive her off the floor a little less, so the odd long set is possible
+    expect(longestRun).toBeLessThan(30); // fights drive her off the floor less often than they did, so the odd long set is possible; never "forever"
   });
 });

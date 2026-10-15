@@ -4,11 +4,13 @@ import { makeAmmoBox, makeItem } from './content/items';
 import { AMMO_IDS } from './content/ammo';
 import { hasAlly } from './companions';
 import { kindle } from './romance';
+import { isFairGame } from './people';
 import { makeCan } from './graffiti';
 import { skillLevel, synergy, train } from './skills';
 import { ODDS } from './hobbies';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
 import { fameFrom, tipScale } from './stage';
+import { moveNpc } from './population';
 
 const present = (w: World, id: string): boolean => !!w.npcs[id]?.alive && w.npcs[id]!.locationId === w.hero.locationId;
 
@@ -224,7 +226,7 @@ function crackSafe(c: Ctx): void {
     c.emit('safe', 'bad', { variant: 'alarm' });
     const heavy = [w.npcs.tiny, w.npcs.dutch].find((n) => n?.alive);
     if (heavy) {
-      heavy.locationId = h.locationId;
+      moveNpc(w, heavy, h.locationId);
       fight(c, [heavy], { cause: 'cracking the Halo safe' });
     }
   }
@@ -306,7 +308,7 @@ function vending(c: Ctx): void {
 function dance(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const dancers = here(w).filter((n) => n.tags.includes('romanceable'));
+  const dancers = here(w).filter((n) => n.archetype === 'dancer' || isFairGame(n));
   if (dancers.length) kindle(h, 0.02);
   const p = clamp(0.3 + h.charm * 0.025 + 0.06 * synergy(h, ['dancing', ['stat:charm', 0.5]]) + Math.min(h.drunk, 2) * 0.03, 0.15, 0.88);
   train(c, 'dancing', 2);

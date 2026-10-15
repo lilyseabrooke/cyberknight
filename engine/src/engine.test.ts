@@ -13,6 +13,7 @@ import { createWorld } from './world';
 import { spawnNpc } from './content/archetypes';
 import { makeAmmoBox, makeItem } from './content/items';
 import { AMMO_IDS } from './content/ammo';
+import { addNpc, moveNpc } from './population';
 
 const play = (seed: string, competence = 0.2) => runToEnd({ seed, competence });
 
@@ -236,7 +237,7 @@ describe('the dragon family', () => {
       const rng = new Rng(`duel-${i}`);
       const foes = Array.from({ length: n }, (_, k) => {
         const d = spawnNpc(rng, `d${k}`, kind, 'street_main');
-        w.npcs[d.id] = d;
+        addNpc(w, d);
         return d;
       });
       const r = fight({ w, rng, emit() {} }, foes, { cause: 'test', joiners: false });
@@ -627,11 +628,11 @@ describe('resources and consequences', () => {
   const keysOf = (w: World) => gather(w).map((c) => c.key);
   /** Clear the room so a test controls exactly who is watching. */
   const empty = (w: World, keep: string[] = []) => {
-    for (const n of Object.values(w.npcs)) if (n.locationId === w.hero.locationId && !keep.includes(n.id)) n.locationId = '_gone';
+    for (const n of Object.values(w.npcs)) if (n.locationId === w.hero.locationId && !keep.includes(n.id)) moveNpc(w, n, '_gone');
   };
   const mugger = (w: World, id = 'v1') => {
     const n = spawnNpc(new Rng(id), id, 'mugger', w.hero.locationId);
-    w.npcs[id] = n;
+    addNpc(w, n);
     return n;
   };
 

@@ -5,6 +5,8 @@ import { makeItem } from './content/items';
 import { odds, skillLevel, synergy, train } from './skills';
 import { hasKind } from './companions';
 import { kindle } from './romance';
+import { bondEvent } from './bonds';
+import { isFairGame } from './people';
 import { fameFrom, tipScale } from './stage';
 
 /**
@@ -42,7 +44,7 @@ export function hobbyCandidates(w: World): Candidate[] {
 
   // ---- pool as seduction, and borrowing a cue
   if (feat('pool')) {
-    for (const n of crowd.filter((x) => x.tags.includes('romanceable') && !x.hostile)) {
+    for (const n of crowd.filter((x) => isFairGame(x) && !x.hostile)) {
       out.push({ key: `pool_date:${n.id}`, drives: { lust: 0.9, pride: 0.6 }, bonus: 0.1, run: (c) => poolDate(c, n) });
     }
     if (!owns('cue')) {
@@ -77,7 +79,7 @@ export function hobbyCandidates(w: World): Candidate[] {
     out.push({ key: 'eat_dish', drives: {}, smart: 0.8, bonus: (1 - h.hp / h.maxHp) * 1.2, run: eatDish });
   }
   if (dish) {
-    for (const n of crowd.filter((x) => x.tags.includes('romanceable') && !x.hostile)) {
+    for (const n of crowd.filter((x) => isFairGame(x) && !x.hostile)) {
       out.push({ key: `serve_dish:${n.id}`, drives: { lust: 0.8, pride: 0.5 }, bonus: 0.2, run: (c) => serveDish(c, n) });
     }
   }
@@ -124,6 +126,7 @@ function poolDate(c: Ctx, n: Npc): void {
     train(c, 'pool', 3);
     train(c, 'romance', 2);
     c.emit('pool_date', 'good', { variant: skilled ? 'win_skilled' : 'win', npc: n.name });
+    bondEvent(c, n, 'date');
   } else if (rng.chance(0.5)) {
     h.cash -= bet;
     n.affinity += 8;
@@ -314,6 +317,7 @@ function serveDish(c: Ctx, n: Npc): void {
     train(c, 'romance', 1);
     train(c, 'cooking', 1);
     c.emit('serve_dish', 'good', { variant: 'swoon', npc: n.name });
+    bondEvent(c, n, 'date');
   } else {
     n.affinity += 3;
     c.emit('serve_dish', 'mixed', { variant: 'polite', npc: n.name });

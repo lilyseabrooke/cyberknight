@@ -2,6 +2,7 @@ import type { Drive } from './personality';
 import type { Ctx, Npc, World } from './types';
 import { addHeat, fight, here, npcsAt, remember, relocate } from './combat';
 import { spawnNpc } from './content/archetypes';
+import { addNpc } from './population';
 
 /**
  * A thing Blackbird could do right now. Everything in Neo advertises these (the Sims model):
@@ -30,7 +31,7 @@ export function spawnGroup(c: Ctx, archetype: string, count: number, faction?: s
   for (let i = 0; i < count; i++) {
     const id = `tmp_${c.w.beat}_${archetype}_${i}`;
     const n = spawnNpc(c.rng, id, archetype, c.w.hero.locationId, { faction });
-    c.w.npcs[id] = n;
+    addNpc(c.w, n);
     out.push(n);
   }
   return out;
@@ -66,6 +67,9 @@ export function arrive(c: Ctx, to: string, variant: string, extra: Record<string
 }
 
 function memoryVariant(m: string): string {
+  if (m.startsWith('heard Blackbird killed')) return 'heard_killed';
+  if (m.startsWith('heard Blackbird hurt')) return 'heard_hurt';
+  if (m.startsWith('heard Blackbird helped')) return 'heard_helped';
   if (m.includes('charmed')) return 'charmed';
   if (m === 'kissed Blackbird') return 'kissed';
   if (m.includes('beaten')) return 'beaten';

@@ -9,6 +9,7 @@ import type { EventData } from './events';
 import type { Trait } from './personality';
 import { heroPower, here } from './combat';
 import { flameOf } from './traits';
+import { isFairGame } from './people';
 import { buyGear, supplyUrge } from './supply';
 import { heatUrge } from './laylow';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
@@ -392,6 +393,7 @@ const KINDS: Record<GoalKind, Kind> = {
         if (fam === 'kiss') return 3.6;
         if (fam === 'make_move') return 3.4;
         if (fam === 'flirt') return 3.0;
+        if (fam === 'poach' || fam === 'reconcile') return 2.8;
         if (fam === 'pool_date' || fam === 'serve_dish') return 2.2;
       }
       if (fam === 'dancefloor') return 1.8;
@@ -488,6 +490,13 @@ interface Spec {
 }
 
 /** Take on a new goal, if she has room (or if it beats the weakest thing she's already juggling). */
+/** She takes on someone's score as her own. */
+export function adoptContract(c: Ctx, targetId: string, mode: 'kill' | 'beat_up', why: string, desire: number): Goal | null {
+  const t = c.w.npcs[targetId];
+  if (!t) return null;
+  return adopt(c, { kind: 'kill', npc: targetId, mode, why, desire, variant: 'contract', extra: { npc: t.name } });
+}
+
 function adopt(c: Ctx, s: Spec): Goal | null {
   const { w, rng } = c;
   const m = w.mind;
@@ -662,7 +671,7 @@ function formGoals(c: Ctx): void {
 
   // A girl across the room.
   for (const n of here(w)) {
-    if (!n.tags.includes('romanceable') || n.hostile || hasGoal(w, 'romance', n.id) || cooling(w, `romance:${n.id}`)) continue;
+    if (!isFairGame(n) || n.hostile || hasGoal(w, 'romance', n.id) || cooling(w, `romance:${n.id}`)) continue;
     if ((h.satiety ?? 0) > 0.35 || (w.counters[`moves_${n.id}`] ?? 0) > 0 || (w.counters[`kisses_${n.id}`] ?? 0) >= 2) continue;
     const p = 0.02 + 0.22 * Math.max(0, t.impress - 0.5 + 0.7 * (t.romantic - 0.5)) + (n.affinity >= 10 ? 0.04 : 0);
     if (rng.chance(p)) {
@@ -759,7 +768,7 @@ export function ambientMind(c: Ctx): void {
   const { w, rng } = c;
   const t = traits(w);
   if (!rng.chance(0.03)) return;
-  const crowd = here(w).filter((n) => !n.hostile && !n.tags.includes('boss') && !n.tags.includes('dragon') && n.archetype !== 'puppy' && !n.tags.includes('robot') && !n.tags.includes('romanceable'));
+  const crowd = here(w).filter((n) => !n.hostile && !n.tags.includes('boss') && !n.tags.includes('dragon') && n.archetype !== 'puppy' && !n.tags.includes('robot') && !isFairGame(n));
   if (!crowd.length) return;
   const n = rng.pick(crowd);
   n.affinity -= 12;

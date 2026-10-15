@@ -1,7 +1,8 @@
 import type { Rng } from '../rng';
-import type { Item, Npc } from '../types';
+import type { Gender, Item, Npc } from '../types';
 import { makeAmmoBox, makeItem } from './items';
 import { rating, variantOf } from '../weapons';
+import { rollPerson, type PersonSpec } from '../people';
 
 export interface ArchetypeDef {
   role: string;
@@ -31,13 +32,13 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     desc: ['a barrel-chested ex-merc with a prosthetic jaw and a bat under the counter'],
   },
   bartender: {
-    role: 'bartender', level: [3, 3], tags: ['romanceable', 'staff', 'augmented'], faction: 'halo',
+    role: 'bartender', level: [3, 3], tags: ['staff', 'augmented'], faction: 'halo',
     names: 'person', weapons: ['broken_bottle', 'zip_pistol'], loot: ['neural_gum'], lootChance: 0.4, cash: [30, 90],
     desc: ['a bartender with electric-blue hair and eyes that glow when she pours'],
     startAffinity: 5,
   },
   hacker: {
-    role: 'hacker', level: [3, 3], tags: ['romanceable', 'augmented', 'jealous'], faction: null,
+    role: 'hacker', level: [3, 3], tags: ['augmented', 'jealous'], faction: null,
     names: 'person', weapons: ['arc_gauntlet'], loot: ['memory_shard', 'fake_id'], lootChance: 0.8, cash: [20, 120],
     desc: ['a hacker in the corner booth, one arm a mess of exposed cabling'],
   },
@@ -135,7 +136,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     desc: ['a DJ whose head is mostly speaker'],
   },
   dancer: {
-    role: 'dancer', level: [2, 2], tags: ['romanceable', 'augmented'], faction: 'club',
+    role: 'dancer', level: [2, 2], tags: ['augmented'], faction: 'club',
     names: 'person', weapons: ['switchblade'], loot: ['credchip'], lootChance: 0.5, cash: [30, 120],
     desc: ['a dancer whose tattoos are animated and a little judgmental'],
   },
@@ -173,7 +174,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     desc: ['a bandmate in smudged eyeliner and total confidence, between sets'],
   },
   paint_clerk: {
-    role: 'paint-shop clerk', level: [2, 2], tags: ['romanceable', 'staff', 'shopkeeper'], faction: 'shop',
+    role: 'paint-shop clerk', level: [2, 2], tags: ['staff', 'shopkeeper'], faction: 'shop',
     names: 'person', weapons: ['switchblade'], loot: ['memory_shard', 'credchip'], lootChance: 0.5, cash: [40, 120],
     desc: ['a paint-shop clerk with a neon-pink streak in her hair and paint to the elbows'],
   },
@@ -187,14 +188,26 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['riot_shotgun'], armors: ['kevlar_duster'], armorChance: 1, loot: [], lootChance: 0, cash: [150, 400],
     desc: ['a gunsmith with forearms like cargo cranes who sells bagels out of the same display case as the grenades'],
   },
+  // ---------------- generic people for places nobody wrote by hand ----------------
+  shopkeeper: {
+    role: 'shopkeeper', level: [2, 3], tags: ['staff', 'shopkeeper'], faction: 'shop',
+    names: 'person', weapons: ['switchblade', 'zip_pistol'], armors: ['kevlar_duster'], armorChance: 0.3,
+    loot: ['credchip', 'med_pack'], lootChance: 0.4, cash: [40, 160],
+    desc: ['a shopkeeper who has priced everything in the room, including you'],
+  },
+  drifter: {
+    role: 'passer-by', level: [1, 2], tags: [], faction: null,
+    names: 'person', weapons: ['broken_bottle', 'switchblade'], loot: ['credchip', 'neural_gum'], lootChance: 0.3, cash: [0, 40],
+    desc: ['someone on their way somewhere else, hood up'],
+  },
   // ---------------- street life ----------------
   street_kid: {
     role: 'street kid', level: [1, 1], tags: ['kid'], faction: null,
     names: 'kid', weapons: ['broken_bottle'], loot: ['credchip', 'neural_gum', 'gold_tooth'], lootChance: 0.6, cash: [1, 15],
-    desc: ['a street kid in a stolen jacket three sizes too big, with a very serious expression'],
+    desc: ['a street kid in a stolen leather jacket, a very serious expression and a haircut done by someone with a grudge'],
   },
   damsel: {
-    role: 'courier in distress', level: [1, 1], tags: ['romanceable', 'damsel'], faction: null,
+    role: 'courier in distress', level: [1, 1], tags: ['damsel'], faction: null,
     names: 'person', weapons: ['zip_pistol'], loot: ['memory_shard', 'fake_id'], lootChance: 0.8, cash: [40, 120],
     desc: ['a courier with a blue streak in her hair and a package she will not stop clutching'],
   },
@@ -228,6 +241,41 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   },
 };
 
+/** Who these archetypes tend to be, beyond the job. Anything not listed is anyone between 22 and 55. */
+const PEOPLE: Record<string, PersonSpec> = {
+  barkeep: { women: 0, age: [42, 62] },
+  bartender: { women: 0.6, age: [24, 42] },
+  hacker: { women: 0.6, age: [20, 38] },
+  bouncer: { women: 0.25, age: [26, 48] },
+  ganger: { age: [18, 36] },
+  mugger: { age: [18, 38] },
+  dealer: { age: [18, 42] },
+  corpo: { age: [26, 52] },
+  cop: { age: [26, 54] },
+  fixer: { age: [35, 66] },
+  doc: { age: [34, 72] },
+  prophet: { age: [40, 82] },
+  cook: { age: [28, 62] },
+  patron: { age: [21, 78] },
+  noodler: { age: [30, 72] },
+  club_security: { women: 0.3, age: [24, 46] },
+  dj: { age: [22, 46] },
+  dancer: { women: 0.8, age: [20, 40] },
+  heir: { age: [19, 36] },
+  helix_guard: { women: 0.4, age: [25, 52] },
+  scientist: { age: [28, 62] },
+  bandmate: { age: [20, 42] },
+  paint_clerk: { women: 0.6, age: [20, 40] },
+  pharmacist: { age: [30, 62] },
+  gunsmith: { age: [34, 64] },
+  street_kid: { age: [18, 26] },
+  damsel: { women: 1, age: [20, 36] },
+  npd_officer: { age: [24, 56] },
+  npd_sergeant: { age: [38, 60] },
+  shopkeeper: { age: [26, 68] },
+  drifter: { age: [19, 72] },
+};
+
 export const GANGS: Record<string, string> = {
   vipers: 'Chrome Vipers',
   sixers: 'Saint Sixers',
@@ -256,7 +304,7 @@ export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
   return `${rng.pick(FIRST)} ${rng.pick(LAST)}`;
 }
 
-export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string } = {}): Npc {
+export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string; gender?: Gender; age?: number } = {}): Npc {
   const def = ARCHETYPES[archetype];
   if (!def) throw new Error(`unknown archetype ${archetype}`);
   const level = rng.int(def.level[0], def.level[1]);
@@ -273,9 +321,14 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
   if (def.armors && rng.chance(def.armorChance ?? 0)) loadout.push(makeItem(rng.pick(def.armors)));
   if (def.loot.length && rng.chance(def.lootChance)) loadout.push(makeItem(rng.pick(def.loot)));
   const hp = def.hp ?? 18 + level * 12;
+  const name = opts.name ?? rollNpcName(rng, def.names);
+  const machine = def.names === 'robot' || def.names === 'monster' || def.names === 'artemis' || def.names === 'hera';
+  const person = rollPerson(id, name, { ...PEOPLE[archetype], machine }, { gender: opts.gender, age: opts.age });
   return {
     id,
-    name: opts.name ?? rollNpcName(rng, def.names),
+    name,
+    age: person.age,
+    gender: person.gender,
     archetype,
     role: def.role,
     locationId,

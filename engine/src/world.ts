@@ -5,7 +5,10 @@ import { GANGS, spawnNpc } from './content/archetypes';
 import { makeItem } from './content/items';
 import { newMind } from './mind';
 import { assignBounties } from './bounty';
-import type { Exit, Feature, Id, Location, Npc, World } from './types';
+import { newFactions, setRelation } from './factions';
+import { link } from './ties';
+import { START_MINUTE } from './clock';
+import type { Exit, Feature, Gender, Hero, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
 
@@ -191,7 +194,7 @@ const FEATURES: [Id, string, string][] = [
 ];
 
 const GANG_IDS = Object.keys(GANGS);
-const CRACKDOWNS = [
+export const CRACKDOWNS = [
   'unlicensed synth-whiskey',
   'unregistered cyberware',
   'live music without a permit',
@@ -201,85 +204,16 @@ const CRACKDOWNS = [
 
 export interface RunOptions {
   seed: string;
+  /** The world this run happens in. Defaults to the run's own seed (a one-off world). */
+  worldSeed?: string;
   personality?: Personality;
   competence?: number;
   realName?: string;
 }
 
-export function createWorld(opts: RunOptions): World {
-  const rng = new Rng(`world:${opts.seed}`);
-  const personality = opts.personality ?? rollPersonality(rng.fork('personality'));
-  const realName = opts.realName ?? rollGovernmentName(rng.fork('name'));
-
-  const gangs = [...GANG_IDS];
-  const g1 = gangs.splice(rng.int(0, gangs.length - 1), 1)[0]!;
-  const g2 = gangs.splice(rng.int(0, gangs.length - 1), 1)[0]!;
-
-  const locations: Record<Id, Location> = {};
-  for (const [id, d] of Object.entries(LOCATIONS)) {
-    locations[id] = { id, visits: 0, cameras: CAMERAS[id] ?? 0, graffiti: 0, territory: null, ...d, exits: d.exits.map((e) => ({ ...e })) };
-  }
-  locations.halo_alley!.territory = g1;
-  locations.club_backlot!.territory = g2;
-
-  const features: Record<Id, Feature> = {};
-  for (const [loc, name, kind] of FEATURES) {
-    features[kind] = { id: kind, name, kind, locationId: loc, uses: 0, flags: [] };
-  }
-
-  const npcs: Record<Id, Npc> = {};
-  const nrng = rng.fork('npcs');
-  let n = 0;
-  const add = (arch: string, loc: Id, o: { id?: string; faction?: string; name?: string } = {}) => {
-    const id = o.id ?? `${arch}_${n++}`;
-    npcs[id] = spawnNpc(nrng, id, arch, loc, { faction: o.faction, name: o.name });
-    return npcs[id]!;
-  };
-
-  add('barkeep', 'halo_floor', { id: 'dutch', name: 'Dutch Okonkwo' });
-  add('bartender', 'halo_floor', { id: 'nyx' });
-  add('hacker', 'halo_floor', { id: 'juno' });
-  add('puppy', 'halo_floor', { id: 'sprocket', name: 'Sprocket' });
-  add('bouncer', 'halo_floor', { id: 'tiny', name: 'Tiny' });
-  add('ganger', 'halo_floor', { faction: g1 });
-  add('ganger', 'halo_floor', { faction: g1 });
-  add('ganger', 'halo_floor', { faction: g2 });
-  add('ganger', 'halo_floor', { faction: g2 });
-  add('corpo', 'halo_floor');
-  add('cop', 'halo_floor');
-  add('dealer', 'halo_floor', { id: 'skeeter', name: 'Skeeter' });
-  add('prophet', 'halo_floor', { id: 'ray', name: 'Prophet Ray' });
-  add('patron', 'halo_floor');
-  add('patron', 'halo_floor');
-  add('doc', 'halo_restroom', { id: 'doc', name: 'Doc Hexamer' });
-  add('cook', 'halo_kitchen', { id: 'bao', name: 'Chef Bao' });
-  add('fixer', 'halo_backroom', { id: 'madame', name: 'Madame Zero' });
-  add('drone', 'halo_alley');
-  add('noodler', 'street_main');
-  add('paint_clerk', 'paint_shop', { id: 'clerk' });
-  add('pharmacist', 'chem_mart', { id: 'pharmacist' });
-  add('gunsmith', 'gun_shop', { id: 'gunsmith' });
-  for (let i = 0; i < 3; i++) add('club_security', 'neon_pharaoh');
-  add('dj', 'neon_pharaoh', { id: 'kilobyte', name: 'DJ Kilobyte' });
-  for (let i = 0; i < 3; i++) add('street_kid', 'club_backlot');
-  add('dancer', 'neon_pharaoh');
-  add('dancer', 'neon_pharaoh');
-  add('heir', 'neon_pharaoh');
-  add('bandmate', 'club_greenroom');
-  add('bandmate', 'club_greenroom');
-  add('scrapper', 'club_maintenance');
-  add('helix_guard', 'helix_dock');
-  add('helix_guard', 'helix_dock');
-  add('helix_guard', 'helix_lobby');
-  add('helix_guard', 'helix_lobby');
-  add('helix_guard', 'helix_lab');
-  add('lab_bot', 'helix_lab');
-  add('scientist', 'helix_lab');
-  add('apollo', 'overpass', { id: 'dragon' });
-
-  assignBounties(npcs, rng.fork('bounties'));
-
-  const hero = {
+/** A fresh Blackbird. Every run starts from the same lab-bench body; what carries over is in `competence` (meta-progression). */
+export function makeHero(personality: Personality, realName: string, competence = 0.1): Hero {
+  return {
     name: 'Blackbird',
     realName,
     hp: 90,
@@ -307,16 +241,121 @@ export function createWorld(opts: RunOptions): World {
     locationId: 'halo_floor',
     previousLocationId: 'street_main',
     personality,
-    competence: opts.competence ?? 0.1,
+    competence,
+  };
+}
+
+/** Who the people of the Halo have always felt what about. Everyone else's ties are rolled when they start to matter. */
+function authoredTies(w: World): void {
+  const ties: [string, string, Parameters<typeof link>[3], number, number][] = [
+    ['tiny', 'dutch', 'boss', 60, 45],
+    ['nyx', 'dutch', 'boss', 25, 50],
+    ['bao', 'dutch', 'boss', 40, 45],
+    ['nyx', 'juno', 'friend', 55, 50],
+    ['skeeter', 'madame', 'boss', -20, 25],
+    ['juno', 'skeeter', 'rival', -35, -30],
+    ['doc', 'ray', 'friend', 35, 30],
+    ['dutch', 'madame', 'friend', 20, 25],
+  ];
+  for (const [a, b, kind, ab, ba] of ties) if (w.npcs[a] && w.npcs[b]) link(w, a, b, kind, ab, ba);
+}
+
+export function createWorld(opts: RunOptions): World {
+  const rng = new Rng(`world:${opts.seed}`);
+  const personality = opts.personality ?? rollPersonality(rng.fork('personality'));
+  const realName = opts.realName ?? rollGovernmentName(rng.fork('name'));
+
+  const gangs = [...GANG_IDS];
+  const g1 = gangs.splice(rng.int(0, gangs.length - 1), 1)[0]!;
+  const g2 = gangs.splice(rng.int(0, gangs.length - 1), 1)[0]!;
+
+  const locations: Record<Id, Location> = {};
+  for (const [id, d] of Object.entries(LOCATIONS)) {
+    // The hand-built places are already furnished with their people (below); `populate` is for the ones that are generated.
+    locations[id] = { id, visits: 0, cameras: CAMERAS[id] ?? 0, graffiti: 0, territory: null, ...d, exits: d.exits.map((e) => ({ ...e })), populated: true };
+  }
+  locations.halo_alley!.territory = g1;
+  locations.club_backlot!.territory = g2;
+
+  const features: Record<Id, Feature> = {};
+  for (const [loc, name, kind] of FEATURES) {
+    features[kind] = { id: kind, name, kind, locationId: loc, uses: 0, flags: [] };
+  }
+
+  const npcs: Record<Id, Npc> = {};
+  const nrng = rng.fork('npcs');
+  let n = 0;
+  const add = (arch: string, loc: Id, o: { id?: string; faction?: string; name?: string; gender?: Gender; single?: boolean } = {}) => {
+    const id = o.id ?? `${arch}_${n++}`;
+    // Straight into the record is fine here: the population indexes are built on first use, after this is done.
+    npcs[id] = spawnNpc(nrng, id, arch, loc, { faction: o.faction, name: o.name, gender: o.gender });
+    if (o.single) npcs[id]!.flags.push('single');
+    npcs[id]!.authored = true;
+    npcs[id]!.home = loc; // where they go back to between runs
+    return npcs[id]!;
   };
 
-  return {
+  add('barkeep', 'halo_floor', { id: 'dutch', name: 'Dutch Okonkwo', gender: 'man' });
+  add('bartender', 'halo_floor', { id: 'nyx', gender: 'woman', single: true });
+  add('hacker', 'halo_floor', { id: 'juno', gender: 'woman', single: true });
+  add('puppy', 'halo_floor', { id: 'sprocket', name: 'Sprocket' });
+  add('bouncer', 'halo_floor', { id: 'tiny', name: 'Tiny', gender: 'man' });
+  add('ganger', 'halo_floor', { faction: g1 });
+  add('ganger', 'halo_floor', { faction: g1 });
+  add('ganger', 'halo_floor', { faction: g2 });
+  add('ganger', 'halo_floor', { faction: g2 });
+  add('corpo', 'halo_floor');
+  add('cop', 'halo_floor');
+  add('dealer', 'halo_floor', { id: 'skeeter', name: 'Skeeter', gender: 'man' });
+  add('prophet', 'halo_floor', { id: 'ray', name: 'Prophet Ray', gender: 'man' });
+  add('patron', 'halo_floor');
+  add('patron', 'halo_floor');
+  add('doc', 'halo_restroom', { id: 'doc', name: 'Doc Hexamer' });
+  add('cook', 'halo_kitchen', { id: 'bao', name: 'Chef Bao' });
+  add('fixer', 'halo_backroom', { id: 'madame', name: 'Madame Zero', gender: 'woman' });
+  add('drone', 'halo_alley');
+  add('noodler', 'street_main');
+  add('paint_clerk', 'paint_shop', { id: 'clerk', gender: 'woman', single: true });
+  add('pharmacist', 'chem_mart', { id: 'pharmacist' });
+  add('gunsmith', 'gun_shop', { id: 'gunsmith' });
+  for (let i = 0; i < 3; i++) add('club_security', 'neon_pharaoh');
+  add('dj', 'neon_pharaoh', { id: 'kilobyte', name: 'DJ Kilobyte' });
+  for (let i = 0; i < 3; i++) add('street_kid', 'club_backlot');
+  add('dancer', 'neon_pharaoh');
+  add('dancer', 'neon_pharaoh');
+  add('heir', 'neon_pharaoh');
+  add('bandmate', 'club_greenroom');
+  add('bandmate', 'club_greenroom');
+  add('scrapper', 'club_maintenance');
+  add('helix_guard', 'helix_dock');
+  add('helix_guard', 'helix_dock');
+  add('helix_guard', 'helix_lobby');
+  add('helix_guard', 'helix_lobby');
+  add('helix_guard', 'helix_lab');
+  add('lab_bot', 'helix_lab');
+  add('scientist', 'helix_lab');
+  add('apollo', 'overpass', { id: 'dragon' });
+
+  assignBounties(npcs, rng.fork('bounties'));
+
+  const hero = makeHero(personality, realName, opts.competence);
+
+  const factions = newFactions();
+  setRelation(factions, g1, g2, -70);
+
+  const world: World = {
     seed: opts.seed,
+    worldSeed: opts.worldSeed ?? opts.seed,
+    legacy: { runs: 1, deaths: [], personality, realName },
     beat: 0,
+    clock: START_MINUTE,
     rngPosition: new Rng(`run:${opts.seed}`).position,
     hero,
     mind: newMind(),
     npcs,
+    ties: [],
+    stubs: {},
+    factions,
     features,
     locations,
     heat: { npd: 0, atlas: 0, halo: 0, club: 0 },
@@ -333,6 +372,8 @@ export function createWorld(opts: RunOptions): World {
     over: false,
     ending: null,
   };
+  authoredTies(world);
+  return world;
 }
 
 export const gangName = (id: string): string => GANGS[id] ?? id;

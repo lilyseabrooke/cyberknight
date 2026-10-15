@@ -8,6 +8,7 @@ import { scanBounties, assignBounties, hasBounty, knowsBounty } from './bounty';
 import { discretion, exposure, sweepOdds, caution } from './discretion';
 import { score } from './run';
 import { IMPLANTS } from './content/implants';
+import { addNpc, moveNpc } from './population';
 
 const at = (loc: string, seed = 'dc') => {
   const w = createWorld({ seed, competence: 0.5 });
@@ -21,12 +22,12 @@ const ctxFor = (w: World, seed = 'ctx') => {
   return { c, events };
 };
 const empty = (w: World, keep: string[] = []) => {
-  for (const n of Object.values(w.npcs)) if (n.locationId === w.hero.locationId && !keep.includes(n.id)) n.locationId = '_gone';
+  for (const n of Object.values(w.npcs)) if (n.locationId === w.hero.locationId && !keep.includes(n.id)) moveNpc(w, n, '_gone');
 };
 const person = (w: World, id: string, archetype = 'ganger', extra: Partial<ReturnType<typeof spawnNpc>> = {}) => {
   const n = spawnNpc(new Rng(id), id, archetype, w.hero.locationId);
   Object.assign(n, extra);
-  w.npcs[id] = n;
+  addNpc(w, n);
   return n;
 };
 
@@ -311,7 +312,7 @@ describe('discretion', () => {
       w.hero.hp = w.hero.maxHp;
       const t = person(w, 'mark', archetype, { affinity: -20 });
       // make the room a bad place for it, and a quiet exit available
-      for (const n of Object.values(w.npcs)) if (n.locationId === 'halo_alley' && n.id !== 'mark') n.locationId = '_gone';
+      for (const n of Object.values(w.npcs)) if (n.locationId === 'halo_alley' && n.id !== 'mark') moveNpc(w, n, '_gone');
       w.locations.halo_alley!.cameras = 0;
       w.mind.goals.push({ id: 99, kind: 'kill', parent: null, npc: t.id, mode: 'kill', why: 'test', desire: 0.9, frustration: 0, born: 0, lastProgress: 0, metric: 0, delayUntil: 0, setbacks: 0, revisions: 0, lastFocus: 0 });
       w.mind.nextId = 100;

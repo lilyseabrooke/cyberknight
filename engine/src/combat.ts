@@ -7,8 +7,14 @@ import { fxOf, rating } from './weapons';
 import { Sim, highlights, type Arrival, type Hooks } from './tactics';
 import { witnessAssault } from './witness';
 import { collectBounties } from './bounty';
+import { npcsAt } from './population';
+import { pinAt, settleAt } from './movement';
+import { populate } from './roster';
+import { ensureDeep } from './deepen';
+import { spreadDeed } from './ties';
+import { settleContracts } from './contracts';
 
-export const npcsAt = (w: World, loc: string): Npc[] => Object.values(w.npcs).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.beat);
+export { npcsAt };
 
 export const here = (w: World): Npc[] => npcsAt(w, w.hero.locationId);
 
@@ -25,10 +31,16 @@ export function throwDamage(w: World, item: Item): number {
 export function relocate(w: World, to: string): void {
   const h = w.hero;
   const from = h.locationId;
+  // Whoever she's looking at stays where she left them for a while; where she's headed catches up on the time she's been away.
+  pinAt(w, from, w.clock);
   h.previousLocationId = from;
   h.locationId = to;
   const dest = w.locations[to];
-  if (dest) dest.visits++;
+  if (dest) {
+    dest.visits++;
+    settleAt(w, to, w.clock);
+    populate(w, dest);
+  }
   for (const e of w.locations[from]?.exits ?? []) if (e.to === to) e.hidden = false;
   for (const e of dest?.exits ?? []) if (e.to === from) e.hidden = false;
 }
@@ -176,6 +188,8 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   const foes = foesIn.filter((f) => f.alive);
   if (!foes.length) return 'win';
   w.stats.fights++;
+  // Whoever she fights starts to matter: they get a character, and people who care about them.
+  for (const f of foes) ensureDeep(w, f);
 
   // Bystanders pile in, but they come through the doors a few rounds later rather than standing around from the start.
   const arrivals: Arrival[] = [];
@@ -303,6 +317,13 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     }
     h.cash += cash;
     collectBounties(c, foes.filter((f) => !gone(f)));
+    // The people who care about them hear; and whoever hired her pays.
+    for (const f of foes) {
+      if (gone(f)) continue;
+      if (!f.alive) spreadDeed(c, f, 'killed');
+      else if (f.downUntil > w.beat) spreadDeed(c, f, 'hurt');
+    }
+    settleContracts(c, foes.filter((f) => !gone(f)));
     h.hp = Math.max(h.hp, 1);
     c.emit('fight_end', 'good', { ...base, variant: 'win', cash, xp: Math.round(xp), loot: found.slice(0, 3).join(', ') });
     gainXp(c, xp);

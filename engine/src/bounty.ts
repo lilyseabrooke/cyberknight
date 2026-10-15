@@ -34,7 +34,12 @@ export function assignBounties(npcs: Record<Id, Npc>, rng: Rng): void {
     if (!spec || !rng.chance(spec.chance)) continue;
     n.bounty = { amount: (n.level * 35 + rng.int(40, 160)) | 0, hidden: rng.chance(spec.hidden) };
   }
-  // Every night has at least one of each, or the system is just a rumour.
+  ensureBounties(npcs);
+}
+
+/** Every night has at least one posted and one hidden bounty, or the system is just a rumour. Tops up whatever is missing. */
+export function ensureBounties(npcs: Record<Id, Npc>): void {
+  const list = Object.values(npcs).filter((n) => n.alive);
   const wanted = list.filter((n) => n.bounty);
   const spot = (hidden: boolean, prefer: string[]) => {
     if (wanted.some((n) => n.bounty!.hidden === hidden)) return;

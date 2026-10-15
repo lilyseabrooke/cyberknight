@@ -7,6 +7,8 @@ import { addCompanion, alliesWith, hasAlly, hasKind, newCompanion, removeCompani
 import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { spawnNpc } from './content/archetypes';
 import { fameFrom, tipScale } from './stage';
+import { addNpc, moveNpc } from './population';
+import { isFairGame } from './people';
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive && n.downUntil <= 1e9;
 const PIGEONS = ['Gerald', 'Beatrice', 'Sir Coos-a-Lot', 'Officer Feathers', 'Kevin'];
@@ -196,7 +198,7 @@ function djSet(c: Ctx): void {
     const tips = Math.round(rng.int(40, 120) * tipScale(w, 'dj_set'));
     h.cash += tips;
     fameFrom(c, b2b ? 3 : 2, 'dj_set');
-    for (const n of here(w)) if (!n.hostile) n.affinity += n.tags.includes('romanceable') ? 8 : 3;
+    for (const n of here(w)) if (!n.hostile) n.affinity += isFairGame(n) ? 8 : 3;
     train(c, 'djing', 3);
     gainXp(c, 6);
     c.emit('dj_set', 'good', { variant: b2b ? 'b2b' : 'killer', amount: tips, npc: kilo?.name ?? 'the DJ', lvl });
@@ -246,7 +248,7 @@ function jack(c: Ctx, n: Npc): void {
   const p = clamp(0.25 + h.hack * 0.06 + skillLevel(h, 'tinkering') * 0.05 + (hasAlly(w, 'hack') ? 0.08 : 0) - n.level * 0.03, 0.08, 0.85);
   if (rng.chance(p)) {
     const kind = n.archetype === 'scrapper' ? 'scrapper' : 'drone';
-    n.locationId = '_companion';
+    moveNpc(w, n, '_companion');
     addCompanion(c, newCompanion(kind, n.name, { npcId: n.id, home: h.locationId, loyalty: 50 }), 'jacked', true);
     train(c, 'tinkering', 3);
     gainXp(c, 12);
@@ -262,7 +264,7 @@ function jack(c: Ctx, n: Npc): void {
 
 function recruitJuno(c: Ctx): void {
   const j = c.w.npcs.juno!;
-  j.locationId = '_companion';
+  moveNpc(c.w, j, '_companion');
   c.emit('recruit', 'good', { variant: 'juno', npc: j.name });
   addCompanion(c, newCompanion('hacker', j.name, { npcId: j.id, home: 'halo_floor', loyalty: 70 }), 'love', true);
 }
@@ -377,7 +379,7 @@ function rescue(c: Ctx): void {
   const joins = slotsFree(w) && !hasKind(w, 'courier') && rng.chance(0.55);
   c.emit('rescue', 'good', { variant: joins ? 'thanks_joins' : 'thanks', npc: damsel.name, amount: cash, item });
   if (joins) {
-    damsel.locationId = '_companion';
+    moveNpc(w, damsel, '_companion');
     addCompanion(c, newCompanion('courier', damsel.name, { npcId: damsel.id, home: 'street_main', loyalty: 70 }), 'rescue', true);
   }
 }
@@ -557,14 +559,14 @@ export function ambientExtras(c: Ctx): void {
         const f = w.npcs[id];
         if (f) f.alive = false;
       }
-      if (dm) dm.locationId = '_gone';
+      if (dm) moveNpc(w, dm, '_gone');
       w.damsel = null;
       c.emit('damsel', 'mixed', { variant: 'self_rescue', npc: dm?.name ?? 'She' });
     }
   } else if (loc.outdoors && loc.id !== 'overpass' && loc.id !== 'halo_roof' && w.beat > 8 && rng.chance(0.03)) {
     const id = `damsel_${w.beat}`;
     const dm = spawnNpc(rng, id, 'damsel', loc.id);
-    w.npcs[id] = dm;
+    addNpc(w, dm);
     const foes = spawnGroup(c, 'mugger', 2);
     w.damsel = { npcId: id, foeIds: foes.map((f) => f.id), locationId: loc.id, until: w.beat + 12 };
     c.emit('damsel', 'mixed', { variant: 'scene', npc: dm.name, role: rng.pick(DAMSEL_ROLES) });
