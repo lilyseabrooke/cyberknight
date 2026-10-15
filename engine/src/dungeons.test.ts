@@ -13,7 +13,7 @@ import { deserialize, makeSave, serialize } from './store';
 import { step, MAX_BEATS } from './run';
 import { arrive } from './candidate';
 import { checkCleared, dungeonAmbient, enterRoom, fightRoom, garrisonAlive, knownDungeons, pressure, raidPlan, regarrison, roomOf, standing, tickDungeons, tolerance } from './dungeons';
-import { goalViews } from './goals';
+import { dungeonLure, goalViews } from './goals';
 import { layoutFor, rollRoomHazards } from './content/dungeons';
 import type { Ctx, DungeonKind, GameEvent, Location, World } from './types';
 
@@ -525,6 +525,35 @@ describe('cleared out, and filled up again', () => {
     const u = newUniverse('old');
     const text = JSON.stringify({ universe: { ...u, version: 3, dungeons: undefined }, run: null, savedAt: 1 });
     expect(deserialize(text).universe.dungeons).toEqual({});
+  });
+});
+
+describe('a door that tugs', () => {
+  const wanting = (kind: 'cash' | 'fame', place: DungeonKind = 'hideout', tier = 1, strong = true) => {
+    const { w, id, entrance } = site(place, tier);
+    if (strong) mighty(w);
+    else frail(w);
+    relocate(w, entrance.gen!.parent);
+    w.locations[entrance.gen!.parent]!.visits = 1;
+    w.mind.goals.push({ id: 1, kind, parent: null, why: 'test', desire: 0.8, frustration: 0, born: 0, lastProgress: 0, metric: 0, delayUntil: 0, setbacks: 0, revisions: 0, lastFocus: 0, amount: 999 });
+    return { w, id };
+  };
+
+  it('pulls her towards it when she wants money, a bit less when she wants fame, not at all when she wants neither', () => {
+    const money = wanting('cash');
+    const fame = wanting('fame');
+    expect(dungeonLure(money.w, money.id)).toBeGreaterThan(0);
+    expect(dungeonLure(fame.w, fame.id)).toBeGreaterThan(0);
+    expect(dungeonLure(fame.w, fame.id)).toBeLessThan(dungeonLure(money.w, money.id));
+    money.w.mind.goals.length = 0;
+    expect(dungeonLure(money.w, money.id)).toBe(0);
+  });
+
+  it('is not interested in a place that would flatten her', () => {
+    const easy = wanting('cash', 'hideout', 1, true);
+    const hard = wanting('cash', 'outpost', 3, false);
+    expect(dungeonLure(easy.w, easy.id)).toBeGreaterThan(0);
+    expect(dungeonLure(hard.w, hard.id)).toBe(0);
   });
 });
 

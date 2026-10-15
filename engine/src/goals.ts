@@ -15,7 +15,7 @@ import { heatUrge } from './laylow';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { possessive } from './mapgen';
-import { estimatePressure, garrisonAlive, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
+import { estimatePressure, garrisonAlive, isEntrance, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
 import { MAX_IMPLANTS } from './content/implants';
 import {
   MAX_DEPTH, capacity, childrenOf, cool, cooling, depth, focusFactor, goalById, hasGoal, isHeld, isLeaf, priority, subjectOf, topLevel,
@@ -1001,6 +1001,29 @@ function steer(w: World): void {
   for (const k of Object.keys(m.hops)) m.hops[k] = m.hops[k]! - 0.9 * stay;
 }
 
+/**
+ * A door that looks worth going through tugs at anyone who wants money, and at anyone who wants
+ * fame about a third as hard. The lead's appeal already says whether the place is worth the trouble
+ * and whether she fancies her chances, so a hopeless one pulls nothing.
+ */
+const WANT_LURE = { cash: 1, fame: 0.35 } as const;
+export function dungeonLure(w: World, dest: Id): number {
+  const loc = w.locations[dest];
+  if (!loc || !isEntrance(loc) || w.locations[w.hero.locationId]?.dungeon) return 0;
+  const lead = knownDungeons(w).find((l) => l.entrance.id === dest);
+  if (!lead) return 0;
+  let want = 0;
+  for (const g of w.mind.goals) {
+    if (g.kind !== 'cash' && g.kind !== 'fame') continue;
+    if (isHeld(w, g)) continue;
+    want = Math.max(want, priority(w, g) * WANT_LURE[g.kind]);
+  }
+  return want * dungeonPull(lead) * 1.5;
+}
+
+/** How hard a dungeon door tugs, 0..2.5, before anyone's wants are factored in. */
+const dungeonPull = (l: Lead): number => Math.min(2.5, 1.2 * Math.log1p(l.appeal * 4));
+
 /** Everything she has decided to want, for one candidate. Added to its score. */
 export function goalBias(w: World, cand: { key: string }): number {
   const m = w.mind;
@@ -1012,6 +1035,7 @@ export function goalBias(w: World, cand: { key: string }): number {
     const pull = m.hops[id] ?? 0;
     // Errands come first, and nothing drags her across town while the police are looking for her.
     s += (pull * (errandHere(w) ? 0.2 : 1)) / (1 + 0.3 * heatUrge(w));
+    s += dungeonLure(w, id) / (1 + 0.3 * heatUrge(w));
   }
   for (const d of m.drive) {
     const g = goalById(w, d.id);
