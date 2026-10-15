@@ -7,7 +7,7 @@ import { newMind } from './mind';
 import { assignBounties } from './bounty';
 import { newFactions, setRelation } from './factions';
 import { START_MINUTE } from './clock';
-import type { Exit, Feature, Id, Location, Npc, World } from './types';
+import type { Exit, Feature, Hero, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
 
@@ -193,7 +193,7 @@ const FEATURES: [Id, string, string][] = [
 ];
 
 const GANG_IDS = Object.keys(GANGS);
-const CRACKDOWNS = [
+export const CRACKDOWNS = [
   'unlicensed synth-whiskey',
   'unregistered cyberware',
   'live music without a permit',
@@ -203,9 +203,45 @@ const CRACKDOWNS = [
 
 export interface RunOptions {
   seed: string;
+  /** The world this run happens in. Defaults to the run's own seed (a one-off world). */
+  worldSeed?: string;
   personality?: Personality;
   competence?: number;
   realName?: string;
+}
+
+/** A fresh Blackbird. Every run starts from the same lab-bench body; what carries over is in `competence` (meta-progression). */
+export function makeHero(personality: Personality, realName: string, competence = 0.1): Hero {
+  return {
+    name: 'Blackbird',
+    realName,
+    hp: 90,
+    maxHp: 90,
+    level: 1,
+    xp: 0,
+    cash: 60,
+    drunk: 0,
+    satiety: 0,
+    muscle: 3,
+    reflex: 3,
+    hack: 2,
+    charm: 3,
+    injuries: [],
+    weapon: makeItem('excalibur'),
+    armor: null,
+    inventory: ['patch_kit', 'patch_kit', 'med_pack'].map((id) => makeItem(id)),
+    ammo: {},
+    buffs: [],
+    companions: [],
+    skills: {},
+    fame: 0,
+    tab: 0,
+    implants: [],
+    locationId: 'halo_floor',
+    previousLocationId: 'street_main',
+    personality,
+    competence,
+  };
 }
 
 export function createWorld(opts: RunOptions): World {
@@ -238,6 +274,7 @@ export function createWorld(opts: RunOptions): World {
     // Straight into the record is fine here: the population indexes are built on first use, after this is done.
     npcs[id] = spawnNpc(nrng, id, arch, loc, { faction: o.faction, name: o.name });
     npcs[id]!.authored = true;
+    npcs[id]!.home = loc; // where they go back to between runs
     return npcs[id]!;
   };
 
@@ -284,42 +321,15 @@ export function createWorld(opts: RunOptions): World {
 
   assignBounties(npcs, rng.fork('bounties'));
 
-  const hero = {
-    name: 'Blackbird',
-    realName,
-    hp: 90,
-    maxHp: 90,
-    level: 1,
-    xp: 0,
-    cash: 60,
-    drunk: 0,
-    satiety: 0,
-    muscle: 3,
-    reflex: 3,
-    hack: 2,
-    charm: 3,
-    injuries: [],
-    weapon: makeItem('excalibur'),
-    armor: null,
-    inventory: ['patch_kit', 'patch_kit', 'med_pack'].map((id) => makeItem(id)),
-    ammo: {},
-    buffs: [],
-    companions: [],
-    skills: {},
-    fame: 0,
-    tab: 0,
-    implants: [],
-    locationId: 'halo_floor',
-    previousLocationId: 'street_main',
-    personality,
-    competence: opts.competence ?? 0.1,
-  };
+  const hero = makeHero(personality, realName, opts.competence);
 
   const factions = newFactions();
   setRelation(factions, g1, g2, -70);
 
   return {
     seed: opts.seed,
+    worldSeed: opts.worldSeed ?? opts.seed,
+    legacy: { runs: 1, deaths: [], personality, realName },
     beat: 0,
     clock: START_MINUTE,
     rngPosition: new Rng(`run:${opts.seed}`).position,

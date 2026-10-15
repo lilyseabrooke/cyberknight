@@ -162,6 +162,8 @@ export interface Npc {
   ephemeral?: boolean;
   /** Written by hand into the world rather than rolled. */
   authored?: boolean;
+  /** What they know about Blackbird's past runs that she might not expect them to. See universe.ts. */
+  knows?: { died?: number; saw?: boolean; reacted?: boolean };
 }
 
 export interface Feature {
@@ -240,8 +242,33 @@ export interface Flight {
   noticed: boolean;
 }
 
+/** A run that ended in her death, and who was there. The world remembers; so do the people who saw or heard. */
+export interface DeathRecord {
+  run: number;
+  clock: number;
+  locationId: Id;
+  /** Who she was fighting, by faction. */
+  killers: Id[];
+  witnesses: Id[];
+}
+
+/** What the world keeps about the runs that have happened in it. */
+export interface Legacy {
+  /** How many runs have begun. */
+  runs: number;
+  deaths: DeathRecord[];
+  /** Who she is. The backup in the lab restores the same personality and the same name into each new body. */
+  personality: Personality;
+  realName: string;
+}
+
 export interface World {
+  /** This run's seed: the stream of luck Blackbird's night draws on. */
   seed: string;
+  /** The world's own seed. People and places are derived from it, so they're the same in every run. */
+  worldSeed: string;
+  /** Persistent across runs; see Universe in universe.ts. */
+  legacy: Legacy;
   beat: number;
   /** World minutes. Advances a little every beat, and more when something takes time. See clock.ts. */
   clock: number;

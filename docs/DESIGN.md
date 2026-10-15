@@ -382,11 +382,23 @@ The end goal: the map is generated as Blackbird explores, the world and its peop
 - **Factions are records (`factions.ts`).** Standing between factions, place influence (which factions lean on a place, inherited from neighbours when a place is generated), and a default opinion of one NPC for another that comes from faction standing, so nobody stores an opinion of everybody.
 - **Clock (`clock.ts`)** and the new `Npc` fields (`home`, `haunts`, `routine`, `settledAt`, `ephemeral`, `authored`).
 
+### The persistent world store (`universe.ts`, `store.ts`)
+The engine still plays a night on one in-memory `World`. That `World` is now defined as two halves glued together, and the split happens only at the edges.
+
+- **Universe** (persists): `worldSeed`, `clock`, `npcs`, `factions`, `locations`, `features`, and `legacy` (run count, the ledger of deaths, and who she is: personality and real name, because the backup restores the same person into each body). **Run** (resets): hero, mind, heat, arsenal, situation, flags, counters, beat and the rest. Both types are derived from `World`, so a new `World` field can't be added without choosing a side.
+- **`newUniverse(seed)`** builds the hand-made district. **`beginRun(universe, opts)`** starts the next night in it: the clock jumps to the next evening (at least six hours on), everyone alive is healed and un-hostiled, locations and features lose their per-night state, bounty guarantees are topped up, and the room she wakes in is settled and populated. **`endRun(world)`** records a death, forgets throwaway fighters nobody remembers, and sends companions and strays home (or off the map, if they have no home, so they can be cast elsewhere). `beginRun` takes the universe over rather than copying it.
+- **Everything derived from the world uses the world's seed, not the run's.** People, rosters and where wanderers are at a given time are the same in every run; only luck (the night's random stream) varies.
+- **Death.** `recordDeath` writes a `DeathRecord`. Everyone present saw it. The crews of whoever she was fighting hear about it half the time (decided by a seeded roll, so it's reproducible). In a later run the first time such a person shares a room with her they react once (`revenant`), others who knew quietly update, and everyone else thinks nothing happened. Wider gossip waits for ties.
+- **Saving (`store.ts`).** A `Save` is the universe plus the night in progress (if any) plus the real time it was written. It's plain JSON with a version number; unreadable saves are an error, not a guess. `resume` applies the time spent away to the clock (`offlineMinutes`) and settles the room she's in. `SaveStore` is the interface a Supabase backend will implement; `MemoryStore` is the test one. A saved-then-loaded night plays out identically to one that never stopped (tested).
+- **Decisions that are easy to revisit:** graffiti resets each run (a TODO until its effects are per-piece); heat resets to zero (a day has passed); hidden exits she discovered stay discovered; the hero's knowledge (`Mind`) resets with her body.
+
 ### Not built yet
 1. **Ties and facts.** A sparse graph of personal opinions (kin, friend, rival, debt) that only exists where something made it, gossip along it, and typed history/want facts with discoverability (`visible`, `overheard`, `asked`, `deduced`, `secret`). Ties to people who don't exist yet create stubs.
 2. **Deepening on relevance** (`stub` → `shallow` → `deep`), with wants reusing the goal machinery.
 3. **Active movers.** Targets, pursuers and companions move beat by beat; everyone else is settled lazily. People currently don't walk in or out while she stays put.
 4. **Long-absence life events** (changed faction, moved district, died) for gaps of days, and archiving of far-away ephemeral people (hot/warm/cold tiers).
-5. **The persistent world store** split from the run (hero state resets; population, factions and the map persist), and per-NPC memory of whether they know she died.
+5. **Gossip about her past runs** along ties, instead of only witnesses and the killers' crews.
 6. **Map generation** feeding `populate`. Location ids must be derived from where a place is, not the order it was found, to keep people deterministic.
-7. **Hot scans.** Several systems still scan every NPC each beat (`tickHustles`, goals, pursuit tip-offs). Fine at 45 people, not at thousands; they need to ask the index.
+7. **Idle catch-up of the night itself.** Away time moves the clock, but a night in progress doesn't play itself forward (the hero AI fast-forward is a separate piece).
+8. **Scale of the store.** A universe is one JSON blob today; at thousands of people it needs region-by-region loading.
+9. **Hot scans.** Several systems still scan every NPC each beat (`tickHustles`, goals, pursuit tip-offs). Fine at 45 people, not at thousands; they need to ask the index.

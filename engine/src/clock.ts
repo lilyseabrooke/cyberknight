@@ -42,6 +42,12 @@ export function clockLabel(clock: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m % 60)).padStart(2, '0')}`;
 }
 
+/** The next time it's evening (the start of a night) at least `minGap` minutes after `clock`. */
+export function nextEvening(clock: number, minGap = 6 * 60): number {
+  const t = clock + minGap;
+  return t + ((START_MINUTE - minuteOfDay(t) + MIN_PER_DAY) % MIN_PER_DAY);
+}
+
 /** Let world time pass: a fight, an odd job, a long sleep. Minutes are never negative. */
 export function elapse(w: World, minutes: number): void {
   w.clock += Math.max(0, minutes);

@@ -22,3 +22,5 @@ export { clockLabel, phaseOf, dayOf, hourOf, catchUp, elapse, offlineMinutes, ty
 export { npcsAt, everyoneAt, hauntersOf, awayNpcs, addNpc, moveNpc, removeNpc, AWAY } from './population';
 export { populate, ROSTERS, type SlotDef } from './roster';
 export { relation, defaultOpinion, type Faction } from './factions';
+export { newUniverse, beginRun, endRun, splitWorld, joinWorld, extractUniverse, type Universe, type RunState, type BeginOptions } from './universe';
+export { makeSave, serialize, deserialize, resume, MemoryStore, type Save, type SaveStore } from './store';

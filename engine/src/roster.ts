@@ -110,7 +110,7 @@ export function populate(w: World, loc: Location): Npc[] {
   const here: Npc[] = [];
   roster.forEach((slot, si) => {
     if (slot.minSecurity !== undefined && loc.security < slot.minSecurity) return;
-    const rng = new Rng(`slot:${w.seed}:${loc.id}:${si}`);
+    const rng = new Rng(`slot:${w.worldSeed}:${loc.id}:${si}`);
     if (slot.chance !== undefined && !rng.chance(slot.chance)) return;
     const n = rng.int(slot.count[0], slot.count[1]);
     for (let j = 0; j < n; j++) {
@@ -121,7 +121,7 @@ export function populate(w: World, loc: Location): Npc[] {
         if (existing.locationId === loc.id && existing.alive) here.push(existing);
         continue;
       }
-      const person = new Rng(`npc:${w.seed}:${id}`);
+      const person = new Rng(`npc:${w.worldSeed}:${id}`);
       const def = ARCHETYPES[slot.role];
       if (!def) throw new Error(`roster for ${loc.kind} names unknown archetype ${slot.role}`);
       let faction: Id | null = def.faction;

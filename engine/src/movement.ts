@@ -27,7 +27,7 @@ export function placeAt(w: World, n: Npc, now: number): Id {
   if (!n.haunts && !n.routine) return n.locationId;
   const stay = STAY + tempo(n.id);
   const slot = Math.floor((now + tempo(n.id) * 7) / stay);
-  const rng = new Rng(`at:${w.seed}:${n.id}:${slot}`);
+  const rng = new Rng(`at:${w.worldSeed}:${n.id}:${slot}`);
   const routine = n.routine?.[phaseOf(now)];
   if (routine && (routine === AWAY || w.locations[routine]) && rng.chance(0.8)) return routine;
   const options = Object.entries(n.haunts ?? {}).filter(([loc, wt]) => wt > 0 && (loc === AWAY || w.locations[loc]));

@@ -15,6 +15,7 @@ import { hasImplantFlag, skillLevel } from './skills';
 import { expireBuffs, restockShelf } from './supply';
 import { discretion } from './discretion';
 import { scanBounties } from './bounty';
+import { recognizeRevenant } from './revenant';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
 import { heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
@@ -98,6 +99,7 @@ export function step(w: World): GameEvent[] {
   let chosen: Candidate | null = null;
   upkeep(c);
   if (!w.over) scanBounties(c);
+  if (!w.over) recognizeRevenant(c);
   if (!w.over) ambientExtras(c);
   if (!w.over) ambientDragons(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);

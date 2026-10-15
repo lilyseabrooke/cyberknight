@@ -24,6 +24,9 @@ interface Index {
   next: number;
 }
 
+/** What the store needs of a world: just its people. A bare universe qualifies. */
+export type Population = Pick<World, 'npcs'>;
+
 const indexes = new WeakMap<object, Index>();
 
 const put = (m: Map<Id, Set<Id>>, key: Id, id: Id): void => {
@@ -48,25 +51,25 @@ function build(npcs: Record<Id, Npc>): Index {
   return ix;
 }
 
-function index(w: World): Index {
+function index(w: Population): Index {
   let ix = indexes.get(w.npcs);
   if (!ix) indexes.set(w.npcs, (ix = build(w.npcs)));
   return ix;
 }
 
 /** Throw the indexes away. Call it after replacing `w.npcs` wholesale (anything that isn't `addNpc` and friends). */
-export function rebuildIndex(w: World): void {
+export function rebuildIndex(w: Population): void {
   indexes.delete(w.npcs);
 }
 
 const inOrder = (ix: Index, ids: Iterable<Id>): Id[] => [...ids].sort((a, b) => (ix.order.get(a) ?? 0) - (ix.order.get(b) ?? 0));
 
-export const getNpc = (w: World, id: Id): Npc | undefined => w.npcs[id];
+export const getNpc = (w: Population, id: Id): Npc | undefined => w.npcs[id];
 
 /** Everyone in the world, oldest first. Prefer the targeted lookups below. */
-export const allNpcs = (w: World): Npc[] => Object.values(w.npcs);
+export const allNpcs = (w: Population): Npc[] => Object.values(w.npcs);
 
-export function addNpc(w: World, n: Npc): Npc {
+export function addNpc(w: Population, n: Npc): Npc {
   const ix = index(w);
   const old = w.npcs[n.id];
   if (old) {
@@ -82,7 +85,7 @@ export function addNpc(w: World, n: Npc): Npc {
 }
 
 /** Take someone out of the world for good (only ephemeral people, and only when nothing refers to them). */
-export function removeNpc(w: World, id: Id): void {
+export function removeNpc(w: Population, id: Id): void {
   const n = w.npcs[id];
   if (!n) return;
   const ix = index(w);
@@ -93,7 +96,7 @@ export function removeNpc(w: World, id: Id): void {
 }
 
 /** The only way an NPC changes place. */
-export function moveNpc(w: World, n: Npc, to: Id): void {
+export function moveNpc(w: Population, n: Npc, to: Id): void {
   if (n.locationId === to) return;
   const ix = index(w);
   drop(ix.byLoc, n.locationId, n.id);
@@ -102,7 +105,7 @@ export function moveNpc(w: World, n: Npc, to: Id): void {
 }
 
 /** Change where somebody turns up. */
-export function setHaunts(w: World, n: Npc, haunts: Record<Id, number> | undefined): void {
+export function setHaunts(w: Population, n: Npc, haunts: Record<Id, number> | undefined): void {
   const ix = index(w);
   for (const loc of Object.keys(n.haunts ?? {})) drop(ix.byHaunt, loc, n.id);
   if (haunts) n.haunts = haunts;
@@ -111,7 +114,7 @@ export function setHaunts(w: World, n: Npc, haunts: Record<Id, number> | undefin
 }
 
 /** Everyone standing in a place, conscious or not, alive or not. */
-export const everyoneAt = (w: World, loc: Id): Npc[] => {
+export const everyoneAt = (w: Population, loc: Id): Npc[] => {
   const ix = index(w);
   return inOrder(ix, ix.byLoc.get(loc) ?? []).map((id) => w.npcs[id]!);
 };
@@ -120,16 +123,16 @@ export const everyoneAt = (w: World, loc: Id): Npc[] => {
 export const npcsAt = (w: World, loc: Id): Npc[] => everyoneAt(w, loc).filter((n) => n.alive && n.downUntil <= w.beat);
 
 /** Who turns up in a place from time to time (and isn't necessarily there now). */
-export const hauntersOf = (w: World, loc: Id): Npc[] => {
+export const hauntersOf = (w: Population, loc: Id): Npc[] => {
   const ix = index(w);
   return inOrder(ix, ix.byHaunt.get(loc) ?? []).map((id) => w.npcs[id]!);
 };
 
 /** People off the known map, free to be cast into somewhere new. */
-export const awayNpcs = (w: World): Npc[] => everyoneAt(w, AWAY).filter((n) => n.alive);
+export const awayNpcs = (w: Population): Npc[] => everyoneAt(w, AWAY).filter((n) => n.alive);
 
 /** Debug aid and test oracle: where the indexes disagree with the records. Empty when all is well. */
-export function verifyIndex(w: World): string[] {
+export function verifyIndex(w: Population): string[] {
   const ix = index(w);
   const bad: string[] = [];
   const seen = new Set<Id>();

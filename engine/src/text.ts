@@ -326,6 +326,14 @@ const T: Record<string, Entry> = {
     ],
     ['It was a warning shot. For me.', "That was MY last round? I counted differently."],
   ),
+  'revenant:saw': e(
+    (d) => [`${d.npc} stops mid-sentence. The last time Blackbird was in this room, ${d.npc} watched her die in it. ${d.npc} is now looking at her the way you look at a fridge that has started talking.`],
+    ['Backups: still weird, apparently.', 'I can explain. I would rather not.'],
+  ),
+  'revenant:heard': e(
+    (d) => [`${d.npc} has heard Blackbird is dead, and is now watching her walk in. ${d.npc} decides, after some visible effort, that it would be rude to bring it up.`],
+    ['Reports of my death were accurate. We are not getting into it.'],
+  ),
   'bounty_scan:posted': e((d) => [`Blackbird's optics flag ${d.npc} (${d.role}): an NPD bounty, ${$(d.amount)} neodollars, posted where anyone who bothers to look can read it.`], ['Free money, walking around. Do they know?']),
   'bounty_scan:scanner': e((d) => [`The bounty-grade scanner pings on ${d.npc} (${d.role}). Somebody paid good money to hide ${$(d.amount)} neodollars of NPD paper. Not good enough.`], ['Everybody has a price. Some have a bounty.']),
   'bounty_hit': e((d) => [`${d.victim} has a warrant out, so the NPD has nothing to add to ${Number(d.witnesses) ? 'what the witnesses saw' : 'the night'}. No police heat.`], ['Technically, I am assisting law enforcement.']),
