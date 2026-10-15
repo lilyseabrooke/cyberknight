@@ -261,6 +261,34 @@ const T: Record<string, Entry> = {
 
   'home_scan': e((d) => [`The address scanner flickers behind Blackbird's eye and, unasked, hands over where ${d.npc} (${d.role}) sleeps: a street, a block, a door.`, `A line of tiny text unfurls across ${d.npc}'s shoulder: a home address. Blackbird did not ask. The scanner never does.`], ['Everyone has a front door. Now I know where yours is.', 'That is not a thing I was supposed to know. Filed.']),
 
+  // Guard dogs and traps at a home.
+  'home_hazard:dogs_slip': e((d) => [Number(d.count) > 1 ? `Something hums behind the door of ${d.place}: ${d.count} ${d.model}s, curled up on the rug with their eyes dark. Blackbird goes past them on the toes of her boots, counting each breath she isn't taking.` : `A ${d.model} lies across the hallway of ${d.place}, eyes dark, fans ticking over. Blackbird steps over it like a sleeping toddler and does not look down.`], ['Good boy. Great boy. Stay asleep.']),
+  'home_hazard:dogs_retreat': e((d) => [Number(d.count) > 1 ? `The ${d.model}s in ${d.place} lift their heads together. Blackbird takes one look at the jaws, and the second look at her tire iron, and backs out the way she came.` : `The ${d.model} in ${d.place} lifts its head and finds her with a small red light. Blackbird does the maths on her tire iron against its jaws, and backs out very, very slowly.`], ['No. Absolutely not. I have a policy about things that bite back.']),
+  'home_hazard:dogs': e((d) => [Number(d.count) > 1 ? `${d.count} ${d.model}s come up off the floor of ${d.place} in one smooth motion, jaws opening, and the quiet part of the job is officially over.` : `The ${d.model} in ${d.place} does not bark. It simply stands up, and keeps standing up, and then it is running.`], ['I was told they were more of a deterrent.']),
+  'home_hazard:trap_disarmed': e((d) => [
+    d.trap === 'grenade_string' ? `A glint across the doorway of ${d.place}: a fishing line and, at the end of it, a grenade with its pin half out. Blackbird spends a very long minute making it a grenade that is not a problem.`
+    : d.trap === 'shock_mat' ? `The mat inside ${d.place} has a wire coming out of the back of it, and the wire goes to a car battery. Blackbird steps around it, and also around the battery.`
+    : d.trap === 'gas_vent' ? `A faint chemical smell in ${d.place}, and a vent that is too new for the rest of the room. Blackbird tapes it shut and holds her breath for the rest.`
+    : `The ceiling of ${d.place} has a small red eye in it. Blackbird, with a glove and a lot of patience, tells it she is the landlord. It believes her.`,
+  ], ['A very small number of problems are solved by being sneakier than a thing that has no brain.', 'Booby traps are just a lock with an opinion.']),
+  'home_hazard:trap_failed': e((d) => [
+    d.trap === 'grenade_string' ? `Blackbird sees the grenade on a string, and the fishing line, and the pin, and reaches for the one and not the other.`
+    : d.trap === 'shock_mat' ? `Blackbird sees the wired mat and thinks she has it, right up until her boot touches it.`
+    : d.trap === 'gas_vent' ? `Blackbird finds the vent and works on it a little too long.`
+    : `Blackbird sees the sentry turret and makes her case to it. The case does not go well.`,
+  ], ['That was the bit where it was supposed to work.']),
+  'home_hazard:trap_sprung': e((d) => [
+    d.trap === 'grenade_string' ? `Blackbird walks into a fishing line in the dark. Somewhere behind her a pin makes the smallest possible sound.`
+    : d.trap === 'shock_mat' ? `The mat inside ${d.place} was not a mat. It was a car battery with a hat on.`
+    : d.trap === 'gas_vent' ? `A hiss from the ceiling of ${d.place}, and a smell like pear drops.`
+    : `A panel opens in the ceiling of ${d.place}. A red dot finds Blackbird's forehead and stays.`,
+  ], ["I looked at that room. I didn't see anything. That's the problem with traps."]),
+  'home_hazard:trap_hit': e((d) => [
+    d.trap === 'grenade_string' ? `The grenade goes off with a flat, apologetic bang. Blackbird takes ${d.damage} damage and a great deal of plaster. The whole block heard it.`
+    : d.trap === 'shock_mat' ? `The shock takes Blackbird up through the boots and out through her teeth: ${d.damage} damage, and a smell of hot copper.`
+    : `Blackbird goes down in a sweet, pear-scented fog. She wakes on the landing outside ${d.place} with ${d.damage} damage, a headache, and her dignity somewhere else.`,
+  ], ['Ow. In every sense.', 'Nobody warned me about the booby-trapped bit.']),
+
   'burgle_flat:busy': e((d) => [`Blackbird presses an ear to ${d.place}. Voices, a television, somebody frying something. She straightens up, nods to nobody, and moves on down the landing.`], ['Occupied. I have standards. Low ones, but standards.']),
   'burgle_flat:clean': e((d) => [d.listened ? `Blackbird listens at ${d.place}, hears nothing, and is inside in under a minute. ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''} from the places people keep things.` : `Blackbird picks the lock on ${d.place} without being sure anyone is out. Lucky: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}, and nobody home.`], ['People leave their whole lives in unlocked drawers. Rude, really.']),
   'burgle_flat:caught': e((d) => [`Blackbird eases into ${d.place} and finds ${d.npc} in the kitchen, mid-sandwich. Nobody says anything for a very long second.`], ['I thought you were out. The shoes by the door were a decoy.']),

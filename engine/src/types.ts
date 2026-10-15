@@ -306,6 +306,13 @@ export interface Exit {
   misroute?: Id;
 }
 
+/** What a home does to people who break in. Rolled from its security the first time anyone does. See hazards.ts. */
+export interface Hazards {
+  /** Robotic guard dogs: the BARK model number (100 to 530), and how many. */
+  dogs?: { model: number; count: number; cleared?: boolean };
+  trap?: { kind: string; spent?: boolean };
+}
+
 export interface Location {
   id: Id;
   name: string;
@@ -328,6 +335,8 @@ export interface Location {
   wary?: Record<string, number>;
   /** Pieces of her graffiti up here. Drives diminishing fame and local consequences. */
   graffiti: number;
+  /** Guard dogs and traps. Absent until somebody has had to find out. */
+  hazards?: Hazards;
   /** Gang that claims this turf this run (a per-run situational variable). */
   territory: string | null;
   /** Which factions lean on this place, summing to 1. Absent means just whoever holds `territory`. */

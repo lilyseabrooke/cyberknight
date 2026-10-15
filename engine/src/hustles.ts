@@ -5,6 +5,7 @@ import { makeItem } from './content/items';
 import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { phaseOf } from './clock';
 import { npcsAt } from './population';
+import { meetHazards } from './hazards';
 import { DOORS, doorsTried, isBlock, knowsHome, leaveHome, nextDoor, ownerComesHome, residenceOf } from './homes';
 import { burglaryPending, startBurglary } from './goals';
 import { isFairGame } from './people';
@@ -310,6 +311,10 @@ function burgleHome(c: Ctx, n: Npc): void {
     return;
   }
   addFlag(n, 'burgled');
+  if (!meetHazards(c, home)) {
+    leaveHome(c, home);
+    return;
+  }
   const p = clamp(0.35 + skillLevel(h, 'lockpicking') * 0.05 + skillLevel(h, 'sneak') * 0.04 - n.level * 0.03 - home.security * 0.04, 0.05, 0.85);
   train(c, 'lockpicking', 2);
   if (rng.chance(p)) {
@@ -350,6 +355,10 @@ function burgleFlat(c: Ctx, block: Location): void {
     return;
   }
   relocate(w, door.id);
+  if (!meetHazards(c, door)) {
+    leaveHome(c, door);
+    return;
+  }
   const p = clamp(0.3 + skillLevel(h, 'lockpicking') * 0.05 + skillLevel(h, 'sneak') * 0.04 - door.security * 0.05 - (knows ? 0 : 0.05), 0.05, 0.8);
   train(c, 'lockpicking', 2);
   if (occupied) {

@@ -132,6 +132,12 @@ export function foeProfile(n: Npc): FoeProfile {
     if (reach[1] < 4) reach = [1, 4];
   }
   if (/scrapper|lab-bot/i.test(n.role)) speed = 2;
+  if (/guard dog/i.test(n.role)) speed = 5;
+  if (/turret/i.test(n.role)) {
+    // Bolted to the ceiling: it covers the room and goes nowhere.
+    speed = 0;
+    reach = [1, 6];
+  }
   if (t.includes('dragon')) {
     flying = true;
     reach = [1, t.includes('boss') ? 7 : 6];
