@@ -1020,6 +1020,10 @@ const T: Record<string, Entry> = {
     (d) => [d.inside ? `With ${d.npc} on the floor there is nobody to run ${d.place}. The staff stop pretending, the punters start for the exits, and someone with a key and a grudge shows Blackbird to the pavement. The shutters come down behind her.` : `Word gets round: ${d.place} has shut. With ${d.npc} out of the picture, nobody is pouring and nobody is paying, and the lights go off.`],
     ['I closed a bar. Forty years of history, and I did it before dinner.', 'In my defence, it was not a very good bar.'],
   ),
+  'shut_down:clinic': e(
+    (d) => [d.inside ? `With ${d.npc} out cold and nobody else qualified to hold a scalpel, ${d.place} locks up. The guards herd Blackbird to the door and the shutters come down on her heels.` : `${d.place} has shut. With ${d.npc} on the floor there is nobody left to hold the scalpel, and the guards have locked the door from the inside.`],
+    ['Okay. Hitting the doctor. Sub-optimal. Noted.', 'Where do people go when the clinic is closed? Other clinics. Probably.'],
+  ),
   'shut_down:muscle': e(
     (d) => [d.inside ? `${d.place} does the sums on ${d.npc} being flat on the floor again and decides it is not worth it. The lights go up, the shutters come down, and Blackbird is walked out.` : `${d.place} has decided it is cheaper to close than to keep replacing the muscle. The shutters are down.`],
     ['They could have just hired somebody. I would have knocked him down too.', 'Two bouncers, one bar, and a very reasonable amount of regret.'],

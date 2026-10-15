@@ -90,7 +90,7 @@ export function afterTakedown(c: Ctx, taken: Npc[]): void {
       weighMuscle(c, wp.id, f);
     } else if (wp.kind === 'clinic' && f.tags.includes('doc')) {
       const others = everyoneAt(w, wp.id).filter((n) => n !== f && n.tags.includes('doc') && n.alive && n.downUntil <= w.beat);
-      if (!others.length) shut(c, wp.id, 'owner', f, f.alive ? 0 : 180);
+      if (!others.length) shut(c, wp.id, 'owner', f, f.alive ? 0 : 180, 'clinic');
     } else if (wp.kind === 'shop' && f.tags.includes('shopkeeper') && !wp.pendingShut) {
       // Somebody rings the police. They get there when they get there.
       wp.pendingShut = { due: w.beat + rng.int(6, 14), who: f.id };

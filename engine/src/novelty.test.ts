@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createRun, personalityFrom } from './index';
 import { restlessness } from './run';
+import type { Candidate } from './candidate';
 
-const go = (to: string) => ({ key: `go:${to}`, drives: {} });
+const cand = (key: string): Candidate => ({ key, drives: {}, run: () => {} });
+const go = (to: string): Candidate => cand(`go:${to}`);
 
 describe('novelty-seeking', () => {
   it('prefers places she has done less in, and tires of where she is', () => {
@@ -15,9 +17,9 @@ describe('novelty-seeking', () => {
     expect(bored).toBeGreaterThan(0);
     w.locations[exit]!.doings = 12;
     // Equally worn out: leaving still beats staying, but by less than when the destination is fresh.
-    expect(restlessness(w, go(exit))).toBeGreaterThan(restlessness(w, { key: 'chat:x', drives: {} }));
+    expect(restlessness(w, go(exit))).toBeGreaterThan(restlessness(w, cand('chat:x')));
     expect(restlessness(w, go(exit))).toBeLessThan(bored);
-    expect(restlessness(w, { key: 'chat:x', drives: {} })).toBeLessThan(0); // staying put gets duller too
+    expect(restlessness(w, cand('chat:x'))).toBeLessThan(0); // staying put gets duller too
   });
 
   it('curious girls feel it more than incurious ones', () => {

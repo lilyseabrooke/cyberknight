@@ -154,6 +154,28 @@ describe('street clinics', () => {
     expect(people.filter((n) => n.tags.includes('guard')).every((n) => !n.hostile)).toBe(true);
   });
 
+  it('shut when their doc is taken down, and stay shut while no other doc is on their feet', () => {
+    const { w, clinic } = cityWithClinic();
+    relocate(w, clinic);
+    mighty(w);
+    const docs = npcsAt(w, clinic).filter((n) => n.tags.includes('doc'));
+    expect(docs.length).toBeGreaterThanOrEqual(1);
+    const s = scenario({ seed: 'unused2' });
+    const seen: GameEvent[] = [];
+    const c = { w, rng: new Rng('clinic-doc'), emit: (type: string, outcome: string, data: Record<string, unknown> = {}) => seen.push({ beat: w.beat, type, outcome, data } as GameEvent) } as Ctx;
+    w.beat = 10;
+    for (const d of docs) {
+      d.hostile = true;
+      expect(fight(c, [d], { cause: 'test', joiners: false })).toBe('win');
+    }
+    expect(s).toBeDefined();
+    expect(isShut(w, clinic)).toBe(true);
+    expect(seen.some((e) => e.type === 'shut_down' && e.data.variant === 'clinic')).toBe(true);
+    expect(seen.filter((e) => e.type === 'shut_down').every(hasTemplate)).toBe(true);
+    expect(w.hero.locationId).not.toBe(clinic);
+    expect(nearestDoc(w)?.loc).not.toBe(clinic);
+  });
+
   it('give her somewhere to be patched when the Halo is shut', () => {
     const { w, clinic } = cityWithClinic();
     const street = w.locations[clinic]!.gen!.parent;
