@@ -479,7 +479,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'heist' | 'fame' | 'dragon';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better

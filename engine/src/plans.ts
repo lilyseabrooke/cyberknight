@@ -1,4 +1,4 @@
-import type { Exit, Hero, Id, Item, Location, Npc, Ware, World } from './types';
+import type { Hero, Id, Item, Npc, Ware, World } from './types';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { ITEMS } from './content/items';
 import { GEAR_MARKUP, SHOP_ARMOR, gearPrice } from './content/shops';
@@ -17,7 +17,7 @@ import { skillLevel } from './skills';
 const GATE_COST = { bouncer: 2, locked: 3, guarded: 3, jump: 3 } as const;
 
 /** The cheapest way from `from` to `to` over exits she knows about (hidden ones don't count). */
-export function routeTo(w: World, from: Id, to: Id, via?: (e: Exit, into: Location) => boolean): { dist: number; next: Id } | null {
+export function routeTo(w: World, from: Id, to: Id): { dist: number; next: Id } | null {
   if (from === to) return { dist: 0, next: to };
   const dist: Record<Id, number> = { [from]: 0 };
   const first: Record<Id, Id> = {};
@@ -31,7 +31,6 @@ export function routeTo(w: World, from: Id, to: Id, via?: (e: Exit, into: Locati
     closed.add(cur);
     for (const e of w.locations[cur]?.exits ?? []) {
       if (e.hidden || closed.has(e.to) || !w.locations[e.to]) continue;
-      if (via && e.to !== to && !via(e, w.locations[e.to]!)) continue;
       const d = dist[cur]! + 1 + (e.gate ? GATE_COST[e.gate] : 0);
       if (dist[e.to] === undefined || d < dist[e.to]!) {
         if (dist[e.to] === undefined) open.push(e.to);

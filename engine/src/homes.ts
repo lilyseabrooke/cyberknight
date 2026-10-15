@@ -1,9 +1,7 @@
 import { Rng } from './rng';
-import type { Ctx, Exit, Id, Location, Npc, World } from './types';
+import type { Ctx, Id, Location, Npc, World } from './types';
 import { addHeat, fight, here, relocate } from './combat';
-import { spawnGroup } from './candidate';
 import { addDwelling, dwellingFor, expand } from './mapgen';
-import { routeTo } from './plans';
 import { hasImplantFlag } from './skills';
 import { moveNpc } from './population';
 
@@ -11,7 +9,7 @@ import { moveNpc } from './population';
  * Where people live. Nobody's address is public: Blackbird learns it by going home with them (romance.ts) or by
  * reading it off them with an address scanner. Once she knows it, and the person has somewhere worth robbing, she can
  * go and burgle it: the dwelling is put on the map the first time anyone needs it (growing the city out to meet it),
- * she walks there, and whatever happens happens inside it.
+ * she sets out for it as a goal (goals.ts) and gets there the way she gets anywhere, and whatever happens happens inside it.
  */
 
 const KNOWN = 'home_known';
@@ -40,9 +38,7 @@ export function scanHomes(c: Ctx): void {
 // ===================================================================== the dwelling
 
 /** Streets she can walk to without a fight at a door: not hidden, not gated, and nothing but streets in between. */
-const onTheStreets = (e: Exit, into: Location): boolean => !e.gate && into.outdoors;
-/** The last stretch goes through the building's own doors. */
-const upTheStairs = (e: Exit, into: Location): boolean => !e.gate && (into.outdoors || into.kind === 'home');
+const onTheStreets = (e: { gate: unknown }, into: Location): boolean => !e.gate && into.outdoors;
 
 function reach(w: World, from: Id): Map<Id, number> {
   const seen = new Map<Id, number>([[from, 0]]);
@@ -98,29 +94,7 @@ export function residenceOf(c: Ctx, n: Npc): Location {
   return home;
 }
 
-// ===================================================================== getting there
-
-/** Walk to a place by the streets. Something might happen on the way; true if she got there. */
-export function walkTo(c: Ctx, to: Id, why: Npc): boolean {
-  const { w, rng } = c;
-  const h = w.hero;
-  let ambushed = false;
-  for (let step = 0; step < 60 && !w.over; step++) {
-    if (h.locationId === to) return true;
-    const r = routeTo(w, h.locationId, to, upTheStairs);
-    if (!r) return false;
-    relocate(w, r.next);
-    const loc = w.locations[h.locationId]!;
-    if (h.locationId === to || ambushed || !loc.outdoors || !rng.chance(0.1 + (loc.territory ? 0.08 : 0) + 0.015 * (w.heat.npd ?? 0))) continue;
-    ambushed = true;
-    const gang = loc.territory;
-    const foes = spawnGroup(c, gang ? 'ganger' : 'mugger', rng.int(1, 2), gang ?? undefined);
-    c.emit('burgle_ambush', 'bad', { variant: gang ? 'gang' : 'mugger', npc: why.name, place: loc.name, count: foes.length });
-    const res = fight(c, foes, { cause: `an ambush on the way to ${why.name}'s place`, joiners: false });
-    if (w.over || res !== 'win' || h.locationId !== loc.id) return false;
-  }
-  return false;
-}
+// ===================================================================== the job
 
 /** After the job: out of the building and onto the street. */
 export function leaveHome(c: Ctx, home: Location): void {

@@ -261,12 +261,6 @@ const T: Record<string, Entry> = {
 
   'home_scan': e((d) => [`The address scanner flickers behind Blackbird's eye and, unasked, hands over where ${d.npc} (${d.role}) sleeps: a street, a block, a door.`, `A line of tiny text unfurls across ${d.npc}'s shoulder: a home address. Blackbird did not ask. The scanner never does.`], ['Everyone has a front door. Now I know where yours is.', 'That is not a thing I was supposed to know. Filed.']),
 
-  'burgle_trek:new': e((d) => [`Blackbird has ${d.npc}'s address, but not the way there. She works it out, and sets off for ${d.street}.`], ['Somewhere out there is a door with my name on it. Not literally.']),
-  'burgle_trek:known': e((d) => [`Blackbird sets off for ${d.npc}'s place, back by the streets she already knows.`], ['I know the way. I know the lock. I know the neighbours are loud.']),
-  'burgle_trek:abort': e((d) => [`Whatever Blackbird had planned for ${d.npc}'s place, tonight is not the night for it.`], ['Another time. The lock will still be there.']),
-  'burgle_ambush:mugger': e((d) => [Number(d.count) > 1 ? `On the way to ${d.npc}'s, ${d.place} produces a pair of muggers who seem to know Blackbird is in a hurry.` : `A mugger steps out of the shadows on ${d.place}, convinced Blackbird is carrying something worth taking. She is, in fact, on her way to take something.`], ['I have a schedule, people.']),
-  'burgle_ambush:gang': e((d) => [`This is somebody's turf, ${d.place}, and the somebody wants a toll from a stranger on the way to ${d.npc}'s place.`], ['I am not paying a toll to rob someone.']),
-
   'burgle_home:good': e((d) => [`While ${d.npc} is otherwise occupied, Blackbird lets herself into ${d.place} and helps herself: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}. She locks the door behind her. Mostly out of habit.`], ['{They} {was}n\'t using it. Probably.']),
   'burgle_home:bad': e((d) => [`The key turns in the lock of ${d.place}. ${d.npc} is home early, and Blackbird is standing in {their} living room holding something that is not hers.`], ["I was just admiring the decor. With my hands."]),
 
@@ -912,6 +906,10 @@ const T: Record<string, Entry> = {
     (d) => [`${d.place} has what Blackbird needs${Number(d.short) > 0 ? ` (${$(d.short)} neodollars' worth, give or take)` : ''}. New objective: ${d.goal}. Quietly, if she can manage the word.`, `Blackbird looks at ${d.place} the way a locksmith looks at a promise. Plan: ${d.goal}.`],
     ["In, out, nobody the wiser. It's a plan with all the best qualities.", 'Crime is just fast work. For fast people. Like me.'],
   ),
+  'goal_new:burgle': e(
+    (d) => [d.fresh ? `Blackbird has ${d.npc}'s address, but not the way there. She works it out: ${d.street}, a few blocks off, then up to ${d.home}. New objective: ${d.goal}.` : `Blackbird knows where ${d.npc} sleeps, and that it is unattended often enough. New objective: ${d.goal}.`],
+    ['Somewhere out there is a door with my name on it. Not literally.', 'I know the way. I know the lock. I know the neighbours are loud.'],
+  ),
   'goal_new:heist_idea': e((d) => [`Blackbird stares at ${d.place} for a long time. Nobody looks at a safe like that and walks away. New objective: ${d.goal}.`], ["It's there. I'm here. That's basically an invitation."]),
   'goal_pass:full': e((d) => [`Blackbird has ${d.count} plans on the go and a new one is waving at her. She has enough on her plate. ("To ${d.goal}", it says.) She lets it wave.`], ["I'm a busy woman. Very busy. Don't look at my schedule."]),
 
@@ -924,6 +922,7 @@ const T: Record<string, Entry> = {
   'goal_done:settled': e((d) => [`The plan was to flatline ${d.npc}. The venue had rules about that. ${d.npc} is unconscious, which Blackbird decides will do.`], ["{They} {is} out cold. It's basically the same. It is, in a legal sense, completely different."]),
   'goal_done:kiss': e((d) => [`${d.npc} kisses back. Blackbird takes this as proof the plan was sound.`], ['Mission accomplished. The mission was me.', 'The plan worked. Never doubted it.']),
   'goal_done:smitten': e((d) => [`${d.npc} is, by every measurable sign, impressed. Blackbird counts it as a win and keeps the receipts.`], ["She's into it. She's into me. I know what I'm doing."]),
+  'goal_done:burgled': e((d) => [`${d.npc}'s place is done. Blackbird is out the door and walking, with the unhurried gait of someone who owns the pavement.`], ['Another door that was only ever a suggestion.']),
   'goal_done:clean': e((d) => [`Nobody notices a thing. Blackbird strolls out of ${d.place} into the street like a woman remembering an appointment. The take: ${$(d.haul)} neodollars' worth.`], ['Perfect. Silent. Practically a ghost with taste.', 'Do not tell anyone how easy that was. They will want to try.']),
   'goal_done:messy': e((d) => [`Blackbird gets away with ${d.place}. Technically. The trail behind her is mostly sirens. The take: ${$(d.haul)} neodollars' worth.`], ['Fine. It got loud. Loud is a vibe.', 'Perfectly clean. In my heart.']),
 
@@ -962,6 +961,7 @@ const T: Record<string, Entry> = {
   'goal_resume:weapon': e(() => ['Blackbird looks down at her weapon, sighs, and remembers she was going to do something about that.'], ['A better weapon. I was getting to it.']),
   'goal_resume:fame': e(() => ['Blackbird catches her reflection in a window and remembers she is meant to be famous. She stands up straighter.'], ['Right. The adoring public. They are waiting.']),
   'goal_resume:dragon': e(() => ['Blackbird glances at the sky and remembers the dragons. They have not forgotten her. They do not know her. But they have not forgotten her.'], ['Back to the hunt.']),
+  'goal_resume:burgle': e((d) => [`Blackbird glances toward ${d.npc}'s street and remembers the plan.`], ["The door's still there. I'm still going to open it."]),
   'goal_resume:heist': e((d) => [`Blackbird glances toward ${d.place} and remembers the plan.`], ["The job's still there. I'm still going to do it."]),
 
   // Mid-heist.

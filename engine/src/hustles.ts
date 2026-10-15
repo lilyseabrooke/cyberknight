@@ -4,7 +4,8 @@ import { clamp, levelRisk, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { skillLevel, synergy, train } from './skills';
 import { npcsAt } from './population';
-import { knowsHome, leaveHome, ownerComesHome, residenceOf, walkTo } from './homes';
+import { knowsHome, leaveHome, ownerComesHome, residenceOf } from './homes';
+import { burglaryPending, startBurglary } from './goals';
 import { isFairGame } from './people';
 
 /** The hustle-specific skill formulas. These layer the new skills (grifting, hustling) as a
@@ -121,8 +122,10 @@ export function hustleCandidates(w: World): Candidate[] {
 
   // ---- questionable: robbing somebody's place blind, once she knows where it is
   // (not the fixer: Madame Zero is a story contact, not a mark)
+  // (Away from the door she only decides to go, once; at the door, it is the job.)
+  const burglaryPendingFor = (w2: World, x: Npc): boolean => burglaryPending(w2, x.id) && h.locationId !== x.residence;
   const marks = Object.values(w.npcs).filter(
-    (x) => x.alive && !x.hostile && knowsHome(x) && x.cash >= 60 && !has(x, 'burgled') && !x.tags.some((t) => ['kid', 'robot', 'fixer'].includes(t)) && !h.companions.some((a) => a.npcId === x.id),
+    (x) => x.alive && !x.hostile && knowsHome(x) && x.cash >= 60 && !has(x, 'burgled') && !burglaryPendingFor(w, x) && !x.tags.some((t) => ['kid', 'robot', 'fixer'].includes(t)) && !h.companions.some((a) => a.npcId === x.id),
   );
   for (const n of marks) {
     out.push({
@@ -288,16 +291,16 @@ function bodyguardGig(c: Ctx, n: Npc): void {
 
 /**
  * Burglary is something that happens at a home, not to a person wherever they are. She needs the address first (see
- * homes.ts); then she walks there (something might get in the way), and what happens, happens inside.
+ * homes.ts). Away from the door this only decides to go: the home is put on the map and she takes it up as a goal
+ * (goals.ts), and the trip is ordinary travel. Once she is at the door, this is the job itself.
  */
 function burgleHome(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   const fresh = !n.residence || !w.locations[n.residence];
   const home = residenceOf(c, n);
-  c.emit('burgle_trek', 'mixed', { variant: fresh ? 'new' : 'known', npc: n.name, home: home.name, street: w.locations[home.tossTo]?.name ?? '' });
-  if (!walkTo(c, home.id, n)) {
-    if (!w.over) c.emit('burgle_trek', 'bad', { variant: 'abort', npc: n.name });
+  if (h.locationId !== home.id) {
+    startBurglary(c, n, home, { street: w.locations[home.tossTo]?.name ?? '', fresh });
     return;
   }
   addFlag(n, 'burgled');

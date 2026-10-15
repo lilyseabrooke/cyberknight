@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, personalityFrom, runToEnd, hasTemplate, type GameEvent, type World } from './index';
+import { step } from './run';
+import { relocate } from './combat';
 import { createWorld } from './world';
 import { chores, doorSlots, hustleCandidates, oddJobReady, parcels, tickHustles, wary } from './hustles';
 import { tickVenues } from './stage';
@@ -136,6 +138,9 @@ describe('burglary and shakedowns take what is there', () => {
     expect(keys(w, 'burgle_home:rich').length).toBe(1);
     expect(keys(w, 'burgle_home:poor').length).toBe(0); // nothing worth taking
     const before = w.hero.cash;
+    run(w, 'burgle_home:rich', 'bu0'); // decides to go
+    expect(mark.flags.includes('burgled')).toBe(false);
+    relocate(w, mark.residence!); // ...and gets there
     const ev = run(w, 'burgle_home:rich', 'bu1');
     expect(mark.flags.includes('burgled')).toBe(true);
     expect(keys(w, 'burgle_home:rich').length).toBe(0);
@@ -145,34 +150,38 @@ describe('burglary and shakedowns take what is there', () => {
     }
   });
 
-  it('their home is somewhere on the map; she walks there, and it all happens inside it', () => {
+  it('their home is somewhere on the map; she travels there like anywhere else, and it all happens inside it', () => {
+    let arrived = 0;
     for (const seed of ['b1', 'b2', 'b3', 'b4', 'b5', 'b6']) {
       const w = world(seed);
       empty(w, 'halo_floor');
       const mark = npc(w, 'rich', 'patron', 'halo_floor', { cash: 300, level: 1 });
       learnHome(mark);
-      const places = Object.keys(w.locations).length;
-      const events: GameEvent[] = [];
-      const cand = hustleCandidates(w).find((x) => x.key === 'burgle_home:rich')!;
       const places0 = new Set(Object.keys(w.locations));
-      cand.run({ w, rng: new Rng(`walk-${seed}`), emit: (type: string, outcome: any, data: any = {}) => events.push({ beat: w.beat, type, outcome, data }) });
-      if (w.over) continue;
+      run(w, 'burgle_home:rich', `walk-${seed}`);
+      // Deciding to go moves nobody: the home is on the map, a few streets off, and she has a goal to get there.
       const home = w.locations[mark.residence!]!;
       expect(home.kind, seed).toBe('home');
-      expect(home.crowded).toBe(false);
-      expect(Object.keys(w.locations).length).toBeGreaterThan(places);
-      expect(places0.has(home.id)).toBe(false);
-      // The city grew out to put it a few streets away, not next door.
+      expect(places0.has(home.id), seed).toBe(false);
+      expect(w.hero.locationId, seed).toBe('halo_floor');
+      expect(w.mind.goals.some((g) => g.kind === 'burgle' && g.loc === home.id), seed).toBe(true);
+      expect(keys(w, 'burgle_home:rich').length, seed).toBe(0); // she is already on her way
       expect(w.locations[home.tossTo]!.outdoors).toBe(true);
-      expect(home.tossTo).not.toBe('halo_floor');
-      // Wherever the fight happened, it wasn't the bar: nobody from the Halo joined in, and she isn't left standing in the house.
-      for (const e of events.filter((x) => ['burgle_trek', 'burgle_ambush', 'burgle_home'].includes(x.type))) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
-      const fights = events.filter((e) => e.type === 'fight_start' && /burgling/.test(String(e.data.cause)));
+      // Then the ordinary sim carries her along.
+      const seen = new Set<string>();
+      const fights: GameEvent[] = [];
+      for (let b = 0; b < 150 && !w.over && !mark.flags.includes('burgled'); b++) {
+        for (const e of step(w)) {
+          if (e.type === 'fight_start' && /burgling/.test(String(e.data.cause))) fights.push(e);
+        }
+        seen.add(w.hero.locationId);
+        if (w.hero.locationId === home.id) break;
+      }
+      if (seen.has(home.id)) arrived++;
       for (const f of fights) expect(f.data.foes, seed).toBe(mark.name);
-      expect([home.id, home.fleeTo].includes(w.hero.locationId), seed).toBe(false);
-      expect(mark.locationId, seed).not.toBe(home.id);
     }
-  });
+    expect(arrived).toBeGreaterThan(0);
+  }, 120_000);
 
   it('richer people live in bigger places, and the address is the same every time', () => {
     const w = world('sizes');
