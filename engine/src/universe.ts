@@ -10,6 +10,8 @@ import { settleAt } from './movement';
 import { populate } from './roster';
 import { remember } from './combat';
 import { tiesFrom } from './ties';
+import { DROPS } from './content/drops';
+import { applyUpgrades, settleAccount } from './lab';
 import type { DeathRecord, Id, Npc, World } from './types';
 
 /**
@@ -26,7 +28,23 @@ import type { DeathRecord, Id, Npc, World } from './types';
  * it belongs on is a compile error rather than a bug in somebody's save file.
  */
 
-export const UNIVERSE_VERSION = 1;
+export const UNIVERSE_VERSION = 2;
+
+/**
+ * Bring a universe saved by an older version forward. Version 2 added the lab (an account and
+ * upgrades on the legacy) and the drop points (features); everything else is as it was.
+ */
+export function upgradeUniverse(u: Universe): Universe {
+  const l = u.legacy;
+  l.account ??= 0;
+  l.upgrades ??= {};
+  l.spent ??= 0;
+  for (const [kind, d] of Object.entries(DROPS)) {
+    if (!u.features[kind] && u.locations[d.at]) u.features[kind] = { id: kind, name: d.name, kind, locationId: d.at, uses: 0, flags: [] };
+  }
+  u.version = UNIVERSE_VERSION;
+  return u;
+}
 
 /** The World fields that persist across runs. Everything else is per-run. */
 type Persistent = 'worldSeed' | 'legacy' | 'clock' | 'npcs' | 'ties' | 'stubs' | 'factions' | 'locations' | 'features';
@@ -94,6 +112,7 @@ function recordDeath(w: World): void {
  */
 export function endRun(w: World): Universe {
   if (w.ending === 'dead') recordDeath(w);
+  settleAccount(w);
   const companions = new Map(w.hero.companions.filter((c) => c.npcId).map((c) => [c.npcId!, c.home]));
   for (const n of allNpcs(w)) {
     if (n.id.startsWith('tmp_') && !memorable(n)) {
@@ -169,6 +188,8 @@ export function beginRun(u: Universe, opts: BeginOptions = {}): World {
   u.legacy.realName = realName;
 
   const hero = makeHero(personality, realName, opts.competence);
+  // The body comes off the printer with whatever the lab has paid for.
+  applyUpgrades(hero, u.legacy);
   if (!u.locations[hero.locationId]) hero.locationId = Object.keys(u.locations)[0]!;
   const run: RunState = {
     seed,
@@ -180,13 +201,13 @@ export function beginRun(u: Universe, opts: BeginOptions = {}): World {
     arsenal: Object.fromEntries(genShelf(new Rng(`arsenal:${seed}`), hero.weapon).map((it) => [it.id, it])),
     situation: { warringGangs: warringGangs(u), crackdown: rng.pick(CRACKDOWNS), weather: rng.pick(['acid_rain', 'neon_fog', 'heatwave'] as const) },
     flags: {},
-    counters: { paint_stock: 8 },
+    counters: { paint_stock: 8, start_cash: hero.cash },
     damsel: null,
     flight: null,
     recent: [],
     brawlUntil: 0,
     blackoutUntil: 0,
-    stats: { kills: 0, fights: 0, maxLevel: 1 },
+    stats: { kills: 0, fights: 0, maxLevel: 1, deposited: 0, fees: 0 },
     over: false,
     ending: null,
   };

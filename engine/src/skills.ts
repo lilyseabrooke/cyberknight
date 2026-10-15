@@ -1,5 +1,6 @@
 import type { Ctx, Hero } from './types';
 import { IMPLANTS } from './content/implants';
+import { growthPct } from './lab';
 import { LEVEL_MILESTONES, SKILLS, SKILL_IDS, type SkillId, type StatId } from './content/skills';
 
 export type { SkillId, StatId };
@@ -49,7 +50,7 @@ export function train(c: Ctx, id: SkillId, xp = 1): void {
   let announced = 0;
   for (const [sk, amount] of touched) {
     const before = skillLevel(h, sk);
-    h.skills[sk] = (h.skills[sk] ?? 0) + amount;
+    h.skills[sk] = (h.skills[sk] ?? 0) + amount * (1 + growthPct(c.w.legacy, sk) / 100);
     const after = skillLevel(h, sk);
     // Only milestone levels make the log; the status panel tracks the rest.
     const idx = after > before ? LEVEL_MILESTONES.findIndex((m) => before < m && after >= m) : -1;

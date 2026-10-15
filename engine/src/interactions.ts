@@ -5,6 +5,7 @@ import { clamp, levelRisk, revealExit, spawnGroup, dutchHere, type Candidate } f
 import { moveThrough } from './moves';
 import { addCompanion, newCompanion, slotsFree } from './companions';
 import { featureCandidates } from './features';
+import { bankPull, dropCandidates } from './bank';
 import { extraCandidates } from './extras';
 import { dragonCandidates } from './dragons';
 import { hasAlly } from './companions';
@@ -156,6 +157,7 @@ export function gather(w: World): Candidate[] {
 
   // ------------------------------------------------------------------ objects
   out.push(...featureCandidates(w));
+  out.push(...dropCandidates(w));
   out.push(...extraCandidates(w));
   out.push(...dragonCandidates(w));
   out.push(...hobbyCandidates(w));
@@ -189,11 +191,12 @@ export function gather(w: World): Candidate[] {
     const toDragon = e.to === 'overpass';
     const dragonRisk = toDragon && alive(dragon) ? clamp(dragonPower / heroPower(w) - 0.6, 0, 4) : 0;
     const urge = supplyUrge(w, e.to);
+    const pull = bankPull(w, e.to);
     out.push({
       key: `go:${e.to}`,
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },
-      bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + urge.bonus,
-      smart: (toDragon && ready ? 2.4 : 0) + urge.smart,
+      bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + urge.bonus + pull.bonus,
+      smart: (toDragon && ready ? 2.4 : 0) + urge.smart + pull.smart,
       risk: dragonRisk * 1.4 + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0),
       run: (c) => moveThrough(c, e),
     });

@@ -2,6 +2,7 @@ import type { Ctx, Hero, Injury, Item, Npc, World } from './types';
 import { IMPLANTS } from './content/implants';
 import { KINDS, removeCompanion } from './companions';
 import { skillLevel, skillValue, train } from './skills';
+import { perk } from './lab';
 import { addAmmo, wielded } from './arms';
 import { fxOf, rating } from './weapons';
 import { Sim, highlights, type Arrival, type Hooks } from './tactics';
@@ -101,7 +102,7 @@ export function acquire(c: Ctx, item: Item): void {
 
 export function gainXp(c: Ctx, amount: number): void {
   const h = c.w.hero;
-  h.xp += Math.round(amount);
+  h.xp += Math.round(amount * (1 + perk(c.w.legacy, 'xp') / 100));
   while (h.xp >= 24 * h.level) {
     h.xp -= 24 * h.level;
     h.level++;

@@ -379,6 +379,37 @@ export interface Legacy {
   /** Who she is. The backup in the lab restores the same personality and the same name into each new body. */
   personality: Personality;
   realName: string;
+  /** Neodollars in her account: what she's put in at drop points, plus what she carried home. Spent in the lab. */
+  account: number;
+  /** Lab upgrades she has, by node id, with the number of ranks bought. See content/tree.ts. */
+  upgrades: Record<string, number>;
+  /** Neodollars spent in the lab, ever. */
+  spent: number;
+  /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
+  report?: RunReport;
+}
+
+/** The books on one night, settled when it ends. */
+export interface RunReport {
+  run: number;
+  ending: 'dead' | 'victory' | 'dawn';
+  /** What she put in at drop points, after their cut. */
+  deposited: number;
+  /** What the drop points took. */
+  fees: number;
+  /** What she was carrying when it ended. */
+  carried: number;
+  /** Of that, what made it into the account (all of it if she walked home; a share if she died; none otherwise). */
+  recovered: number;
+  /** Interest paid on the balance when she was rebuilt. */
+  interest: number;
+  /** Level, kills and length of the night, for the lab's wall. */
+  level: number;
+  kills: number;
+  beats: number;
+  /** Balance before and after. */
+  before: number;
+  after: number;
 }
 
 export interface World {
@@ -416,7 +447,7 @@ export interface World {
   recent: string[];
   brawlUntil: number;
   blackoutUntil: number;
-  stats: { kills: number; fights: number; maxLevel: number };
+  stats: { kills: number; fights: number; maxLevel: number; deposited: number; fees: number };
   over: boolean;
   ending: null | 'dead' | 'victory' | 'dawn';
 }

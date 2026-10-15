@@ -1,6 +1,6 @@
 import { catchUp } from './clock';
 import { settleAt } from './movement';
-import { UNIVERSE_VERSION, joinWorld, splitWorld, type RunState, type Universe } from './universe';
+import { UNIVERSE_VERSION, joinWorld, splitWorld, upgradeUniverse, type RunState, type Universe } from './universe';
 import type { World } from './types';
 
 /**
@@ -33,8 +33,9 @@ export const serialize = (save: Save): string => JSON.stringify(save);
 export function deserialize(text: string): Save {
   const raw = JSON.parse(text) as Save;
   if (!raw || typeof raw !== 'object' || !raw.universe) throw new Error('not a Cyberknight save');
-  if (raw.universe.version !== UNIVERSE_VERSION) throw new Error(`save is version ${raw.universe.version}; this game reads version ${UNIVERSE_VERSION}`);
-  return { universe: raw.universe, run: raw.run ?? null, savedAt: raw.savedAt ?? 0 };
+  const v = raw.universe.version;
+  if (v !== UNIVERSE_VERSION && v !== 1) throw new Error(`save is version ${v}; this game reads version ${UNIVERSE_VERSION}`);
+  return { universe: upgradeUniverse(raw.universe), run: raw.run ?? null, savedAt: raw.savedAt ?? 0 };
 }
 
 /**

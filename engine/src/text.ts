@@ -1017,6 +1017,27 @@ const T: Record<string, Entry> = {
     },
     (d) => (d.flavor === 'interrupted' ? ['Rain check. A heroic rain check.', 'The universe has a sense of humor and it is aimed squarely at me.'] : d.flavor === 'wallet' ? ['Cheap at the price. I think.', "She took my money. I took the rest of the night. We're even."] : ['Okay. Okay. Wow. Okay.', 'I could save the whole city right now. After a nap.', "That's the stuff. That's what I was fighting for. Probably."]),
   ),
+  // ---------------------------------------------------------------- the bank
+  deposit: e(
+    (d) => {
+      const tail = `${$(d.net)} neodollars go into her account${Number(d.fee) ? ` after a ${d.pct}% cut of ${$(d.fee)}` : ' with no cut at all'}. Balance: ${$(d.balance)}.`;
+      switch (d.variant) {
+        case 'alley': return [`Blackbird slides a loose brick out of the alley wall and feeds it the cash, one folded bill at a time. ${tail}`];
+        case 'street': return [`The Ironvault ATM blinks twice and agrees to take her money, a state of affairs the screen's crack makes dubious. ${tail}`];
+        case 'club': return [`The coat-check attendant slides an envelope under the glass and doesn't make eye contact. ${tail}`];
+        case 'backlot': return [`A street kid opens the false bottom of a milk crate, counts, and writes a number on the wall. ${tail}`];
+        case 'kitchen': return [`Behind the walk-in freezer there is a panel, and behind the panel there is a drop point. Bao pretends not to see. ${tail}`];
+        case 'tunnel': return [`Blackbird thumbs a lockbox open in the crawlspace, between a fuse bank and something that hums. ${tail}`];
+        case 'roof': return [`The pigeon coop has a lockbox in it, and the pigeon has an opinion about it. ${tail}`];
+        default: return [`Blackbird feeds the pharmacy's night-deposit slot like it owes her money. ${tail}`];
+      }
+    },
+    (d) => [
+      Number(d.left) >= 20 ? 'Money you can\'t spend is money that can\'t die with you. Smart. I hate it.' : 'Pockets: nearly empty. Account: not. Weird feeling.',
+      'The lab guy can have it. I\'ll be back for it. In a new body.',
+      Number(d.fee) > 30 ? 'A cut that big is basically a mugging with paperwork.' : 'Cheap insurance. Not that I\'m going to need it.',
+    ],
+  ),
   death: e(
     (d) => [`Blackbird is dead. Level ${d.level}. ${d.place}. Cause: ${d.cause}. Killed by ${d.killer}.`, `Blackbird flatlines in ${d.place}. Level ${d.level}. The report will say "${d.cause}".`],
     ['Huh. Okay. That was unexpected.', "Tell my fans I'll be back. Tell the cops I wasn't here."],
