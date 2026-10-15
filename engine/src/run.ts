@@ -60,19 +60,22 @@ export function score(w: World, cand: Candidate): number {
 }
 
 /** How interesting a place still is: untouched is 1, and every thing she does there wears it down. */
-const interest = (w: World, id: string): number => 1 / (1 + (w.locations[id]?.doings ?? 0) / 6);
+const interest = (w: World, id: string): number => 1 / (1 + (w.locations[id]?.doings ?? 0) / NOVELTY_HALF_LIFE);
+const NOVELTY_HALF_LIFE = 4;
 
 /**
- * Novelty-seeking. The more she's done somewhere the less it holds her, so she drifts toward places
- * she knows less, in proportion to how much more interesting they are than where she's standing.
- * Curious, thrill-seeking girls feel it most; the incurious homebody still gets bored, just slower.
+ * Novelty-seeking. The more she's done somewhere the less it holds her: everything she could do
+ * here gets duller, and heading for somewhere fresher gets more tempting, in proportion to how
+ * much more interesting it is than where she's standing. Curious, thrill-seeking girls feel it
+ * most; the incurious homebody still gets bored, just slower.
  */
 export function restlessness(w: World, cand: Candidate): number {
   const [family, dest] = cand.key.split(':') as [string, string | undefined];
-  if (family !== 'go' || !dest) return 0;
   const t = w.hero.personality.traits;
   const appetite = Math.max(0.3, 0.8 + (t.curiosity - 0.5) + 0.4 * (t.thrill - 0.5));
-  return 1.5 * appetite * (interest(w, dest) - interest(w, w.hero.locationId));
+  const bored = 1 - interest(w, w.hero.locationId);
+  if (family !== 'go' || !dest) return -1.5 * appetite * bored;
+  return 3 * appetite * (interest(w, dest) - (1 - bored)) + 1.5 * appetite * bored;
 }
 
 /** Softmax pick. Competence lowers the temperature, so a sharper mind picks the best option more reliably. */

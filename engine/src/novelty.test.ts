@@ -14,8 +14,10 @@ describe('novelty-seeking', () => {
     const bored = restlessness(w, go(exit));
     expect(bored).toBeGreaterThan(0);
     w.locations[exit]!.doings = 12;
-    expect(restlessness(w, go(exit))).toBeCloseTo(0, 5);
-    expect(restlessness(w, { key: 'chat:x', drives: {} })).toBe(0);
+    // Equally worn out: leaving still beats staying, but by less than when the destination is fresh.
+    expect(restlessness(w, go(exit))).toBeGreaterThan(restlessness(w, { key: 'chat:x', drives: {} }));
+    expect(restlessness(w, go(exit))).toBeLessThan(bored);
+    expect(restlessness(w, { key: 'chat:x', drives: {} })).toBeLessThan(0); // staying put gets duller too
   });
 
   it('curious girls feel it more than incurious ones', () => {
