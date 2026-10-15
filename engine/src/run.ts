@@ -14,13 +14,14 @@ import { ambientGraffiti } from './graffiti';
 import { hasImplantFlag, skillLevel } from './skills';
 import { expireBuffs, restockShelf } from './supply';
 import { discretion } from './discretion';
+import { closureTick } from './shutdown';
 import { scanBounties } from './bounty';
 import { scanHomes } from './homes';
 import { recognizeRevenant } from './revenant';
 import { bondTick, partnerArrives } from './bonds';
 import { avengerTick, noticeTick } from './knowledge';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
-import { heatBias, npdResponse } from './laylow';
+import { haloShun, heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
 import { satietyBias, tickSatiety } from './romance';
@@ -44,6 +45,7 @@ export function score(w: World, cand: Candidate): number {
   s += goalBias(w, cand);
   s += satietyBias(w, cand);
   s += heatBias(w, cand);
+  s += haloShun(w, cand);
   s += passionBias(w, cand);
   s += (cand.smart ?? 0) * h.competence;
   s += restlessness(w, cand);
@@ -137,6 +139,7 @@ export function step(w: World): GameEvent[] {
   const before = mindBefore(w);
   let chosen: Candidate | null = null;
   upkeep(c);
+  if (!w.over) closureTick(c);
   if (!w.over) scanBounties(c);
   if (!w.over) scanHomes(c);
   if (!w.over) recognizeRevenant(c);
@@ -194,6 +197,8 @@ function upkeep(c: Ctx): void {
   expireBuffs(c);
   w.flags.blackout = w.beat < w.blackoutUntil;
   if (w.beat % 10 === 0) for (const k of Object.keys(w.heat)) w.heat[k] = Math.max(0, (w.heat[k] ?? 0) - 1);
+  // The Halo's grudge fades faster than the police's.
+  if (w.beat % 5 === 0 && (w.heat.halo ?? 0) > 0) w.heat.halo!--;
   if (w.beat % 8 === 0 && h.drunk > 0) h.drunk--;
   tickSatiety(h);
   // Shipments arrive; tempers cool. No timers on her, just the world carrying on.

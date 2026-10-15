@@ -1,6 +1,7 @@
 import type { Hero, Id, Item, Npc, Ware, World } from './types';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { ITEMS } from './content/items';
+import { isShut } from './shutdown';
 import { GEAR_MARKUP, SHOP_ARMOR, gearPrice } from './content/shops';
 import { armBest, rating, shelfPrice } from './weapons';
 import { price } from './supply';
@@ -30,7 +31,7 @@ export function routeTo(w: World, from: Id, to: Id): { dist: number; next: Id } 
     if (cur === to) return { dist: dist[cur]!, next: first[cur]! };
     closed.add(cur);
     for (const e of w.locations[cur]?.exits ?? []) {
-      if (e.hidden || closed.has(e.to) || !w.locations[e.to]) continue;
+      if (e.hidden || closed.has(e.to) || !w.locations[e.to] || isShut(w, e.to)) continue;
       const d = dist[cur]! + 1 + (e.gate ? GATE_COST[e.gate] : 0);
       if (dist[e.to] === undefined || d < dist[e.to]!) {
         if (dist[e.to] === undefined) open.push(e.to);

@@ -1016,6 +1016,18 @@ const T: Record<string, Entry> = {
     (d) => [`Blackbird needs ${Number(d.short) > 0 ? `${$(d.short)} neodollars` : 'cash'}, and ${d.place} is, by any fair reading, full of it. New objective: ${d.goal}.`],
     ['Why earn money when you can take it off people who have too much of it, and a gun?', 'A budget is just a heist with paperwork.'],
   ),
+  'shut_down:owner': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor there is nobody to run ${d.place}. The staff stop pretending, the punters start for the exits, and someone with a key and a grudge shows Blackbird to the pavement. The shutters come down behind her.` : `Word gets round: ${d.place} has shut. With ${d.npc} out of the picture, nobody is pouring and nobody is paying, and the lights go off.`],
+    ['I closed a bar. Forty years of history, and I did it before dinner.', 'In my defence, it was not a very good bar.'],
+  ),
+  'shut_down:called': e(
+    (d) => [`${d.npc} is on the floor of ${d.place}, and the first thing anyone in the shop does is reach for a phone.`],
+    ['Cops in five. Four, if they like the look of the day.', 'Right. Nobody saw anything. Nobody.'],
+  ),
+  'shut_down:police': e(
+    (d) => [d.inside ? `The police arrive at ${d.place} and take one look at ${d.npc}. Blackbird is shown out, and tape goes across the door behind her.` : `The police have been to ${d.place}. There is tape across the door and a notice about an incident.`],
+    ['Closed pending inquiries. I love it when they use big words.', 'That is a lot of tape for one clerk.'],
+  ),
   'goal_new:wandered_in': e(
     (d) => [d.dungeon === 'outpost' ? `Blackbird is inside ${d.place}. Nobody invited her, which is, she has decided, a plan. New objective: ${d.goal}.` : `Blackbird is through the door of ${d.place} before she has properly decided to be. She decides, retroactively. New objective: ${d.goal}.`],
     ["I meant to do that. All of that. Even the door.", 'Look at me, already inside. Planning is for people who are not me.'],

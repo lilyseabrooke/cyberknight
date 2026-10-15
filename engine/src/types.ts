@@ -353,6 +353,11 @@ export interface Location {
   gen?: GenInfo;
   /** One line about what she sees the first time she walks in (generated places only). */
   blurb?: string;
+  /** Nobody gets in until this beat: the owner's been put down, or the police have taped the door. See shutdown.ts. */
+  shutUntil?: number;
+  shutBy?: 'owner' | 'police';
+  /** Somebody who works here has been laid out and the police are on their way. */
+  pendingShut?: { due: number; who: Id };
   /** Part of a dungeon: the id of its entrance, which is also the key into `World.dungeons`. See dungeons.ts. */
   dungeon?: Id;
 }

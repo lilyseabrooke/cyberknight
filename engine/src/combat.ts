@@ -16,6 +16,7 @@ import { ensureDeep } from './deepen';
 import { spreadDeed } from './ties';
 import { settleContracts } from './contracts';
 import { ensureDungeon } from './dungeons';
+import { afterTakedown, downFor, isShut } from './shutdown';
 
 export { npcsAt };
 
@@ -33,6 +34,8 @@ export function throwDamage(w: World, item: Item): number {
 /** Move the hero. Scrambling through a hidden door reveals it, in both directions. */
 export function relocate(w: World, to: string): void {
   const h = w.hero;
+  // A shut door stays shut however she came to be at it: thrown, fleeing, or lost.
+  for (let i = 0; i < 6 && isShut(w, to); i++) to = w.locations[to]?.tossTo ?? 'street_main';
   const from = h.locationId;
   // Whoever she's looking at stays where she left them for a while; where she's headed catches up on the time she's been away.
   pinAt(w, from, w.clock);
@@ -264,7 +267,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   for (const f of foes) {
     if (!res.fled.has(f.id)) continue;
     f.hostile = false;
-    f.downUntil = w.beat + 15 + rng.int(0, 15);
+    f.downUntil = w.beat + downFor(f, rng, true);
     f.affinity -= 20;
     remember(f, 'fled from Blackbird');
   }
@@ -312,7 +315,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
         // non-lethal: knocked out, not dead. They'll remember.
         f.hp = Math.max(1, Math.round(f.maxHp * 0.5));
         f.hostile = false;
-        f.downUntil = w.beat + 22 + rng.int(0, 15);
+        f.downUntil = w.beat + downFor(f, rng, false);
         f.affinity -= 40;
         remember(f, 'was beaten by Blackbird');
         // Beaten is beaten: she goes through the pockets of anyone who can't stop her.
@@ -330,6 +333,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       }
     }
     h.cash += cash;
+    afterTakedown(c, foes.filter((f) => !gone(f) && (!f.alive || f.downUntil > w.beat)));
     collectBounties(c, foes.filter((f) => !gone(f)));
     // The people who care about them hear; and whoever hired her pays.
     for (const f of foes) {

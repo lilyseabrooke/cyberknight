@@ -28,6 +28,7 @@ import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
 import { isFairGame } from './people';
 import { isBadGuy } from './traits';
+import { isShut } from './shutdown';
 import { moveNpc } from './population';
 
 const DRINKS = [
@@ -208,6 +209,7 @@ export function gather(w: World): Candidate[] {
   for (const e of loc.exits) {
     if (e.hidden) continue;
     if (e.to === 'overpass' && !w.flags.dragon_known) continue;
+    if (isShut(w, e.to)) continue; // locked up, or taped off by the police
     const dest = w.locations[e.to]!;
     const toDragon = e.to === 'overpass';
     const dragonRisk = toDragon && alive(dragon) ? clamp(dragonPower / heroPower(w) - 0.6, 0, 4) : 0;

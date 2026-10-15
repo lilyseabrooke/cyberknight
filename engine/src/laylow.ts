@@ -72,6 +72,18 @@ export function heatBias(w: World, cand: { key: string }): number {
   return 0;
 }
 
+/**
+ * The Rusty Halo remembers. While its heat is up (she's robbed it, hit its people, kicked down its doors) she gives the
+ * main room a wide berth, and if she's in it she'd rather be anywhere else. Heat fades on its own; see `upkeep`.
+ */
+export function haloShun(w: World, cand: { key: string }): number {
+  const heat = w.heat.halo ?? 0;
+  if (heat < 4 || !cand.key.startsWith('go:')) return 0;
+  const over = Math.min(4, heat - 3);
+  if (cand.key === 'go:halo_floor') return -0.9 * over;
+  return w.hero.locationId === 'halo_floor' ? 0.6 * over : 0;
+}
+
 // ===================================================================== the police response
 
 /**

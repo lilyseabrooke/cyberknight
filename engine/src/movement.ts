@@ -1,5 +1,6 @@
 import { Rng, hashString } from './rng';
 import { phaseOf } from './clock';
+import { isShut } from './shutdown';
 import { AWAY, everyoneAt, hauntersOf, moveNpc } from './population';
 import type { Id, Npc, World } from './types';
 
@@ -29,8 +30,8 @@ export function placeAt(w: World, n: Npc, now: number): Id {
   const slot = Math.floor((now + tempo(n.id) * 7) / stay);
   const rng = new Rng(`at:${w.worldSeed}:${n.id}:${slot}`);
   const routine = n.routine?.[phaseOf(now)];
-  if (routine && (routine === AWAY || w.locations[routine]) && rng.chance(0.8)) return routine;
-  const options = Object.entries(n.haunts ?? {}).filter(([loc, wt]) => wt > 0 && (loc === AWAY || w.locations[loc]));
+  if (routine && (routine === AWAY || (w.locations[routine] && !isShut(w, routine))) && rng.chance(0.8)) return routine;
+  const options = Object.entries(n.haunts ?? {}).filter(([loc, wt]) => wt > 0 && (loc === AWAY || (w.locations[loc] && !isShut(w, loc))));
   if (!options.length) return n.locationId;
   return rng.weighted(options, ([, wt]) => wt)[0];
 }
