@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slow } from './testkit';
 import { step } from './run';
 import { UNIVERSE_VERSION, beginRun, endRun, newUniverse, splitWorld } from './universe';
 import { MemoryStore, deserialize, makeSave, resume, serialize } from './store';
@@ -404,7 +405,7 @@ describe('the lab loop', () => {
     expect(w2.legacy.upgrades['reflex.1']).toBe(1);
   });
 
-  it('survives a real night, a real death and a real return', () => {
+  slow('death and a real return', () => {
     let u = newUniverse('real');
     for (let night = 0; night < 3; night++) {
       const w = beginRun(u, { seed: `n${night}`, competence: 0.4 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slow } from './testkit';
 import { Rng, personalityFrom, runToEnd, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { assessFoe, cashOptions, dragonReadiness, isHunted, pursuitBias, pursuitTargets, pursuitTick, winOdds } from './pursuit';
@@ -208,7 +209,7 @@ describe('drones', () => {
 });
 
 describe('in the sim', () => {
-  it('she chases bounties and takes odd jobs, sizes people up, and gets paid', () => {
+  slow('odd jobs, sizes people up, and gets paid', () => {
     const seen = new Set<string>();
     let paid = 0;
     let jobs = 0;
@@ -257,7 +258,7 @@ describe('what she is about when she has nothing else on her mind', () => {
     expect(count({ courage: 0.95, justice: 0.9, thrill: 0.9, greed: 0.1, fame: 0.2 }, 'dragon')).toBeGreaterThan(count({ courage: 0.05, justice: 0.1, thrill: 0.1, greed: 0.9, fame: 0.9 }, 'dragon'));
   });
 
-  it('is rarely without something to do', () => {
+  slow(' do', () => {
     let beats = 0;
     let empty = 0;
     for (let i = 0; i < 20; i++) {
@@ -302,7 +303,7 @@ describe('fame: pick an act, then find the stage', () => {
     expect(expectedFame(w, 'karaoke')).toBeGreaterThan(before);
   });
 
-  it('actually gets famous over a night', () => {
+  slow('ght', () => {
     let finished = 0;
     for (let i = 0; i < 30; i++) {
       const { world: w, events } = createRun({ seed: `fame-${i}`, competence: 0.8, personality: personalityFrom({ fame: 0.95, vanity: 0.9, artistry: 0.8 }) });
@@ -339,7 +340,7 @@ describe('dragons: look up, then decide', () => {
     expect(dragonReadiness(w, g)).toBeGreaterThanOrEqual(0);
   });
 
-  it('over many nights, someone goes hunting and comes back with a scale', () => {
+  slow(' hunting and comes back with a scale', () => {
     let scans = 0;
     let kills = 0;
     let done = 0;

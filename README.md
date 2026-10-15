@@ -10,7 +10,8 @@ A self-playing cyberpunk sword-and-sorcery roguelite. You're the lab assistant; 
 ```
 npm install
 npm run dev                    # the log UI at http://localhost:3000 (runs the engine in the browser)
-npm test                      # engine unit tests
+npm test                      # fast engine tests (seconds); skips the slow Monte Carlo ones
+npm run test:full             # everything, incl. the ~34 slow whole-game simulation tests (run before merging)
 npm run typecheck
 npm run play -- neo-7 0.2     # watch one night in Neo: <seed> <competence 0..1>
 npm run sim -- 1000 0.1       # headless balance harness: <runs> <competence 0..1>

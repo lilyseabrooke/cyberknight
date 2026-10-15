@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slow } from './testkit';
 import { createWorld } from './world';
 import { step } from './run';
 import { Rng } from './rng';
@@ -490,7 +491,7 @@ describe('romance meets depth', () => {
 });
 
 describe('whole nights', () => {
-  it('fill in only the people who come up, and everything they say can be read', () => {
+  slow('me up, and everything they say can be read', () => {
     const missing = new Set<string>();
     let learned = 0;
     let deep = 0;
