@@ -23,8 +23,12 @@ import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
 import { satietyBias, tickSatiety } from './romance';
 import { BASE_MIN_PER_BEAT } from './clock';
+import { npcNamed } from './population';
 
 export const MAX_BEATS = 600;
+
+/** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
+const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
 
 const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates']);
 
@@ -92,6 +96,13 @@ export function step(w: World): GameEvent[] {
     w,
     rng,
     emit(type: string, outcome: Outcome, data: EventData = {}) {
+      for (const k of PEOPLE_KEYS) {
+        const name = data[k];
+        if (typeof name === 'string' && data[`${k}_g`] === undefined) {
+          const who = npcNamed(w, name);
+          if (who) data[`${k}_g`] = who.gender;
+        }
+      }
       events.push({ beat: w.beat, type, outcome, data });
     },
   };

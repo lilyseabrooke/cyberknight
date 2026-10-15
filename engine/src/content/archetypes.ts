@@ -204,7 +204,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
   street_kid: {
     role: 'street kid', level: [1, 1], tags: ['kid'], faction: null,
     names: 'kid', weapons: ['broken_bottle'], loot: ['credchip', 'neural_gum', 'gold_tooth'], lootChance: 0.6, cash: [1, 15],
-    desc: ['a street kid in a stolen jacket three sizes too big, with a very serious expression'],
+    desc: ['a street kid in a stolen leather jacket, a very serious expression and a haircut done by someone with a grudge'],
   },
   damsel: {
     role: 'courier in distress', level: [1, 1], tags: ['damsel'], faction: null,
@@ -268,7 +268,7 @@ const PEOPLE: Record<string, PersonSpec> = {
   paint_clerk: { women: 0.6, age: [20, 40] },
   pharmacist: { age: [30, 62] },
   gunsmith: { age: [34, 64] },
-  street_kid: { age: [18, 22] },
+  street_kid: { age: [18, 26] },
   damsel: { women: 1, age: [20, 36] },
   npd_officer: { age: [24, 56] },
   npd_sergeant: { age: [38, 60] },

@@ -73,8 +73,10 @@ describe('who people are', () => {
     expect(isFairGame(w.npcs.dutch!)).toBe(false);
     expect(isFairGame(w.npcs.sprocket!)).toBe(false);
     expect(isFairGame(w.npcs.dragon!)).toBe(false);
-    const kid = spawnNpc(new Rng('k'), 'k1', 'street_kid', 'street_main', { gender: 'woman' });
-    expect(isFairGame(kid)).toBe(false);
+    // "Street kid" is a young punk, an adult like everyone else.
+    const punk = spawnNpc(new Rng('k'), 'k1', 'street_kid', 'street_main', { gender: 'woman' });
+    expect(punk.age).toBeGreaterThanOrEqual(MIN_AGE);
+    expect(isFairGame(punk)).toBe(true);
     old.alive = false;
     expect(isFairGame(old)).toBe(false);
   });

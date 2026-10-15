@@ -323,7 +323,7 @@ function noticeMismatch(c: Ctx, n: Npc, hers: Feelings, theirs: Feelings): void 
   const gap = RANK[theirs.stage] - RANK[hers.stage];
   if (gap === 0 || hers.noticed === theirs.stage) return;
   hers.noticed = theirs.stage;
-  c.emit('dtr', 'mixed', { variant: gap > 0 ? 'they_more' : 'she_more', npc: n.name, they: theirs.stage, she: hers.stage });
+  c.emit('dtr', 'mixed', { variant: gap > 0 ? 'they_more' : 'she_more', npc: n.name, theirStage: theirs.stage, herStage: hers.stage });
   if (gap > 0) n.affinity -= 3;
 }
 

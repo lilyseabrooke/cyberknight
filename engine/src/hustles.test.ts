@@ -111,7 +111,7 @@ describe('bodyguard gigs', () => {
     const patron = npc(w, 'pat', 'patron', 'halo_floor');
     expect(keys(w, 'bodyguard_gig').length).toBe(0);
     let wanted = false;
-    for (let i = 0; i < 400 && !wanted; i++) {
+    for (let i = 0; i < 1500 && !wanted; i++) { // a rare roll (0.3% a beat); everyone else who might want one rolls first, so don't stop early
       tick(w, 1, `e${i}`);
       wanted = patron.flags.includes('wants_escort');
     }

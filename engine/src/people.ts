@@ -38,12 +38,13 @@ export function rollPerson(id: string, name: string, spec: PersonSpec = {}, over
  * Who Blackbird considers fair game: every woman, whatever her situation, whatever her age.
  * Whether it works out is another matter. This is the one place that decides who she goes for.
  *
- * Street kids are left out until the archetype is rewritten as adults; see the note in DESIGN.md.
+ * "Street kid" is an archetype name for a young punk, not a child; they're adults like everyone
+ * else, and ages start at 18.
  */
 export function isFairGame(n: Npc): boolean {
   if (!n.alive || n.gender !== 'woman' || n.age < MIN_AGE) return false;
-  if (n.archetype === 'street_kid' || n.archetype === 'puppy') return false;
-  return !n.tags.some((t) => ['robot', 'pet', 'boss', 'dragon', 'kid'].includes(t));
+  if (n.archetype === 'puppy') return false;
+  return !n.tags.some((t) => ['robot', 'pet', 'boss', 'dragon'].includes(t));
 }
 
 /** Years between two people. */

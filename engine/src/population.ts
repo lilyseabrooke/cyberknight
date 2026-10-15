@@ -11,6 +11,7 @@ import type { Id, Npc, World } from './types';
  *
  *   byLoc    who is standing in each place
  *   byHaunt  who turns up in each place from time to time (see movement.ts)
+ *   byName   who goes by a name (names repeat, so it's a set), for turning text back into a person
  *   order    each person's place in creation order, so lookups come back in a stable order
  */
 
@@ -20,6 +21,7 @@ export const AWAY: Id = '_away';
 interface Index {
   byLoc: Map<Id, Set<Id>>;
   byHaunt: Map<Id, Set<Id>>;
+  byName: Map<string, Set<Id>>;
   order: Map<Id, number>;
   next: number;
 }
@@ -42,10 +44,11 @@ const drop = (m: Map<Id, Set<Id>>, key: Id, id: Id): void => {
 };
 
 function build(npcs: Record<Id, Npc>): Index {
-  const ix: Index = { byLoc: new Map(), byHaunt: new Map(), order: new Map(), next: 0 };
+  const ix: Index = { byLoc: new Map(), byHaunt: new Map(), byName: new Map(), order: new Map(), next: 0 };
   for (const n of Object.values(npcs)) {
     ix.order.set(n.id, ix.next++);
     put(ix.byLoc, n.locationId, n.id);
+    put(ix.byName, n.name, n.id);
     for (const loc of Object.keys(n.haunts ?? {})) put(ix.byHaunt, loc, n.id);
   }
   return ix;
@@ -74,12 +77,14 @@ export function addNpc(w: Population, n: Npc): Npc {
   const old = w.npcs[n.id];
   if (old) {
     drop(ix.byLoc, old.locationId, old.id);
+    drop(ix.byName, old.name, old.id);
     for (const loc of Object.keys(old.haunts ?? {})) drop(ix.byHaunt, loc, old.id);
   } else {
     ix.order.set(n.id, ix.next++);
   }
   w.npcs[n.id] = n;
   put(ix.byLoc, n.locationId, n.id);
+  put(ix.byName, n.name, n.id);
   for (const loc of Object.keys(n.haunts ?? {})) put(ix.byHaunt, loc, n.id);
   return n;
 }
@@ -90,6 +95,7 @@ export function removeNpc(w: Population, id: Id): void {
   if (!n) return;
   const ix = index(w);
   drop(ix.byLoc, n.locationId, id);
+  drop(ix.byName, n.name, id);
   for (const loc of Object.keys(n.haunts ?? {})) drop(ix.byHaunt, loc, id);
   ix.order.delete(id);
   delete w.npcs[id];
@@ -111,6 +117,17 @@ export function setHaunts(w: Population, n: Npc, haunts: Record<Id, number> | un
   if (haunts) n.haunts = haunts;
   else delete n.haunts;
   for (const loc of Object.keys(n.haunts ?? {})) put(ix.byHaunt, loc, n.id);
+}
+
+/**
+ * Who a name in the text refers to. Names repeat, so prefer someone in the room with her, then
+ * anyone alive, then anyone at all.
+ */
+export function npcNamed(w: World, name: string): Npc | undefined {
+  const ids = index(w).byName.get(name);
+  if (!ids) return undefined;
+  const people = [...ids].map((id) => w.npcs[id]!);
+  return people.find((n) => n.locationId === w.hero.locationId) ?? people.find((n) => n.alive) ?? people[0];
 }
 
 /** Everyone standing in a place, conscious or not, alive or not. */
@@ -145,6 +162,8 @@ export function verifyIndex(w: Population): string[] {
     }
   }
   for (const n of Object.values(w.npcs)) if (!seen.has(n.id)) bad.push(`${n.id} is not indexed`);
+  for (const [name, ids] of ix.byName) for (const id of ids) if (w.npcs[id]?.name !== name) bad.push(`${id} is indexed as ${name} but isn't called that`);
+  for (const n of Object.values(w.npcs)) if (!ix.byName.get(n.name)?.has(n.id)) bad.push(`${n.id} is not indexed by name`);
   for (const [loc, ids] of ix.byHaunt) for (const id of ids) if (!w.npcs[id]?.haunts?.[loc]) bad.push(`${id} is indexed as haunting ${loc} but doesn't`);
   for (const n of Object.values(w.npcs)) for (const loc of Object.keys(n.haunts ?? {})) if (!ix.byHaunt.get(loc)?.has(n.id)) bad.push(`${n.id} haunts ${loc} but isn't indexed`);
   return bad;

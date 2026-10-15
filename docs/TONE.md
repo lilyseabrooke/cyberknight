@@ -57,3 +57,10 @@ Characters emerge from combinations: a high-`impress`, low-`romantic` girl works
 ## Content tagging (for the template system)
 
 Lines are tagged by: voice (`report` | `thought`), event type, location type, mood, outcome (`good` | `bad` | `mixed`), relationship state, personality traits (quirks surface at >= 0.7), competence band. The engine picks the best match; variety and callbacks are preferred over repeating a line.
+
+## People and pronouns
+
+- **Use the person's own pronouns.** He, she, it and they all appear, because the people do. Reserve "they" for groups, non-binary people, and genuine not-knowing; a neutral line where the engine knew the person's gender is a bug in the line.
+- **Write the tokens, not the words** (`{They} shake{s} {their} head`), so the same line works for anyone. See `engine/src/pronouns.ts`. Don't write "he" or "she" for a generic NPC; do for Blackbird, and for the named cast where it never varies.
+- **"Street kid" is a young punk,** an adult. Keep the slang, not the childishness: no ten-year-olds, no "children", no ducklings.
+
