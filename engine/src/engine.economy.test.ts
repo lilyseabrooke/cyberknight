@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { slow } from './testkit';
+import { always, never, scenario, search, slow } from './testkit';
 import { Rng, createRun, step, runToEnd, render, hasTemplate, rollPersonality, personalityFrom, TRAITS, synergy, skillValue, train, ODDS, heroPower, throwDamage, type World, type GameEvent } from './index';
 import { gather } from './interactions';
-import { pieceFame, paintCharges, makeCan, graffitiCandidates, FAME_DECAY } from './graffiti';
+import { pieceFame, paintCharges, makeCan, graffitiCandidates, FAME_DECAY, vandalCops, ambientGraffiti } from './graffiti';
 import { acquire, fight, gainXp } from './combat';
 import { wielded, ammoOf, medPacks } from './arms';
 import { expireBuffs } from './supply';
@@ -146,14 +146,78 @@ describe('graffiti ecosystem', () => {
     if (!world.over) expect(g.affinity).toBeGreaterThan(-30);
   });
 
+  // The direct scenarios: put her where the event lives and rig the dice. The search below is the same claim over whole nights.
+  describe('each outcome, built directly', () => {
+    const street = () => scenario({ at: 'street_main', setup: (w) => { w.hero.cash = 200; } });
+
+    it('a good tag puts a piece on the wall and is worth fame', () => {
+      const s = scenario({ at: 'street_main', bare: true, setup: (w) => makeCan(w.hero, 1) });
+      const fame = s.w.hero.fame;
+      s.do('graffiti', always());
+      expect(s.saw('graffiti', 'mural')).toBe(true);
+      expect(s.w.locations.street_main!.graffiti).toBe(1);
+      expect(s.w.hero.fame).toBeGreaterThan(fame);
+    });
+
+    it('a bad one is rude, and leaves nothing', () => {
+      const s = scenario({ at: 'street_main', bare: true, setup: (w) => makeCan(w.hero, 1) });
+      s.do('graffiti', never());
+      expect(s.saw('graffiti', 'rude')).toBe(true);
+      expect(s.w.locations.street_main!.graffiti).toBe(0);
+    });
+
+    it('the police catch her at it and fine her', () => {
+      const s = street();
+      s.run((c) => vandalCops(c), never()); // she fails to get away, and can pay
+      expect(s.saw('vandal', 'scene')).toBe(true);
+      expect(s.saw('vandal', 'fined')).toBe(true);
+      expect(s.w.hero.cash).toBeLessThan(200);
+    });
+
+    it('or she gets away', () => {
+      const s = street();
+      s.run((c) => vandalCops(c), always());
+      expect(s.saw('vandal', 'scene')).toBe(true);
+      expect(s.saw('vandal', 'escaped')).toBe(true);
+      expect(s.w.hero.cash).toBe(200);
+    });
+
+    it('and with nothing to pay a fine with, it turns into a fight', () => {
+      const s = scenario({ at: 'street_main', setup: (w) => { w.hero.cash = 0; } });
+      s.run((c) => vandalCops(c), never());
+      expect(s.saw('vandal', 'cant_pay')).toBe(true);
+    });
+
+    it('the paint shop sells her paint', () => {
+      const s = scenario({ at: 'paint_shop', bare: true, setup: (w) => { w.hero.cash = 100; } });
+      s.do('buy_paint');
+      expect(s.saw('paint_shop', 'buy')).toBe(true);
+      expect(paintCharges(s.w.hero)).toBeGreaterThan(0);
+    });
+
+    it('her work is looked at, and sometimes buffed by a gang that has it in for her', () => {
+      const proud = scenario({ at: 'street_main', setup: (w) => { w.locations.street_main!.graffiti = 2; } });
+      proud.run((c) => ambientGraffiti(c), always());
+      expect(proud.saw('mural')).toBe(true);
+      const buffed = scenario({
+        at: 'street_main',
+        setup: (w) => {
+          const l = w.locations.street_main!;
+          l.graffiti = 2;
+          l.territory = w.situation.warringGangs[0];
+          w.heat[l.territory!] = 3;
+        },
+      });
+      buffed.run((c) => ambientGraffiti(c), always());
+      expect(buffed.saw('mural', 'buffed')).toBe(true);
+    });
+  });
+
   slow('police fine vandals and gangs hunt her in the sim', () => {
-    const seen = new Set<string>();
-    const want = ['graffiti', 'vandal:scene', 'vandal:fined', 'vandal:escaped', 'paint_shop', 'mural'];
     // Fines are rare, and more of the night now goes on exploring a city that grows, so keep going until everything has turned up.
-    for (let i = 0; i < 900 && !want.every((k) => seen.has(k)); i++) {
-      for (const e of play(`grf-${i}`, 0.3).events) seen.add(e.type + (e.type === 'vandal' ? ':' + e.data.variant : ''));
-    }
-    for (const k of want) expect(seen.has(k), k).toBe(true);
+    const want = ['graffiti', 'vandal:scene', 'vandal:fined', 'vandal:escaped', 'paint_shop', 'mural'];
+    const r = search({ want, prefix: 'grf', max: 900, competence: 0.3, anyVariant: true });
+    expect(r.missing).toEqual([]);
   });
 
   it('gangs she has angered come looking for her outdoors', () => {
