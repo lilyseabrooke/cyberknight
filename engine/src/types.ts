@@ -566,7 +566,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
@@ -581,7 +581,7 @@ export interface Goal {
   npc?: Id;
   /** The thing (buy): a key into `Mind.wares`. */
   ware?: string;
-  /** The place (heist). */
+  /** The place (heist, raid, explore). */
   loc?: Id;
   /** cash: the money she wants on hand. weapon: the power she wants to be swinging. */
   amount?: number;

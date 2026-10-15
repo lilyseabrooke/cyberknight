@@ -1021,6 +1021,7 @@ const T: Record<string, Entry> = {
   'goal_resume:weapon': e(() => ['Blackbird looks down at her weapon, sighs, and remembers she was going to do something about that.'], ['A better weapon. I was getting to it.']),
   'goal_resume:fame': e(() => ['Blackbird catches her reflection in a window and remembers she is meant to be famous. She stands up straighter.'], ['Right. The adoring public. They are waiting.']),
   'goal_resume:dragon': e(() => ['Blackbird glances at the sky and remembers the dragons. They have not forgotten her. They do not know her. But they have not forgotten her.'], ['Back to the hunt.']),
+  'goal_resume:explore': e((d) => [`Blackbird looks down the street toward ${d.place ?? 'the unknown'} and remembers she meant to go and see.`], ['Right. The map has a blank spot. Rude.']),
   'goal_resume:burgle': e((d) => [`Blackbird glances toward ${d.npc}'s street and remembers the plan.`], ["The door's still there. I'm still going to open it."]),
   'goal_resume:heist': e((d) => [`Blackbird glances toward ${d.place} and remembers the plan.`], ["The job's still there. I'm still going to do it."]),
 
@@ -1029,6 +1030,15 @@ const T: Record<string, Entry> = {
   'goal_note:haul': e((d) => [`Blackbird has what she came for from ${d.place}. Now to leave without telling anyone.`], ['Easy. Even I am surprised how easy.', "Don't run. Walk like it's yours."]),
   'goal_note:blown': e((d) => [`Something goes wrong at ${d.place}: a camera, a sound, a heat signature. The quiet part of the plan is over. Blackbird presses on anyway.`], ['Plan B is just plan A, louder.', "Nobody saw anything. Nobody saw anything yet."]),
   'goal_note:bail': e((d) => [`Something goes wrong at ${d.place}. Blackbird, for once, looks at the situation and decides to leave while she can.`], ['Strategic withdrawal. A thing I invented just now.', 'I could stay, but I have a feeling about it. The feeling is "run".']),
+  // ====================================================== exploring
+  'goal_new:explore_idea': e(
+    (d) => [d.bored ? `Blackbird has looked at the same four walls for long enough. Somewhere out there is ${d.place}, and she has never been. New objective: ${d.goal}.` : `There is a whole city out there and Blackbird has seen a corner of it. ${cap(String(d.place))} is next. New objective: ${d.goal}.`],
+    ['I am not lost. I am sampling.', 'You cannot hit anything you have not found yet.'],
+  ),
+  'goal_new:explore_cash': e((d) => [`Nothing around here is paying. Blackbird has not tried ${d.place} yet, and it has to be good for something. New step: ${d.goal}.`], ['Money does not grow on streets I know. Time to meet some new streets.']),
+  'goal_new:explore_dragon': e((d) => [`The dragons are not going to wait in the places Blackbird has already looked. She heads for ${d.place}. New step: ${d.goal}.`], ['Dragons have to nest somewhere. Somewhere I have not been.']),
+  'goal_new:explore_fame': e((d) => [`A new crowd is a fresh crowd. Blackbird has never played ${d.place}. New step: ${d.goal}.`], ['They do not know me there yet. That is the best kind of audience.']),
+  'goal_done:explored': e((d) => [d.nested ? `Blackbird has now seen ${d.place}. One more corner of the city is on her map.` : `Blackbird has seen ${d.place} now. It is a place. She files it and moves on.`], ['Mapped. Mostly. In my head.', 'New place. Noted.']),
   // ====================================================== dungeons: outposts and hideouts
   'goal_new:raid_idea': e(
     (d) => [d.dungeon === 'spot' ? `${cap(String(d.place))} is small, close and a little bit unattended. Blackbird has the look of a woman doing a very quick sum. New objective: ${d.goal}.` : d.dungeon === 'outpost' ? `Blackbird walks past ${d.place} for the third time and begins to see it as a building full of other people's property. New objective: ${d.goal}.` : `Somebody ought to clear out ${d.place}. Blackbird has just worked out that she is somebody. New objective: ${d.goal}.`],

@@ -21,6 +21,7 @@ import { recognizeRevenant } from './revenant';
 import { bondTick, partnerArrives } from './bonds';
 import { avengerTick, noticeTick } from './knowledge';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
+import { interest } from './mind';
 import { haloShun, heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
@@ -60,10 +61,6 @@ export function score(w: World, cand: Candidate): number {
   s -= repeats * 0.5;
   return s;
 }
-
-/** How interesting a place still is: untouched is 1, and every thing she does there wears it down. */
-const interest = (w: World, id: string): number => 1 / (1 + (w.locations[id]?.doings ?? 0) / NOVELTY_HALF_LIFE);
-const NOVELTY_HALF_LIFE = 4;
 
 /**
  * Novelty-seeking. The more she's done somewhere the less it holds her: everything she could do

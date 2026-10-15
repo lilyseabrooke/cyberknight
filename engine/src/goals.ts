@@ -12,13 +12,14 @@ import { flameOf } from './traits';
 import { isFairGame } from './people';
 import { buyGear, supplyUrge } from './supply';
 import { heatUrge } from './laylow';
+import { isShut } from './shutdown';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { possessive } from './mapgen';
 import { estimatePressure, garrisonAlive, isEntrance, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
 import { MAX_IMPLANTS } from './content/implants';
 import {
-  MAX_DEPTH, capacity, childrenOf, cool, cooling, depth, focusFactor, goalById, hasGoal, isHeld, isLeaf, priority, subjectOf, topLevel,
+  MAX_DEPTH, capacity, childrenOf, cool, cooling, depth, focusFactor, goalById, hasGoal, interest, isHeld, isLeaf, priority, subjectOf, topLevel,
 } from './mind';
 import {
   SPEND, SITES, appeal, expectedEarn, fenceValue, isSafeSpot, isSold, keeperOf, knownSites, learnEarning, owns, routeTo, safeSpot, shopStock,
@@ -95,7 +96,7 @@ const goalData = (w: World, g: Goal, extra: EventData = {}): EventData => ({
   ...(g.npc ? { npc: npcName(w, g.npc) } : {}),
   ...(g.ware && w.mind.wares[g.ware] ? { item: w.mind.wares[g.ware]!.name } : {}),
   ...(g.loc && siteAt(g.loc) ? { place: siteAt(g.loc)!.label } : {}),
-  ...(g.kind === 'raid' && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
+  ...((g.kind === 'raid' || g.kind === 'explore') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
   ...extra,
 });
 
@@ -177,6 +178,8 @@ const KINDS: Record<GoalKind, Kind> = {
       const { w, rng } = c;
       const h = w.hero;
       const short = (g.amount ?? 0) - h.cash;
+      // Not many places to earn that she knows about? Go and find some.
+      exploreFor(c, g, 0.012, () => knownSites(w).length + knownDungeons(w).length, 'there has to be money somewhere she has not looked', 'explore_cash');
       // Small change is a grind. A proper score is a plan.
       if (!isLeaf(w, g) || short < 120 || hpFrac(w) < 0.6 || hasGoal(w, 'heist') || hasGoal(w, 'raid')) return;
       // Somebody's building full of gear is a quicker way to money than most.
@@ -325,7 +328,11 @@ const KINDS: Record<GoalKind, Kind> = {
     decay: 0.0028, stick: ['fame', 'vanity'], patience: 60,
     label: (_w, g) => (g.mode && CALLING[g.mode] ? CALLING[g.mode]! : `get famous (${g.amount ?? 0} fame)`),
     check: (w, g) => (w.hero.fame >= (g.amount ?? 0) ? { done: 'famous' } : null),
-    plan() {},
+    plan(c, g) {
+      const { w } = c;
+      // An audience she has not met yet. Only a little helpful: fame is mostly about doing the act.
+      exploreFor(c, g, 0.004, () => FAME_ACTS.filter((a) => a.venue(w)).length, 'a new crowd is a fresh crowd', 'explore_fame');
+    },
     metric: (w) => w.hero.fame,
     targets(w, g) {
       const chosen = pursuitTargets(w, g);
@@ -357,6 +364,8 @@ const KINDS: Record<GoalKind, Kind> = {
         delay(c, g, 40, 'hurt');
         return;
       }
+      // Dragons nest in places she has not been yet.
+      exploreFor(c, g, 0.01, () => (w.counters.dragon_kills ?? 0) + knownDungeons(w).length, 'dragons do not wait in the places she already knows', 'explore_dragon');
       // Not ready for what she's after? A sharper head goes and gets something that works on dragons.
       const apollo = w.npcs.dragon;
       const ready = dragonReadiness(w, g);
@@ -580,7 +589,56 @@ const KINDS: Record<GoalKind, Kind> = {
       return 0;
     },
   },
+  // ------------------------------------------------------------------ explore
+  // Somewhere she has never set foot. The trip is ordinary travel (the goal just wants her at the door); it ends the
+  // moment she is through it. Mostly a step on the way to something else: new streets turn up doors worth kicking in,
+  // new rooms turn up work, and new places turn up an audience.
+  explore: {
+    decay: 0.004, stick: ['curiosity', 'thrill'], patience: 40,
+    label: (w, g) => `see what is at ${w.locations[g.loc!]?.name ?? 'the end of the street'}`,
+    check(w, g) {
+      const loc = g.loc ? w.locations[g.loc] : undefined;
+      if (!loc) return { drop: 'moot' };
+      if (loc.visits > 0) return { done: 'explored' };
+      if (!routeTo(w, w.hero.locationId, loc.id)) return { drop: 'moot' };
+      return null;
+    },
+    plan(c, g) {
+      if (c.w.hero.locationId !== g.loc && hpFrac(c.w) < 0.5) delay(c, g, 40, 'hurt');
+    },
+    metric: (w, g) => -distTo(w, g.loc!),
+    targets: (_w, g) => [{ loc: g.loc!, value: 2.8 }],
+    bias: () => 0,
+  },
 };
+
+/** Places she has never been that she could walk to: streets and rooms, not other people's homes, dungeons or corp floors. */
+function unexplored(w: World): Location[] {
+  return Object.values(w.locations).filter((l) => l.visits === 0 && !l.dungeon && !['home', 'corp', 'boss', 'lair'].includes(l.kind) && !isShut(w, l.id) && !hasGoal(w, 'explore', l.id));
+}
+
+/** A new place worth the walk: the nearer the better, streets (which turn up doors) a bit better still. */
+function pickUnexplored(c: Ctx): Location | undefined {
+  const near = unexplored(c.w)
+    .map((l) => ({ l, d: routeTo(c.w, c.w.hero.locationId, l.id)?.dist }))
+    .filter((e): e is { l: Location; d: number } => e.d !== undefined && e.d <= 10);
+  return near.length ? c.rng.weighted(near, (e) => (e.l.kind === 'street' ? 1.5 : 1) / (2 + e.d)).l : undefined;
+}
+
+/**
+ * Exploring as a step toward something bigger. `rate` is the per-beat chance when she knows nothing useful; the thinner what
+ * she knows (`known`: how many leads she has), the likelier she is to go and look. Cools off after each trip.
+ */
+function exploreFor(c: Ctx, parent: Goal, rate: number, known: () => number, why: string, variant: string): void {
+  const { w, rng } = c;
+  if (!isLeaf(w, parent) || hpFrac(w) < 0.6 || cooling(w, 'explore_step') || !rng.chance(rate)) return;
+  const thin = 1 / (1 + known());
+  if (!rng.chance(0.25 + 0.75 * thin)) return;
+  const l = pickUnexplored(c);
+  if (!l) return;
+  cool(w, 'explore_step', 80);
+  adopt(c, { kind: 'explore', parent: parent.id, loc: l.id, why, desire: parent.desire * 0.9, variant, extra: { place: l.name } });
+}
 
 /** She sets out to rob somebody's home. The goal does the walking; see `burgle` above. */
 export function startBurglary(c: Ctx, n: Npc, home: Location, extra: EventData = {}): Goal | null {
@@ -865,6 +923,16 @@ function formGoals(c: Ctx): void {
   }
 
   formIdle(c);
+
+  // Restless: the more worn out the room she is standing in, the likelier she is to go and look for another.
+  if (hpFrac(w) >= 0.6 && !hasGoal(w, 'explore') && !cooling(w, 'explore_idea')) {
+    const bored = 1 - interest(w, h.locationId);
+    if (rng.chance(0.0004 + 0.012 * bored * bored * (0.5 + t.curiosity))) {
+      const l = pickUnexplored(c);
+      if (l) adopt(c, { kind: 'explore', loc: l.id, why: bored > 0.5 ? 'she has seen enough of this place' : 'there is more city out there', desire: clamp(0.3 + 0.35 * bored + 0.25 * (t.curiosity - 0.5), 0.2, 0.8), variant: 'explore_idea', extra: { place: l.name, bored: bored > 0.5 } });
+      else cool(w, 'explore_idea', 60);
+    }
+  }
 
   // Because it's there.
   if (hpFrac(w) >= 0.6 && !hasGoal(w, 'heist') && rng.chance(0.0025 * heistAppetite(w))) {

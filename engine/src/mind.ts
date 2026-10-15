@@ -68,3 +68,8 @@ export function focusFactor(w: World): number {
   const h = w.hero;
   return clamp(0.62 + 0.7 * h.competence - 0.5 * (h.personality.traits.impulsive - 0.5), 0.35, 1.3);
 }
+
+const NOVELTY_HALF_LIFE = 4;
+
+/** How interesting a place still is: untouched is 1, and every thing she does there wears it down. */
+export const interest = (w: World, id: string): number => 1 / (1 + (w.locations[id]?.doings ?? 0) / NOVELTY_HALF_LIFE);
