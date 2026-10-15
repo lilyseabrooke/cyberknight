@@ -37,6 +37,7 @@ interface Spec {
 const SPECS: Record<Location['kind'], Spec> = {
   home: { w: [4, 4], h: [4, 4], cover: [1, 2], walls: [0, 1], hazards: [0, 0], exits: [1, 1] },
   shop: { w: [4, 5], h: [4, 5], cover: [2, 3], walls: [0, 1], hazards: [0, 0], exits: [1, 2] },
+  clinic: { w: [4, 5], h: [4, 5], cover: [2, 3], walls: [0, 1], hazards: [0, 0], exits: [1, 1] },
   bar: { w: [5, 6], h: [5, 6], cover: [3, 5], walls: [0, 2], hazards: [0, 1], exits: [2, 2] },
   club: { w: [6, 7], h: [6, 7], cover: [4, 6], walls: [0, 2], hazards: [0, 2], exits: [2, 3] },
   street: { w: [6, 7], h: [5, 6], cover: [3, 5], walls: [0, 2], hazards: [0, 1], exits: [2, 3] },

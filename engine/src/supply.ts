@@ -9,6 +9,8 @@ import { MEDS, MED_IDS } from './content/meds';
 import { DOC_FEE, GEAR_MARKUP, PHARMACY_STIMS, SHOP_AMMO, SHOP_ARMOR, gearPrice } from './content/shops';
 import { armBest, fxOf, genWeapon, niches, rating, shelfPrice } from './weapons';
 import { focusFoe, routeTo } from './plans';
+import { everyoneAt } from './population';
+import { isShut } from './shutdown';
 import { addAmmo, ammoOf, gunsOwned, isArm, medPacks, medStock, shotsLeft, wielded } from './arms';
 import { skillLevel, train } from './skills';
 import { healUrge } from './urges';
@@ -70,23 +72,58 @@ function ammoNeeds(h: Hero): { type: string; urgency: number }[] {
   return [...out].map(([type, urgency]) => ({ type, urgency })).sort((a, b) => b.urgency - a.urgency);
 }
 
-/** The street doc is the cheap way back to full health: a flat fee against the 25-100 a pack of the same size costs. */
-const docOk = (w: World): boolean => {
-  const doc = w.npcs.doc;
-  return !!doc && doc.alive && !doc.hostile && doc.downUntil <= w.beat && w.hero.cash >= DOC_FEE[0];
-};
+interface DocPick {
+  loc: string;
+  dist: number;
+  next: string;
+}
+
+const docMemo = new WeakMap<World, { key: string; pick: DocPick | null }>();
+
+const canPatch = (n: Npc | undefined, w: World): n is Npc => !!n && n.alive && !n.hostile && n.downUntil <= w.beat && n.tags.includes('doc');
+
+/**
+ * The nearest doc she can pay and has reason to think is in: Doc Hexamer in the Halo's bathroom, or a street clinic
+ * on a street she has walked (one she hasn't been inside is assumed to have somebody behind the desk). The street
+ * doc is the cheap way back to full health: a flat fee against the 25-100 a pack of the same size costs.
+ */
+export function nearestDoc(w: World): DocPick | null {
+  const h = w.hero;
+  if (h.cash < DOC_FEE[0]) return null;
+  const key = `${w.beat}:${h.locationId}:${h.cash >= DOC_FEE[1]}`;
+  const memo = docMemo.get(w);
+  if (memo?.key === key) return memo.pick;
+  const spots = new Set<string>();
+  const main = w.npcs.doc;
+  if (canPatch(main, w) && !isShut(w, main.locationId)) spots.add(main.locationId);
+  for (const loc of Object.values(w.locations)) {
+    if (loc.kind !== 'clinic' || isShut(w, loc.id)) continue;
+    const street = loc.gen ? w.locations[loc.gen.parent] : undefined;
+    if (loc.visits === 0 && (street?.visits ?? 0) === 0) continue; // she has never seen the door
+    if (!loc.populated || everyoneAt(w, loc.id).some((n) => canPatch(n, w))) spots.add(loc.id);
+  }
+  let best: DocPick | null = null;
+  for (const spot of spots) {
+    const r = routeTo(w, h.locationId, spot);
+    if (r && (!best || r.dist < best.dist)) best = { loc: spot, dist: r.dist, next: r.next };
+  }
+  docMemo.set(w, { key, pick: best });
+  return best;
+}
+
+const docOk = (w: World): boolean => nearestDoc(w) !== null;
 
 /**
  * Is there a doc worth walking to? Only when she's properly hurt (or carrying injuries), has the fee, isn't
  * stuck deep in a building, and the doc isn't too far off. Returns the next step on the way.
  */
-export function docErrand(w: World): { dist: number; next: string } | null {
+export function docErrand(w: World): DocPick | null {
   const h = w.hero;
-  if (!docOk(w) || w.locations[h.locationId]?.dungeon) return null;
+  if (w.locations[h.locationId]?.dungeon) return null;
   const frac = h.hp / h.maxHp;
   if (frac > 0.55 && !(h.injuries.length && frac < 0.8)) return null;
-  const r = routeTo(w, h.locationId, w.npcs.doc!.locationId);
-  return r && r.dist <= 8 ? r : null;
+  const doc = nearestDoc(w);
+  return doc && doc.dist <= 10 ? doc : null;
 }
 
 /** Pulls her toward the right shop when she needs something. Added to the exit candidates. */

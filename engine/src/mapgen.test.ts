@@ -188,5 +188,5 @@ describe('the city that grows', () => {
       expect(events.length).toBeGreaterThan(20);
       expect(verifyIndex(world)).toEqual([]);
     }
-  });
+  }, 30_000); // she lasts longer than she used to, and four whole nights take a while
 });

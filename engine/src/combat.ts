@@ -217,6 +217,12 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     warranted = wit.warranted;
     for (const j of wit.joiners) arrivals.push({ npc: j, round: rng.int(2, 5), why: j.tags.includes('cop') || j.tags.includes('security') ? 'law' : 'joiner' });
   }
+  // A clinic's automation takes a dim view of violence on the premises.
+  if (loc.kind === 'clinic' && foes.some((f) => !f.tags.includes('guard'))) {
+    for (const g of npcsAt(w, loc.id)) {
+      if (g.tags.includes('guard') && !foes.includes(g) && !arrivals.some((a) => a.npc === g)) arrivals.push({ npc: g, round: 1, why: 'law' });
+    }
+  }
   for (const f of foes) f.hostile = true;
   const lethal = isLethal([...foes, ...arrivals.map((a) => a.npc)], w);
   const startHp = h.hp;

@@ -39,7 +39,7 @@ const NEXT_TO: Record<District, District[]> = {
   slum: ['tenement', 'industrial', 'nightlife'],
 };
 
-type Lot = Exclude<GenRole, 'street' | 'unit' | 'backroom' | 'cellar' | 'vip' | 'chamber'>;
+type Lot = Exclude<GenRole, 'street' | 'clinic' | 'unit' | 'backroom' | 'cellar' | 'vip' | 'chamber'>;
 
 /** What stands along a street, by district. */
 const LOTS: Record<District, Record<Lot, number>> = {
@@ -50,6 +50,9 @@ const LOTS: Record<District, Record<Lot, number>> = {
   corporate: { shop: 1.5, bar: 1, club: 1, corp: 4, flat: 0.5, tunnel: 0.3, outpost: 0.7, hideout: 0 },
   slum: { shop: 1.5, bar: 2, club: 0.3, corp: 0.1, flat: 3, tunnel: 2, outpost: 0, hideout: 0.55 },
 };
+
+/** Chance a street has a street clinic on it, by district. Rolled on a stream of its own so it never reshuffles the rest of the map. */
+const CLINIC_CHANCE: Record<District, number> = { market: 0.25, nightlife: 0.2, tenement: 0.3, industrial: 0.2, corporate: 0.12, slum: 0.4 };
 
 const STREET_SECURITY: Record<District, number> = { market: 2, nightlife: 2, tenement: 1, industrial: 1, corporate: 3, slum: 1 };
 const CROWDED: Record<District, number> = { market: 0.5, nightlife: 0.6, tenement: 0.25, industrial: 0.05, corporate: 0.2, slum: 0.2 };
@@ -66,6 +69,7 @@ const STREET_SUFFIX_BY: Partial<Record<District, string[]>> = {
 };
 const STREET_TAIL = ['running off east', 'heading west under the sodium lights', 'bending away out of sight', 'where the signs get louder', 'where the lights get fewer', 'sloping down toward the water', 'climbing between the stacks', 'that Blackbird has never noticed before'];
 
+const CLINIC_NAME = ['Walk-In Patch & Stitch', 'Sutures & Suds', 'No Questions Clinic', 'Cut-Rate Chrome Repair', 'The Back-Alley Infirmary', 'Cash-Only Care', 'Stitch in Time', 'Ward 9½', 'Dr. Pho\'s Patch Shop', 'Last Resort Medical', 'Bleed-Through Urgent Care', 'The Mending Room'];
 const OWNER = ['Mama Qwerty', 'Honest Ito', 'Big Vera', 'Two-Finger Sam', 'Uncle Ohm', 'Dr. Pho', 'Lucky Wen', 'Grandma Kernel', 'Nine-Lives Nadia', 'Cousin Bit', 'Old Man Baud', 'Auntie Vex', 'Slim Tolliver', 'Madame Fizz', 'Brother Voltage'];
 const SHOP_THING = ['Used Limbs', 'Pawn & Prayer', 'Cable & Cord', 'Discount Ammo', 'Vape Emporium', 'Synth Silks', 'Hot Parts', 'Battery Barn', 'Dumpling Depot', '24-Hour Everything', 'Fixes & Fabrics', 'Gadget Grave', 'Noodle Mart', 'Bootleg Bonsai', 'Secondhand Eyes', 'Tattoo & Tax Prep'];
 const BAR_ADJ = ['Drowned', 'Chrome', 'Hollow', 'Sleepy', 'Leaky', 'Tipsy', 'Burnt', 'Velvet', 'Laughing', 'Crooked', 'Last', 'Electric', 'Lonesome', 'Wet'];
@@ -98,6 +102,7 @@ const BLURB: Record<Exclude<GenRole, 'street'>, string[]> = {
   unit: ['{name}: a door, a lock and everything somebody owns.'],
   shop: ['{name}: shelves to the ceiling, a bell on the door, and a proprietor who has already priced everything on you.', '{name}: fluorescent, narrow and crammed, and everything has a handwritten tag that says PROBABLY FINE.', '{name}: a shop that is very proud of itself and has no right to be.'],
   bar: ['{name}: low light, sticky floor, a regular for every stool and the same song on the jukebox it was playing yesterday.', '{name}: a bar that has decided to be a mood. The taps are mostly decorative.', '{name}: dark wood, bad neon and a bartender who looks at her once and remembers it.'],
+  clinic: ['{name}: a counter behind a grille, a smell of antiseptic and old cigarettes, and a small red light that tracks her from the ceiling.', '{name}: two chairs, a surgical lamp and a sign in four languages that says NO REFUNDS. Something hums behind the door.', '{name}: bright white tile in a dark street, a bell on the door, and a chrome shape lying very still by the desk. It is not asleep.'],
   club: ['{name}: bass you can feel in your implants, light that has opinions, and a crowd that has paid to forget.', '{name}: a dance floor, a strobe, and a ceiling covered in someone\'s old holiday lights.', '{name}: sweat, glitter and a velvet rope that hasn\'t decided about her yet.'],
   corp: ['{name}: a lobby of pale stone and soft carpet, and a receptionist hologram that smiles at her without moving its eyes.', '{name}: everything is white and quiet and has a barcode, and she can feel the cameras agreeing about her.', '{name}: a corporate front office in the sense that it fronts, and an office in no sense at all.'],
   flat: ['{name}: a stairwell, a lot of doors, and one of them is very probably someone\'s.', '{name}: tiny, humming, tidy in a way that costs effort; somebody\'s plant is trying its best.', '{name}: a landing that smells of rice, ozone and rent.'],
@@ -189,6 +194,8 @@ export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, l
         const next = rng.chance(0.7) ? here : pick(rng, NEXT_TO[here]);
         roads.push(add('street', next, g.depth + 1, { label: `{name}, ${pick(rng, STREET_TAIL)}` }));
       }
+      // Somebody has opened a clinic. (Its own stream, and its slot comes after everything else, so the street looks as it did before.)
+      if (new Rng(`clinic:${w.worldSeed}:${loc.id}`).chance(CLINIC_CHANCE[here])) add('clinic', here, g.depth);
       // Loops. Everything here is decided now, from this street's own stream, between places that
       // already exist, so the shortcuts are the same whichever end of them she finds first.
       if (roads.length === 2 && rng.chance(LOOP_ROADS)) join(roads[0]!, roads[1]!, `a cut-through to ${roads[1]!.name}`, `a cut-through to ${roads[0]!.name}`);
@@ -271,7 +278,7 @@ interface ChildOpts {
 }
 
 const KIND: Record<GenRole, Location['kind']> = {
-  street: 'street', shop: 'shop', bar: 'bar', club: 'club', corp: 'corp', flat: 'home', unit: 'home', tunnel: 'tunnel', backroom: 'bar', cellar: 'tunnel', vip: 'club',
+  street: 'street', clinic: 'clinic', shop: 'shop', bar: 'bar', club: 'club', corp: 'corp', flat: 'home', unit: 'home', tunnel: 'tunnel', backroom: 'bar', cellar: 'tunnel', vip: 'club',
   outpost: 'lair', hideout: 'lair', chamber: 'lair',
 };
 
@@ -304,6 +311,7 @@ function sketch(
   let security: number;
   switch (role) {
     case 'street': security = STREET_SECURITY[district] + rng.int(0, 1) + (deep > 1 ? 1 : 0); break;
+    case 'clinic': security = 2 + (district === 'corporate' ? 1 : 0) + rng.int(0, 1); break;
     case 'shop': security = 1 + (district === 'market' ? 1 : 0) + (district === 'corporate' ? 1 : 0) + rng.int(0, 1); break;
     case 'bar': security = 1 + (district === 'nightlife' ? 1 : 0) + rng.int(0, 1); break;
     case 'club': security = 3 + (district === 'nightlife' ? 1 : 0) + rng.int(0, 1); break;
@@ -336,6 +344,7 @@ function sketch(
     faction = crews.length ? drng!.pick(crews).id : 'ganger';
     name = o.name ?? hideoutName(drng!, w.factions[faction]?.name ?? 'Street gang');
   } else if (role === 'shop') faction = 'shop';
+  else if (role === 'clinic') faction = undefined;
   else if (role === 'corp') faction = 'atlas';
   else if (role === 'bar' || role === 'club') {
     faction = `v:${id}`;
@@ -405,6 +414,7 @@ function nameFor(rng: Rng, role: GenRole, district: District, parent: Location, 
       const suffix = rng.chance(0.5) && STREET_SUFFIX_BY[district] ? pick(rng, STREET_SUFFIX_BY[district]!) : pick(rng, STREET_SUFFIX);
       return rng.chance(0.5) ? `${pick(rng, STREET_ADJ)} ${suffix}` : `${pick(rng, STREET_NOUN)} ${suffix}`;
     }
+    case 'clinic': return pick(rng, CLINIC_NAME);
     case 'shop': return rng.chance(0.6) ? `${possessive(pick(rng, OWNER))} ${pick(rng, SHOP_THING)}` : pick(rng, SHOP_THING);
     case 'bar': return `The ${pick(rng, BAR_ADJ)} ${pick(rng, BAR_NOUN)}`;
     case 'club': return pick(rng, CLUB_NAME);

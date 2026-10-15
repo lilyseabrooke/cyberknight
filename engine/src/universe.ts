@@ -6,6 +6,7 @@ import { ensureBounties } from './bounty';
 import { CRACKDOWNS, createWorld, makeHero, type RunOptions } from './world';
 import { nextEvening } from './clock';
 import { AWAY, allNpcs, everyoneAt, moveNpc, removeNpc } from './population';
+import { HIRED } from './shutdown';
 import { settleAt } from './movement';
 import { populate } from './roster';
 import { seedFrontier } from './mapgen';
@@ -149,6 +150,7 @@ export function warringGangs(w: Pick<World, 'factions'>): [Id, Id] {
 
 /** What the morning after looks like to the people and places Blackbird left behind. */
 function wakeTheWorld(u: Universe): void {
+  for (const id of Object.keys(u.npcs)) if (id.startsWith(HIRED)) removeNpc(u, id); // the night's temps go home
   for (const n of Object.values(u.npcs)) {
     if (!n.alive) continue;
     n.hp = n.maxHp;

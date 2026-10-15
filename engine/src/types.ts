@@ -318,7 +318,7 @@ export interface Hazards {
 export interface Location {
   id: Id;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic';
   exits: Exit[];
   /** 0..10. Raises the chance of being spotted while sneaking. */
   security: number;
@@ -358,6 +358,8 @@ export interface Location {
   shutBy?: 'owner' | 'police';
   /** Somebody who works here has been laid out and the police are on their way. */
   pendingShut?: { due: number; who: Id };
+  /** The house has lost its muscle and is looking for more. */
+  pendingHire?: { due: number };
   /** Part of a dungeon: the id of its entrance, which is also the key into `World.dungeons`. See dungeons.ts. */
   dungeon?: Id;
 }
@@ -365,7 +367,7 @@ export interface Location {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'chamber';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'chamber';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {

@@ -14,7 +14,7 @@ import { ambientGraffiti } from './graffiti';
 import { hasImplantFlag, skillLevel } from './skills';
 import { expireBuffs, restockShelf } from './supply';
 import { discretion } from './discretion';
-import { closureTick } from './shutdown';
+import { closureTick, heavyFor, hiringTick } from './shutdown';
 import { scanBounties } from './bounty';
 import { scanHomes } from './homes';
 import { recognizeRevenant } from './revenant';
@@ -140,6 +140,7 @@ export function step(w: World): GameEvent[] {
   let chosen: Candidate | null = null;
   upkeep(c);
   if (!w.over) closureTick(c);
+  if (!w.over) hiringTick(c);
   if (!w.over) scanBounties(c);
   if (!w.over) scanHomes(c);
   if (!w.over) recognizeRevenant(c);
@@ -249,7 +250,7 @@ function ambient(c: Ctx): void {
 
   // Banned from the bar.
   if (loc.id === 'halo_floor' && (w.heat.halo ?? 0) >= 4 && rng.chance(0.25)) {
-    const heavy = [w.npcs.tiny, w.npcs.dutch].find((n) => n?.alive && n.locationId === loc.id);
+    const heavy = heavyFor(w, loc.id);
     if (heavy) {
       c.emit('banned', 'bad', { npc: heavy.name });
       fight(c, [heavy], { cause: 'being banned from the Rusty Halo' });

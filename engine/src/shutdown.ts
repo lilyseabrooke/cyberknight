@@ -1,8 +1,10 @@
 import type { Ctx, Id, Npc, World } from './types';
 import type { Rng } from './rng';
-import { everyoneAt, moveNpc } from './population';
-import { npcNamed } from './population';
+import { everyoneAt, moveNpc, npcNamed } from './population';
 import { addHeat, relocate } from './combat';
+import { ARCHETYPES, spawnNpc } from './content/archetypes';
+import { addNpc } from './population';
+import { rehome } from './roster';
 
 /**
  * What happens to a place when she takes down the person it can't run without.
@@ -49,7 +51,7 @@ export function outside(w: World, from: Id, closed: Id[]): Id {
   return closed.includes(at) ? 'street_main' : at;
 }
 
-function shut(c: Ctx, at: Id, by: 'owner' | 'police', who: Npc | undefined, extra = 0): void {
+function shut(c: Ctx, at: Id, by: 'owner' | 'police', who: Npc | undefined, extra = 0, why = ''): void {
   const { w } = c;
   const rooms = building(w, at);
   const until = w.beat + SHUT_FOR[by] + extra;
@@ -67,7 +69,7 @@ function shut(c: Ctx, at: Id, by: 'owner' | 'police', who: Npc | undefined, extr
   }
   const inside = rooms.includes(w.hero.locationId);
   if (inside) relocate(w, outside(w, w.hero.locationId, rooms));
-  c.emit('shut_down', 'bad', { variant: by, place: place.name, npc: who?.name ?? '', inside, to: w.locations[w.hero.locationId]!.name });
+  c.emit('shut_down', 'bad', { variant: why || by, place: place.name, npc: who?.name ?? '', inside, to: w.locations[w.hero.locationId]!.name });
 }
 
 /**
@@ -84,6 +86,11 @@ export function afterTakedown(c: Ctx, taken: Npc[]): void {
         .flatMap((id) => everyoneAt(w, id))
         .filter((n) => n !== f && n.alive && n.downUntil <= w.beat && runsTheHouse(n));
       if (f.tags.includes('owner') || !able.length) shut(c, wp.id, 'owner', f, f.alive ? 0 : 180);
+    } else if ((wp.kind === 'bar' || wp.kind === 'club') && f.role === 'bouncer') {
+      weighMuscle(c, wp.id, f);
+    } else if (wp.kind === 'clinic' && f.tags.includes('doc')) {
+      const others = everyoneAt(w, wp.id).filter((n) => n !== f && n.tags.includes('doc') && n.alive && n.downUntil <= w.beat);
+      if (!others.length) shut(c, wp.id, 'owner', f, f.alive ? 0 : 180);
     } else if (wp.kind === 'shop' && f.tags.includes('shopkeeper') && !wp.pendingShut) {
       // Somebody rings the police. They get there when they get there.
       wp.pendingShut = { due: w.beat + rng.int(6, 14), who: f.id };
@@ -104,4 +111,54 @@ export function closureTick(c: Ctx): void {
     addHeat(w, 'npd', 1);
     shut(c, loc.id, 'police', clerk);
   }
+}
+
+/**
+ * The house has lost its muscle. Whoever is in charge weighs it up: one bad night, replace him and carry on; a pattern (the
+ * place is under siege, the heat is up, they've lost people before, he's not coming back) and it isn't worth it, shut
+ * the doors. Dice break ties.
+ */
+function weighMuscle(c: Ctx, at: Id, f: Npc): void {
+  const { w, rng } = c;
+  const rooms = building(w, at);
+  const place = w.locations[at]!;
+  const heat = w.heat[at.startsWith('halo') ? 'halo' : place.faction ?? ''] ?? 0;
+  const priors = Math.max(0, f.memories.filter((m) => m === 'was beaten by Blackbird').length - 1);
+  const staffDown = rooms
+    .flatMap((id) => everyoneAt(w, id))
+    .filter((n) => n !== f && (n.tags.includes('staff') || n.tags.includes('owner') || n.tags.includes('security')) && (!n.alive || n.downUntil > w.beat)).length;
+  const trouble = heat + 1.5 * priors + 2 * staffDown + (f.alive ? 0 : 1.5) + (rng.next() - 0.5) * 2;
+  if (trouble >= 6) {
+    shut(c, at, 'owner', f, f.alive ? 0 : 120, 'muscle');
+    return;
+  }
+  place.pendingHire = { due: w.beat + rng.int(8, 16) };
+  if (rooms.includes(w.hero.locationId)) c.emit('house_decides', 'mixed', { variant: 'hire', place: place.name, npc: f.name });
+}
+
+export const HIRED = 'hired_muscle_';
+
+/** Every beat: new muscle turns up where it was wanted. */
+export function hiringTick(c: Ctx): void {
+  const { w, rng } = c;
+  for (const loc of Object.values(w.locations)) {
+    const p = loc.pendingHire;
+    if (!p || p.due > w.beat) continue;
+    delete loc.pendingHire;
+    if (isShut(w, loc.id) || !ARCHETYPES.bouncer) continue;
+    // Somebody is already on the door (the hire was a rumour, or Tiny came back early): no second one.
+    if (building(w, loc.id).flatMap((id) => everyoneAt(w, id)).some((n) => n.alive && n.role === 'bouncer' && n.downUntil <= w.beat)) continue;
+    const id = `${HIRED}${loc.id}_${w.beat}`;
+    const guy = spawnNpc(rng, id, 'bouncer', loc.id, { faction: loc.faction ?? 'halo' });
+    guy.ephemeral = true; // a temp: gone by the next night
+    addNpc(w, guy);
+    rehome(w, guy, loc, true);
+    if (building(w, loc.id).includes(w.hero.locationId)) c.emit('house_decides', 'good', { variant: 'hired', place: loc.name, npc: guy.name });
+  }
+}
+
+/** Whoever the house sends when something needs smashing: a bouncer on his feet, else the owner. */
+export function heavyFor(w: World, at: Id): Npc | undefined {
+  const crowd = building(w, at).flatMap((id) => everyoneAt(w, id)).filter((n) => n.alive && !n.hostile && n.downUntil <= w.beat);
+  return crowd.find((n) => n.role === 'bouncer') ?? crowd.find((n) => n.tags.includes('owner'));
 }

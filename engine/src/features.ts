@@ -9,6 +9,7 @@ import { makeCan } from './graffiti';
 import { skillLevel, synergy, train } from './skills';
 import { ODDS } from './hobbies';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
+import { heavyFor } from './shutdown';
 import { fameFrom, tipScale } from './stage';
 import { moveNpc, renameNpc } from './population';
 
@@ -224,7 +225,7 @@ function crackSafe(c: Ctx): void {
   } else {
     addHeat(w, 'halo', 3);
     c.emit('safe', 'bad', { variant: 'alarm' });
-    const heavy = [w.npcs.tiny, w.npcs.dutch].find((n) => n?.alive);
+    const heavy = heavyFor(w, 'halo_floor');
     if (heavy) {
       moveNpc(w, heavy, h.locationId);
       fight(c, [heavy], { cause: 'cracking the Halo safe' });

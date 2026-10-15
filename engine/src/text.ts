@@ -1020,6 +1020,18 @@ const T: Record<string, Entry> = {
     (d) => [d.inside ? `With ${d.npc} on the floor there is nobody to run ${d.place}. The staff stop pretending, the punters start for the exits, and someone with a key and a grudge shows Blackbird to the pavement. The shutters come down behind her.` : `Word gets round: ${d.place} has shut. With ${d.npc} out of the picture, nobody is pouring and nobody is paying, and the lights go off.`],
     ['I closed a bar. Forty years of history, and I did it before dinner.', 'In my defence, it was not a very good bar.'],
   ),
+  'shut_down:muscle': e(
+    (d) => [d.inside ? `${d.place} does the sums on ${d.npc} being flat on the floor again and decides it is not worth it. The lights go up, the shutters come down, and Blackbird is walked out.` : `${d.place} has decided it is cheaper to close than to keep replacing the muscle. The shutters are down.`],
+    ['They could have just hired somebody. I would have knocked him down too.', 'Two bouncers, one bar, and a very reasonable amount of regret.'],
+  ),
+  'house_decides:hire': e(
+    (d) => [`With ${d.npc} out cold, whoever runs ${d.place} is already on the phone, looking for someone to stand at the door.`],
+    ['Fine. Hire another one. I need the exercise.', 'They will want references. I will want a longer weapon.'],
+  ),
+  'house_decides:hired': e(
+    (d) => [`A new face is at the door of ${d.place}: ${d.npc}, arms folded, looking at Blackbird in the way a person looks at the reason they got the job.`],
+    ['New guy. He is going to hate me.', 'I give him a fortnight. Maybe a night.'],
+  ),
   'shut_down:called': e(
     (d) => [`${d.npc} is on the floor of ${d.place}, and the first thing anyone in the shop does is reach for a phone.`],
     ['Cops in five. Four, if they like the look of the day.', 'Right. Nobody saw anything. Nobody.'],

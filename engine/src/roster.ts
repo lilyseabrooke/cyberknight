@@ -2,6 +2,7 @@ import { Rng } from './rng';
 import { ARCHETYPES, spawnNpc } from './content/archetypes';
 import { influenceOf, pickFaction } from './factions';
 import { AWAY, addNpc, awayNpcs, moveNpc, setHaunts } from './population';
+import { BARKS } from './content/hazards';
 import type { Id, Location, Npc, World } from './types';
 
 /**
@@ -59,6 +60,14 @@ export const ROSTERS: Record<Location['kind'], SlotDef[]> = {
     { role: 'patron', count: [2, 4], ephemeral: true },
   ],
   shop: [{ role: 'shopkeeper', count: [1, 1], faction: 'venue', resident: true }],
+  // A street clinic: a doc or two behind a counter, and whatever automation the neighbourhood could afford to keep the
+  // desperate and the dangerous off them. The guards ignore her until somebody starts something.
+  clinic: [
+    { role: 'doc', count: [1, 2], resident: true },
+    { role: 'guard_dog', count: [1, 2], chance: 0.6, resident: true },
+    { role: 'sentry_turret', count: [1, 1], chance: 0.5, resident: true },
+    { role: 'patron', count: [0, 2], ephemeral: true },
+  ],
   corp: [
     { role: 'helix_guard', count: [1, 2], minSecurity: 5, resident: true },
     { role: 'scientist', count: [1, 1], chance: 0.4, resident: true },
@@ -138,6 +147,13 @@ export function populate(w: World, loc: Location): Npc[] {
       }
       const npc = spawnNpc(person, id, slot.role, loc.id, { faction: faction ?? undefined });
       if (slot.ephemeral) npc.ephemeral = true;
+      // A clinic's dogs are as good as its street can afford (the same BARK models homes keep).
+      if (loc.kind === 'clinic' && slot.role === 'guard_dog') {
+        const bark = BARKS[Math.max(0, Math.min(BARKS.length - 2, loc.security - 2 + person.int(-1, 1)))]!;
+        npc.name = `BARK-${bark.model}`;
+        npc.hp = npc.maxHp = bark.hp;
+        npc.power = bark.power;
+      }
       addNpc(w, npc);
       rehome(w, npc, loc, !!slot.resident);
       here.push(npc);
