@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slow } from './testkit';
 import { Rng, runToEnd, hasTemplate, type World, type GameEvent } from './index';
 import { createWorld } from './world';
 import { spawnNpc } from './content/archetypes';
@@ -371,7 +372,7 @@ describe('discretion', () => {
 });
 
 describe('the sim', () => {
-  it('she gets in far less trouble with the law than before: heat is rarer, and she lasts longer', () => {
+  slow('she gets in far less trouble with the law than before: heat is rarer, and she lasts longer', () => {
     let heat = 0;
     let beats = 0;
     for (let i = 0; i < 60; i++) {
@@ -384,7 +385,7 @@ describe('the sim', () => {
     expect(beats / 60).toBeGreaterThan(40);
   });
 
-  it('bounties actually get found and collected, and the new events all have text', () => {
+  slow('bounties actually get found and collected, and the new events all have text', () => {
     const seen = new Set<string>();
     for (let i = 0; i < 120; i++) {
       for (const e of runToEnd({ seed: `bn-${i}`, competence: 0.5 }).events) {

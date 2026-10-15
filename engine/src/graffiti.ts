@@ -146,7 +146,7 @@ function aftermath(c: Ctx, locId: string): void {
 }
 
 /** An itinerant vandal gets fined, or runs. */
-function vandalCops(c: Ctx): void {
+export function vandalCops(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   if (scoutSaves(c)) return;

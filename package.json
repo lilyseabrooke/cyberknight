@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
+    "test:full": "vitest run --mode full",
     "typecheck": "tsc --noEmit",
     "sim": "tsx scripts/sim.ts",
     "analyze": "tsx scripts/analyze.ts",

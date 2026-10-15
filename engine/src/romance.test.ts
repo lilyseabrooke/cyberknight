@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slow } from './testkit';
 import { Rng, createRun, runToEnd, hasTemplate, personalityFrom, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { gather } from './interactions';
@@ -136,7 +137,7 @@ describe('kissing no longer runs away', () => {
     expect(kissBonus(w, nyx)).toBeLessThanOrEqual(0.5);
   });
 
-  it('no night degenerates into a kissing marathon', () => {
+  slow('no night degenerates into a kissing marathon', () => {
     let worst = 0;
     for (let i = 0; i < 70; i++) {
       const kisses = runToEnd({ seed: `marathon-${i}`, competence: 0.9 }).events.filter((e) => e.type === 'kiss').length;
@@ -267,7 +268,7 @@ describe('making a move', () => {
     expect(homeFor(world('x').npcs.juno!)).toBe('home_hab');
   });
 
-  it('in a real run, a second encounter the same night is the exception, and well spaced', () => {
+  slow('in a real run, a second encounter the same night is the exception, and well spaced', () => {
     let first = 0;
     let second = 0;
     const gaps: number[] = [];

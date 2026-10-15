@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slow } from './testkit';
 import { Rng, personalityFrom, runToEnd, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { gather } from './interactions';
@@ -240,7 +241,7 @@ describe('ways out', () => {
 });
 
 describe('whole nights', () => {
-  it('hot heroes go to ground and cool off', () => {
+  slow('hot heroes go to ground and cool off', () => {
     let laid = 0;
     let nights = 0;
     for (let i = 0; i < 25; i++) {

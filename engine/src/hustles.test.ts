@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slow } from './testkit';
 import { Rng, personalityFrom, runToEnd, hasTemplate, type GameEvent, type World } from './index';
 import { step } from './run';
 import { relocate } from './combat';
@@ -363,7 +364,7 @@ describe('favours', () => {
 });
 
 describe('in the sim', () => {
-  it('every hustle still turns up, with text, and not as a standing buffet', () => {
+  slow('every hustle still turns up, with text, and not as a standing buffet', () => {
     const seen = new Set<string>();
     let hustles = 0;
     let beats = 0;

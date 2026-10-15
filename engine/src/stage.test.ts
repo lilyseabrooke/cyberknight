@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { slow } from './testkit';
 import { Rng, personalityFrom, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { createRun, step } from './run';
@@ -222,7 +223,7 @@ describe('a calling', () => {
 });
 
 describe('in the sim', () => {
-  it('callings happen, she moves around while she has one, and she does not sing in one place forever', () => {
+  slow('callings happen, she moves around while she has one, and she does not sing in one place forever', () => {
     let ignites = 0;
     let done = 0;
     let longestRun = 0;
