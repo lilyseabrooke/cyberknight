@@ -429,7 +429,7 @@ describe('goals', () => {
       return { w, all, problems };
     };
 
-    slow('act, and survive a save and resume', () => {
+    slow('goals keep their structure intact, and survive a save and resume', () => {
       for (let i = 0; i < 12; i++) {
         const { problems } = night(`inv-${i}`, 0.6);
         expect(problems).toEqual([]);
@@ -446,7 +446,7 @@ describe('goals', () => {
       expect(copy.mind).toEqual(w.mind);
     });
 
-    slow('ry kind of goal, finishes some, gives up some, and nests them', () => {
+    slow('over many nights she forms every kind of goal, finishes some, gives up some, and nests them', () => {
       const kinds = new Set<string>();
       const variants = new Set<string>();
       let nested = 0;
@@ -473,7 +473,7 @@ describe('goals', () => {
       expect([...unrendered]).toEqual([]);
     });
 
-    slow('se, with no placeholders left over', () => {
+    slow('every goal line renders to prose, with no placeholders left over', () => {
       const rng = new Rng('prose');
       let lines = 0;
       for (let i = 0; i < 25; i++) {
@@ -489,7 +489,7 @@ describe('goals', () => {
       expect(lines).toBeGreaterThan(50);
     });
 
-    slow('nightly goal-driven hero ends up with things she went out and got', () => {
+    slow('goals change what she does: a nightly goal-driven hero ends up with things she went out and got', () => {
       let bought = 0;
       let raised = 0;
       for (let i = 0; i < 40; i++) {

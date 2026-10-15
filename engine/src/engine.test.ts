@@ -68,11 +68,11 @@ describe('simulation', () => {
     expect([...all.slice(events.length), ...tailA].map((e) => e.type)).toEqual(whole.map((e) => e.type));
   });
 
-  slow('ng', () => {
+  slow('always terminates with an ending', () => {
     for (let i = 0; i < 60; i++) expect(play(`end-${i}`).world.ending).not.toBeNull();
   });
 
-  slow('valid state', () => {
+  slow('never leaves the hero in an invalid state', () => {
     for (let i = 0; i < 80; i++) {
       const { world } = play(`inv-${i}`, (i % 10) / 10);
       expect(world.locations[world.hero.locationId]).toBeDefined();
@@ -89,7 +89,7 @@ describe('simulation', () => {
     expect(families.size).toBeGreaterThanOrEqual(12);
   });
 
-  slow('ger', () => {
+  slow('higher competence survives longer', () => {
     const avg = (c: number) => {
       let n = 0;
       for (let i = 0; i < 70; i++) n += play(`c-${i}`, c).world.beat;
@@ -98,7 +98,7 @@ describe('simulation', () => {
     expect(avg(0.7)).toBeGreaterThan(avg(0.05));
   });
 
-  slow('', () => {
+  slow('personalities change behavior', () => {
     const share = (traits: Partial<Record<(typeof TRAITS)[number], number>>, type: string) => {
       let hits = 0;
       let total = 0;
@@ -132,7 +132,7 @@ describe('world memory', () => {
 });
 
 describe('text', () => {
-  slow('runs without unresolved templates', () => {
+  slow('renders every event from many runs without unresolved templates', () => {
     const bad: string[] = [];
     for (let i = 0; i < 120; i++) {
       const { world, events } = play(`text-${i}`, (i % 8) / 10);

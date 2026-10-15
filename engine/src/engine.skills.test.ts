@@ -121,7 +121,7 @@ describe('layered skills', () => {
     expect(heroPower(w)).toBeGreaterThan(melee0 + 3);
   });
 
-  slow('bies all occur', () => {
+  slow('is a deep sandbox: the new hobbies all occur', () => {
     const seen = new Set<string>();
     const skills = new Set<string>();
     for (let i = 0; i < 600; i++) {

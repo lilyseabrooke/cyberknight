@@ -264,7 +264,7 @@ describe('favours', () => {
 });
 
 describe('in the sim', () => {
-  slow('ith text, and not as a standing buffet', () => {
+  slow('every hustle still turns up, with text, and not as a standing buffet', () => {
     const seen = new Set<string>();
     let hustles = 0;
     let beats = 0;

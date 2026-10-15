@@ -223,7 +223,7 @@ describe('a calling', () => {
 });
 
 describe('in the sim', () => {
-  slow('und while she has one, and she does not sing in one place forever', () => {
+  slow('callings happen, she moves around while she has one, and she does not sing in one place forever', () => {
     let ignites = 0;
     let done = 0;
     let longestRun = 0;

@@ -6,7 +6,7 @@ import { collect } from './collect';
 const root = path.resolve(__dirname, '../..');
 
 describe('collecting nights', () => {
-  slow('wn to numbers; the same seeds give the same numbers', async () => {
+  slow('plays nights and boils each down to numbers; the same seeds give the same numbers', async () => {
     const a = await collect(root, 0.6, 4, 'test');
     const b = await collect(root, 0.6, 4, 'test');
     expect(a).toHaveLength(4);

@@ -491,7 +491,7 @@ describe('romance meets depth', () => {
 });
 
 describe('whole nights', () => {
-  slow('me up, and everything they say can be read', () => {
+  slow('fill in only the people who come up, and everything they say can be read', () => {
     const missing = new Set<string>();
     let learned = 0;
     let deep = 0;

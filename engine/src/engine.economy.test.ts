@@ -146,7 +146,7 @@ describe('graffiti ecosystem', () => {
     if (!world.over) expect(g.affinity).toBeGreaterThan(-30);
   });
 
-  slow('hunt her in the sim', () => {
+  slow('police fine vandals and gangs hunt her in the sim', () => {
     const seen = new Set<string>();
     const want = ['graffiti', 'vandal:scene', 'vandal:fined', 'vandal:escaped', 'paint_shop', 'mural'];
     // Fines are rare, and more of the night now goes on exploring a city that grows, so keep going until everything has turned up.
@@ -570,7 +570,7 @@ describe('resources and consequences', () => {
       expect(remembered.length).toBeGreaterThan(0);
     });
 
-    slow(' rises from brawls, not just from kills', () => {
+    slow('being watched in the sim: heat rises from brawls, not just from kills', () => {
       let withHeat = 0;
       for (let i = 0; i < 40; i++) {
         const { world } = play(`wit-${i}`, 0.3);
@@ -670,7 +670,7 @@ describe('resources and consequences', () => {
       expect(bad).toBeLessThan(40);
     });
 
-    slow(' med packs, ammo, gear and stims all get bought', () => {
+    slow('in the sim she actually shops: med packs, ammo, gear and stims all get bought', () => {
       const seen = new Set<string>();
       for (let i = 0; i < 80; i++) for (const e of play(`shop-${i}`, 0.9).events) seen.add(`${e.type}${e.data.variant ? ':' + e.data.variant : ''}`);
       for (const k of ['buy_med_pack', 'buy_ammo', 'buy_gear:weapon', 'use_med_pack', 'out_of_ammo', 'crime_seen:camera', 'heat_up:npd', 'bystander:call_cops']) {

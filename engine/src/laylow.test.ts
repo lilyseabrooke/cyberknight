@@ -241,7 +241,7 @@ describe('ways out', () => {
 });
 
 describe('whole nights', () => {
-  slow('ol off', () => {
+  slow('hot heroes go to ground and cool off', () => {
     let laid = 0;
     let nights = 0;
     for (let i = 0; i < 25; i++) {

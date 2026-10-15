@@ -209,7 +209,7 @@ describe('drones', () => {
 });
 
 describe('in the sim', () => {
-  slow('odd jobs, sizes people up, and gets paid', () => {
+  slow('she chases bounties and takes odd jobs, sizes people up, and gets paid', () => {
     const seen = new Set<string>();
     let paid = 0;
     let jobs = 0;
@@ -258,7 +258,7 @@ describe('what she is about when she has nothing else on her mind', () => {
     expect(count({ courage: 0.95, justice: 0.9, thrill: 0.9, greed: 0.1, fame: 0.2 }, 'dragon')).toBeGreaterThan(count({ courage: 0.05, justice: 0.1, thrill: 0.1, greed: 0.9, fame: 0.9 }, 'dragon'));
   });
 
-  slow(' do', () => {
+  slow('is rarely without something to do', () => {
     let beats = 0;
     let empty = 0;
     for (let i = 0; i < 20; i++) {
@@ -303,7 +303,7 @@ describe('fame: pick an act, then find the stage', () => {
     expect(expectedFame(w, 'karaoke')).toBeGreaterThan(before);
   });
 
-  slow('ght', () => {
+  slow('actually gets famous over a night', () => {
     let finished = 0;
     for (let i = 0; i < 30; i++) {
       const { world: w, events } = createRun({ seed: `fame-${i}`, competence: 0.8, personality: personalityFrom({ fame: 0.95, vanity: 0.9, artistry: 0.8 }) });
@@ -340,7 +340,7 @@ describe('dragons: look up, then decide', () => {
     expect(dragonReadiness(w, g)).toBeGreaterThanOrEqual(0);
   });
 
-  slow(' hunting and comes back with a scale', () => {
+  slow('over many nights, someone goes hunting and comes back with a scale', () => {
     let scans = 0;
     let kills = 0;
     let done = 0;

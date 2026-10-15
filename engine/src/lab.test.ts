@@ -405,7 +405,7 @@ describe('the lab loop', () => {
     expect(w2.legacy.upgrades['reflex.1']).toBe(1);
   });
 
-  slow('death and a real return', () => {
+  slow('survives a real night, a real death and a real return', () => {
     let u = newUniverse('real');
     for (let night = 0; night < 3; night++) {
       const w = beginRun(u, { seed: `n${night}`, competence: 0.4 });

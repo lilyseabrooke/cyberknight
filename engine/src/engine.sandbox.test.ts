@@ -30,14 +30,14 @@ describe('deepened sandbox', () => {
     return { seen, worlds };
   };
 
-  slow('get allies, and they show up', () => {
+  slow('offers many different ways to get allies, and they show up', () => {
     const { seen } = sweep(120, 0.3, 'ally');
     const sources = ['steal_puppy:success', 'jack:drone', 'jack:scrapper', 'recruit:juno', 'pigeon:befriend', 'rescue:thanks_joins', 'companion_joins'].filter((s) => seen.has(s));
     expect(sources.length).toBeGreaterThanOrEqual(3);
     expect(seen.has('ally_assist')).toBe(true);
   });
 
-  slow('s install, and fame is earned', () => {
+  slow('skills level with use, implants install, and fame is earned', () => {
     const { seen, worlds } = sweep(120, 0.3, 'prog');
     expect(seen.has('skill_up')).toBe(true);
     expect(worlds.some((w) => w.hero.fame >= 3)).toBe(true);
@@ -58,7 +58,7 @@ describe('deepened sandbox', () => {
     expect(installed).toBe(true);
   });
 
-  slow('d, and have sane loyalty', () => {
+  slow('allies are always valid, capped, and have sane loyalty', () => {
     const { worlds } = sweep(80, 0.4, 'cap');
     for (const w of worlds) {
       expect(w.hero.companions.length).toBeLessThanOrEqual(3);
@@ -66,7 +66,7 @@ describe('deepened sandbox', () => {
     }
   });
 
-  slow(', a tab and a beatbox talk-down, rarely', () => {
+  slow('the world has weather, damsels, a tab and a beatbox talk-down, rarely', () => {
     const { seen } = sweep(200, 0.2, 'misc');
     expect(seen.has('weather:acid_rain') || seen.has('weather:neon_fog') || seen.has('weather:heatwave')).toBe(true);
     expect(seen.has('damsel:scene')).toBe(true);
@@ -74,13 +74,13 @@ describe('deepened sandbox', () => {
     expect(seen.has('beatbox:jam') || seen.has('beatbox:laughed')).toBe(true);
   });
 
-  slow('as a text template', () => {
+  slow('every event kind that occurs has a text template', () => {
     for (let i = 0; i < 150; i++) {
       for (const e of play(`tpl-${i}`, (i % 10) / 10).events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
     }
   });
 
-  slow('clueless ones', () => {
+  slow('smart heroes last longer than clueless ones', () => {
     // With real heat and scarce healing, flatlining randos is a losing plan, and nobody reaches the
     // dragon until the AI learns to plan. What competence buys today is staying alive.
     const avgBeats = (c: number) => {
@@ -152,7 +152,7 @@ describe('the dragon family', () => {
     }
   });
 
-  slow('s rare, and reactions differ by competence', () => {
+  slow('flights actually occur, Hera is rare, and reactions differ by competence', () => {
     let flights = 0;
     let hera = 0;
     let runs = 0;
