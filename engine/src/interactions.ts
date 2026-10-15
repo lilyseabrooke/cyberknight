@@ -84,7 +84,7 @@ export function gather(w: World): Candidate[] {
     out.push({ key: `chat:${n.id}`, drives: { curiosity: 0.5, lust: 0.05 }, run: (c) => chat(c, n) });
 
     if (isFairGame(n)) {
-      out.push({ key: `flirt:${n.id}`, drives: { lust: 1.0, curiosity: 0.1 }, bonus: scruples(w, n), run: (c) => flirt(c, n) });
+      out.push({ key: `flirt:${n.id}`, drives: { lust: 1.0, curiosity: 0.1 }, bonus: scruples(w, n), intent: { npc: n.name }, run: (c) => flirt(c, n) });
       if (n.affinity >= 12 || (h.drunk >= 2 && n.affinity >= 0)) {
         out.push({ key: `kiss:${n.id}`, drives: { lust: 1.5 }, bonus: kissBonus(w, n) + scruples(w, n), run: (c) => kiss(c, n) });
       }
@@ -93,7 +93,7 @@ export function gather(w: World): Candidate[] {
     const spare = n.tags.includes('doc') && n.affinity > -20;
     if (!spare && !n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
       out.push({
-        key: `pickpocket:${n.id}`, drives: { greed: 0.95, curiosity: 0.2 }, risk: 0.6 + levelRisk(w, n),
+        key: `pickpocket:${n.id}`, drives: { greed: 0.95, curiosity: 0.2 }, risk: 0.6 + levelRisk(w, n), intent: { npc: n.name },
         run: (c) => pickpocket(c, n),
       });
     }
@@ -109,16 +109,16 @@ export function gather(w: World): Candidate[] {
         },
       });
       out.push({
-        key: `threaten:${n.id}`, drives: { bravery: 0.5, pride: 0.6, greed: 0.6 }, risk: 0.5 + levelRisk(w, n),
+        key: `threaten:${n.id}`, drives: { bravery: 0.5, pride: 0.6, greed: 0.6 }, risk: 0.5 + levelRisk(w, n), intent: { npc: n.name },
         run: (c) => threaten(c, n),
       });
     }
     if (n.tags.includes('strong')) {
-      out.push({ key: `armwrestle:${n.id}`, drives: { pride: 0.9, bravery: 0.2 }, risk: 0.1, run: (c) => armWrestle(c, n) });
+      out.push({ key: `armwrestle:${n.id}`, drives: { pride: 0.9, bravery: 0.2 }, risk: 0.1, intent: { npc: n.name }, run: (c) => armWrestle(c, n) });
     }
     if ((n.tags.includes('augmented') || n.tags.includes('robot')) && !n.flags.includes('hacked')) {
       out.push({
-        key: `hack:${n.id}`, drives: { curiosity: 0.75, greed: 0.5 }, risk: 0.3 + levelRisk(w, n) * 0.7,
+        key: `hack:${n.id}`, drives: { curiosity: 0.75, greed: 0.5 }, risk: 0.3 + levelRisk(w, n) * 0.7, intent: { npc: n.name },
         run: (c) => hackNpc(c, n),
       });
     }

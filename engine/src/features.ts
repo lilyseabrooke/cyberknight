@@ -23,14 +23,14 @@ export function featureCandidates(w: World): Candidate[] {
     const key = f.kind;
     switch (f.kind) {
       case 'till':
-        out.push({ key, drives: { greed: 1.2, curiosity: 0.2 }, risk: (present(w, 'dutch') ? 1.3 : 0.5) + 0.35 * (w.heat.halo ?? 0), run: (c) => robTill(c, f) });
+        out.push({ key, drives: { greed: 1.2, curiosity: 0.2 }, risk: (present(w, 'dutch') ? 1.3 : 0.5) + 0.35 * (w.heat.halo ?? 0), intent: {}, run: (c) => robTill(c, f) });
         break;
       case 'karaoke':
-        out.push({ key, drives: { pride: 1.0, curiosity: 0.2, thirst: 0.1 }, bonus: h.drunk * 0.1, risk: 0.3, run: karaoke });
+        out.push({ key, drives: { pride: 1.0, curiosity: 0.2, thirst: 0.1 }, bonus: h.drunk * 0.1, risk: 0.3, intent: {}, run: karaoke });
         break;
       case 'pool':
         if (h.cash >= 15 && here(w).some((n) => n.tags.includes('rowdy'))) {
-          out.push({ key, drives: { pride: 0.8, greed: 0.5, bravery: 0.1 }, risk: 0.4, run: pool });
+          out.push({ key, drives: { pride: 0.8, greed: 0.5, bravery: 0.1 }, risk: 0.4, intent: {}, run: pool });
         }
         break;
       case 'mirror':

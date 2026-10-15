@@ -679,6 +679,11 @@ export interface Ctx {
   w: World;
   rng: Rng;
   emit(type: string, outcome: Outcome, data?: EventData): void;
+  /**
+   * Emit an event that opens a group, then run `fn`: everything emitted inside it is nested under that event.
+   * Optional, so a bare test context still works; use the `nested` helper rather than calling this directly.
+   */
+  nest?(type: string, outcome: Outcome, data: EventData, fn: () => void): void;
 }
 
 export type { GameEvent };

@@ -1,6 +1,6 @@
 import { Rng } from './rng';
 import type { Ctx, GameEvent, World } from './types';
-import type { EventData, Outcome } from './events';
+import { nested, type EventData, type Outcome } from './events';
 import { createWorld, type RunOptions } from './world';
 import { gather } from './interactions';
 import type { Candidate } from './candidate';
@@ -114,13 +114,13 @@ export function createRun(opts: RunOptions): { world: World; events: GameEvent[]
   return { world, events: openingEvents(world) };
 }
 
-/** Advance one beat. Mutates the world; fully determined by (world state incl. rngPosition). */
-export function step(w: World): GameEvent[] {
-  if (w.over) return [];
-  const rng = Rng.fromPosition(w.rngPosition);
-  const events: GameEvent[] = [];
-  w.beat++;
-  w.clock += BASE_MIN_PER_BEAT;
+/**
+ * A context that records into `events`. `emit` stamps who is who; `nest` opens a group, so what `fn` emits is marked
+ * as belonging to the event that opened it.
+ */
+export function makeCtx(w: World, rng: Rng, events: GameEvent[]): Ctx {
+  /** The groups we're inside right now, innermost last. */
+  const open: string[] = [];
   const c: Ctx = {
     w,
     rng,
@@ -132,9 +132,38 @@ export function step(w: World): GameEvent[] {
           if (who) data[`${k}_g`] = who.gender;
         }
       }
-      events.push({ beat: w.beat, type, outcome, data });
+      const parent = open[open.length - 1];
+      events.push({ beat: w.beat, type, outcome, data, ...(parent ? { in: parent } : {}) });
+    },
+    nest(type: string, outcome: Outcome, data: EventData, fn: () => void) {
+      c.emit(type, outcome, data);
+      const header = events[events.length - 1]!;
+      header.id = `${w.beat}.${events.length}`;
+      open.push(header.id);
+      try {
+        fn();
+      } finally {
+        open.pop();
+      }
     },
   };
+  return c;
+}
+
+/** Do what she has chosen. If it was something she set out to do, that is announced first and its outcome is told under it. */
+export function perform(c: Ctx, pick: Candidate): void {
+  if (pick.intent) nested(c, 'intent', 'mixed', { ...pick.intent, variant: pick.key.replace(/:.*$/, '') }, () => pick.run(c));
+  else pick.run(c);
+}
+
+/** Advance one beat. Mutates the world; fully determined by (world state incl. rngPosition). */
+export function step(w: World): GameEvent[] {
+  if (w.over) return [];
+  const rng = Rng.fromPosition(w.rngPosition);
+  const events: GameEvent[] = [];
+  w.beat++;
+  w.clock += BASE_MIN_PER_BEAT;
+  const c = makeCtx(w, rng, events);
 
   const before = mindBefore(w);
   let chosen: Candidate | null = null;
@@ -166,7 +195,7 @@ export function step(w: World): GameEvent[] {
         if (loc) loc.doings = (loc.doings ?? 0) + 1;
       }
       if (w.recent.length > 14) w.recent.shift();
-      pick.run(c);
+      perform(c, pick);
     }
   }
 

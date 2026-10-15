@@ -45,15 +45,15 @@ export function hobbyCandidates(w: World): Candidate[] {
   // ---- pool as seduction, and borrowing a cue
   if (feat('pool')) {
     for (const n of crowd.filter((x) => isFairGame(x) && !x.hostile)) {
-      out.push({ key: `pool_date:${n.id}`, drives: { lust: 0.9, pride: 0.6 }, bonus: 0.1, run: (c) => poolDate(c, n) });
+      out.push({ key: `pool_date:${n.id}`, drives: { lust: 0.9, pride: 0.6 }, bonus: 0.1, intent: { npc: n.name }, run: (c) => poolDate(c, n) });
     }
     if (!owns('cue')) {
-      out.push({ key: 'grab_cue', drives: { greed: 0.3, curiosity: 0.3, bravery: 0.2 }, run: grabCue });
+      out.push({ key: 'grab_cue', drives: { greed: 0.3, curiosity: 0.3, bravery: 0.2 }, intent: {}, run: grabCue });
     }
   }
   // ---- darts
   if (feat('darts') && h.cash >= 10) {
-    out.push({ key: 'darts', drives: { pride: 0.7, greed: 0.4, bravery: 0.15 }, risk: 0.2, run: darts });
+    out.push({ key: 'darts', drives: { pride: 0.7, greed: 0.4, bravery: 0.15 }, risk: 0.2, intent: {}, run: darts });
   }
   // ---- the green room: guitar
   if (feat('guitar')) {
@@ -87,7 +87,7 @@ export function hobbyCandidates(w: World): Candidate[] {
   }
   // ---- behind the bar
   if (feat('taps')) {
-    out.push({ key: 'tend_bar', drives: { thirst: 0.6, pride: 0.5, greed: 0.3, curiosity: 0.3 }, risk: 0.3, run: tendBar });
+    out.push({ key: 'tend_bar', drives: { thirst: 0.6, pride: 0.5, greed: 0.3, curiosity: 0.3 }, risk: 0.3, intent: {}, run: tendBar });
     if (h.cash >= 10) out.push({ key: 'mix_molotov', drives: { curiosity: 0.6, bravery: 0.4, pride: 0.3 }, risk: 0.2, run: mixMolotov });
   }
   // ---- graffiti
