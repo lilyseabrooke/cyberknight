@@ -124,9 +124,62 @@ export interface Hero {
   competence: number;
 }
 
+/** 'none' is for machines and monsters, who don't come into it. */
+export type Gender = 'woman' | 'man' | 'nonbinary' | 'none';
+
+/** How far along a romance is, as one side sees it. Each side keeps its own; they needn't agree. */
+export type Stage = 'interest' | 'fling' | 'seeing' | 'together' | 'ex';
+
+/** One person's feelings about the other. See bonds.ts. */
+export interface Feelings {
+  stage: Stage;
+  /** 0..100: how much they want this, right now. Fades with time apart; flares with attention. */
+  ardor: number;
+  /** World minute the stage last changed. */
+  since: number;
+  /** World minute they were last together in person. */
+  seen: number;
+  /** World minute decay was last applied. */
+  checked: number;
+  /** Nights spent together. */
+  nights: number;
+  /** How it ended, from this side's point of view (stage 'ex'). */
+  ended?: { how: 'left' | 'was_left' | 'drifted' | 'caught' | 'chose_partner'; at: number };
+  /** Hers only: she knows the other has someone. */
+  knowsPartner?: boolean;
+  /** The stage the other side was in when this side last noticed they disagree, so it's remarked on once. */
+  noticed?: Stage;
+}
+
+export interface Partner {
+  name: string;
+  kind: 'husband' | 'wife' | 'boyfriend' | 'girlfriend' | 'partner';
+  years: number;
+  /** Set once the partner turns up in the world as a person. */
+  id?: Id;
+}
+
+/** What someone is like in love, rolled the first time it matters. */
+export interface Heart {
+  /** 0..1: how hard it is to get them to cheat or leave. */
+  loyal: number;
+  /** 0..1: how happy they are with what they have. */
+  content: number;
+  /** 0..1: how much Blackbird does it for them, before anything she does. */
+  spark: number;
+  /** 0..1: how fast a good night turns into "we're together". */
+  clingy: number;
+  partner?: Partner;
+  /** Names of people they used to be with. */
+  exes: string[];
+}
+
 export interface Npc {
   id: Id;
   name: string;
+  /** Everyone is an adult. */
+  age: number;
+  gender: Gender;
   archetype: string;
   role: string;
   /** Where they are. Read-only here: `moveNpc` (population.ts) is the only thing that moves anyone, so the indexes stay true. */
@@ -162,6 +215,10 @@ export interface Npc {
   ephemeral?: boolean;
   /** Written by hand into the world rather than rolled. */
   authored?: boolean;
+  /** Their love life: set up the first time it matters (bonds.ts), then it persists with them. */
+  heart?: Heart;
+  /** How they feel about Blackbird. Persists: they remember even when she doesn't. */
+  bond?: Feelings;
   /** What they know about Blackbird's past runs that she might not expect them to. See universe.ts. */
   knows?: { died?: number; saw?: boolean; reacted?: boolean };
 }
@@ -406,6 +463,8 @@ export interface Mind {
   passion?: { skill: string; level: number; since: number };
   /** What she expects each kind of act to do for her fame, learned from experience. */
   fame?: Record<string, number>;
+  /** How she feels about the people she's got something with. Her side only; this resets with her body. */
+  bonds?: Record<Id, Feelings>;
   /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */
   bounties?: Record<Id, 'scan' | 'scanner' | 'tip'>;
 }

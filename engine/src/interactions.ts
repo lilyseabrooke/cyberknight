@@ -22,6 +22,8 @@ import { healUrge } from './urges';
 import { laylowCandidates } from './laylow';
 import { stageCandidates } from './stage';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
+import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
+import { isFairGame } from './people';
 import { moveNpc } from './population';
 
 const DRINKS = [
@@ -62,10 +64,10 @@ export function gather(w: World): Candidate[] {
 
     out.push({ key: `chat:${n.id}`, drives: { curiosity: 0.5, lust: 0.05 }, run: (c) => chat(c, n) });
 
-    if (n.tags.includes('romanceable')) {
-      out.push({ key: `flirt:${n.id}`, drives: { lust: 1.0, curiosity: 0.1 }, run: (c) => flirt(c, n) });
+    if (isFairGame(n)) {
+      out.push({ key: `flirt:${n.id}`, drives: { lust: 1.0, curiosity: 0.1 }, bonus: scruples(w, n), run: (c) => flirt(c, n) });
       if (n.affinity >= 12 || (h.drunk >= 2 && n.affinity >= 0)) {
-        out.push({ key: `kiss:${n.id}`, drives: { lust: 1.5 }, bonus: kissBonus(w, n), run: (c) => kiss(c, n) });
+        out.push({ key: `kiss:${n.id}`, drives: { lust: 1.5 }, bonus: kissBonus(w, n) + scruples(w, n), run: (c) => kiss(c, n) });
       }
     }
     if (!n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
@@ -158,6 +160,7 @@ export function gather(w: World): Candidate[] {
   out.push(...hobbyCandidates(w));
   out.push(...graffitiCandidates(w));
   out.push(...romanceCandidates(w));
+  out.push(...bondCandidates(w));
   out.push(...laylowCandidates(w));
   out.push(...stageCandidates(w));
   out.push(...goalCandidates(w));
@@ -200,7 +203,7 @@ export function gather(w: World): Candidate[] {
 
 function chat(c: Ctx, n: Npc): void {
   const { w, rng } = c;
-  if (n.tags.includes('romanceable')) kindle(w.hero, 0.02);
+  if (isFairGame(n)) kindle(w.hero, 0.02);
   const options: string[] = [];
   if (!w.flags.dragon_known) options.push('dragon');
   if (w.locations.halo_alley!.exits.some((e) => e.hidden)) options.push('hatch');
@@ -243,7 +246,7 @@ function chat(c: Ctx, n: Npc): void {
 function flirt(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08, 0.05, 0.9);
+  const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08 + romanceMod(w, n), 0.03, 0.9);
   train(c, 'romance', 1);
   kindle(h, 0.05);
   if (rng.chance(p)) {
@@ -252,6 +255,7 @@ function flirt(c: Ctx, n: Npc): void {
     remember(n, 'was charmed by Blackbird');
     const number = n.affinity >= 28 && rng.chance(0.4);
     c.emit('flirt', 'good', { variant: number ? 'number' : 'smooth', npc: n.name });
+    bondEvent(c, n, 'flirt');
   } else if (rng.chance(0.3)) {
     n.affinity -= 8;
     h.hp -= 2;
@@ -266,7 +270,7 @@ function flirt(c: Ctx, n: Npc): void {
 function kiss(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   kindle(w.hero, 0.07);
-  if (!rng.chance(0.78)) {
+  if (!rng.chance(clamp(0.78 + romanceMod(w, n) * 0.8, 0.1, 0.95))) {
     n.affinity -= 6;
     c.emit('kiss', 'bad', { variant: 'rejected', npc: n.name });
     return;
@@ -277,6 +281,7 @@ function kiss(c: Ctx, n: Npc): void {
   w.counters[`kisses_${n.id}`] = kissesWith(w, n.id) + 1;
   remember(n, 'kissed Blackbird');
   c.emit('kiss', 'good', { variant: 'kiss', npc: n.name, times: kissesWith(w, n.id) });
+  bondEvent(c, n, 'kiss');
   jealousy(c, n);
 }
 

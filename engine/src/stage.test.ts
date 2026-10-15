@@ -8,6 +8,7 @@ import { pursuitTick } from './pursuit';
 import { spawnNpc } from './content/archetypes';
 import type { Goal, Npc } from './types';
 import { addNpc, moveNpc } from './population';
+import { isFairGame } from './people';
 
 const world = (seed: string, traits: Parameters<typeof personalityFrom>[0] = {}, competence = 0.8): World =>
   createWorld({ seed, competence, personality: personalityFrom(traits) });
@@ -117,7 +118,7 @@ describe('more to do with a voice, a guitar, a deck', () => {
     w.hero.locationId = 'halo_floor';
     npc(w, 'friend', 'ganger', 'halo_floor', { tags: ['rowdy', 'ganger'], affinity: 40 });
     expect(keys(w).some((k) => k === 'beat_battle:friend')).toBe(false);
-    for (const n of Object.values(w.npcs)) if (n.tags.includes('romanceable') && n.locationId === 'halo_floor') n.affinity = 60;
+    for (const n of Object.values(w.npcs)) if (isFairGame(n) && n.locationId === 'halo_floor') n.affinity = 60;
     expect(keys(w).some((k) => k.startsWith('serenade_girl:'))).toBe(false);
   });
 

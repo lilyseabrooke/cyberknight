@@ -7,7 +7,7 @@ import { newMind } from './mind';
 import { assignBounties } from './bounty';
 import { newFactions, setRelation } from './factions';
 import { START_MINUTE } from './clock';
-import type { Exit, Feature, Hero, Id, Location, Npc, World } from './types';
+import type { Exit, Feature, Gender, Hero, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
 
@@ -269,36 +269,37 @@ export function createWorld(opts: RunOptions): World {
   const npcs: Record<Id, Npc> = {};
   const nrng = rng.fork('npcs');
   let n = 0;
-  const add = (arch: string, loc: Id, o: { id?: string; faction?: string; name?: string } = {}) => {
+  const add = (arch: string, loc: Id, o: { id?: string; faction?: string; name?: string; gender?: Gender; single?: boolean } = {}) => {
     const id = o.id ?? `${arch}_${n++}`;
     // Straight into the record is fine here: the population indexes are built on first use, after this is done.
-    npcs[id] = spawnNpc(nrng, id, arch, loc, { faction: o.faction, name: o.name });
+    npcs[id] = spawnNpc(nrng, id, arch, loc, { faction: o.faction, name: o.name, gender: o.gender });
+    if (o.single) npcs[id]!.flags.push('single');
     npcs[id]!.authored = true;
     npcs[id]!.home = loc; // where they go back to between runs
     return npcs[id]!;
   };
 
-  add('barkeep', 'halo_floor', { id: 'dutch', name: 'Dutch Okonkwo' });
-  add('bartender', 'halo_floor', { id: 'nyx' });
-  add('hacker', 'halo_floor', { id: 'juno' });
+  add('barkeep', 'halo_floor', { id: 'dutch', name: 'Dutch Okonkwo', gender: 'man' });
+  add('bartender', 'halo_floor', { id: 'nyx', gender: 'woman', single: true });
+  add('hacker', 'halo_floor', { id: 'juno', gender: 'woman', single: true });
   add('puppy', 'halo_floor', { id: 'sprocket', name: 'Sprocket' });
-  add('bouncer', 'halo_floor', { id: 'tiny', name: 'Tiny' });
+  add('bouncer', 'halo_floor', { id: 'tiny', name: 'Tiny', gender: 'man' });
   add('ganger', 'halo_floor', { faction: g1 });
   add('ganger', 'halo_floor', { faction: g1 });
   add('ganger', 'halo_floor', { faction: g2 });
   add('ganger', 'halo_floor', { faction: g2 });
   add('corpo', 'halo_floor');
   add('cop', 'halo_floor');
-  add('dealer', 'halo_floor', { id: 'skeeter', name: 'Skeeter' });
-  add('prophet', 'halo_floor', { id: 'ray', name: 'Prophet Ray' });
+  add('dealer', 'halo_floor', { id: 'skeeter', name: 'Skeeter', gender: 'man' });
+  add('prophet', 'halo_floor', { id: 'ray', name: 'Prophet Ray', gender: 'man' });
   add('patron', 'halo_floor');
   add('patron', 'halo_floor');
   add('doc', 'halo_restroom', { id: 'doc', name: 'Doc Hexamer' });
   add('cook', 'halo_kitchen', { id: 'bao', name: 'Chef Bao' });
-  add('fixer', 'halo_backroom', { id: 'madame', name: 'Madame Zero' });
+  add('fixer', 'halo_backroom', { id: 'madame', name: 'Madame Zero', gender: 'woman' });
   add('drone', 'halo_alley');
   add('noodler', 'street_main');
-  add('paint_clerk', 'paint_shop', { id: 'clerk' });
+  add('paint_clerk', 'paint_shop', { id: 'clerk', gender: 'woman', single: true });
   add('pharmacist', 'chem_mart', { id: 'pharmacist' });
   add('gunsmith', 'gun_shop', { id: 'gunsmith' });
   for (let i = 0; i < 3; i++) add('club_security', 'neon_pharaoh');

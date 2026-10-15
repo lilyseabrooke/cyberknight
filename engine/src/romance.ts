@@ -3,6 +3,8 @@ import { addHeat, fight, here, relocate, remember } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
 import { synergy, train } from './skills';
 import { moveNpc } from './population';
+import { bondEvent, lovedHere, romanceMod, scruples, ensureBond } from './bonds';
+import { isFairGame } from './people';
 
 /**
  * Romance with consequences. Kissing leads to making a move; a move that lands leaves her sated for a while
@@ -36,7 +38,7 @@ export function gainSatiety(h: Hero, amount: number): void {
   h.satiety = Math.min(1, satietyOf(h) + amount);
 }
 
-const SATIETY_WEIGHT: Record<string, number> = { flirt: 1, kiss: 1.25, make_move: 1.6, pool_date: 0.9, serve_dish: 0.7, seduce_clerk: 0.9, dance: 0.4 };
+const SATIETY_WEIGHT: Record<string, number> = { poach: 1.2, reconcile: 1, flirt: 1, kiss: 1.25, make_move: 1.6, pool_date: 0.9, serve_dish: 0.7, seduce_clerk: 0.9, dance: 0.4 };
 
 /** A sated Blackbird doesn't want to chase anyone, with anyone. */
 export function satietyBias(w: World, cand: { key: string }): number {
@@ -57,10 +59,22 @@ export const kissBonus = (w: World, n: Npc): number => Math.min(n.affinity, 50) 
 /** The Sims rule: somebody saw that, and they had feelings about it. */
 export function jealousy(c: Ctx, n: Npc): void {
   const { w, rng } = c;
-  const rival = here(w).find((r) => r.id !== n.id && r.tags.includes('romanceable') && !r.hostile && (w.flags[`kissed:${r.id}`] || r.affinity >= 15));
+  const rival = lovedHere(w, n.id)[0] ?? here(w).find((r) => r.id !== n.id && isFairGame(r) && !r.hostile && (w.flags[`kissed:${r.id}`] || r.affinity >= 15));
   if (!rival) return;
   rival.affinity -= 30;
   remember(rival, 'watched Blackbird kiss someone else');
+  // If they were something to each other, this is the end of it, usually.
+  if (rival.bond && (rival.bond.stage === 'seeing' || rival.bond.stage === 'together')) {
+    rival.bond.ardor = Math.max(0, rival.bond.ardor - 25);
+    if (rng.chance(0.6)) {
+      const { hers } = ensureBond(w, rival);
+      rival.bond.stage = 'ex';
+      rival.bond.since = w.clock;
+      rival.bond.ended = { how: 'was_left', at: w.clock };
+      if (hers.stage !== 'ex') { hers.stage = 'ex'; hers.since = w.clock; hers.ended = { how: 'was_left', at: w.clock }; }
+      c.emit('breakup', 'bad', { variant: 'caught', npc: rival.name, npc2: n.name });
+    }
+  }
   const fights = rival.tags.includes('jealous') ? 0.9 : 0.4;
   const brawl = rng.chance(fights);
   c.emit('jealous', 'bad', { variant: brawl ? 'fight' : 'sulk', npc: rival.name, npc2: n.name });
@@ -135,14 +149,14 @@ export function romanceCandidates(w: World): Candidate[] {
   const h = w.hero;
   const out: Candidate[] = [];
   for (const n of here(w)) {
-    if (!n.tags.includes('romanceable') || n.hostile || n.archetype === 'puppy') continue;
+    if (!isFairGame(n) || n.hostile) continue;
     const kisses = kissesWith(w, n.id);
     const eager = h.drunk >= 3 && n.affinity >= 10;
     if ((kisses >= 1 && n.affinity >= 20) || eager) {
       out.push({
         key: `make_move:${n.id}`,
         drives: { lust: 1.6, pride: 0.2 },
-        bonus: 0.35 * Math.min(kisses, 3) + n.affinity / 150 - 0.8 * movesWith(w, n.id),
+        bonus: 0.35 * Math.min(kisses, 3) + n.affinity / 150 - 0.8 * movesWith(w, n.id) + scruples(w, n),
         risk: 0.2,
         run: (c) => makeMove(c, n),
       });
@@ -165,7 +179,7 @@ function makeMove(c: Ctx, n: Npc): void {
 
   const kisses = kissesWith(w, n.id);
   const prior = movesWith(w, n.id);
-  const p = clamp(0.22 + n.affinity / 150 + h.charm * 0.03 + 0.045 * synergy(h, ['romance', 'stat:charm']) + 0.04 * Math.min(h.drunk, 3) + (kisses >= 2 ? 0.1 : 0) - (prior ? 0.3 : 0), 0.05, 0.9);
+  const p = clamp(0.22 + n.affinity / 150 + h.charm * 0.03 + 0.045 * synergy(h, ['romance', 'stat:charm']) + 0.04 * Math.min(h.drunk, 3) + (kisses >= 2 ? 0.1 : 0) - (prior ? 0.3 : 0) + romanceMod(w, n), 0.02, 0.9);
   if (!rng.chance(p)) {
     n.affinity -= 8;
     if (rng.chance(0.25)) {
@@ -300,4 +314,5 @@ function afterglow(c: Ctx, n: Npc, where: 'private' | 'public' | 'home', factor:
     flavor = 'number';
   }
   c.emit('make_move', factor >= 0.9 ? 'good' : 'mixed', { variant: 'afterglow', npc: n.name, where, flavor, spot, lost, sated: Math.round(satietyOf(h) * 100) });
+  bondEvent(c, n, factor >= 0.9 ? 'night' : 'date');
 }

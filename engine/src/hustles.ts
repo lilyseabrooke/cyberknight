@@ -4,6 +4,7 @@ import { clamp, levelRisk, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { skillLevel, synergy, train } from './skills';
 import { npcsAt } from './population';
+import { isFairGame } from './people';
 
 /** The hustle-specific skill formulas. These layer the new skills (grifting, hustling) as a
  * straight additive bonus on top of the original stat-driven baseline, rather than wrapping
@@ -75,7 +76,7 @@ export function tickHustles(c: Ctx): void {
     if (n.tags.includes('fixer') || n.tags.includes('dealer')) w.counters[`parcels_${n.id}`] = Math.min(2, parcels(w, n) + 0.012);
     // Takings: a till fills up between visits from the people who actually shop there.
     if (n.tags.includes('shopkeeper') || n.tags.includes('owner')) n.cash = Math.min(120, n.cash + 0.15 + 0.05 * busy);
-    if (n.alive && w.beat > 20 && (n.tags.includes('romanceable') || n.archetype === 'patron') && !has(n, 'wants_escort') && rng.chance(0.003)) addFlag(n, 'wants_escort');
+    if (n.alive && w.beat > 20 && (isFairGame(n) || n.archetype === 'patron') && !has(n, 'wants_escort') && rng.chance(0.003)) addFlag(n, 'wants_escort');
     if (!n.tags.includes('fixer') && n.affinity >= -5 && !has(n, 'favor') && rng.chance(0.004)) addFlag(n, 'favor');
   }
   const club = crowd.neon_pharaoh ?? 0;

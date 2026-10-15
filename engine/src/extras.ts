@@ -8,6 +8,7 @@ import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { spawnNpc } from './content/archetypes';
 import { fameFrom, tipScale } from './stage';
 import { addNpc, moveNpc } from './population';
+import { isFairGame } from './people';
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive && n.downUntil <= 1e9;
 const PIGEONS = ['Gerald', 'Beatrice', 'Sir Coos-a-Lot', 'Officer Feathers', 'Kevin'];
@@ -197,7 +198,7 @@ function djSet(c: Ctx): void {
     const tips = Math.round(rng.int(40, 120) * tipScale(w, 'dj_set'));
     h.cash += tips;
     fameFrom(c, b2b ? 3 : 2, 'dj_set');
-    for (const n of here(w)) if (!n.hostile) n.affinity += n.tags.includes('romanceable') ? 8 : 3;
+    for (const n of here(w)) if (!n.hostile) n.affinity += isFairGame(n) ? 8 : 3;
     train(c, 'djing', 3);
     gainXp(c, 6);
     c.emit('dj_set', 'good', { variant: b2b ? 'b2b' : 'killer', amount: tips, npc: kilo?.name ?? 'the DJ', lvl });

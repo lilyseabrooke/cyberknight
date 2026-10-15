@@ -16,6 +16,7 @@ import { expireBuffs, restockShelf } from './supply';
 import { discretion } from './discretion';
 import { scanBounties } from './bounty';
 import { recognizeRevenant } from './revenant';
+import { bondTick, partnerArrives } from './bonds';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
 import { heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
@@ -100,6 +101,8 @@ export function step(w: World): GameEvent[] {
   upkeep(c);
   if (!w.over) scanBounties(c);
   if (!w.over) recognizeRevenant(c);
+  if (!w.over) bondTick(c);
+  if (!w.over) partnerArrives(c);
   if (!w.over) ambientExtras(c);
   if (!w.over) ambientDragons(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);

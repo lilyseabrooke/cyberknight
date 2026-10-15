@@ -11,6 +11,7 @@ import { focusFoe } from './plans';
 import { addAmmo, ammoOf, gunsOwned, isArm, medPacks, medStock, shotsLeft, wielded } from './arms';
 import { skillLevel, train } from './skills';
 import { healUrge } from './urges';
+import { isFairGame } from './people';
 
 /**
  * Everything she has to spend money on to stay alive and stay dangerous: med packs, ammo,
@@ -179,7 +180,7 @@ export function supplyCandidates(w: World): Candidate[] {
     // Context: Ironclad before a fight, Cortex Clear near something hackable, Silver Tongue near someone worth charming.
     const ctx =
       it.id === 'stim_cortex' ? (crowd.some((n) => n.tags.includes('augmented') || n.tags.includes('robot')) ? 0.5 : 0)
-      : it.id === 'stim_silver' ? (crowd.some((n) => n.tags.includes('romanceable')) ? 0.6 : 0)
+      : it.id === 'stim_silver' ? (crowd.some((n) => isFairGame(n)) ? 0.6 : 0)
       : it.id === 'stim_twitch' ? ((w.heat.npd ?? 0) >= 3 || (w.heat.atlas ?? 0) >= 3 ? 0.5 : 0)
       : danger ? 0.4 : 0;
     out.push({

@@ -4,6 +4,7 @@ import { addHeat, npcsAt, remember } from './combat';
 import { sneakBonus } from './extras';
 import { clamp } from './candidate';
 import { hasBounty } from './bounty';
+import { isFairGame } from './people';
 
 /**
  * Consequences for hitting people. If anyone sees it (a person, a drone, a security camera) the
@@ -68,7 +69,7 @@ export function reactionWeights(w: World, n: Npc, victim: Npc): Record<Reaction,
     rw.call_cops += 3;
     rw.shun += 1;
   }
-  if (tags.includes('romanceable') && n.affinity >= 10) rw.cheer += 2;
+  if (isFairGame(n) && n.affinity >= 10) rw.cheer += 2;
   rw.cheer += Math.min(2, w.hero.fame * 0.15);
   return rw;
 }

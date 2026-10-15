@@ -4,6 +4,8 @@ import { clamp, type Candidate } from './candidate';
 import { odds, skillLevel, synergy, train } from './skills';
 import { kindle } from './romance';
 import { SKILLS } from './content/skills';
+import { isFairGame } from './people';
+import { bondEvent, romanceMod } from './bonds';
 
 /**
  * Performing. Two things keep her from singing in one spot forever, and one thing makes a good night run away with her.
@@ -148,7 +150,7 @@ export function stageCandidates(w: World): Candidate[] {
   }
 
   // ---- sing to someone
-  for (const n of crowd.filter((x) => x.tags.includes('romanceable') && x.affinity >= -5 && x.affinity < 40)) {
+  for (const n of crowd.filter((x) => isFairGame(x) && x.affinity >= -5 && x.affinity < 40)) {
     out.push({ key: `serenade_girl:${n.id}`, drives: { lust: 0.6, pride: 0.5, curiosity: 0.2 }, bonus: vocals * 0.03, risk: 0.2, run: (c) => serenadeGirl(c, n) });
   }
 
@@ -228,13 +230,14 @@ function crashGig(c: Ctx, host: Npc): void {
 function serenadeGirl(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  if (rng.chance(clamp(ODDS.serenadeGirl(h) + n.affinity / 300, 0.04, 0.9))) {
+  if (rng.chance(clamp(ODDS.serenadeGirl(h) + n.affinity / 300 + romanceMod(w, n) * 0.5, 0.03, 0.9))) {
     n.affinity += rng.int(8, 16);
     fameFrom(c, 0.8, 'serenade_girl');
     kindle(h, 0.03);
     train(c, 'vocals', 2);
     train(c, 'romance', 1);
     c.emit('serenade_girl', 'good', { variant: 'swoon', npc: n.name, affinity: n.affinity });
+    bondEvent(c, n, 'date');
   } else {
     n.affinity -= 3;
     train(c, 'vocals', 1);
