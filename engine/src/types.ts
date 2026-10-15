@@ -2,6 +2,7 @@ import type { Rng } from './rng';
 import type { Personality } from './personality';
 import type { EventData, GameEvent, Outcome } from './events';
 import type { Phase } from './clock';
+import type { Trait } from './personality';
 import type { Faction } from './factions';
 
 /**
@@ -174,6 +175,61 @@ export interface Heart {
   exes: string[];
 }
 
+/** How someone is as a person, apart from their job. Only the traits that matter for an NPC; unlisted ones are unremarkable (0.5). */
+export interface Character {
+  traits: Partial<Record<Trait, number>>;
+  /** A habit of manner, written with pronoun tokens ("hums jingles under {their} breath"). */
+  quirk: string;
+}
+
+export type FactKind =
+  | 'ex_member' | 'owes' | 'veteran' | 'lost_someone' | 'arrested_once' | 'was_somebody'
+  | 'wants_money' | 'wants_revenge' | 'wants_out' | 'wants_to_find' | 'wants_peace';
+
+/** How easily Blackbird could find a fact out. */
+export type Vis = 'visible' | 'overheard' | 'asked' | 'secret';
+
+/** Something true about a person: their past, or what they want. Hidden from Blackbird until she learns it. */
+export interface Fact {
+  id: string;
+  kind: FactKind;
+  vis: Vis;
+  /** Another person it involves: a real NPC, or a stub. */
+  about?: Id;
+  data: Record<string, string | number>;
+}
+
+export type TieKind = 'kin' | 'friend' | 'rival' | 'crew' | 'boss' | 'partner';
+
+/** One person's feeling about another. Ties are directed: each direction is its own record, and the two needn't match. */
+export interface Tie {
+  from: Id;
+  to: Id;
+  kind: TieKind;
+  /** -100..100: how `from` feels about `to`. */
+  regard: number;
+}
+
+/** Someone who exists only as a name on somebody else's life, until Blackbird (or the world) needs them in a room. */
+export interface Stub {
+  id: Id;
+  name: string;
+  gender: Gender;
+  age: number;
+  archetype: string;
+  faction: Id | null;
+  lastKnown?: Id;
+}
+
+/** A score someone has asked her to settle, and what it pays. */
+export interface Contract {
+  client: Id;
+  target: Id;
+  reward: number;
+  mode: 'kill' | 'beat_up';
+  taken: number;
+}
+
 export interface Npc {
   id: Id;
   name: string;
@@ -215,6 +271,12 @@ export interface Npc {
   ephemeral?: boolean;
   /** Written by hand into the world rather than rolled. */
   authored?: boolean;
+  /** Present once they've mattered (see deepen.ts): they have a character, facts and ties. Absent means just somebody she's seen. */
+  depth?: 'deep';
+  character?: Character;
+  facts?: Fact[];
+  /** Word that's reached them about what she did to someone they care about: [about, what, world minute]. */
+  heard?: [Id, 'hurt' | 'killed' | 'helped', number][];
   /** Their love life: set up the first time it matters (bonds.ts), then it persists with them. */
   heart?: Heart;
   /** How they feel about Blackbird. Persists: they remember even when she doesn't. */
@@ -333,6 +395,10 @@ export interface World {
   hero: Hero;
   mind: Mind;
   npcs: Record<Id, Npc>;
+  /** Who cares about whom, and how. Directed; see ties.ts. */
+  ties: Tie[];
+  /** People who exist only as names in other people's lives. */
+  stubs: Record<Id, Stub>;
   factions: Record<Id, Faction>;
   features: Record<Id, Feature>;
   locations: Record<Id, Location>;
@@ -463,6 +529,10 @@ export interface Mind {
   passion?: { skill: string; level: number; since: number };
   /** What she expects each kind of act to do for her fame, learned from experience. */
   fame?: Record<string, number>;
+  /** What she has found out about people: NPC id -> ids of their facts. Her side only; this resets with her body. */
+  known?: Record<Id, string[]>;
+  /** Scores she has agreed to settle. */
+  contracts?: Contract[];
   /** How she feels about the people she's got something with. Her side only; this resets with her body. */
   bonds?: Record<Id, Feelings>;
   /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */

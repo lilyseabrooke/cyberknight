@@ -5,6 +5,8 @@ import { fight, here, remember } from './combat';
 import { synergy, train } from './skills';
 import { AWAY, addNpc, moveNpc } from './population';
 import { ageGap, isFairGame } from './people';
+import { ensureDeep } from './deepen';
+import { materialize } from './ties';
 import type { Ctx, Feelings, Heart, Id, Npc, Partner, Stage, World } from './types';
 
 /**
@@ -106,6 +108,7 @@ const HERS: Record<Contact, number> = { flirt: 5, kiss: 10, date: 8, night: 18 }
  */
 export function bondEvent(c: Ctx, n: Npc, kind: Contact): void {
   const { w, rng } = c;
+  ensureDeep(w, n);
   const heart = heartOf(w, n);
   const { hers, theirs } = ensureBond(w, n);
   const t = traits(w);
@@ -390,6 +393,13 @@ function bringPartner(c: Ctx, n: Npc, p: Partner): Npc {
     return existing;
   }
   const id = `partner_of_${n.id}`;
+  const stub = w.stubs[`stub:${id}`];
+  if (stub) {
+    const person = materialize(w, stub.id, w.hero.locationId)!;
+    person.memories.push(`is with ${n.name}`);
+    p.id = id;
+    return person;
+  }
   const gender = p.kind === 'husband' || p.kind === 'boyfriend' ? 'man' : p.kind === 'wife' || p.kind === 'girlfriend' ? 'woman' : 'nonbinary';
   const person = spawnNpc(new Rng(`partner:${w.worldSeed}:${id}`), id, 'patron', w.hero.locationId, { name: p.name, gender, age: Math.max(18, n.age + new Rng(`pa:${id}`).int(-6, 6)) });
   person.memories.push(`is with ${n.name}`);

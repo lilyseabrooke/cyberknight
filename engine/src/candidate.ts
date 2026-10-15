@@ -67,6 +67,9 @@ export function arrive(c: Ctx, to: string, variant: string, extra: Record<string
 }
 
 function memoryVariant(m: string): string {
+  if (m.startsWith('heard Blackbird killed')) return 'heard_killed';
+  if (m.startsWith('heard Blackbird hurt')) return 'heard_hurt';
+  if (m.startsWith('heard Blackbird helped')) return 'heard_helped';
   if (m.includes('charmed')) return 'charmed';
   if (m === 'kissed Blackbird') return 'kissed';
   if (m.includes('beaten')) return 'beaten';

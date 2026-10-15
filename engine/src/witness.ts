@@ -5,6 +5,8 @@ import { sneakBonus } from './extras';
 import { clamp } from './candidate';
 import { hasBounty } from './bounty';
 import { isFairGame } from './people';
+import { nerve, traitOf } from './character';
+import { regard } from './ties';
 
 /**
  * Consequences for hitting people. If anyone sees it (a person, a drone, a security camera) the
@@ -71,6 +73,23 @@ export function reactionWeights(w: World, n: Npc, victim: Npc): Record<Reaction,
   }
   if (isFairGame(n) && n.affinity >= 10) rw.cheer += 2;
   rw.cheer += Math.min(2, w.hero.fame * 0.15);
+  // Who they are: the brave step up and the timid run; the kind don't enjoy it; friends of the victim wade in, rivals are delighted.
+  const nv = nerve(w, n);
+  rw.flee *= clamp(1.7 - 1.4 * nv, 0.3, 1.7);
+  if (rw.intervene > 0) rw.intervene *= 0.5 + nv;
+  if (rw.join > 0) rw.join *= 0.5 + nv;
+  const kindness = traitOf(w, n, 'kindness');
+  rw.cheer *= clamp(1.4 - 0.8 * kindness, 0.5, 1.4);
+  rw.shun *= 0.7 + 0.6 * kindness;
+  const feel = regard(w, n.id, victim.id);
+  if (feel >= 30) {
+    rw.join += 4 * (feel / 100) * (0.5 + nv);
+    rw.call_cops += 1;
+    rw.flee *= 0.5;
+    rw.cheer = 0;
+  } else if (feel <= -30) {
+    rw.cheer += 3;
+  }
   return rw;
 }
 

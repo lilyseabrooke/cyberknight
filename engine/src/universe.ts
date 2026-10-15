@@ -9,6 +9,7 @@ import { AWAY, allNpcs, everyoneAt, moveNpc, removeNpc } from './population';
 import { settleAt } from './movement';
 import { populate } from './roster';
 import { remember } from './combat';
+import { tiesFrom } from './ties';
 import type { DeathRecord, Id, Npc, World } from './types';
 
 /**
@@ -28,15 +29,15 @@ import type { DeathRecord, Id, Npc, World } from './types';
 export const UNIVERSE_VERSION = 1;
 
 /** The World fields that persist across runs. Everything else is per-run. */
-type Persistent = 'worldSeed' | 'legacy' | 'clock' | 'npcs' | 'factions' | 'locations' | 'features';
+type Persistent = 'worldSeed' | 'legacy' | 'clock' | 'npcs' | 'ties' | 'stubs' | 'factions' | 'locations' | 'features';
 
 export type Universe = Pick<World, Persistent> & { version: number };
 export type RunState = Omit<World, Persistent>;
 
 /** Take a World apart. The halves share their contents with the World; nothing is copied. */
 export function splitWorld(w: World): { universe: Universe; run: RunState } {
-  const { worldSeed, legacy, clock, npcs, factions, locations, features, ...run } = w;
-  return { universe: { version: UNIVERSE_VERSION, worldSeed, legacy, clock, npcs, factions, locations, features }, run };
+  const { worldSeed, legacy, clock, npcs, ties, stubs, factions, locations, features, ...run } = w;
+  return { universe: { version: UNIVERSE_VERSION, worldSeed, legacy, clock, npcs, ties, stubs, factions, locations, features }, run };
 }
 
 export function joinWorld(universe: Universe, run: RunState): World {
@@ -71,6 +72,14 @@ function recordDeath(w: World): void {
   for (const n of there) {
     n.knows = { ...n.knows, died: record.run, saw: true };
     remember(n, 'saw Blackbird die');
+  }
+  // Word travels along who loves whom.
+  for (const wit of there) {
+    for (const t of tiesFrom(w, wit.id)) {
+      const m = w.npcs[t.to];
+      if (!m || !m.alive || m.knows?.died === record.run || !['kin', 'friend', 'partner', 'crew'].includes(t.kind)) continue;
+      if (new Rng(`word:${w.worldSeed}:${record.run}:${m.id}`).chance(0.65)) m.knows = { ...m.knows, died: record.run };
+    }
   }
   for (const n of allNpcs(w)) {
     if (!n.alive || n.knows?.died === record.run || !n.faction || !killers.includes(n.faction)) continue;

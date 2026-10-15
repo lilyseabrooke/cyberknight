@@ -17,6 +17,8 @@ export const newMind = (): Mind => ({
   focus: null,
   tally: { done: 0, dropped: 0, revised: 0, delayed: 0 },
   bounties: {},
+  known: {},
+  contracts: [],
   fame: {},
 });
 

@@ -23,6 +23,7 @@ import { laylowCandidates } from './laylow';
 import { stageCandidates } from './stage';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
+import { knowledgeCandidates, shareFact } from './knowledge';
 import { isFairGame } from './people';
 import { moveNpc } from './population';
 
@@ -161,6 +162,7 @@ export function gather(w: World): Candidate[] {
   out.push(...graffitiCandidates(w));
   out.push(...romanceCandidates(w));
   out.push(...bondCandidates(w));
+  out.push(...knowledgeCandidates(w));
   out.push(...laylowCandidates(w));
   out.push(...stageCandidates(w));
   out.push(...goalCandidates(w));
@@ -237,7 +239,7 @@ function chat(c: Ctx, n: Npc): void {
     if (what === 'hatch') revealExit(w, 'halo_alley', 'club_maintenance');
     if (what === 'staffdoor') revealExit(w, 'neon_pharaoh', 'club_maintenance');
     c.emit('chat', 'good', { variant: `rumor_${what}`, npc: n.name });
-  } else {
+  } else if (!shareFact(c, n)) {
     n.affinity += 3;
     c.emit('chat', 'mixed', { variant: 'tall_tale', npc: n.name, role: n.role });
   }

@@ -490,6 +490,13 @@ interface Spec {
 }
 
 /** Take on a new goal, if she has room (or if it beats the weakest thing she's already juggling). */
+/** She takes on someone's score as her own. */
+export function adoptContract(c: Ctx, targetId: string, mode: 'kill' | 'beat_up', why: string, desire: number): Goal | null {
+  const t = c.w.npcs[targetId];
+  if (!t) return null;
+  return adopt(c, { kind: 'kill', npc: targetId, mode, why, desire, variant: 'contract', extra: { npc: t.name } });
+}
+
 function adopt(c: Ctx, s: Spec): Goal | null {
   const { w, rng } = c;
   const m = w.mind;

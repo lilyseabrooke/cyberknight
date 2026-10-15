@@ -6,6 +6,7 @@ import { makeItem } from './content/items';
 import { newMind } from './mind';
 import { assignBounties } from './bounty';
 import { newFactions, setRelation } from './factions';
+import { link } from './ties';
 import { START_MINUTE } from './clock';
 import type { Exit, Feature, Gender, Hero, Id, Location, Npc, World } from './types';
 
@@ -244,6 +245,21 @@ export function makeHero(personality: Personality, realName: string, competence 
   };
 }
 
+/** Who the people of the Halo have always felt what about. Everyone else's ties are rolled when they start to matter. */
+function authoredTies(w: World): void {
+  const ties: [string, string, Parameters<typeof link>[3], number, number][] = [
+    ['tiny', 'dutch', 'boss', 60, 45],
+    ['nyx', 'dutch', 'boss', 25, 50],
+    ['bao', 'dutch', 'boss', 40, 45],
+    ['nyx', 'juno', 'friend', 55, 50],
+    ['skeeter', 'madame', 'boss', -20, 25],
+    ['juno', 'skeeter', 'rival', -35, -30],
+    ['doc', 'ray', 'friend', 35, 30],
+    ['dutch', 'madame', 'friend', 20, 25],
+  ];
+  for (const [a, b, kind, ab, ba] of ties) if (w.npcs[a] && w.npcs[b]) link(w, a, b, kind, ab, ba);
+}
+
 export function createWorld(opts: RunOptions): World {
   const rng = new Rng(`world:${opts.seed}`);
   const personality = opts.personality ?? rollPersonality(rng.fork('personality'));
@@ -327,7 +343,7 @@ export function createWorld(opts: RunOptions): World {
   const factions = newFactions();
   setRelation(factions, g1, g2, -70);
 
-  return {
+  const world: World = {
     seed: opts.seed,
     worldSeed: opts.worldSeed ?? opts.seed,
     legacy: { runs: 1, deaths: [], personality, realName },
@@ -337,6 +353,8 @@ export function createWorld(opts: RunOptions): World {
     hero,
     mind: newMind(),
     npcs,
+    ties: [],
+    stubs: {},
     factions,
     features,
     locations,
@@ -354,6 +372,8 @@ export function createWorld(opts: RunOptions): World {
     over: false,
     ending: null,
   };
+  authoredTies(world);
+  return world;
 }
 
 export const gangName = (id: string): string => GANGS[id] ?? id;

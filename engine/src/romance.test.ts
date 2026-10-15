@@ -142,7 +142,8 @@ describe('kissing no longer runs away', () => {
       const kisses = runToEnd({ seed: `marathon-${i}`, competence: 0.9 }).events.filter((e) => e.type === 'kiss').length;
       worst = Math.max(worst, kisses);
     }
-    expect(worst).toBeLessThan(25);
+    // With every woman in the running a busy night can kiss more different people than it used to; the runaway this guards against was in the hundreds.
+    expect(worst).toBeLessThan(35);
   });
 });
 

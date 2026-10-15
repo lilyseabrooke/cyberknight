@@ -10,6 +10,9 @@ import { collectBounties } from './bounty';
 import { npcsAt } from './population';
 import { pinAt, settleAt } from './movement';
 import { populate } from './roster';
+import { ensureDeep } from './deepen';
+import { spreadDeed } from './ties';
+import { settleContracts } from './contracts';
 
 export { npcsAt };
 
@@ -185,6 +188,8 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   const foes = foesIn.filter((f) => f.alive);
   if (!foes.length) return 'win';
   w.stats.fights++;
+  // Whoever she fights starts to matter: they get a character, and people who care about them.
+  for (const f of foes) ensureDeep(w, f);
 
   // Bystanders pile in, but they come through the doors a few rounds later rather than standing around from the start.
   const arrivals: Arrival[] = [];
@@ -312,6 +317,13 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
     }
     h.cash += cash;
     collectBounties(c, foes.filter((f) => !gone(f)));
+    // The people who care about them hear; and whoever hired her pays.
+    for (const f of foes) {
+      if (gone(f)) continue;
+      if (!f.alive) spreadDeed(c, f, 'killed');
+      else if (f.downUntil > w.beat) spreadDeed(c, f, 'hurt');
+    }
+    settleContracts(c, foes.filter((f) => !gone(f)));
     h.hp = Math.max(h.hp, 1);
     c.emit('fight_end', 'good', { ...base, variant: 'win', cash, xp: Math.round(xp), loot: found.slice(0, 3).join(', ') });
     gainXp(c, xp);

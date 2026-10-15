@@ -28,6 +28,17 @@ const $ = (n: unknown): string => Number(n).toLocaleString('en-US');
 const ACTS: Record<string, string> = { karaoke: 'a karaoke number', dj_set: 'a DJ set', gig: 'a gig with the band', billboard: 'hijacking a billboard', graffiti: 'a big piece of graffiti', busk: 'busking', parkour: 'some rooftop parkour', sing_busk: 'singing on the street', crash_gig: 'crashing somebody else\'s gig', guitar_duel: 'a guitar duel', backlot_set: 'a set for the kids behind the club', beat_battle: 'a beat battle', jam: 'a jam with the band' };
 const act = (a: unknown): string => ACTS[String(a)] ?? String(a);
 
+/** How a thing she's found out about someone reaches her. `core` is the news, written about `d.npc`. */
+function learnLine(d: EventData, core: string): string {
+  switch (d.via) {
+    case 'saw': return `Blackbird picks it up from the details. ${core}.`;
+    case 'overheard': return `Blackbird catches it in passing. ${core}.`;
+    case 'paid': return `It costs Blackbird a little, and ${d.source ?? d.npc} talks. ${core}.`;
+    case 'tip': return `${d.source} leans in and gossips. ${core}.`;
+    default: return `It comes out in conversation. ${core}.`;
+  }
+}
+
 export const BLURBS: Record<string, string> = {
   halo_floor: 'The Rusty Halo: synth-whiskey, neon halos that flicker in Morse code, and a jukebox that has opinions.',
   halo_restroom: 'The bathroom. The stall door says OPEN 24H. Someone has a surgical tray on the sink.',
@@ -355,6 +366,26 @@ const T: Record<string, Entry> = {
   'partner_arrives:fight': e((d) => [`${d.partner} walks in, takes one look at ${d.npc}, and one look at Blackbird, and puts it together faster than Blackbird would have liked.`, `${d.npc}'s ${d.kind}, ${d.partner}, has heard. ${d.partner} would like a word. The word is a punch.`], ['A jealous partner. I respect the commitment. I will be taking it as a compliment.']),
   'partner_arrives:chose': e((d) => [`${d.partner} turns up at the worst possible moment. ${d.npc} looks at ${d.partner}, then at Blackbird, and goes home with her ${d.kind}. There is no fight. It would almost be easier if there were.`], ['That went well for someone, probably.']),
   'partner_arrives:dumped': e((d) => [`${d.partner} arrives to a very unpleasant scene, which ${d.npc} ends by telling ${d.partner}, in front of everyone, that it's over. ${d.partner} leaves. The bar applauds, slowly.`], ['I did not plan that. I would like credit for it anyway.']),
+  'learn:ex_member': e((d) => [learnLine(d, `${d.npc} used to run with ${d.faction}`)], ['Everybody was somebody once.', 'Ex-gang. Good to know who not to bring to a party.']),
+  'learn:owes': e((d) => [learnLine(d, `${d.npc} owes ${d.amount} neodollars to ${d.to}`)], ['Owing money: the great equaliser.', 'A person in debt is a person with a price. Not that I would.']),
+  'learn:veteran': e((d) => [learnLine(d, `${d.npc} saw ${d.of}, and {they} still {doesnt} like loud noises`)], ['Quiet respect. Mostly because {they} could hit me.', 'The scars have a story. I want the story.']),
+  'learn:lost_someone': e((d) => [learnLine(d, `${d.npc} lost ${d.about}, {their} ${d.rel}, and {doesnt} talk about it`)], ['That is a lot to carry around.', 'I should say something. I will say something later.']),
+  'learn:arrested_once': e((d) => [learnLine(d, `${d.npc} was arrested once, for ${d.for}`)], ['Everyone has a record. Mine is just more exciting.', 'Useful. Possibly very useful.']),
+  'learn:was_somebody': e((d) => [learnLine(d, `${d.npc} used to be ${d.as}`)], ['A has-been. I can respect a has-been.', 'Fame fades. Mine will not, but still.']),
+  'learn:wants_money': e((d) => [learnLine(d, `${d.npc} badly needs about ${d.amount} neodollars`)], ['Desperate people make the best business partners.', 'Everyone needs money. Most are polite about it.']),
+  'learn:wants_revenge': e((d) => [learnLine(d, d.mode === 'kill' ? `${d.npc} wants ${d.about} gone for good, over ${d.beef}, and would pay ${d.reward} neodollars to see it done` : `${d.npc} wants ${d.about} taught a lesson, over ${d.beef}, and would pay ${d.reward} neodollars for it`)], ['A job. A paid job. A paid job with a grudge in it.', 'Somebody is going to want a hero for this.']),
+  'learn:wants_out': e((d) => [learnLine(d, `${d.npc} wants out of ${d.faction}, quietly`)], ['A person who wants out. That is a person who owes me a favour. Eventually.']),
+  'learn:wants_to_find': e((d) => [learnLine(d, `${d.npc} is looking for ${d.about}, {their} ${d.rel}`)], ['A mystery. I love a mystery.', 'People go missing in Neo all the time. Some of them on purpose.']),
+  'learn:wants_peace': e((d) => [learnLine(d, `${d.npc} just wants a quiet life`)], ['Quiet. In this city. Bold of {them}.', "Cute. I'll try not to ruin it."]),
+  'ask:nothing': e((d) => [`${d.npc} looks Blackbird over, then at {their} own hands, and says there is nothing worth selling. Not tonight.`], ['A refund would be nice. Nothing to refund. Fine.']),
+  'contract:accept': e((d) => [`${d.npc} wants ${d.target} ${d.mode === 'kill' ? 'gone' : 'taught a lesson'}. Blackbird takes the job: ${d.amount} neodollars when it is done.`], ['A client. I have a client.', 'Honest work. Technically.']),
+  'contract:paid': e((d) => [`${d.npc} pays the ${d.amount} neodollars, counting every note. ${d.target} is ${d.dead ? 'no longer a problem' : 'sorted'}, and ${d.npc} looks lighter for it.`], ['That is how it is done.', 'Satisfied customer. Put it on the wall.']),
+  'contract:void': e((d) => [`${d.target} is dealt with, but ${d.npc} is not around to pay for it. Blackbird does the math. It is annoying math.`], ['Free work. I will not be doing that again.']),
+  'goal_new:contract': e((d) => [`Blackbird has taken a job on ${d.npc}. New objective: ${d.goal}.`], ['I am a professional now.', 'The paperwork is a handshake. The target is {them}.']),
+  'avenger': e((d) => [`${d.npc} steps out of the crowd. "You're the one who did ${d.about}." {They} {is} not here to talk.`, `${d.npc} has been looking for Blackbird since ${d.about}. {They} found her.`], ['I forgot to be afraid. I do that.', 'Revenge. How flattering. How sudden.']),
+  'recognition:heard_killed': e((d) => [`${d.npc} has ${d.mem}. {They} {has} not forgotten, and {they} {is} not smiling.`], ['Word gets around. Great for the brand.']),
+  'recognition:heard_hurt': e((d) => [`${d.npc} has ${d.mem}. {They} look{s} at Blackbird for a long moment.`], ['I am a legend. Some people take that personally.']),
+  'recognition:heard_helped': e((d) => [`${d.npc} has ${d.mem}, and says so, warmly.`], ['See? Heroics. Pay attention.']),
   'bounty_scan:posted': e((d) => [`Blackbird's optics flag ${d.npc} (${d.role}): an NPD bounty, ${$(d.amount)} neodollars, posted where anyone who bothers to look can read it.`], ['Free money, walking around. Do they know?']),
   'bounty_scan:scanner': e((d) => [`The bounty-grade scanner pings on ${d.npc} (${d.role}). Somebody paid good money to hide ${$(d.amount)} neodollars of NPD paper. Not good enough.`], ['Everybody has a price. Some have a bounty.']),
   'bounty_hit': e((d) => [`${d.victim} has a warrant out, so the NPD has nothing to add to ${Number(d.witnesses) ? 'what the witnesses saw' : 'the night'}. No police heat.`], ['Technically, I am assisting law enforcement.']),

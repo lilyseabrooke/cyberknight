@@ -39,7 +39,7 @@ describe('world and run, as two things', () => {
 
   it('the people, places and factions are the persistent half; her night is the run', () => {
     const { universe, run } = splitWorld(createWorld({ seed: 'which' }));
-    expect(Object.keys(universe).sort()).toEqual(['clock', 'factions', 'features', 'legacy', 'locations', 'npcs', 'version', 'worldSeed']);
+    expect(Object.keys(universe).sort()).toEqual(['clock', 'factions', 'features', 'legacy', 'locations', 'npcs', 'stubs', 'ties', 'version', 'worldSeed']);
     expect(run).toHaveProperty('hero');
     expect(run).toHaveProperty('heat');
     expect(run).not.toHaveProperty('npcs');
@@ -234,8 +234,9 @@ describe('dying and coming back', () => {
     expect(u.npcs.dutch!.memories).toContain('saw Blackbird die');
     const crew = allNpcs({ npcs: u.npcs }).filter((n) => n.faction === ganger.faction && !n.knows?.saw);
     expect(crew.every((n) => n.knows === undefined || (n.knows.died === 1 && !n.knows.saw))).toBe(true);
-    // Those who weren't there and aren't in the crew have no idea.
-    expect(u.npcs.madame!.knows).toBeUndefined();
+    // Those who weren't there may have heard it from someone who was (Madame Zero is tied to Dutch and Skeeter), but didn't see it;
+    // and those nobody who was there cares about have no idea.
+    expect(u.npcs.madame!.knows?.saw).toBeUndefined();
     expect(u.npcs.gunsmith!.knows).toBeUndefined();
   });
 
