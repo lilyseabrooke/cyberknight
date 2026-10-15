@@ -5,7 +5,7 @@ import { gather } from './interactions';
 import { pieceFame, paintCharges, makeCan, graffitiCandidates, FAME_DECAY, vandalCops, ambientGraffiti } from './graffiti';
 import { acquire, fight, gainXp } from './combat';
 import { wielded, ammoOf, medPacks } from './arms';
-import { expireBuffs } from './supply';
+import { docErrand, expireBuffs, supplyUrge } from './supply';
 import { AMMO } from './content/ammo';
 import { STIMS } from './content/stims';
 import { MED_PACK_PRICE } from './content/shops';
@@ -288,6 +288,7 @@ describe('resources and consequences', () => {
 
     it('a med pack heals her, cures an injury, and is used up', () => {
       const w = at('street_main');
+      w.npcs.doc!.alive = false; // no doc to walk to
       w.hero.hp = 25;
       w.hero.injuries = ['broken_leg'];
       w.hero.inventory.push(makeItem('med_pack'));
@@ -303,6 +304,7 @@ describe('resources and consequences', () => {
       const heals: Record<string, number> = {};
       for (const id of ['patch_kit', 'med_pack', 'trauma_kit']) {
         const w = at('street_main');
+        w.npcs.doc!.alive = false;
         w.hero.maxHp = 400;
         w.hero.hp = 100;
         w.hero.inventory.push(makeItem(id));
@@ -314,6 +316,32 @@ describe('resources and consequences', () => {
       expect(heals.med_pack).toBeLessThan(heals.trauma_kit!);
       expect(MEDS.patch_kit!.price).toBeLessThan(MEDS.med_pack!.price);
       expect(MEDS.med_pack!.price).toBeLessThan(MEDS.trauma_kit!.price);
+    });
+
+    it('with a doc a short walk away she saves her packs for when she is nearly dead', () => {
+      const w = at('street_main');
+      w.hero.cash = 100;
+      w.hero.maxHp = 100;
+      w.hero.inventory.push(makeItem('med_pack'));
+      w.hero.hp = 30;
+      expect(keysOf(w)).not.toContain('use_med_pack');
+      w.hero.hp = 12;
+      expect(keysOf(w)).toContain('use_med_pack');
+      // ...and when she can't pay the doc, a pack is the only option left.
+      w.hero.hp = 30;
+      w.hero.cash = 3;
+      expect(keysOf(w)).toContain('use_med_pack');
+    });
+
+    it('badly hurt with the fee in her pocket, every step towards the doc is worth taking', () => {
+      const w = at('street_main');
+      w.hero.cash = 100;
+      w.hero.maxHp = 100;
+      w.hero.hp = 25;
+      const next = docErrand(w)!.next;
+      expect(supplyUrge(w, next).bonus).toBeGreaterThan(1);
+      w.hero.hp = 90;
+      expect(docErrand(w)).toBeNull();
     });
 
     it('she uses the smallest kit that covers the damage, or the biggest she has', () => {

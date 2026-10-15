@@ -61,6 +61,7 @@ describe('healing urge (a steep curve, flattened by drink)', () => {
     const lowW = world('heal4');
     lowW.hero.locationId = 'chem_mart';
     lowW.hero.cash = 200;
+    lowW.npcs.doc!.alive = false; // with the doc about she would rather walk to him
     lowW.hero.inventory = lowW.hero.inventory.filter((i) => !i.tags.includes('med'));
     hurt(lowW, 0.2);
     const scored = (w: World) => gather(w).map((c) => ({ k: c.key, s: score(w, c) })).sort((a, b) => b.s - a.s);

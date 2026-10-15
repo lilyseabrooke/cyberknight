@@ -1012,7 +1012,9 @@ export function dungeonLure(w: World, dest: Id): number {
   if (!loc || !isEntrance(loc) || w.locations[w.hero.locationId]?.dungeon) return 0;
   const lead = knownDungeons(w).find((l) => l.entrance.id === dest);
   if (!lead) return 0;
-  let want = 0;
+  // Kicking in doors is what she's for: fit and fearless, she is drawn to a door she fancies her chances against even with nothing in particular on her mind.
+  const t = w.hero.personality.traits;
+  let want = hpFrac(w) >= 0.6 ? clamp(0.45 + 0.5 * (t.courage - 0.5) + 0.3 * (t.thrill - 0.5), 0.1, 0.8) : 0;
   for (const g of w.mind.goals) {
     if (g.kind !== 'cash' && g.kind !== 'fame') continue;
     if (isHeld(w, g)) continue;

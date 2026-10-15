@@ -315,6 +315,13 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
         f.downUntil = w.beat + 22 + rng.int(0, 15);
         f.affinity -= 40;
         remember(f, 'was beaten by Blackbird');
+        // Beaten is beaten: she goes through the pockets of anyone who can't stop her.
+        f.loadout = f.loadout.filter((it) => {
+          if (it.kind === 'weapon' || !rng.chance(0.6)) return true; // they keep the means to hold a grudge
+          acquire(c, it);
+          found.push(it.name);
+          return false;
+        });
       } else {
         for (const it of f.loadout.splice(0)) {
           acquire(c, it);

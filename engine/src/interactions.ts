@@ -27,12 +27,27 @@ import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './ro
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
 import { isFairGame } from './people';
+import { isBadGuy } from './traits';
 import { moveNpc } from './population';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
   'a Fall of Saigon-9', 'an Atlas Special (it is mostly regret)', 'a pint of whatever is glowing',
 ];
+
+/**
+ * Is this somebody worth a fight? Fighting is how she makes her living, so she goes for people who carry something,
+ * people who have it coming, and people she hasn't flattened already. A regular who has been knocked down before
+ * pays less every time (and the fun goes out of it), so the barstaff stop being her favourite punchbag.
+ */
+export function fightWorth(w: World, n: Npc): number {
+  const purse = Math.min(0.8, 0.35 * Math.log1p(n.cash / 30)) + (n.loadout.length ? 0.15 : 0);
+  const defeats = n.memories.filter((m) => m === 'was beaten by Blackbird').length;
+  const baddie = isBadGuy(n) ? 0.35 : 0;
+  // Not worth the trouble: nothing in their pockets, nobody who'd cheer.
+  const staff = n.tags.includes('doc') || n.tags.includes('staff') ? 0.5 : 0;
+  return purse + baddie - 0.7 * defeats - staff - (heroPower(w) > n.power * 3 ? 0.4 : 0);
+}
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive;
 const talkable = (n: Npc): boolean => !n.hostile && !n.tags.includes('boss') && !n.tags.includes('dragon') && n.archetype !== 'puppy';
@@ -73,26 +88,30 @@ export function gather(w: World): Candidate[] {
         out.push({ key: `kiss:${n.id}`, drives: { lust: 1.5 }, bonus: kissBonus(w, n) + scruples(w, n), run: (c) => kiss(c, n) });
       }
     }
-    if (!n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
+    // The street doc is the only one who puts her back together for pocket change. She doesn't bite the hand that patches her.
+    const spare = n.tags.includes('doc') && n.affinity > -20;
+    if (!spare && !n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
       out.push({
         key: `pickpocket:${n.id}`, drives: { greed: 0.95, curiosity: 0.2 }, risk: 0.6 + levelRisk(w, n),
         run: (c) => pickpocket(c, n),
       });
     }
-    // Paper on somebody she knows about is a payday, and the police won't mind.
-    const paper = n.bounty && knowsBounty(w, n.id) ? Math.min(1.2, n.bounty.amount / 250) : 0;
-    out.push({
-      key: `challenge:${n.id}`, drives: { bravery: 1.0, pride: 0.8, greed: paper ? 0.6 : 0 }, bonus: (n.affinity < -10 ? 0.4 : 0) + paper,
-      risk: 0.4 + levelRisk(w, n) + (n.power > heroPower(w) * 1.5 ? 1 : 0),
-      run: (c) => {
-        c.emit('challenge', 'mixed', { npc: n.name, role: n.role, variant: String(c.rng.int(1, 6)) });
-        fight(c, [n], { cause: `picking a fight with ${n.name}`, assault: true });
-      },
-    });
-    out.push({
-      key: `threaten:${n.id}`, drives: { bravery: 0.5, pride: 0.6, greed: 0.6 }, risk: 0.5 + levelRisk(w, n),
-      run: (c) => threaten(c, n),
-    });
+    if (!spare) {
+      // Paper on somebody she knows about is a payday, and the police won't mind.
+      const paper = n.bounty && knowsBounty(w, n.id) ? Math.min(1.2, n.bounty.amount / 250) : 0;
+      out.push({
+        key: `challenge:${n.id}`, drives: { bravery: 1.0, pride: 0.8, greed: paper ? 0.6 : 0 }, bonus: (n.affinity < -10 ? 0.4 : 0) + paper + fightWorth(w, n),
+        risk: 0.4 + levelRisk(w, n) + (n.power > heroPower(w) * 1.5 ? 1 : 0),
+        run: (c) => {
+          c.emit('challenge', 'mixed', { npc: n.name, role: n.role, variant: String(c.rng.int(1, 6)) });
+          fight(c, [n], { cause: `picking a fight with ${n.name}`, assault: true });
+        },
+      });
+      out.push({
+        key: `threaten:${n.id}`, drives: { bravery: 0.5, pride: 0.6, greed: 0.6 }, risk: 0.5 + levelRisk(w, n),
+        run: (c) => threaten(c, n),
+      });
+    }
     if (n.tags.includes('strong')) {
       out.push({ key: `armwrestle:${n.id}`, drives: { pride: 0.9, bravery: 0.2 }, risk: 0.1, run: (c) => armWrestle(c, n) });
     }
@@ -117,7 +136,7 @@ export function gather(w: World): Candidate[] {
     if (n.tags.includes('doc') && h.cash >= DOC_FEE[0] && (h.hp < h.maxHp * 0.85 || h.injuries.length)) {
       out.push({
         key: 'get_patched', drives: { curiosity: 0.15 }, smart: 1.3,
-        bonus: 0.9 * healUrge(h) + h.injuries.length * 0.8, run: (c) => getPatched(c, n),
+        bonus: 1.8 * healUrge(h) + h.injuries.length * 0.8, run: (c) => getPatched(c, n),
       });
     }
     if (n.tags.includes('dealer') && h.cash >= 20) {

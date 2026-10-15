@@ -539,13 +539,19 @@ describe('a door that tugs', () => {
     return { w, id };
   };
 
-  it('pulls her towards it when she wants money, a bit less when she wants fame, not at all when she wants neither', () => {
+  it('pulls her towards it when she wants money, a bit less when she wants fame, and a little when she wants nothing in particular but is fit for it', () => {
     const money = wanting('cash');
     const fame = wanting('fame');
     expect(dungeonLure(money.w, money.id)).toBeGreaterThan(0);
     expect(dungeonLure(fame.w, fame.id)).toBeGreaterThan(0);
     expect(dungeonLure(fame.w, fame.id)).toBeLessThan(dungeonLure(money.w, money.id));
+    const lure = dungeonLure(money.w, money.id);
     money.w.mind.goals.length = 0;
+    const idle = dungeonLure(money.w, money.id);
+    expect(idle).toBeGreaterThan(0);
+    expect(idle).toBeLessThan(lure);
+    // Too battered to fancy it.
+    money.w.hero.hp = money.w.hero.maxHp * 0.3;
     expect(dungeonLure(money.w, money.id)).toBe(0);
   });
 

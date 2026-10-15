@@ -8,7 +8,7 @@ import { STIMS, type StimDef } from './content/stims';
 import { MEDS, MED_IDS } from './content/meds';
 import { DOC_FEE, GEAR_MARKUP, PHARMACY_STIMS, SHOP_AMMO, SHOP_ARMOR, gearPrice } from './content/shops';
 import { armBest, fxOf, genWeapon, niches, rating, shelfPrice } from './weapons';
-import { focusFoe } from './plans';
+import { focusFoe, routeTo } from './plans';
 import { addAmmo, ammoOf, gunsOwned, isArm, medPacks, medStock, shotsLeft, wielded } from './arms';
 import { skillLevel, train } from './skills';
 import { healUrge } from './urges';
@@ -70,20 +70,39 @@ function ammoNeeds(h: Hero): { type: string; urgency: number }[] {
   return [...out].map(([type, urgency]) => ({ type, urgency })).sort((a, b) => b.urgency - a.urgency);
 }
 
+/** The street doc is the cheap way back to full health: a flat fee against the 25-100 a pack of the same size costs. */
+const docOk = (w: World): boolean => {
+  const doc = w.npcs.doc;
+  return !!doc && doc.alive && !doc.hostile && doc.downUntil <= w.beat && w.hero.cash >= DOC_FEE[0];
+};
+
+/**
+ * Is there a doc worth walking to? Only when she's properly hurt (or carrying injuries), has the fee, isn't
+ * stuck deep in a building, and the doc isn't too far off. Returns the next step on the way.
+ */
+export function docErrand(w: World): { dist: number; next: string } | null {
+  const h = w.hero;
+  if (!docOk(w) || w.locations[h.locationId]?.dungeon) return null;
+  const frac = h.hp / h.maxHp;
+  if (frac > 0.55 && !(h.injuries.length && frac < 0.8)) return null;
+  const r = routeTo(w, h.locationId, w.npcs.doc!.locationId);
+  return r && r.dist <= 8 ? r : null;
+}
+
 /** Pulls her toward the right shop when she needs something. Added to the exit candidates. */
 export function supplyUrge(w: World, dest: string): { bonus: number; smart: number } {
   const h = w.hero;
   const none = { bonus: 0, smart: 0 };
   const hurt = 1 - h.hp / h.maxHp;
+  // Hurt enough to want the doc: every step towards him is worth taking, the nearer the better.
+  const errand = docErrand(w);
+  if (errand && errand.next === dest && dest !== h.locationId) {
+    return { bonus: (1.8 * healUrge(h)) / (1 + 0.15 * errand.dist), smart: 1.2 };
+  }
   if (dest === 'chem_mart') {
     if (h.cash < price(h, MEDS.patch_kit!.price)) return none;
     const stock = medStock(h);
     return stock === 0 ? { bonus: 0.3 + healUrge(h), smart: 1.4 } : stock < 60 ? { bonus: 0.4 * healUrge(h), smart: 0.4 } : none;
-  }
-  if (dest === 'halo_restroom') {
-    // The street doc is the cheap way back to full health, and the only one that is not in her pockets.
-    if (h.cash < DOC_FEE[0] || medPacks(h).length || (hurt < 0.4 && !h.injuries.length)) return none;
-    return { bonus: 0.9 * healUrge(h), smart: 1.2 };
   }
   if (dest === 'gun_shop') {
     const need = ammoNeeds(h)[0];
@@ -116,12 +135,14 @@ export function supplyCandidates(w: World): Candidate[] {
   if (loc.id === 'chem_mart' && present(pharmacist, w)) {
     // Three tiers of med kit. Cheap ones are the best deal per HP; the big ones close a gap in one go.
     const stock = medStock(h);
+    // With a doc to hand, packs are for emergencies far from one: she doesn't stock up.
+    const stockUp = docOk(w) ? 0.35 : 1;
     for (const id of MED_IDS) {
       const cost = price(h, MEDS[id]!.price);
       if (h.cash < cost) continue;
       out.push({
         key: `buy_med:${id}`, drives: { curiosity: 0.1 }, smart: 1.2,
-        bonus: (stock < 60 ? 0.9 : stock < 120 ? 0.3 : stock < 200 ? -0.2 : -0.8) + healUrge(h) * (stock < 60 ? 1 : stock < 120 ? 0.6 : 0.25) - (id === 'patch_kit' && stock >= 60 ? 0.3 : 0) + (id === 'trauma_kit' && stock < 60 ? -0.3 : 0),
+        bonus: (stock < 60 ? 0.9 * stockUp : stock < 120 ? 0.3 * stockUp : stock < 200 ? -0.2 : -0.8) + healUrge(h) * stockUp * (stock < 60 ? 1 : stock < 120 ? 0.6 : 0.25) - (id === 'patch_kit' && stock >= 60 ? 0.3 : 0) + (id === 'trauma_kit' && stock < 60 ? -0.3 : 0),
         run: (c) => buyMed(c, pharmacist, id, cost),
       });
     }
@@ -164,7 +185,10 @@ export function supplyCandidates(w: World): Candidate[] {
 
   // ---- using what she bought
   const packs = medPacks(h);
-  if (packs.length && (h.hp < h.maxHp * 0.6 || h.injuries.length)) {
+  // Packs are the emergency kit: while the doc is a short walk away and she can pay him, she'd rather go there.
+  // Only when she's nearly out does a pack beat the walk.
+  const frac = h.hp / h.maxHp;
+  if (packs.length && (frac < 0.6 || h.injuries.length) && (frac < 0.15 || !docErrand(w))) {
     out.push({
       key: 'use_med_pack', drives: {}, smart: 1.6, bonus: healUrge(h) + h.injuries.length * 0.5,
       run: (c) => useMedPack(c, bestFit(h)),

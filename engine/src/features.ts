@@ -22,7 +22,7 @@ export function featureCandidates(w: World): Candidate[] {
     const key = f.kind;
     switch (f.kind) {
       case 'till':
-        out.push({ key, drives: { greed: 1.2, curiosity: 0.2 }, risk: present(w, 'dutch') ? 1.3 : 0.5, run: (c) => robTill(c, f) });
+        out.push({ key, drives: { greed: 1.2, curiosity: 0.2 }, risk: (present(w, 'dutch') ? 1.3 : 0.5) + 0.35 * (w.heat.halo ?? 0), run: (c) => robTill(c, f) });
         break;
       case 'karaoke':
         out.push({ key, drives: { pride: 1.0, curiosity: 0.2, thirst: 0.1 }, bonus: h.drunk * 0.1, risk: 0.3, run: karaoke });
@@ -42,7 +42,7 @@ export function featureCandidates(w: World): Candidate[] {
         if (h.cash >= 15) out.push({ key, drives: { bravery: 0.5, pride: 0.7, curiosity: 0.3, lust: 0.1 }, bonus: 0.3, run: laserTag });
         break;
       case 'safe':
-        out.push({ key, drives: { greed: 1.4, curiosity: 0.3 }, risk: 1.2, run: crackSafe });
+        out.push({ key, drives: { greed: 1.4, curiosity: 0.3 }, risk: 1.2 + 0.35 * (w.heat.halo ?? 0), run: crackSafe });
         break;
       case 'skyline':
         out.push({ key, drives: { curiosity: 0.6, quest: 0.5, thirst: 0.1 }, bonus: w.flags.dragon_known ? 0 : 0.3, run: skyline });

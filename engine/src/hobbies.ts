@@ -72,7 +72,9 @@ export function hobbyCandidates(w: World): Candidate[] {
   }
   // ---- the kitchen
   if (feat('stove')) {
-    out.push({ key: 'cook', drives: { curiosity: 0.55, pride: 0.5, thirst: 0.1 }, risk: 0.3, run: cook });
+    const bao = w.npcs.bao;
+    const barred = !!bao && bao.alive && bao.locationId === h.locationId && bao.affinity < -10;
+    out.push({ key: 'cook', drives: { curiosity: 0.55, pride: 0.5, thirst: 0.1 }, risk: barred ? 1.8 : 0.3, run: cook });
   }
   const dish = owns('dish');
   if (dish && h.hp < h.maxHp * 0.85) {
