@@ -1,5 +1,6 @@
 import type { Ctx, Hero, Item, Npc, World } from './types';
 import type { Candidate } from './candidate';
+import { perk } from './lab';
 import { acquire, here } from './combat';
 import { makeAmmoBox, makeItem, ITEMS } from './content/items';
 import { AMMO } from './content/ammo';
@@ -263,7 +264,7 @@ function useMedPack(c: Ctx, pack: Item): void {
   const h = c.w.hero;
   const def = MEDS[pack.id]!;
   h.inventory.splice(h.inventory.indexOf(pack), 1);
-  const heal = def.heal + skillLevel(h, 'medicine') * 2;
+  const heal = Math.round((def.heal + skillLevel(h, 'medicine') * 2) * (1 + perk(c.w.legacy, 'heal') / 100));
   train(c, 'medicine', 1);
   const before = h.hp;
   h.hp = Math.min(h.maxHp, h.hp + heal);

@@ -8,6 +8,7 @@ import { assignBounties } from './bounty';
 import { newFactions, setRelation } from './factions';
 import { link } from './ties';
 import { START_MINUTE } from './clock';
+import { DROPS } from './content/drops';
 import type { Exit, Feature, Gender, Hero, Id, Location, Npc, World } from './types';
 
 const ex = (to: Id, label: string, o: Partial<Exit> = {}): Exit => ({ to, label, hidden: false, gate: null, ...o });
@@ -191,6 +192,7 @@ const FEATURES: [Id, string, string][] = [
   ['club_backlot', 'a heap of salvageable scrap', 'scrap_pile'],
   ['club_maintenance', 'an Atlas signal relay', 'relay'],
   ['street_main', 'a corkboard of handwritten gig flyers', 'job_board'],
+  ...Object.entries(DROPS).map(([kind, d]): [Id, string, string] => [d.at, d.name, kind]),
 ];
 
 const GANG_IDS = Object.keys(GANGS);
@@ -346,7 +348,7 @@ export function createWorld(opts: RunOptions): World {
   const world: World = {
     seed: opts.seed,
     worldSeed: opts.worldSeed ?? opts.seed,
-    legacy: { runs: 1, deaths: [], personality, realName },
+    legacy: { runs: 1, deaths: [], personality, realName, account: 0, upgrades: {}, spent: 0 },
     beat: 0,
     clock: START_MINUTE,
     rngPosition: new Rng(`run:${opts.seed}`).position,
@@ -368,7 +370,7 @@ export function createWorld(opts: RunOptions): World {
     recent: [],
     brawlUntil: 0,
     blackoutUntil: 0,
-    stats: { kills: 0, fights: 0, maxLevel: 1 },
+    stats: { kills: 0, fights: 0, maxLevel: 1, deposited: 0, fees: 0 },
     over: false,
     ending: null,
   };

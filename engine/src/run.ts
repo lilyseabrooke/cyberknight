@@ -76,14 +76,18 @@ export function choose(w: World, rng: Rng, cands: Candidate[]): Candidate {
   return cands[cands.length - 1]!;
 }
 
+/** What the log opens with: she leaves, and what the weather is doing. */
+export function openingEvents(world: World): GameEvent[] {
+  world.locations[world.hero.locationId]!.visits = 1;
+  return [
+    { beat: 0, type: 'depart', outcome: 'good', data: { place: world.locations[world.hero.locationId]!.name } },
+    { beat: 0, type: 'weather', outcome: 'mixed', data: { variant: world.situation.weather, hit: 0, opening: true } },
+  ];
+}
+
 export function createRun(opts: RunOptions): { world: World; events: GameEvent[] } {
   const world = createWorld(opts);
-  const events: GameEvent[] = [
-    { beat: 0, type: 'depart', outcome: 'good', data: { place: world.locations[world.hero.locationId]!.name } },
-  ];
-  world.locations[world.hero.locationId]!.visits = 1;
-  events.push({ beat: 0, type: 'weather', outcome: 'mixed', data: { variant: world.situation.weather, hit: 0, opening: true } });
-  return { world, events };
+  return { world, events: openingEvents(world) };
 }
 
 /** Advance one beat. Mutates the world; fully determined by (world state incl. rngPosition). */

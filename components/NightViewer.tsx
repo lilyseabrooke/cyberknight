@@ -9,7 +9,14 @@ import {
   medPacks,
   medStock,
   wielded,
-  createRun,
+  openingEvents,
+  beginRun,
+  endRun,
+  newUniverse,
+  makeSave,
+  serialize,
+  deserialize,
+  type Universe,
   gangName,
   goalViews,
   type GoalView,
@@ -22,6 +29,7 @@ import {
   type World,
   describeWeapon,
 } from '../engine/src';
+import Lab from './Lab';
 
 interface LogLine {
   id: number;
@@ -65,6 +73,10 @@ interface Snapshot {
   implants: string[];
   goals: GoalView[];
   satiety: number;
+  /** Neodollars in her account, which outlives her. */
+  account: number;
+  /** What she has put in at drop points tonight, after their cut. */
+  banked: number;
 }
 
 interface Night {
@@ -119,11 +131,14 @@ function snap(w: World): Snapshot {
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
     goals: goalViews(w),
     satiety: h.satiety ?? 0,
+    account: w.legacy.account,
+    banked: w.stats.deposited,
   };
 }
 
-function newNight(seed: string, competence: number): { night: Night; lines: LogLine[] } {
-  const { world, events } = createRun({ seed, competence });
+function newNight(universe: Universe, seed: string, competence: number): { night: Night; lines: LogLine[] } {
+  const world = beginRun(universe, { seed, competence });
+  const events = openingEvents(world);
   const night: Night = { world, textRng: new Rng(`text:${seed}`), nextId: 0 };
   return { night, lines: toLines(night, events) };
 }
@@ -141,6 +156,31 @@ function toLines(night: Night, events: GameEvent[]): LogLine[] {
 
 const randomSeed = () => Math.random().toString(36).slice(2, 8);
 
+/** The universe lives in the browser between visits. It's saved whenever she's in the lab, which is the only time it holds still. */
+const SAVE_KEY = 'cyberknight.save';
+function loadUniverse(): Universe | null {
+  try {
+    const text = window.localStorage.getItem(SAVE_KEY);
+    return text ? deserialize(text).universe : null;
+  } catch {
+    return null;
+  }
+}
+function saveUniverse(u: Universe): void {
+  try {
+    window.localStorage.setItem(SAVE_KEY, serialize(makeSave(u, null, Date.now())));
+  } catch {
+    // Private mode or a full disk: the game still plays, it just won't remember.
+  }
+}
+function forgetUniverse(): void {
+  try {
+    window.localStorage.removeItem(SAVE_KEY);
+  } catch {
+    // nothing to forget
+  }
+}
+
 export default function NightViewer() {
   const [seed, setSeed] = useState('');
   const [competence, setCompetence] = useState(0.15);
@@ -149,24 +189,51 @@ export default function NightViewer() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [follow, setFollow] = useState(true);
+  const [screen, setScreen] = useState<'night' | 'lab'>('night');
   const nightRef = useRef<Night | null>(null);
+  const universeRef = useRef<Universe | null>(null);
+  const started = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
 
+  /** Send her out into Neo, in whatever universe we have (a fresh one on the first night). */
   const begin = useCallback((s: string, c: number) => {
-    const { night, lines: first } = newNight(s, c);
+    universeRef.current ??= newUniverse(randomSeed());
+    const { night, lines: first } = newNight(universeRef.current, s, c);
     nightRef.current = night;
     setSeed(s);
     setLines(first);
     setStatus(snap(night.world));
+    setScreen('night');
     setPlaying(true);
   }, []);
 
+  /** She's done for the night. Settle the books and rebuild her in the lab. */
+  const toLab = useCallback(() => {
+    const night = nightRef.current;
+    if (!night) return;
+    const u = endRun(night.world);
+    universeRef.current = u;
+    saveUniverse(u);
+    setPlaying(false);
+    setScreen('lab');
+  }, []);
+
   useEffect(() => {
-    // ?seed=abc&c=0.3 replays a specific night.
+    if (started.current) return;
+    started.current = true;
+    // ?seed=abc&c=0.3 replays a specific night in a new world; ?world=xyz picks the world. Otherwise pick up where the browser left off.
     const q = new URLSearchParams(window.location.search);
     const c = Number(q.get('c') ?? 0.15);
     const comp = Number.isFinite(c) ? Math.max(0, Math.min(1, c)) : 0.15;
     setCompetence(comp);
+    const replay = q.get('seed') || q.get('world');
+    const saved = replay ? null : loadUniverse();
+    if (saved) {
+      universeRef.current = saved;
+      setScreen('lab');
+      return;
+    }
+    universeRef.current = newUniverse(q.get('world') || randomSeed());
     begin(q.get('seed') || randomSeed(), comp);
   }, [begin]);
 
@@ -202,6 +269,10 @@ export default function NightViewer() {
     [hero?.personality],
   );
   const over = !!status?.ending;
+
+  if (screen === 'lab' && universeRef.current) {
+    return <Lab universe={universeRef.current} onChange={() => saveUniverse(universeRef.current!)} onSendOut={() => begin(randomSeed(), competence)} />;
+  }
 
   return (
     <main className="shell">
@@ -261,10 +332,18 @@ export default function NightViewer() {
               <div className={`ending ${status.ending}`}>
                 <h2>{status.ending === 'victory' ? 'DRAGON SLAIN' : status.ending === 'dead' ? 'BLACKBIRD HAS FLATLINED' : 'DAWN OVER NEO'}</h2>
                 <p>
-                  Level {status.level} · {status.kills} kills · {status.beat} beats · {status.cash} neodollars on hand.
+                  Level {status.level} · {status.kills} kills · {status.beat} beats.
                 </p>
-                <button className="btn primary" onClick={() => begin(randomSeed(), competence)}>
-                  Rebuild her and go again
+                <p className="muted">
+                  {status.banked > 0 ? `${status.banked} neodollars made it into the account. ` : 'Nothing made it into the account. '}
+                  {status.ending === 'dead'
+                    ? status.cash > 0
+                      ? `The ${status.cash} in her pockets went with her (less whatever she'd insured).`
+                      : 'Her pockets were empty, so she lost nothing she was carrying.'
+                    : `She carries the ${status.cash} in her pockets home.`}
+                </p>
+                <button className="btn primary" onClick={toLab}>
+                  {status.ending === 'dead' ? 'Take her to the lab' : 'Back to the lab'}
                 </button>
               </div>
             )}
@@ -295,6 +374,7 @@ export default function NightViewer() {
             <dl>
               <dt>Location</dt><dd>{status.location}</dd>
               <dt>Neodollars</dt><dd>{status.cash}</dd>
+              <dt>Account</dt><dd>{status.account}{status.banked > 0 && <span className="muted"> ({status.banked} banked tonight)</span>}</dd>
               <dt>Weapon</dt><dd>{status.weapon}{status.wielding !== status.weapon && <span className="bad"> (dry: using {status.wielding})</span>}<br /><small>{status.weaponInfo}</small></dd>
               <dt>Medical</dt><dd className={status.medStock === 0 ? 'bad' : undefined}>{status.medPacks ? `${status.medPacks} (${status.medStock} HP)` : 'none (she cannot heal)'}</dd>
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
@@ -345,7 +425,8 @@ export default function NightViewer() {
                 Competence {competence.toFixed(2)}
                 <input type="range" min={0} max={1} step={0.05} value={competence} onChange={(e) => setCompetence(Number(e.target.value))} />
               </label>
-              <button className="btn small" onClick={() => begin(randomSeed(), competence)}>New night</button>
+              <button className="btn small" onClick={() => begin(randomSeed(), competence)}>New night (skip the lab)</button>
+              <button className="btn small" onClick={() => { forgetUniverse(); universeRef.current = newUniverse(randomSeed()); begin(randomSeed(), competence); }}>Wipe the save, new world</button>
             </details>
           </aside>
         )}

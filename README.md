@@ -17,6 +17,8 @@ npm run sim -- 1000 0.1       # headless balance harness: <runs> <competence 0..
 npm run analyze               # play lots of nights and report; --vs main compares with another version (docs/ANALYSIS.md)
 ```
 
+The loop: Blackbird goes out, banks money at drop points around Neo, dies, and is rebuilt in the lab (a separate screen), where whatever made it into her account buys upgrades from a large set of skill trees. The browser keeps the save between visits.
+
 `engine/` is pure, deterministic TypeScript (seeded RNG, no DOM). `app/` + `components/` are the Next.js log UI (no backend yet; Supabase saves/login come in M2).
 
 ## Deploying

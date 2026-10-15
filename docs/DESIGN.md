@@ -215,7 +215,7 @@ A flight gives her a few beats to react: **engage**, **hide**, **gawk**, or **fi
 | | Milestone | Notes |
 |---|---|---|
 | M0 | Scaffold | Repo, TypeScript setup, tests, seeded RNG, engine skeleton, CLI sim harness |
-| M1 | Vertical slice | **Engine + content done** (see §7a/7b): dense bar-and-beyond sandbox, text layer in two voices, tests, CLI. Remaining: log UI, the lab (death → rebuild), ~8 upgrades, Cipher entry. **Must be funny before moving on.** |
+| M1 | Vertical slice | **Engine + content done** (see §7a/7b): dense bar-and-beyond sandbox, text layer in two voices, tests, CLI. The log UI and the lab loop (death → rebuild → upgrade trees → out again) are in, see "The lab loop" below. Remaining: Cipher entry. **Must be funny before moving on.** |
 | M2 | Persistence | Supabase, passphrase login, cross-device sync, offline catch-up, Vercel deploy |
 | M3 | Living world | Macro/micro world generation, relationships, memory, rumors, situational variables |
 | M4 | Content breadth | More districts, dragon types, rescues, the police arc |
@@ -429,3 +429,38 @@ Most people are somebody she saw. When one starts to matter they're **deepened**
 7. **Idle catch-up of the night itself.** Away time moves the clock, but a night in progress doesn't play itself forward (the hero AI fast-forward is a separate piece).
 8. **Scale of the store.** A universe is one JSON blob today; at thousands of people it needs region-by-region loading.
 9. **Hot scans.** Several systems still scan every NPC each beat (`tickHustles`, goals, pursuit tip-offs). Fine at 45 people, not at thousands; they need to ask the index.
+
+## The lab loop (fourteenth pass)
+
+The roguelite half of the game. Blackbird dies; she is rebuilt in the lab; you spend what she managed to put aside on upgrades; she goes out again. The first night starts straight in Neo; every night after starts from the lab screen.
+
+### Money that survives
+- **Pockets die with her; the account doesn't.** `hero.cash` is lost when she dies, except for a share she'd insured (the `keep` perk). A night she survives (`dawn`, `victory`) she carries everything home. `settleAccount` (called by `endRun`, once per night) does the books and writes a `RunReport` to `legacy.report` for the lab to show.
+- **Drop points** (`content/drops.ts`, `bank.ts`). Eight hand-placed features across the district (a hollow brick in the alley, an Ironvault ATM, the club's coat-check, a milk crate, a pigeon coop...). Standing at one with a pile, `deposit` is offered as an ordinary candidate and she also gets a pull toward adjacent rooms that have one (`bankPull`, like the shops). It deposits everything above a **float of 20nd** and takes a **cut**: 25% base, plus/minus the place (the ATM is friendly, the club is greedy), minus the Treasury's fee upgrades. She doesn't count her starting purse toward the pile, so the starting-cash upgrades aren't taxed. How keen she is scales with the pile, her competence and the `bank` perk; a clueless hero banks too (about 60% of nights bank something at competence 0.1).
+- **Interest** is a perk, capped at 500nd per rebuild so a fat account is not a printing press.
+
+### The trees (`content/tree.ts`, `lab.ts`)
+258 nodes / ~650 purchasable ranks in 10 branches, all data. Each branch holds **lines** (a row of nodes you walk along) and a node needs the one before it in its line plus, sometimes, nodes in other lines (`id` or `id:rank`), so the thing is a web and not a ladder. Prices rise per rank; a cost-sort of lines: universal things are dear, niche things cheap.
+
+| Branch | What it is |
+|---|---|
+| Chassis | HP, reflex/muscle/hack/charm, plating, a shelf of black-market chrome (incl. the defib), the Cyberknight capstone |
+| Firmware | competence, XP and skill growth, flaw management (turn a trait down, never to zero), "lean into it" (turn one up), the Hero Protocol capstone |
+| Treasury | starting purse, drop-point fees, banking habit, estate (death insurance), interest |
+| The Lab | start levels, bench discounts, spare med kits and stims, the Perfect Rebuild capstone |
+| Arsenal | a ladder of starting melee weapons and one of guns (with ammo), ammo locker, weapon drills |
+| Stagecraft / Brawl / Ghost / Charm / Hustle | one four-node line per skill (Quick Study, Head Start, Prodigy, Master), plus group-wide lines and crossovers that need two skills' worth of work |
+
+Some are good every night (reflexes), some are for a very specific Blackbird (beatboxing grows faster, and costs well under half what a melee line does).
+
+**Effects** are `Fx` values. Most are applied once, when the body is printed (`applyUpgrades`, from `beginRun`): stats, HP, levels, cash, competence, skill levels, kit, a better starting weapon/armor, implants (up to four), and personality nudges (applied to the hero's copy; the backup in `legacy.personality` is untouched). A few are looked up during the night with `perk(legacy, id)` and `growthPct(legacy, skill)`: skill growth (`train`), XP (`gainXp`), healing (`useMedPack`), the drop-point cut, and the bank habit.
+
+### Persistence
+`legacy` gained `account`, `upgrades` (node id -> ranks) and `spent`; `World.stats` gained `deposited` and `fees`. `UNIVERSE_VERSION` is 2; `deserialize` brings version 1 saves forward (`upgradeUniverse`: adds the account and the drop-point features). The UI saves the universe to `localStorage` whenever she is in the lab; `?seed=` / `?world=` still start a replayable night in a fresh world.
+
+### The screen (`components/Lab.tsx`)
+Balance, last night's books, ten branch tabs, each line as a row of cards with ranks, effects, price and what it still needs; a search across all nodes and an "only what I can buy now" filter; and a live preview of the body she'll wake up in and the money perks. Buying is immediate. There is no refund.
+
+### Balance notes
+At a typical competence, a night is worth a few hundred neodollars banked (a good one over a thousand), against a full tree that costs about 390k, so the early game is a slow trickle of cheap nodes and the late game is long. Greedy-buying the universal lines for 25 nights took a competence-0.1 Blackbird from 90 to 158 HP and 0.10 to 0.19 competence; she still mostly dies. That is the point of the long tree, but the Firmware and Chassis prices are the first knobs to turn.
+
