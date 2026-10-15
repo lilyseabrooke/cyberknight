@@ -296,9 +296,9 @@ Weight is recorded for when encumbrance exists. The named classics (`ITEMS`) sti
 
 **In a fight** she picks, from what she is carrying and has ammo for, the weapon that suits the enemy in front of her (her usual one gets the benefit of the doubt), and the log says so when she swaps or when a crit, stun or burn lands.
 
-## Idle goals: fame, money, dragons
+## Idle goals: money, loot, dragons (and, rarely, fame)
 
-She is meant to be about three things: **getting famous, getting rich, killing cyberdragons.** When she has no goal at all (including at the start of the night) she picks one of the three, weighted by personality (fame, vanity, artistry; greed and being broke; courage, justice, thrill). Beats with no goal at all fell from about 31% to about 1%.
+She is meant to be about **exploring, fighting, collecting loot, earning money and levelling up**, not impressing people. When she has no goal at all (including at the start of the night) she picks money, a raid, or cyberdragons, weighted by personality (greed and being broke; courage, justice, thrill), with fame a rare fourth (it is mostly reached through a passion, not picked at random). Crush (romance) goals are rare too. Beats with no goal at all fell from about 31% to about 1%.
 
 - **Fame** (`fame` goal): the pursuit picks an act (karaoke, DJ set, gig, billboard, graffiti, busk, parkour) by what she expects it to earn her fame, learned from experience, and her taste for it; goes to its venue and does it. If she gets there and can't go on she writes it off for a while and tries something else. Saturation does the limiting: repeated acts earn less, and what she has learned they are worth falls with them.
 - **Money** is the `cash` goal with the bounty and odd-job pursuits already described.

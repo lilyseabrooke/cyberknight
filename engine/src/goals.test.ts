@@ -11,7 +11,7 @@ import { addNpc, moveNpc } from './population';
 import { isFairGame } from './people';
 
 const world = (loc: string, traits: Parameters<typeof personalityFrom>[0] = {}, competence = 0.5): World => {
-  const w = createWorld({ seed: 'goals', competence, personality: personalityFrom(traits) });
+  const w = createWorld({ seed: 'goals2', competence, personality: personalityFrom(traits) });
   w.hero.locationId = loc;
   return w;
 };

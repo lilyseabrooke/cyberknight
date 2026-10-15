@@ -606,7 +606,7 @@ describe('Blackbird in there', () => {
   });
 
   it('a strong hero works the whole building, takes what there is, and leaves once it is cleared out', () => {
-    const { sc, w, id } = raiding('hideout', 1, { competence: 0.9 });
+    const { sc, w, id } = raiding('hideout', 1, { competence: 0.9, seed: 'dg-clear' });
     mighty(w);
     const d = w.dungeons[id]!;
     let done: GameEvent | undefined;

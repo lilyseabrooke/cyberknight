@@ -844,7 +844,8 @@ function formGoals(c: Ctx): void {
   for (const n of here(w)) {
     if (!isFairGame(n) || n.hostile || hasGoal(w, 'romance', n.id) || cooling(w, `romance:${n.id}`)) continue;
     if ((h.satiety ?? 0) > 0.35 || (w.counters[`moves_${n.id}`] ?? 0) > 0 || (w.counters[`kisses_${n.id}`] ?? 0) >= 2) continue;
-    const p = 0.02 + 0.22 * Math.max(0, t.impress - 0.5 + 0.7 * (t.romantic - 0.5)) + (n.affinity >= 10 ? 0.04 : 0);
+    // Crushes are the exception, not the routine: she is mostly out for loot, money and levels.
+    const p = 0.004 + 0.05 * Math.max(0, t.impress - 0.5 + 0.7 * (t.romantic - 0.5)) + (n.affinity >= 10 ? 0.01 : 0);
     if (rng.chance(p)) {
       adopt(c, { kind: 'romance', npc: n.id, why: 'she is exactly her type', desire: clamp(0.3 + 0.5 * Math.max(t.romantic, t.impress) - 0.1, 0.25, 0.8), variant: 'crush', extra: { npc: n.name } });
     }
@@ -913,8 +914,8 @@ function passionAfter(c: Ctx, fam: string, gained: number, events: GameEvent[]):
 }
 
 /**
- * Nothing on her mind. She's a cyberknight with three things she's actually about: getting famous, getting rich,
- * and putting cyberdragons in the ground. She picks one.
+ * Nothing on her mind. She's a cyberknight: mostly about getting rich, clearing out buildings for loot, and putting
+ * cyberdragons in the ground, with getting famous a rare fourth. She picks one.
  */
 function formIdle(c: Ctx): void {
   const { w, rng } = c;
@@ -923,10 +924,11 @@ function formIdle(c: Ctx): void {
   if (topLevel(w).length) return;
   if (w.beat > 3 && !rng.chance(0.5)) return;
   const opts = [
-    { k: 'fame' as const, wt: 0.5 + 1.6 * (w.mind.passion?.level ?? 0) + 1.6 * (t.fame - 0.5) + 0.6 * (t.vanity - 0.5) + 0.5 * (t.artistry - 0.5) + 0.4 * (t.impress - 0.5) },
-    { k: 'cash' as const, wt: 0.6 + 1.5 * (t.greed - 0.5) + (h.cash < 150 ? 0.6 : 0) },
-    { k: 'dragon' as const, wt: 0.35 + 1.4 * (t.courage - 0.5) + 0.9 * (t.justice - 0.5) + 0.6 * (t.thrill - 0.5) },
-    { k: 'raid' as const, wt: knownDungeons(w).length ? 0.5 * raidAppetite(w) : 0 },
+    // Fame is a sideline now; a real calling (passion) can still pull her toward it.
+    { k: 'fame' as const, wt: 0.12 + 1.2 * (w.mind.passion?.level ?? 0) + 0.5 * (t.fame - 0.5) + 0.2 * (t.vanity - 0.5) + 0.2 * (t.artistry - 0.5) },
+    { k: 'cash' as const, wt: 0.9 + 1.5 * (t.greed - 0.5) + (h.cash < 150 ? 0.6 : 0) },
+    { k: 'dragon' as const, wt: 0.5 + 1.4 * (t.courage - 0.5) + 0.9 * (t.justice - 0.5) + 0.6 * (t.thrill - 0.5) },
+    { k: 'raid' as const, wt: knownDungeons(w).length ? 0.9 * raidAppetite(w) : 0 },
   ].filter((o) => !hasGoal(w, o.k) && (o.k !== 'raid' || o.wt > 0)).map((o) => ({ ...o, wt: Math.max(0.05, o.wt) }));
   if (!opts.length) return;
   const pick = rng.weighted(opts, (o) => o.wt).k;
