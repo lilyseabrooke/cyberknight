@@ -181,7 +181,7 @@ export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, l
       const roads: Location[] = [];
       for (let i = 0; i < lots; i++) {
         const weights = LOTS[here];
-        const role = rng.weighted(Object.keys(weights) as Lot[], (r) => weights[r] * (taken.includes(r) ? 0.4 : 1) * (r === 'corp' && g.depth < 2 && here !== 'corporate' ? 0.3 : 1) * ((r === 'outpost' || r === 'hideout') ? NEARBY_DUNGEONS(g.depth) : 1));
+        const role = rng.weighted(Object.keys(weights) as Lot[], (r) => weights[r] * (taken.includes(r) ? 0.4 : 1) * (r === 'corp' && g.depth < 2 && here !== 'corporate' ? 0.3 : 1));
         taken.push(role);
         fronts.push(add(role, here, g.depth));
       }
@@ -233,9 +233,6 @@ export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, l
       break; // shops, flats, back rooms, cellars and VIP lounges are as far as it goes
   }
 }
-
-/** Dungeons are worth finding, so the streets near the hand-built district have more of them than the ones far out. */
-const NEARBY_DUNGEONS = (depth: number): number => (depth <= 2 ? 3.5 : depth <= 4 ? 2.2 : 1.4);
 
 /** Chance two roads leaving a street are joined by a cut-through, and that neighbours along it share a side door. */
 const LOOP_ROADS = 0.7;

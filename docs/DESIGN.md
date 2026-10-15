@@ -481,7 +481,7 @@ Neo is no longer a fixed map. The hand-built Rusty Halo district is the **seed**
 
 ## Dungeons: Atlas outposts and ganger hideouts (`dungeons.ts`, `content/dungeons.ts`)
 
-Two kinds of place with rooms of their own, a garrison, traps and spoils: a building on a street that is worth going into and has more behind the door than a shop does. Both are ordinary generated lots (`outpost` and `hideout` in `mapgen.ts`; more common near the hand-built district, where she'll actually find them) and everything about them follows from one number.
+Two kinds of place with rooms of their own, a garrison, traps and spoils: a building on a street that is worth going into and has more behind the door than a shop does. Both are ordinary generated lots (`outpost` and `hideout` in `mapgen.ts`) and everything about them follows from one number.
 
 - **The tier.** 1 (a few thugs) to 5 (a fortress), rolled when the entrance is sketched, from how far out it is and the district, and never changed after. It decides the number and toughness of the garrison, how many rooms there are, which dogs and traps are rigged, and how rich the spoils are. It's on the entrance's `gen` so she can size a place up from the street before anyone has been inside.
 - **Atlas outposts**: depots, relay stations, checkpoints. Gatehouse, checkpoint corridor, barracks; from tier 2 a motor pool and an armory; from 3 a data core; a command post at the back. Mostly robots (sentry drones, enforcer walkers, a sentry turret in the data core) with a handful of troopers and an officer to give the orders. Fewer bodies, harder ones. Spoils: gear racks, supplies, data (memory shards, drone cores, Helix samples, executive credentials at the top) and a safe in the command post.
