@@ -38,6 +38,8 @@ export function spawnGroup(c: Ctx, archetype: string, count: number, faction?: s
   for (let i = 0; i < count; i++) {
     const id = `tmp_${c.w.beat}_${archetype}_${i}`;
     const n = spawnNpc(c.rng, id, archetype, c.w.hero.locationId, { faction });
+    // Muggers always have paper out on them, so stepping in is never a crime. Fixed amount: no rng draw, so seeds don't shift.
+    if (archetype === 'mugger') n.bounty = { amount: n.level * 35 + 60, hidden: false };
     addNpc(c.w, n);
     out.push(n);
   }
