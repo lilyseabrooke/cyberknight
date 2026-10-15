@@ -367,7 +367,7 @@ export interface Location {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'chamber';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -385,9 +385,11 @@ export interface GenInfo {
   max?: number;
   /** Dungeon entrances: how hard it is, 1 (a few thugs) to 5 (a fortress). Rolled with the place, so it's known before anyone has been inside. */
   tier?: number;
+  /** Small encounter spots: which one it is (content/spots.ts). */
+  spot?: string;
 }
 
-export type DungeonKind = 'outpost' | 'hideout';
+export type DungeonKind = 'outpost' | 'hideout' | 'spot';
 
 /** What a room's spoils are, and so what it takes to get at them. */
 export type CacheKind = 'cash' | 'stash' | 'arms' | 'armor' | 'supplies' | 'data' | 'vault';
@@ -398,6 +400,8 @@ export interface Cache {
   /** Roughly what it's worth, in neodollars. */
   value: number;
   taken: boolean;
+  /** Spots: how much richer this is for being kept by people with no paper on them (1 or absent is usual). */
+  rich?: number;
   /** Failed attempts. Two and whatever was in it is ruined. */
   fails: number;
 }
@@ -437,6 +441,11 @@ export interface Dungeon {
   returnsRun: number | null;
   /** How many times it has been cleared out. */
   clears: number;
+  /** Spots: which one (content/spots.ts), and how many people were posted in this garrisoning (none means it was only ever a stash). */
+  spot?: string;
+  posted?: number;
+  /** Spots: what is going on in this garrisoning (the setup it was dealt). */
+  scene?: string;
 }
 
 /** Per-run situational variables, layered on the persistent macro-Neo. */

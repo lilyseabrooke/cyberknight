@@ -1,6 +1,6 @@
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
-import type { Ctx, Goal, GoalKind, Id, Location, Npc, Ware, World, GameEvent } from './types';
+import type { Ctx, DungeonKind, Goal, GoalKind, Id, Location, Npc, Ware, World, GameEvent } from './types';
 import { armBest, edge, rating } from './weapons';
 import { ACT_SKILL, CALLING } from './stage';
 import { SKILL_LABELS, skillLevel } from './skills';
@@ -523,7 +523,7 @@ const KINDS: Record<GoalKind, Kind> = {
         if (hpFrac(w) < 0.5) return delay(c, g, 40, 'hurt');
         // A look at the place from the street, and a sharper head thinks twice.
         if (distTo(w, g.loc!) <= 2) {
-          const p = d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as 'outpost' | 'hideout', entrance.gen.tier ?? 1);
+          const p = d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1);
           if (p > tolerance(w) * 1.15) end(c, g, 'drop', 'outmatched', { inside: false });
         }
         return;
@@ -605,6 +605,8 @@ function raidAppetite(w: World): number {
   const t = traits(w);
   return clamp(0.7 + 1.6 * ((t.thrill - 0.5) * 0.3 + (t.greed - 0.5) * 0.3 + (t.courage - 0.5) * 0.25 + (t.justice - 0.5) * 0.15), 0.2, 1.8);
 }
+
+const raidWhy = (kind: DungeonKind): string => (kind === 'outpost' ? 'Atlas has it coming' : kind === 'spot' ? 'it is right there and it looks like money' : 'somebody ought to clear that place out');
 
 /** A place she has seen the door of and fancies her chances in, picked by what's in it and how far off it is. */
 function pickLead(c: Ctx): Lead | undefined {
@@ -872,7 +874,7 @@ function formGoals(c: Ctx): void {
   // A door with an Atlas stencil on it, or a gang's colors, and a lot of people inside who have never met her.
   if (hpFrac(w) >= 0.7 && !hasGoal(w, 'raid') && rng.chance(0.004 * raidAppetite(w))) {
     const lead = pickLead(c);
-    if (lead) startRaidGoal(c, lead, null, 0.45 + 0.3 * t.thrill, lead.kind === 'outpost' ? 'Atlas has it coming' : 'somebody ought to clear that place out', 'raid_idea');
+    if (lead) startRaidGoal(c, lead, null, 0.45 + 0.3 * t.thrill, raidWhy(lead.kind), 'raid_idea');
   }
 }
 
@@ -936,7 +938,7 @@ function formIdle(c: Ctx): void {
     adopt(c, { kind: 'cash', amount, why: h.cash < 150 ? 'being broke is embarrassing' : 'a hero needs a cushion', desire: clamp(0.4 + 0.45 * t.greed, 0.3, 0.9), variant: 'rich' });
   } else if (pick === 'raid') {
     const lead = pickLead(c);
-    if (lead) startRaidGoal(c, lead, null, clamp(0.45 + 0.35 * t.thrill, 0.3, 0.85), lead.kind === 'outpost' ? 'Atlas has it coming' : 'somebody ought to clear that place out', 'idle_raid');
+    if (lead) startRaidGoal(c, lead, null, clamp(0.45 + 0.35 * t.thrill, 0.3, 0.85), raidWhy(lead.kind), 'idle_raid');
   } else {
     adopt(c, { kind: 'dragon', amount: (w.counters.dragon_kills ?? 0) + 1, mode: 'flight', why: 'somebody has to', desire: clamp(0.45 + 0.4 * Math.max(t.courage, t.justice), 0.3, 0.9), variant: 'idle_dragon' });
   }

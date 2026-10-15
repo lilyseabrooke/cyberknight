@@ -240,6 +240,50 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['gold_tooth', 'credchip', 'med_pack', 'memory_shard', 'stim'], lootChance: 1, cash: [150, 400],
     desc: ['the captain, a mountain of a person in a coat of stitched-together colors, with the calm of someone who has never had to raise a voice'],
   },
+  // ---------------- what the small encounter spots keep (content/spots.ts) ----------------
+  street_chemist: {
+    role: 'street chemist', level: [2, 2], tags: ['rowdy'], faction: null,
+    names: 'person', weapons: ['cleaver', 'zip_pistol'], loot: ['stim', 'stim_twitch', 'neural_gum'], lootChance: 0.9, cash: [20, 90],
+    desc: ['a street chemist with stained gloves, a respirator round the neck and the cheerful fatalism of the trade'],
+  },
+  bookie: {
+    role: 'bookie', level: [2, 2], tags: ['staff'], faction: null,
+    names: 'person', weapons: ['zip_pistol'], loot: ['credchip', 'gold_tooth'], lootChance: 0.8, cash: [80, 220],
+    desc: ['a bookie with a ledger tattooed up one forearm and a very good memory for who owes what'],
+  },
+  salvager: {
+    role: 'salvager', level: [2, 3], tags: ['rowdy'], faction: null,
+    names: 'person', weapons: ['pool_cue', 'cleaver', 'switchblade'], armors: ['leather_jacket'], armorChance: 0.4,
+    loot: ['scrap_metal', 'gold_tooth', 'credchip'], lootChance: 0.6, cash: [5, 40],
+    desc: ['a salvager in a welding mask pushed up on their forehead, with a rucksack that clinks'],
+  },
+  hunter: {
+    role: 'licensed bounty hunter', level: [4, 4], tags: ['strong', 'security', 'augmented'], faction: null,
+    names: 'person', weapons: ['riot_shotgun', 'rail_revolver'], armors: ['kevlar_duster'], armorChance: 0.8,
+    loot: ['credchip', 'med_pack'], lootChance: 0.6, cash: [60, 180],
+    desc: ['a bounty hunter with an NPD license on a lanyard, a long coat and a very short temper for competition'],
+  },
+  feral_bot: {
+    role: 'feral work-bot', level: [2, 2], tags: ['robot'], faction: null,
+    names: 'robot', weapons: [], loot: ['scrap_metal', 'drone_core'], lootChance: 0.6, cash: [0, 0], hp: 50, power: 9,
+    desc: ['a work-bot that has stopped taking orders and started taking an interest, with a loader arm and a cracked lens'],
+  },
+  contractor: {
+    role: 'Atlas contractor', level: [1, 2], tags: ['staff', 'corp'], faction: 'atlas',
+    names: 'person', weapons: ['cleaver'], loot: ['corp_creds', 'credchip'], lootChance: 0.4, cash: [30, 100],
+    desc: ['an Atlas contractor in a hi-vis vest with a tablet, a lanyard and no wish to be here'],
+  },
+  suit: {
+    role: 'corporate bodyguard', level: [3, 4], tags: ['security', 'corp', 'augmented'], faction: 'atlas',
+    names: 'person', weapons: ['service_pistol', 'stunner_mk3'], armors: ['kevlar_duster'], armorChance: 0.7,
+    loot: ['corp_creds', 'memory_shard', 'med_pack'], lootChance: 0.5, cash: [50, 150],
+    desc: ['a bodyguard in a very good suit with an earpiece and a very bad attitude to strangers'],
+  },
+  acolyte: {
+    role: 'Rust Choir acolyte', level: [2, 2], tags: ['rowdy', 'ganger'], faction: 'choir',
+    names: 'person', weapons: ['cleaver', 'switchblade'], loot: ['mom_photo', 'eyeballs', 'vipers_patch'], lootChance: 0.6, cash: [5, 40],
+    desc: ['a robed acolyte with a hymn-book in one hand, a hatchet in the other and a face of perfect, frightening calm'],
+  },
   // ---------------- generic people for places nobody wrote by hand ----------------
   shopkeeper: {
     role: 'shopkeeper', level: [2, 3], tags: ['staff', 'shopkeeper'], faction: 'shop',

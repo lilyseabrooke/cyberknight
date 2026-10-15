@@ -2,12 +2,13 @@ import { Rng, hashString } from './rng';
 import type { Candidate } from './candidate';
 import type { Cache, CacheKind, Ctx, Dungeon, DungeonKind, DungeonRoom, Id, Item, Location, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, heroPower, relocate, remember, type FightResult } from './combat';
-import { spawnNpc } from './content/archetypes';
+import { ARCHETYPES, spawnNpc } from './content/archetypes';
 import { makeAmmoBox, makeItem } from './content/items';
 import {
-  ARMOR_BY_TIER, ATLAS_HEAT_ON_ALARM, ATLAS_HEAT_ON_CLEAR, CACHE_LABEL, DATA_LOOT, LEADER_ARMS, STASH_LOOT, TIER_MENACE, cacheValue, layoutFor, rollRoomHazards, scaleForTier, slotCount,
+  ARMOR_BY_TIER, ATLAS_HEAT_ON_ALARM, ATLAS_HEAT_ON_CLEAR, CACHE_LABEL, NPD_HEAT_ON_CLEAR, DATA_LOOT, LEADER_ARMS, STASH_LOOT, TIER_MENACE, cacheValue, layoutFor, rollRoomHazards, scaleForTier, slotCount,
   type RoomDef,
 } from './content/dungeons';
+import { SPOTS, hasPaper, spotRoom, type Crew } from './content/spots';
 import { addChamber } from './mapgen';
 import { addNpc, everyoneAt, moveNpc, removeNpc } from './population';
 import { sendAway } from './roster';
@@ -40,10 +41,21 @@ import { startRaid } from './goals';
 
 /** Runs a cleared place stays empty. */
 const EMPTY_FOR: [number, number] = [2, 3];
+/** Spots are small and are meant to be worked: they fill up again sooner. */
+const SPOT_EMPTY_FOR: [number, number] = [1, 2];
 /** The most people one fight puts on the board. The rest wade in afterwards, if she's still standing. */
 const MAX_FOES = 6;
 
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
+
+/** Whose it is. Outposts are Atlas's and hideouts are a gang's; spots say. */
+export const crewOf = (d: Pick<Dungeon, 'kind' | 'spot'>): Crew => (d.spot ? SPOTS[d.spot]?.crew ?? 'free' : d.kind === 'outpost' ? 'atlas' : 'gang');
+
+/** Whose heat it stirs up when she kicks it in: Atlas's, or the police's. A gang's is dealt with by the gang. */
+const heatOf = (d: Pick<Dungeon, 'kind' | 'spot'>): 'atlas' | 'npd' | null => {
+  const crew = crewOf(d);
+  return crew === 'atlas' ? 'atlas' : crew === 'npd' ? 'npd' : null;
+};
 
 export type Realm = Pick<World, 'worldSeed' | 'npcs' | 'ties' | 'locations' | 'factions' | 'dungeons' | 'legacy'>;
 
@@ -76,6 +88,7 @@ export function ensureDungeon(w: Realm, entrance: Location): Dungeon | undefined
     name: entrance.name,
     tier: entrance.gen.tier ?? 1,
     faction: entrance.faction ?? (kind === 'outpost' ? 'atlas' : 'ganger'),
+    ...(kind === 'spot' ? { spot: entrance.gen.spot } : {}),
     rooms: [],
     garrison: [],
     occupation: 1,
@@ -87,7 +100,10 @@ export function ensureDungeon(w: Realm, entrance: Location): Dungeon | undefined
   };
   w.dungeons[d.id] = d;
   const placed = new Map<string, Location>();
-  layoutFor(kind, d.tier).forEach(({ def, parent }, i) => {
+  const { layout, scene } = layoutOf(w, d);
+  if (scene) d.scene = scene;
+  if (kind === 'spot') d.posted = 0;
+  layout.forEach(({ def, parent }, i) => {
     let loc: Location;
     if (!parent) loc = entrance;
     else {
@@ -109,6 +125,14 @@ export function ensureDungeon(w: Realm, entrance: Location): Dungeon | undefined
   return d;
 }
 
+/** The rooms a dungeon has this garrisoning, each with the key of the one it opens off. A spot is one room, dealt from its setups. */
+function layoutOf(w: Pick<World, 'worldSeed'>, d: Dungeon): { layout: { def: RoomDef; parent: string | null }[]; scene?: string } {
+  const spot = d.spot ? SPOTS[d.spot] : undefined;
+  if (!spot) return { layout: layoutFor(d.kind, d.tier) };
+  const { room, scene } = spotRoom(spot, new Rng(`setup:${w.worldSeed}:${d.id}:${d.occupation}`));
+  return { layout: [{ def: room, parent: null }], scene };
+}
+
 /** Swap their weapon for another, and their punch with it. */
 function rearm(n: Npc, id: string): void {
   const at = n.loadout.findIndex((i) => i.kind === 'weapon');
@@ -119,16 +143,36 @@ function rearm(n: Npc, id: string): void {
   else n.loadout.unshift(next);
 }
 
+/** Of the people in a spot who have paper, how many have the kind you need a scanner to read. */
+const HIDDEN_PAPER = 0.2;
+/** What each person with no paper adds to what their spot keeps, and the most it can come to. */
+export const RICH_PER_BARE = 0.3;
+export const MAX_RICH = 1.9;
+
+/** Who a spot's people answer to: a gang's spots are full of that gang; anyone else is whoever they are. */
+function spotFaction(crew: Crew, arch: string, faction: Id): Id | undefined {
+  if (crew === 'gang') {
+    const own = ARCHETYPES[arch]?.faction ?? null;
+    return own === null || own === 'ganger' ? faction : undefined;
+  }
+  if (arch === 'sentry_turret') return crew === 'atlas' ? 'atlas' : undefined;
+  return undefined;
+}
+
 /** Fill a room for the dungeon's current garrisoning: its people, what's lying in it and what it keeps against intruders. */
 function stock(w: Realm, d: Dungeon, def: RoomDef, loc: Location): void {
   const room = roomOf(d, loc.id)!;
   const rng = new Rng(`stock:${w.worldSeed}:${d.id}:${d.occupation}:${def.key}`);
   let j = 0;
+  const spot = d.spot ? SPOTS[d.spot] : undefined;
+  const paper = new Rng(`paper:${w.worldSeed}:${d.id}:${d.occupation}`);
+  /** People with no paper on them, who make what they keep richer. */
+  let bare = 0;
   for (const slot of def.garrison) {
     const count = slotCount(rng, slot, d.tier);
     for (let k = 0; k < count; k++) {
       const id = `dg:${d.id}:${d.occupation}:${def.key}:${j++}`;
-      const faction = slot.arch.startsWith('gang_') ? d.faction : slot.arch === 'sentry_turret' ? 'atlas' : undefined;
+      const faction = spot ? spotFaction(spot.crew, slot.arch, d.faction) : slot.arch.startsWith('gang_') ? d.faction : slot.arch === 'sentry_turret' ? 'atlas' : undefined;
       const npc = spawnNpc(new Rng(`npc:${w.worldSeed}:${id}`), id, slot.arch, loc.id, { faction });
       // The ones in charge carry what the tier says they should, not what the archetype would give a stranger.
       if (npc.tags.includes('commander')) rearm(npc, new Rng(`arms:${w.worldSeed}:${id}`).pick(LEADER_ARMS[d.tier]!));
@@ -137,14 +181,25 @@ function stock(w: Realm, d: Dungeon, def: RoomDef, loc: Location): void {
       npc.home = loc.id;
       // The ones in charge have something worth taking off them.
       if (npc.tags.includes('commander') && d.tier >= 2 && rng.chance(0.6)) npc.loadout.push(makeItem(rng.pick(DATA_LOOT[d.tier]!.length ? DATA_LOOT[d.tier]! : ['credchip'])));
+      // Whoever is minding a spot has paper on them, unless the place is Atlas's or the police's, or they are hired in. Machines have none.
+      // The ones who don't are the sort nobody is supposed to touch, and what they mind is worth more for it.
+      if (spot && !npc.tags.includes('robot')) {
+        if (hasPaper(spot.crew) && !slot.clean) npc.bounty = { amount: Math.round(npc.level * 25 + paper.int(25, 90)), hidden: paper.chance(HIDDEN_PAPER) };
+        else {
+          bare++;
+          npc.cash = Math.round(npc.cash * 1.4);
+        }
+      }
       addNpc(w, npc);
       d.garrison.push(id);
+      if (d.posted !== undefined) d.posted++;
     }
   }
   delete room.cache;
   if (def.cache && rng.chance(def.cache.chance)) {
     const kind = rng.pick(def.cache.kinds);
-    room.cache = { kind, value: Math.round(cacheValue(kind, d.tier) * (0.85 + rng.next() * 0.3)), taken: false, fails: 0 };
+    const rich = Math.min(MAX_RICH, 1 + RICH_PER_BARE * bare);
+    room.cache = { kind, value: Math.round(cacheValue(kind, d.tier) * (0.85 + rng.next() * 0.3) * rich), taken: false, fails: 0, ...(rich > 1 ? { rich: Math.round(rich * 100) / 100 } : {}) };
   }
   loc.hazards = rollRoomHazards(new Rng(`rig:${w.worldSeed}:${d.id}:${d.occupation}:${def.key}`), d.kind, d.tier, def.hazard);
 }
@@ -180,7 +235,10 @@ export function regarrison(u: Realm, d: Dungeon): void {
   d.occupation++;
   d.clearedRun = null;
   d.returnsRun = null;
-  const defs = new Map(layoutFor(d.kind, d.tier).map(({ def }) => [def.key, def]));
+  const { layout, scene } = layoutOf(u, d);
+  if (scene) d.scene = scene;
+  if (d.kind === 'spot') d.posted = 0;
+  const defs = new Map(layout.map(({ def }) => [def.key, def]));
   for (const room of d.rooms) {
     const loc = u.locations[room.id];
     const def = defs.get(room.role);
@@ -232,7 +290,7 @@ export function typicalPressure(w: World, d: Dungeon): number {
 // ===================================================================== meeting the garrison
 
 function noticeChance(w: World, d: Dungeon, foes: Npc[]): number {
-  const base = d.kind === 'outpost' ? 0.5 : 0.4;
+  const base = d.kind === 'outpost' ? 0.5 : 0.4; // (a spot is as watchful as a hideout)
   return clamp(base + 0.04 * d.tier + Math.min(0.2, 0.03 * foes.length) + 0.12 * d.alert - 1.5 * sneakBonus(w), 0.1, 0.95);
 }
 
@@ -253,12 +311,16 @@ export function enterRoom(c: Ctx, loc: Location): void {
   }
   if (w.over) return;
   const foes = standing(w, d, loc.id);
-  if (!foes.length) return;
+  if (!foes.length) {
+    // A spot with nobody minding it is just there for the taking.
+    if (d.spot && roomOf(d, loc.id)?.cache && !roomOf(d, loc.id)!.cache!.taken) c.emit('dungeon_quiet', 'good', { kind: d.kind, crew: crewOf(d), place: loc.name, scene: d.scene ?? '', tier: d.tier });
+    return;
+  }
   if (d.aware.includes(loc.id) || rng.chance(noticeChance(w, d, foes))) {
     raiseAlarm(c, d, loc, 'seen');
     return;
   }
-  c.emit('dungeon_unseen', 'mixed', { kind: d.kind, place: loc.name, count: foes.length, foes: describe(foes), tier: d.tier });
+  c.emit('dungeon_unseen', 'mixed', { kind: d.kind, crew: crewOf(d), place: loc.name, count: foes.length, foes: describe(foes), tier: d.tier, scene: d.scene ?? '' });
 }
 
 /** "three drones and a trooper", for the log. */
@@ -293,13 +355,14 @@ function raiseAlarm(c: Ctx, d: Dungeon, loc: Location, why: Why): FightResult | 
   const { w } = c;
   const foes = standing(w, d, loc.id);
   if (!foes.length) return null;
-  if (d.alert === 0 && d.kind === 'outpost') addHeat(w, 'atlas', ATLAS_HEAT_ON_ALARM);
+  const heat = heatOf(d);
+  if (d.alert === 0 && heat) addHeat(w, heat, ATLAS_HEAT_ON_ALARM);
   d.alert = Math.min(4, d.alert + 1);
   if (!d.aware.includes(loc.id)) d.aware.push(loc.id);
   const came = pullReinforcements(c, d, loc);
   const all = [...foes, ...came];
   c.emit(why === 'ambush' ? 'dungeon_ambush' : 'dungeon_alarm', why === 'ambush' ? 'good' : 'bad', {
-    variant: why, kind: d.kind, place: loc.name, site: d.name, count: all.length, foes: describe(all), pulled: came.length, tier: d.tier,
+    variant: why, kind: d.kind, crew: crewOf(d), place: loc.name, site: d.name, count: all.length, foes: describe(all), pulled: came.length, tier: d.tier, scene: d.scene ?? '',
   });
   return fightRoom(c, d, loc, why === 'ambush');
 }
@@ -312,7 +375,7 @@ export function fightRoom(c: Ctx, d: Dungeon, loc: Location, ambush: boolean): F
     const all = standing(w, d, loc.id);
     if (!all.length) break;
     const batch = all.slice(0, MAX_FOES);
-    if (wave > 0) c.emit('dungeon_wave', 'bad', { kind: d.kind, place: loc.name, count: batch.length, foes: describe(batch) });
+    if (wave > 0) c.emit('dungeon_wave', 'bad', { kind: d.kind, crew: crewOf(d), place: loc.name, count: batch.length, foes: describe(batch) });
     result = fight(c, batch, { cause: `raiding ${d.name}`, joiners: false, ambush: ambush && wave === 0 });
     if (result !== 'win') break;
   }
@@ -337,19 +400,29 @@ export function checkCleared(c: Ctx, d: Dungeon): boolean {
   const { w } = c;
   if (d.clearedRun !== null) return true;
   if (garrisonAlive(w, d).length) return false;
+  // A spot that was only ever a stash is not "cleared" until the stash is gone, and nobody had to be put down for it.
+  const bare = d.posted === 0;
+  if (bare && d.rooms.some((r) => r.cache && !r.cache.taken)) return false;
+  const spot = d.kind === 'spot';
+  const [lo, hi] = spot ? SPOT_EMPTY_FOR : EMPTY_FOR;
   d.clearedRun = w.legacy.runs;
   d.clears++;
-  d.returnsRun = w.legacy.runs + new Rng(`empty:${w.worldSeed}:${d.id}:${d.occupation}`).int(EMPTY_FOR[0], EMPTY_FOR[1]);
-  if (d.kind === 'outpost') addHeat(w, 'atlas', ATLAS_HEAT_ON_CLEAR);
+  d.returnsRun = w.legacy.runs + new Rng(`empty:${w.worldSeed}:${d.id}:${d.occupation}`).int(lo, hi);
+  const heat = heatOf(d);
+  if (heat && !bare) addHeat(w, heat, heat === 'atlas' ? ATLAS_HEAT_ON_CLEAR : NPD_HEAT_ON_CLEAR);
   // Their crew hears about it, wherever they are.
-  for (const n of Object.values(w.npcs)) {
-    if (!n.alive || n.post || n.faction !== d.faction || d.kind !== 'hideout') continue;
-    n.affinity -= 12;
-    remember(n, 'heard Blackbird cleaned out their crew\'s hideout');
+  if (crewOf(d) === 'gang' && !bare) {
+    for (const n of Object.values(w.npcs)) {
+      if (!n.alive || n.post || n.faction !== d.faction) continue;
+      n.affinity -= spot ? 4 : 12;
+      remember(n, spot ? 'heard Blackbird hit one of their crew\'s spots' : 'heard Blackbird cleaned out their crew\'s hideout');
+    }
   }
-  w.hero.fame += d.tier >= 3 ? 3 : 1;
-  gainXp(c, 12 * d.tier);
-  c.emit('dungeon_cleared', 'good', { kind: d.kind, site: d.name, tier: d.tier, runs: d.returnsRun - w.legacy.runs });
+  if (!bare) {
+    w.hero.fame += spot ? (d.tier >= 4 ? 1 : 0) : d.tier >= 3 ? 3 : 1;
+    gainXp(c, (spot ? 5 : 12) * d.tier);
+  }
+  c.emit('dungeon_cleared', 'good', { kind: d.kind, crew: crewOf(d), site: d.name, tier: d.tier, runs: d.returnsRun - w.legacy.runs, quiet: bare });
   return true;
 }
 
@@ -440,7 +513,7 @@ function openLoot(c: Ctx, d: Dungeon, cache: Cache): { cash: number; items: stri
       cash = Math.round(cache.value * 0.7);
       for (let i = 0; i < 2; i++) if (rng.chance(0.65)) items.push(makeItem(rng.pick(STASH_LOOT)));
       break;
-    case 'arms': items.push(genWeapon(rng, { tier: 1 + 1.1 * t })); break;
+    case 'arms': items.push(genWeapon(rng, { tier: 1 + 1.1 * t + 1.5 * ((cache.rich ?? 1) - 1) })); break;
     case 'armor': items.push(makeItem(ARMOR_BY_TIER[t - 1]!)); break;
     case 'supplies': {
       items.push(makeItem(rng.chance(0.5) ? 'med_pack' : 'patch_kit'));
@@ -458,6 +531,11 @@ function openLoot(c: Ctx, d: Dungeon, cache: Cache): { cash: number; items: stri
       if (d.kind === 'hideout' || rng.chance(0.4)) items.push(genWeapon(rng, { tier: 1.5 + 1.1 * t }));
       break;
   }
+  // What people with no paper on them keep is richer: sometimes there is a little more in with it.
+  if (cache.rich && rng.chance(cache.rich - 1)) items.push(makeItem(rng.pick(STASH_LOOT)));
+  // And a place has the things it is for.
+  const extra = d.spot ? SPOTS[d.spot]?.extra : undefined;
+  if (extra && rng.chance(0.6)) items.push(makeItem(rng.pick(extra)));
   h.cash += cash;
   const names: string[] = [];
   for (const it of items) {
@@ -487,7 +565,7 @@ export function spoilsLeft(w: World, d: Dungeon): number {
 }
 
 /** Roughly what a place not yet seen inside might hold. */
-export const spoilsGuess = (tier: number): number => 120 + 160 * tier;
+export const spoilsGuess = (tier: number, kind?: DungeonKind): number => (kind === 'spot' ? 80 + 110 * tier : 120 + 160 * tier);
 
 export interface RaidPlan {
   /** Rooms worth going to: something in the corners, somebody left in them, or not looked in yet. */
@@ -559,10 +637,10 @@ export function knownDungeons(w: World): Lead[] {
     if (d && d.clearedRun !== null && !d.rooms.some((r) => r.cache && !r.cache.taken)) continue;
     const tier = d?.tier ?? loc.gen.tier ?? 1;
     const kind = (d?.kind ?? loc.gen.role) as DungeonKind;
-    const spoils = d ? spoilsLeft(w, d) : spoilsGuess(tier);
+    const spoils = d ? spoilsLeft(w, d) : spoilsGuess(tier, kind);
     const p = d ? typicalPressure(w, d) : estimatePressure(w, kind, tier);
     // Having cleaned it out before takes the shine off.
-    const jaded = 0.65 ** (d?.clears ?? 0);
+    const jaded = (kind === 'spot' ? 0.85 : 0.65) ** (d?.clears ?? 0);
     out.push({ entrance: loc, d, kind, tier, appeal: (spoils / 200) * jaded * (p <= tolerance(w) ? 1 : 0) });
   }
   return out.filter((l) => l.appeal > 0);

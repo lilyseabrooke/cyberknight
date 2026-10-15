@@ -18,7 +18,7 @@ import { layoutFor, rollRoomHazards } from './content/dungeons';
 import type { Ctx, DungeonKind, GameEvent, Location, World } from './types';
 
 /** A dungeon of this kind and tier on a street near the Halo, with Blackbird standing in its doorway. */
-function site(kind: DungeonKind, tier: number, o: { competence?: number; seed?: string } = {}): { sc: Scenario; w: World; entrance: Location; id: string } {
+function site(kind: 'outpost' | 'hideout', tier: number, o: { competence?: number; seed?: string } = {}): { sc: Scenario; w: World; entrance: Location; id: string } {
   const sc = scenario({ seed: o.seed ?? `dg-${kind}-${tier}`, at: 'street_main', competence: o.competence ?? 0.5 });
   const street = sc.w.locations[childId('street_main', 0)]!;
   const entrance = addDungeon(sc.w, street, kind, 40, tier);
@@ -105,7 +105,7 @@ describe('making a dungeon', () => {
 });
 
 describe('the tier is the only dial', () => {
-  const garrison = (kind: DungeonKind, tier: number, seed = 'tiers') => {
+  const garrison = (kind: 'outpost' | 'hideout', tier: number, seed = 'tiers') => {
     const { w, id } = site(kind, tier, { seed: `${seed}-${tier}` });
     return { w, id, folk: people(w, id), d: w.dungeons[id]! };
   };
@@ -529,7 +529,7 @@ describe('cleared out, and filled up again', () => {
 });
 
 describe('a door that tugs', () => {
-  const wanting = (kind: 'cash' | 'fame', place: DungeonKind = 'hideout', tier = 1, strong = true) => {
+  const wanting = (kind: 'cash' | 'fame', place: 'outpost' | 'hideout' = 'hideout', tier = 1, strong = true) => {
     const { w, id, entrance } = site(place, tier);
     if (strong) mighty(w);
     else frail(w);
@@ -565,7 +565,7 @@ describe('a door that tugs', () => {
 
 describe('Blackbird in there', () => {
   /** She is in the doorway with a plan to raid it. */
-  const raiding = (kind: DungeonKind, tier: number, o: { competence?: number; seed?: string } = {}) => {
+  const raiding = (kind: 'outpost' | 'hideout', tier: number, o: { competence?: number; seed?: string } = {}) => {
     const s = site(kind, tier, o);
     s.sc.run((c) => arrive(c, s.id, 'walk'), never());
     return s;

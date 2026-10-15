@@ -1031,11 +1031,11 @@ const T: Record<string, Entry> = {
   'goal_note:bail': e((d) => [`Something goes wrong at ${d.place}. Blackbird, for once, looks at the situation and decides to leave while she can.`], ['Strategic withdrawal. A thing I invented just now.', 'I could stay, but I have a feeling about it. The feeling is "run".']),
   // ====================================================== dungeons: outposts and hideouts
   'goal_new:raid_idea': e(
-    (d) => [d.dungeon === 'outpost' ? `Blackbird walks past ${d.place} for the third time and begins to see it as a building full of other people's property. New objective: ${d.goal}.` : `Somebody ought to clear out ${d.place}. Blackbird has just worked out that she is somebody. New objective: ${d.goal}.`],
-    (d) => [d.dungeon === 'outpost' ? 'Atlas keeps its stuff in boxes. Boxes can be opened.' : 'Gangs are just landlords with worse manners.', 'It has a door. I have a tire iron. This is how every great story starts.'],
+    (d) => [d.dungeon === 'spot' ? `${cap(String(d.place))} is small, close and a little bit unattended. Blackbird has the look of a woman doing a very quick sum. New objective: ${d.goal}.` : d.dungeon === 'outpost' ? `Blackbird walks past ${d.place} for the third time and begins to see it as a building full of other people's property. New objective: ${d.goal}.` : `Somebody ought to clear out ${d.place}. Blackbird has just worked out that she is somebody. New objective: ${d.goal}.`],
+    (d) => [d.dungeon === 'spot' ? 'Small job. Fast job. The best sort of job to be good at.' : d.dungeon === 'outpost' ? 'Atlas keeps its stuff in boxes. Boxes can be opened.' : 'Gangs are just landlords with worse manners.', 'It has a door. I have a tire iron. This is how every great story starts.'],
   ),
   'goal_new:idle_raid': e(
-    (d) => [d.dungeon === 'outpost' ? `Nothing on her mind, and ${d.place} sitting there with its lights on. Blackbird takes the hint. New objective: ${d.goal}.` : `Blackbird has been looking at ${d.place} the way a dog looks at a gate. New objective: ${d.goal}.`],
+    (d) => [d.dungeon === 'spot' ? `Nothing on her mind, and ${d.place} three doors down, minding its own small business. Blackbird takes the hint. New objective: ${d.goal}.` : d.dungeon === 'outpost' ? `Nothing on her mind, and ${d.place} sitting there with its lights on. Blackbird takes the hint. New objective: ${d.goal}.` : `Blackbird has been looking at ${d.place} the way a dog looks at a gate. New objective: ${d.goal}.`],
     ['I do my best work when I am bored and nobody is stopping me.', 'A hero needs a project. This one has a roof.'],
   ),
   'goal_new:raid_cash': e(
@@ -1071,23 +1071,23 @@ const T: Record<string, Entry> = {
     ['Closed pending inquiries. I love it when they use big words.', 'That is a lot of tape for one clerk.'],
   ),
   'goal_new:wandered_in': e(
-    (d) => [d.dungeon === 'outpost' ? `Blackbird is inside ${d.place}. Nobody invited her, which is, she has decided, a plan. New objective: ${d.goal}.` : `Blackbird is through the door of ${d.place} before she has properly decided to be. She decides, retroactively. New objective: ${d.goal}.`],
+    (d) => [d.dungeon === 'spot' ? `Blackbird is at ${d.place} before she has properly decided to be. She decides, retroactively. New objective: ${d.goal}.` : d.dungeon === 'outpost' ? `Blackbird is inside ${d.place}. Nobody invited her, which is, she has decided, a plan. New objective: ${d.goal}.` : `Blackbird is through the door of ${d.place} before she has properly decided to be. She decides, retroactively. New objective: ${d.goal}.`],
     ["I meant to do that. All of that. Even the door.", 'Look at me, already inside. Planning is for people who are not me.'],
   ),
   'goal_note:raid_in': e(
-    (d) => [d.dungeon === 'outpost' ? 'Blackbird slips through the gate and stands in a corridor that smells of floor wax and machine oil. Somewhere deeper in, something ticks.' : 'Blackbird steps inside. The bass is coming up through the floor, and so, from the sound of it, is a great deal of company.'],
-    ['Right. Rooms. People. Things in the rooms. I can work with that.', "Cool. I'll take the whole building."],
+    (d) => [d.dungeon === 'spot' ? 'Blackbird steps up to the spot and takes a good look at the room. It is a small room. She is a big problem.' : d.dungeon === 'outpost' ? 'Blackbird slips through the gate and stands in a corridor that smells of floor wax and machine oil. Somewhere deeper in, something ticks.' : 'Blackbird steps inside. The bass is coming up through the floor, and so, from the sound of it, is a great deal of company.'],
+    (d) => [d.dungeon === 'spot' ? 'One room. A few people. A bag. I have done harder sums.' : 'Right. Rooms. People. Things in the rooms. I can work with that.', d.dungeon === 'spot' ? "Cool. I'll take the whole spot." : "Cool. I'll take the whole building."],
   ),
   'goal_note:raid_clear': e(
-    (d) => [d.dungeon === 'outpost' ? 'The last of the garrison is scrap, and the last of the racks has been opened. Blackbird has the place to herself and nothing left to take. She starts for the door.' : 'There is nobody left in the building to hit, and nothing left on the shelves. Blackbird walks out through the quiet like a woman who has just redecorated.'],
+    (d) => [d.dungeon === 'spot' ? 'Nobody is left standing and nothing is left lying about. Blackbird dusts off her hands and goes looking for the next little thing.' : d.dungeon === 'outpost' ? 'The last of the garrison is scrap, and the last of the racks has been opened. Blackbird has the place to herself and nothing left to take. She starts for the door.' : 'There is nobody left in the building to hit, and nothing left on the shelves. Blackbird walks out through the quiet like a woman who has just redecorated.'],
     ['Cleaned out. Top to bottom. I should charge for that.', 'Nobody stays down like the people I put down.'],
   ),
   'goal_note:raid_out': e(
-    (d) => [d.hurt ? 'Blackbird looks at what is left of the place, then at what is left of herself, and does the sums. She backs towards the door.' : d.dungeon === 'outpost' ? 'What is left of the outpost is behind doors she has no business opening. Blackbird decides that this is, on reflection, enough. She heads for the exit.' : 'What is left of the hideout is a lot of people she cannot take. Blackbird has a sudden clear memory of an appointment elsewhere.'],
+    (d) => [d.hurt ? 'Blackbird looks at what is left of the place, then at what is left of herself, and does the sums. She backs towards the door.' : d.dungeon === 'spot' ? 'What is left of the spot is more than she bargained for. Blackbird decides, with great dignity, that it was never about the money.' : d.dungeon === 'outpost' ? 'What is left of the outpost is behind doors she has no business opening. Blackbird decides that this is, on reflection, enough. She heads for the exit.' : 'What is left of the hideout is a lot of people she cannot take. Blackbird has a sudden clear memory of an appointment elsewhere.'],
     ["Not today. I'm choosing not today.", 'I could stay. I have a feeling about it. The feeling is "no".'],
   ),
   'goal_done:cleared': e(
-    (d) => [`${d.place} is finished. Blackbird steps out into the street with the unhurried air of someone who has cleaned out a ${d.dungeon === 'outpost' ? 'corporate facility' : 'crew'} and is not going to talk about it. The take: ${$(d.haul)} neodollars' worth.`],
+    (d) => [`${d.place} is finished. Blackbird steps out into the street with the unhurried air of someone who has cleaned out a ${d.dungeon === 'spot' ? 'neat little operation' : d.dungeon === 'outpost' ? 'corporate facility' : 'crew'} and is not going to talk about it. The take: ${$(d.haul)} neodollars' worth.`],
     ['Nobody is going to want to go back in there. Least of all me.', 'Another building. Another name for the list.'],
   ),
   'goal_done:spoils': e(
@@ -1101,35 +1101,39 @@ const T: Record<string, Entry> = {
   'goal_resume:raid': e((d) => [`Blackbird glances toward ${d.place} and remembers the plan.`], ['Right. The building. It is still full of stuff.']),
 
   'dungeon_alarm:seen': e(
-    (d) => [d.kind === 'outpost' ? `${cap(String(d.place))}: the lights go red and everything in the room turns as one to look at Blackbird. ${cap(String(d.foes))}. An alarm starts somewhere, politely.` : `${cap(String(d.place))}: the music cuts out. ${cap(String(d.foes))} ${Number(d.count) > 1 ? 'look' : 'looks'} up from what ${Number(d.count) > 1 ? 'they were' : 'they were'} doing, and then at the door.`],
+    (d) => [d.kind === 'spot' ? (d.crew === 'atlas' ? `${cap(String(d.place))}: ${d.scene} A status light goes red. ${cap(String(d.foes))} turn as one to look at Blackbird.` : d.crew === 'npd' ? `${cap(String(d.place))}: ${d.scene} Hands drop to belts. ${cap(String(d.foes))} have seen her.` : `${cap(String(d.place))}: ${d.scene} That stops when ${d.foes} look up and see Blackbird.`) : d.kind === 'outpost' ? `${cap(String(d.place))}: the lights go red and everything in the room turns as one to look at Blackbird. ${cap(String(d.foes))}. An alarm starts somewhere, politely.` : `${cap(String(d.place))}: the music cuts out. ${cap(String(d.foes))} ${Number(d.count) > 1 ? 'look' : 'looks'} up from what ${Number(d.count) > 1 ? 'they were' : 'they were'} doing, and then at the door.`],
     ['I like to make an entrance. Occasionally the entrance makes me.', 'They noticed. They notice everything about me. It is a gift.'],
   ),
   'dungeon_alarm:lingered': e(
-    (d) => [d.kind === 'outpost' ? `Blackbird has been standing in ${d.place} for a little too long. A routine scan finishes, and the scan finds her. ${cap(String(d.foes))}.` : `Blackbird dawdles in ${d.place} a beat too long, and the room notices her the way a room notices a smell. ${cap(String(d.foes))}.`],
+    (d) => [d.kind === 'spot' ? `Blackbird has been loitering at ${d.place} for a beat longer than a customer would. ${cap(String(d.foes))} ${Number(d.count) > 1 ? 'have' : 'has'} noticed.` : d.kind === 'outpost' ? `Blackbird has been standing in ${d.place} for a little too long. A routine scan finishes, and the scan finds her. ${cap(String(d.foes))}.` : `Blackbird dawdles in ${d.place} a beat too long, and the room notices her the way a room notices a smell. ${cap(String(d.foes))}.`],
     ['I was about to move. I was about to move right now.', 'They are very observant. Fine. I was done being subtle.'],
   ),
   'dungeon_alarm:tripped': e(
-    (d) => [d.kind === 'outpost' ? `The noise is loud and the room is not empty. ${cap(String(d.foes))}, already moving.` : `That was louder than it should have been. In ${d.place}, ${d.foes} turn round.`],
+    (d) => [d.kind === 'spot' ? `That was louder than it should have been. At ${d.place}, ${d.foes} turn round.` : d.kind === 'outpost' ? `The noise is loud and the room is not empty. ${cap(String(d.foes))}, already moving.` : `That was louder than it should have been. In ${d.place}, ${d.foes} turn round.`],
     ["That was not me. That was the lock. I'd like that noted."],
   ),
   'dungeon_ambush:ambush': e(
-    (d) => [d.kind === 'outpost' ? `In ${d.place}, ${d.foes} ${Number(d.count) > 1 ? 'have' : 'has'} not noticed Blackbird. This is about to be ${Number(d.count) > 1 ? 'their' : 'its'} problem.` : `In ${d.place}, ${d.foes} ${Number(d.count) > 1 ? 'are' : 'is'} looking the other way. Blackbird takes the invitation.`],
+    (d) => [d.kind === 'spot' ? `${cap(String(d.place))}: ${d.scene} ${cap(String(d.foes))} ${Number(d.count) > 1 ? 'have' : 'has'} not noticed Blackbird. That is about to be ${Number(d.count) > 1 ? 'their' : 'its'} whole afternoon.` : d.kind === 'outpost' ? `In ${d.place}, ${d.foes} ${Number(d.count) > 1 ? 'have' : 'has'} not noticed Blackbird. This is about to be ${Number(d.count) > 1 ? 'their' : 'its'} problem.` : `In ${d.place}, ${d.foes} ${Number(d.count) > 1 ? 'are' : 'is'} looking the other way. Blackbird takes the invitation.`],
     ['Never turn your back on a hero. It is rule number one. I wrote it.', 'The best kind of fight is the one where they are not ready for it.'],
   ),
   'dungeon_wave': e(
-    (d) => [d.kind === 'outpost' ? `More of them, from deeper in ${d.place}: ${d.foes}. In step, looking at her.` : `There are more. From the back of ${d.place}: ${d.foes}. None of them look like they have anywhere better to be.`],
+    (d) => [d.kind === 'spot' ? `More of them, from round the corner: ${d.foes}. It was a small place. It was apparently a popular one.` : d.kind === 'outpost' ? `More of them, from deeper in ${d.place}: ${d.foes}. In step, looking at her.` : `There are more. From the back of ${d.place}: ${d.foes}. None of them look like they have anywhere better to be.`],
     ["Is there a limit? There's a limit. Where's the limit?", 'You love to see it. I do not love to see it.'],
   ),
   'dungeon_unseen': e(
-    (d) => [d.kind === 'outpost' ? `${cap(String(d.place))}: ${d.foes}, going about the business of a building. Nobody looks round. Blackbird takes up a position behind something large.` : `${cap(String(d.place))}: ${d.foes}, deep in an argument about nothing. Nobody has looked at the door. Blackbird stays small.`],
+    (d) => [d.kind === 'spot' ? `${cap(String(d.place))}: ${d.scene} Nobody has looked round. Blackbird takes up a position and watches ${d.foes}.` : d.kind === 'outpost' ? `${cap(String(d.place))}: ${d.foes}, going about the business of a building. Nobody looks round. Blackbird takes up a position behind something large.` : `${cap(String(d.place))}: ${d.foes}, deep in an argument about nothing. Nobody has looked at the door. Blackbird stays small.`],
     ['I am a shadow. I am a very good-looking shadow.', 'Nobody has seen me. Nobody ever sees me coming. It is my favorite thing about me.'],
+  ),
+  'dungeon_quiet': e(
+    (d) => [`${cap(String(d.place))}: ${d.scene} Nobody to stop her.`],
+    ['Free money. Free-ish money. Money that has not met me yet.', 'I did not see a sign saying DO NOT. Therefore: no sign.'],
   ),
   'dungeon_pulled_back': e(
     (d) => [`Blackbird thinks better of ${d.place} and backs out the way she came, quietly and with some dignity.`],
     ['A tactical reconsideration. I will be back. I will be later.'],
   ),
   'dungeon_cleared': e(
-    (d) => [d.kind === 'outpost' ? `Silence in ${d.site}. The last drone ticks twice, falls over and does not tick again. Nothing in the building is looking for Blackbird any more. Atlas will want to talk about this. Probably in a couple of days.` : `Nobody is left standing in ${d.site}. The speakers are still playing, to no one. Whatever the crew had, it is Blackbird's. They will find somebody new to move in within a few nights.`],
+    (d) => [d.kind === 'spot' ? (d.quiet ? `Blackbird takes the last of what was at ${d.site}. Nobody was ever here to stop her, which is the best sort of crime scene.` : d.crew === 'atlas' ? `Nothing at ${d.site} is moving. Atlas will send someone, eventually, to ask who did this, and then to bill her for it.` : d.crew === 'npd' ? `${cap(String(d.site))} is quiet. Somewhere on the force somebody is about to have a very bad day, and so, shortly, is Blackbird.` : d.crew === 'gang' ? `${cap(String(d.site))} is quiet. The crew will be back with new faces and a new bag within a few nights.` : `${cap(String(d.site))} is quiet. Whoever was using it will be back, and they will have a grievance.`) : d.kind === 'outpost' ? `Silence in ${d.site}. The last drone ticks twice, falls over and does not tick again. Nothing in the building is looking for Blackbird any more. Atlas will want to talk about this. Probably in a couple of days.` : `Nobody is left standing in ${d.site}. The speakers are still playing, to no one. Whatever the crew had, it is Blackbird's. They will find somebody new to move in within a few nights.`],
     ['Cleared. Look at that. Look at all of it.', 'Another one. Add it to the wall. I have a wall now.'],
   ),
   'dungeon_loot:cash': e((d) => [`${cap(String(d.what))} in ${d.place} gives up ${$(d.amount)} neodollars.${d.watched ? ' Right in front of people, too.' : ''}`], ['A tidy sum. Tidier in my pocket.']),

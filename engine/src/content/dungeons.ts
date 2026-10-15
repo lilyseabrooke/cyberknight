@@ -29,14 +29,14 @@ export function rollTier(rng: Rng, kind: DungeonKind, depth: number, district: D
 // ===================================================================== names
 
 const OUTPOST_TYPE = ['Depot', 'Relay Station', 'Checkpoint', 'Freight Annex', 'Signal Annex', 'Patrol Post', 'Pacification Annex', 'Supply Cache'];
-const OUTPOST_CODE = ['K-7', '12', '4-B', 'Nine', 'R-31', '88', 'Delta', '3-C', 'Q-2', '40', 'Sigma', 'T-19'];
+export const OUTPOST_CODE = ['K-7', '12', '4-B', 'Nine', 'R-31', '88', 'Delta', '3-C', 'Q-2', '40', 'Sigma', 'T-19'];
 const HIDEOUT_PLACE = ['scrapyard', 'old chapel', 'drained pool hall', 'boiler room', 'chop shop', 'burnt-out cinema', 'grain silo', 'tram depot', 'tower-block floor', 'bottling plant'];
 
 export const outpostName = (rng: Rng): string => `Atlas ${rng.pick(OUTPOST_TYPE)} ${rng.pick(OUTPOST_CODE)}`;
 export const hideoutName = (rng: Rng, gang: string): string => `${gang.startsWith('The ') ? gang : `the ${gang}`}${gang.endsWith('s') ? "'" : "'s"} ${rng.pick(HIDEOUT_PLACE)}`;
 
 /** What she sees of it from the street. */
-export const ENTRANCE_BLURB: Record<DungeonKind, string[]> = {
+export const ENTRANCE_BLURB: Record<'outpost' | 'hideout', string[]> = {
   outpost: [
     '{name}: a windowless grey block with a roller door, a camera on every corner and the Atlas wing-and-halo stencilled over the lintel. A drone sits on the awning like a pigeon with a budget.',
     '{name}: chain-link, razor wire and a gatehouse that is lit and empty, which is somehow worse. The sign says AUTHORIZED PERSONNEL ONLY in six languages and a threat.',
@@ -57,6 +57,8 @@ export interface GarrisonSlot {
   perTier?: number;
   chance?: number;
   minTier?: number;
+  /** Spots: no bounty on this one even in a place where everyone else has paper (the hired, the licensed). */
+  clean?: boolean;
 }
 
 export interface RoomDef {
@@ -163,7 +165,8 @@ export const HIDEOUT_ROOMS: RoomDef[] = [
   },
 ];
 
-export const LAYOUTS: Record<DungeonKind, RoomDef[]> = { outpost: OUTPOST_ROOMS, hideout: HIDEOUT_ROOMS };
+/** (A spot is one room and picks it from its setups each garrisoning, so it has no fixed layout: see content/spots.ts.) */
+export const LAYOUTS: Record<DungeonKind, RoomDef[]> = { outpost: OUTPOST_ROOMS, hideout: HIDEOUT_ROOMS, spot: [] };
 
 /** The rooms a tier-`tier` place has, in order, each with the key of the one it opens off (null for the entrance). */
 export function layoutFor(kind: DungeonKind, tier: number): { def: RoomDef; parent: string | null }[] {
@@ -211,6 +214,8 @@ export function scaleForTier(n: { hp: number; maxHp: number; power: number; leve
 export const TIER_MENACE: Record<DungeonKind, number[]> = {
   outpost: [0, 170, 245, 350, 470, 600],
   hideout: [0, 145, 160, 250, 345, 430],
+  // A spot is the one room, so this is about what a single room of it is worth.
+  spot: [0, 80, 120, 180, 260, 350],
 };
 
 /** The weapons the people in charge carry, by tier. (Anyone else carries what their archetype says.) */
@@ -272,3 +277,5 @@ export function rollRoomHazards(rng: Rng, kind: DungeonKind, tier: number, hazar
 /** Atlas holds its heat longer than the street does. */
 export const ATLAS_HEAT_ON_ALARM = 1;
 export const ATLAS_HEAT_ON_CLEAR = 2;
+/** The police take it more personally than Atlas does. */
+export const NPD_HEAT_ON_CLEAR = 3;
