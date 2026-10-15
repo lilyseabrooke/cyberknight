@@ -191,6 +191,7 @@ shelf(chassis, 'grafts', 'Black-market chrome', ['frame.1'], [
   { name: 'Subdermal Disco Ball', blurb: 'The party is inside her.', cost: 240, fx: [{ implant: 'subdermal_disco' }] },
   { name: 'Mantis Blades', blurb: 'Retractable. Retract is more of a suggestion.', cost: 380, fx: [{ implant: 'mantis_blades' }] },
   { name: 'Bounty-grade Scanner', blurb: 'Sees the paper on anybody.', cost: 300, fx: [{ implant: 'bounty_scanner' }] },
+  { name: 'Address Scanner', blurb: 'Reads where anybody lives. Just by looking.', cost: 320, fx: [{ implant: 'address_scanner' }] },
   { name: 'Atlas Ad-blocker', blurb: 'Mutes the propaganda. Mutes some irony.', cost: 130, fx: [{ implant: 'ad_blocker' }] },
   { name: 'Emergency Defibrillator', blurb: 'Cheat death. Once a night. Please do not test it.', cost: 1100, needs: ['frame.2'], fx: [{ implant: 'emergency_defib' }] },
 ]);

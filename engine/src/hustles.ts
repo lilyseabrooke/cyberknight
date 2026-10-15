@@ -1,10 +1,10 @@
 import type { Ctx, Hero, Npc, World } from './types';
-import { acquire, addHeat, fight, gainXp, here, relocate, remember } from './combat';
+import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { clamp, levelRisk, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { skillLevel, synergy, train } from './skills';
-import { moveNpc, npcsAt } from './population';
-import { homeFor } from './romance';
+import { npcsAt } from './population';
+import { knowsHome, leaveHome, ownerComesHome, residenceOf, walkTo } from './homes';
 import { isFairGame } from './people';
 
 /** The hustle-specific skill formulas. These layer the new skills (grifting, hustling) as a
@@ -119,9 +119,12 @@ export function hustleCandidates(w: World): Candidate[] {
     out.push({ key: `bodyguard_gig:${n.id}`, drives: { greed: 0.3, bravery: 0.3, pride: 0.2 }, risk: 0.6, run: (c) => bodyguardGig(c, n) });
   }
 
-  // ---- questionable: waiting for someone to be distracted, then robbing their place blind
+  // ---- questionable: robbing somebody's place blind, once she knows where it is
   // (not the fixer: Madame Zero is a story contact, not a mark)
-  for (const n of crowd.filter((x) => !x.tags.includes('kid') && !x.tags.includes('robot') && !x.tags.includes('fixer') && x.cash >= 60 && !has(x, 'burgled'))) {
+  const marks = Object.values(w.npcs).filter(
+    (x) => x.alive && !x.hostile && knowsHome(x) && x.cash >= 60 && !has(x, 'burgled') && !x.tags.some((t) => ['kid', 'robot', 'fixer'].includes(t)) && !h.companions.some((a) => a.npcId === x.id),
+  );
+  for (const n of marks) {
     out.push({
       key: `burgle_home:${n.id}`, drives: { greed: 0.55, curiosity: 0.2 }, risk: 1.2 + levelRisk(w, n),
       run: (c) => burgleHome(c, n),
@@ -283,19 +286,25 @@ function bodyguardGig(c: Ctx, n: Npc): void {
   }
 }
 
-/** Burglary happens at the victim's place, not wherever the victim happens to be: she goes there, and the bar's regulars have no part in it. */
+/**
+ * Burglary is something that happens at a home, not to a person wherever they are. She needs the address first (see
+ * homes.ts); then she walks there (something might get in the way), and what happens, happens inside.
+ */
 function burgleHome(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const origin = h.locationId;
-  const home = homeFor(n);
-  if (!w.locations[home]) return;
+  const fresh = !n.residence || !w.locations[n.residence];
+  const home = residenceOf(c, n);
+  c.emit('burgle_trek', 'mixed', { variant: fresh ? 'new' : 'known', npc: n.name, home: home.name, street: w.locations[home.tossTo]?.name ?? '' });
+  if (!walkTo(c, home.id, n)) {
+    if (!w.over) c.emit('burgle_trek', 'bad', { variant: 'abort', npc: n.name });
+    return;
+  }
   addFlag(n, 'burgled');
-  relocate(w, home);
-  const p = clamp(0.35 + skillLevel(h, 'lockpicking') * 0.05 + skillLevel(h, 'sneak') * 0.04 - n.level * 0.03, 0.05, 0.85);
+  const p = clamp(0.35 + skillLevel(h, 'lockpicking') * 0.05 + skillLevel(h, 'sneak') * 0.04 - n.level * 0.03 - home.security * 0.04, 0.05, 0.85);
   train(c, 'lockpicking', 2);
   if (rng.chance(p)) {
-    const cash = Math.min(Math.round(n.cash * 0.9), rng.int(80, 220));
+    const cash = Math.min(Math.round(n.cash * 0.9), rng.int(80, 220) + home.security * 25);
     n.cash -= cash;
     h.cash += cash;
     train(c, 'sneak', 2);
@@ -305,16 +314,14 @@ function burgleHome(c: Ctx, n: Npc): void {
       item = it.name;
       acquire(c, it);
     }
-    c.emit('burgle_home', 'good', { variant: 'clean', amount: cash, item, npc: n.name });
+    c.emit('burgle_home', 'good', { variant: 'clean', amount: cash, item, npc: n.name, place: home.name });
   } else {
     n.affinity -= 50;
     remember(n, 'came home early and caught Blackbird mid-burglary');
-    addHeat(w, 'npd', 2);
-    moveNpc(w, n, home);
-    c.emit('burgle_home', 'bad', { variant: 'caught', npc: n.name });
-    fight(c, [n], { cause: `getting caught burgling ${n.name}'s place`, assault: true, joiners: false });
+    c.emit('burgle_home', 'bad', { variant: 'caught', npc: n.name, place: home.name });
+    ownerComesHome(c, n, home, { cause: `getting caught burgling ${n.name}'s place` });
   }
-  if (!w.over && h.locationId === home) relocate(w, origin);
+  leaveHome(c, home);
 }
 
 function protectionRacket(c: Ctx, n: Npc): void {

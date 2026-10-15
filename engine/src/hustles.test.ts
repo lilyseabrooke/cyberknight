@@ -6,6 +6,7 @@ import { tickVenues } from './stage';
 import { spawnNpc } from './content/archetypes';
 import type { Npc } from './types';
 import { addNpc, moveNpc } from './population';
+import { knowsHome, learnHome, residenceOf, scanHomes } from './homes';
 
 const world = (seed: string, competence = 0.8): World => createWorld({ seed, competence, personality: personalityFrom({}) });
 const ctxOf = (w: World, seed: string) => {
@@ -124,13 +125,16 @@ describe('bodyguard gigs', () => {
 });
 
 describe('burglary and shakedowns take what is there', () => {
-  it('a house only has so much in it, and she only robs it once', () => {
+  it('she has to know where someone lives before she can rob them, and only robs a place once', () => {
     const w = world('burgle');
     empty(w, 'halo_floor');
     const mark = npc(w, 'rich', 'patron', 'halo_floor', { cash: 300, level: 1 });
     const poor = npc(w, 'poor', 'patron', 'halo_floor', { cash: 20 });
+    expect(keys(w, 'burgle_home:').length).toBe(0); // no address, no job
+    learnHome(mark);
+    learnHome(poor);
     expect(keys(w, 'burgle_home:rich').length).toBe(1);
-    expect(keys(w, 'burgle_home:poor').length).toBe(0);
+    expect(keys(w, 'burgle_home:poor').length).toBe(0); // nothing worth taking
     const before = w.hero.cash;
     const ev = run(w, 'burgle_home:rich', 'bu1');
     expect(mark.flags.includes('burgled')).toBe(true);
@@ -139,7 +143,62 @@ describe('burglary and shakedowns take what is there', () => {
       expect(w.hero.cash).toBeGreaterThan(before);
       expect(mark.cash).toBeLessThan(300);
     }
-    void poor;
+  });
+
+  it('their home is somewhere on the map; she walks there, and it all happens inside it', () => {
+    for (const seed of ['b1', 'b2', 'b3', 'b4', 'b5', 'b6']) {
+      const w = world(seed);
+      empty(w, 'halo_floor');
+      const mark = npc(w, 'rich', 'patron', 'halo_floor', { cash: 300, level: 1 });
+      learnHome(mark);
+      const places = Object.keys(w.locations).length;
+      const events: GameEvent[] = [];
+      const cand = hustleCandidates(w).find((x) => x.key === 'burgle_home:rich')!;
+      const places0 = new Set(Object.keys(w.locations));
+      cand.run({ w, rng: new Rng(`walk-${seed}`), emit: (type: string, outcome: any, data: any = {}) => events.push({ beat: w.beat, type, outcome, data }) });
+      if (w.over) continue;
+      const home = w.locations[mark.residence!]!;
+      expect(home.kind, seed).toBe('home');
+      expect(home.crowded).toBe(false);
+      expect(Object.keys(w.locations).length).toBeGreaterThan(places);
+      expect(places0.has(home.id)).toBe(false);
+      // The city grew out to put it a few streets away, not next door.
+      expect(w.locations[home.tossTo]!.outdoors).toBe(true);
+      expect(home.tossTo).not.toBe('halo_floor');
+      // Wherever the fight happened, it wasn't the bar: nobody from the Halo joined in, and she isn't left standing in the house.
+      for (const e of events.filter((x) => ['burgle_trek', 'burgle_ambush', 'burgle_home'].includes(x.type))) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+      const fights = events.filter((e) => e.type === 'fight_start' && /burgling/.test(String(e.data.cause)));
+      for (const f of fights) expect(f.data.foes, seed).toBe(mark.name);
+      expect([home.id, home.fleeTo].includes(w.hero.locationId), seed).toBe(false);
+      expect(mark.locationId, seed).not.toBe(home.id);
+    }
+  });
+
+  it('richer people live in bigger places, and the address is the same every time', () => {
+    const w = world('sizes');
+    empty(w, 'halo_floor');
+    const poor = npc(w, 'p', 'patron', 'halo_floor', { cash: 80 });
+    const rich = npc(w, 'r', 'patron', 'halo_floor', { cash: 900 });
+    const { c } = ctxOf(w, 'x');
+    const a = residenceOf(c, poor);
+    const b = residenceOf(c, rich);
+    expect(a.name).toMatch(/capsule hab/);
+    expect(b.name).toMatch(/penthouse/);
+    expect(b.security).toBeGreaterThan(a.security);
+    expect(residenceOf(c, poor)).toBe(a);
+  });
+
+  it('an address scanner reads where people live; without one she has to be invited', () => {
+    const w = world('scan');
+    empty(w, 'halo_floor');
+    const mark = npc(w, 'm', 'patron', 'halo_floor', { cash: 300 });
+    const r = ctxOf(w, 's');
+    scanHomes(r.c);
+    expect(knowsHome(mark)).toBe(false);
+    w.hero.implants.push('address_scanner');
+    scanHomes(r.c);
+    expect(knowsHome(mark)).toBe(true);
+    expect(r.events.some((e) => e.type === 'home_scan')).toBe(true);
   });
 
   it('shaking a shopkeeper down empties the till until the shop earns again', () => {

@@ -15,6 +15,7 @@ import { hasImplantFlag, skillLevel } from './skills';
 import { expireBuffs, restockShelf } from './supply';
 import { discretion } from './discretion';
 import { scanBounties } from './bounty';
+import { scanHomes } from './homes';
 import { recognizeRevenant } from './revenant';
 import { bondTick, partnerArrives } from './bonds';
 import { avengerTick, noticeTick } from './knowledge';
@@ -116,6 +117,7 @@ export function step(w: World): GameEvent[] {
   let chosen: Candidate | null = null;
   upkeep(c);
   if (!w.over) scanBounties(c);
+  if (!w.over) scanHomes(c);
   if (!w.over) recognizeRevenant(c);
   if (!w.over) bondTick(c);
   if (!w.over) noticeTick(c);

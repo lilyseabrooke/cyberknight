@@ -259,8 +259,16 @@ const T: Record<string, Entry> = {
     ['A hero who moonlights. Shocking nobody.'],
   ),
 
-  'burgle_home:good': e((d) => [`While ${d.npc} is otherwise occupied, Blackbird lets herself into {their} place and helps herself: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}. She locks the door behind her. Mostly out of habit.`], ['{They} {was}n\'t using it. Probably.']),
-  'burgle_home:bad': e((d) => [`${d.npc} comes home early. Blackbird is standing in {their} living room holding something that is not hers.`], ["I was just admiring the decor. With my hands."]),
+  'home_scan': e((d) => [`The address scanner flickers behind Blackbird's eye and, unasked, hands over where ${d.npc} (${d.role}) sleeps: a street, a block, a door.`, `A line of tiny text unfurls across ${d.npc}'s shoulder: a home address. Blackbird did not ask. The scanner never does.`], ['Everyone has a front door. Now I know where yours is.', 'That is not a thing I was supposed to know. Filed.']),
+
+  'burgle_trek:new': e((d) => [`Blackbird has ${d.npc}'s address, but not the way there. She works it out, and sets off for ${d.street}.`], ['Somewhere out there is a door with my name on it. Not literally.']),
+  'burgle_trek:known': e((d) => [`Blackbird sets off for ${d.npc}'s place, back by the streets she already knows.`], ['I know the way. I know the lock. I know the neighbours are loud.']),
+  'burgle_trek:abort': e((d) => [`Whatever Blackbird had planned for ${d.npc}'s place, tonight is not the night for it.`], ['Another time. The lock will still be there.']),
+  'burgle_ambush:mugger': e((d) => [Number(d.count) > 1 ? `On the way to ${d.npc}'s, ${d.place} produces a pair of muggers who seem to know Blackbird is in a hurry.` : `A mugger steps out of the shadows on ${d.place}, convinced Blackbird is carrying something worth taking. She is, in fact, on her way to take something.`], ['I have a schedule, people.']),
+  'burgle_ambush:gang': e((d) => [`This is somebody's turf, ${d.place}, and the somebody wants a toll from a stranger on the way to ${d.npc}'s place.`], ['I am not paying a toll to rob someone.']),
+
+  'burgle_home:good': e((d) => [`While ${d.npc} is otherwise occupied, Blackbird lets herself into ${d.place} and helps herself: ${d.amount} neodollars${d.item ? ` and ${d.item}` : ''}. She locks the door behind her. Mostly out of habit.`], ['{They} {was}n\'t using it. Probably.']),
+  'burgle_home:bad': e((d) => [`The key turns in the lock of ${d.place}. ${d.npc} is home early, and Blackbird is standing in {their} living room holding something that is not hers.`], ["I was just admiring the decor. With my hands."]),
 
   'protection_racket:good': e((d) => [`Blackbird explains, calmly, that bad things happen to places without her protection. ${d.npc} pays ${d.amount} neodollars for a problem Blackbird invented.`], ['A classic business model. Mine now.']),
   'protection_racket:bad': e((d) => [`${d.npc} has heard this pitch before, from someone scarier. Blackbird is asked, loudly, to leave.`], ["Tough market. I'll rebrand."]),

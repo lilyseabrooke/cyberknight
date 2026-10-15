@@ -261,6 +261,8 @@ export interface Npc {
   bounty?: { amount: number; hidden: boolean };
   /** Where they live and work. Absent for people who never go anywhere. */
   home?: Id;
+  /** Where they sleep: a dwelling somewhere on the map, once somebody has gone looking for it. Not the same as `home`, which is where they work. See homes.ts. */
+  residence?: Id;
   /** Places they turn up, by weight. Absent means they stay where they are. See movement.ts. */
   haunts?: Record<Id, number>;
   /** Where they like to be at each time of day, overriding their haunts. */
@@ -343,7 +345,7 @@ export interface Location {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'tunnel' | 'backroom' | 'cellar' | 'vip';
+export type GenRole = 'street' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
