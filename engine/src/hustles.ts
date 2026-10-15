@@ -1,9 +1,10 @@
 import type { Ctx, Hero, Npc, World } from './types';
-import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
+import { acquire, addHeat, fight, gainXp, here, relocate, remember } from './combat';
 import { clamp, levelRisk, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { skillLevel, synergy, train } from './skills';
-import { npcsAt } from './population';
+import { moveNpc, npcsAt } from './population';
+import { homeFor } from './romance';
 import { isFairGame } from './people';
 
 /** The hustle-specific skill formulas. These layer the new skills (grifting, hustling) as a
@@ -282,10 +283,15 @@ function bodyguardGig(c: Ctx, n: Npc): void {
   }
 }
 
+/** Burglary happens at the victim's place, not wherever the victim happens to be: she goes there, and the bar's regulars have no part in it. */
 function burgleHome(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
+  const origin = h.locationId;
+  const home = homeFor(n);
+  if (!w.locations[home]) return;
   addFlag(n, 'burgled');
+  relocate(w, home);
   const p = clamp(0.35 + skillLevel(h, 'lockpicking') * 0.05 + skillLevel(h, 'sneak') * 0.04 - n.level * 0.03, 0.05, 0.85);
   train(c, 'lockpicking', 2);
   if (rng.chance(p)) {
@@ -304,9 +310,11 @@ function burgleHome(c: Ctx, n: Npc): void {
     n.affinity -= 50;
     remember(n, 'came home early and caught Blackbird mid-burglary');
     addHeat(w, 'npd', 2);
+    moveNpc(w, n, home);
     c.emit('burgle_home', 'bad', { variant: 'caught', npc: n.name });
-    fight(c, [n], { cause: `getting caught burgling ${n.name}'s place`, assault: true });
+    fight(c, [n], { cause: `getting caught burgling ${n.name}'s place`, assault: true, joiners: false });
   }
+  if (!w.over && h.locationId === home) relocate(w, origin);
 }
 
 function protectionRacket(c: Ctx, n: Npc): void {
