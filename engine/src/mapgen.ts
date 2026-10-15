@@ -162,26 +162,36 @@ export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, l
   g.expanded = true;
   const rng = stream(w, loc.id);
   let slot = firstFreeSlot(loc);
-  const add = (role: GenRole, district: District, depth: number, o: ChildOpts = {}): void => {
-    sketch(w, loc, slot++, role, district, depth, o);
-  };
+  const add = (role: GenRole, district: District, depth: number, o: ChildOpts = {}): Location => sketch(w, loc, slot++, role, district, depth, o);
 
   switch (g.role) {
     case 'street': {
       const here = g.district;
       // Streets run on. Always at least one way further out, sometimes two.
-      const onward = rng.chance(0.4) ? 2 : 1;
+      const onward = rng.chance(0.5) ? 2 : 1;
       const lots = rng.int(2, 4);
       const taken: Lot[] = [];
+      const fronts: Location[] = [];
+      const roads: Location[] = [];
       for (let i = 0; i < lots; i++) {
         const weights = LOTS[here];
         const role = rng.weighted(Object.keys(weights) as Lot[], (r) => weights[r] * (taken.includes(r) ? 0.4 : 1) * (r === 'corp' && g.depth < 2 && here !== 'corporate' ? 0.3 : 1));
         taken.push(role);
-        add(role, here, g.depth);
+        fronts.push(add(role, here, g.depth));
       }
       for (let i = 0; i < onward; i++) {
         const next = rng.chance(0.7) ? here : pick(rng, NEXT_TO[here]);
-        add('street', next, g.depth + 1, { label: `{name}, ${pick(rng, STREET_TAIL)}` });
+        roads.push(add('street', next, g.depth + 1, { label: `{name}, ${pick(rng, STREET_TAIL)}` }));
+      }
+      // Loops. Everything here is decided now, from this street's own stream, between places that
+      // already exist, so the shortcuts are the same whichever end of them she finds first.
+      if (roads.length === 2 && rng.chance(LOOP_ROADS)) join(roads[0]!, roads[1]!, `a cut-through to ${roads[1]!.name}`, `a cut-through to ${roads[0]!.name}`);
+      for (let i = 0; i + 1 < fronts.length; i++) {
+        const a = fronts[i]!;
+        const b = fronts[i + 1]!;
+        if (!LINKABLE.includes(a.gen!.role) || !LINKABLE.includes(b.gen!.role) || !rng.chance(LOOP_DOORS)) continue;
+        const secret = rng.chance(0.4);
+        join(a, b, `a ${secret ? 'concealed ' : ''}side door through to ${b.name}`, `a ${secret ? 'concealed ' : ''}side door through to ${a.name}`, secret);
       }
       break;
     }
@@ -216,6 +226,18 @@ export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, l
     default:
       break; // shops, flats, back rooms, cellars and VIP lounges are as far as it goes
   }
+}
+
+/** Chance two roads leaving a street are joined by a cut-through, and that neighbours along it share a side door. */
+const LOOP_ROADS = 0.7;
+const LOOP_DOORS = 0.25;
+/** Only places with a front room somebody could slip out of. */
+const LINKABLE: GenRole[] = ['shop', 'bar', 'club'];
+
+/** A two-way connection between places that already exist (never adds the same one twice). */
+export function join(a: Location, b: Location, labelAtoB: string, labelBtoA: string, hidden = false): void {
+  if (!a.exits.some((e) => e.to === b.id)) a.exits.push({ to: b.id, label: labelAtoB, hidden, gate: null });
+  if (!b.exits.some((e) => e.to === a.id)) b.exits.push({ to: a.id, label: labelBtoA, hidden, gate: null });
 }
 
 /** Child slots are numbered from the first one not already used by an exit (hand-built exits don't count). */

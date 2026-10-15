@@ -10,7 +10,7 @@ import { skillLevel, synergy, train } from './skills';
 import { ODDS } from './hobbies';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
 import { fameFrom, tipScale } from './stage';
-import { moveNpc } from './population';
+import { moveNpc, renameNpc } from './population';
 
 const present = (w: World, id: string): boolean => !!w.npcs[id]?.alive && w.npcs[id]!.locationId === w.hero.locationId;
 
@@ -263,7 +263,7 @@ function dumpster(c: Ctx, f: Feature): void {
     c.emit('dumpster', 'bad', { variant: 'rats' });
     const [rats] = spawnGroup(c, 'mugger', 1);
     if (rats) {
-      rats.name = 'The Cyber-Rat Swarm';
+      renameNpc(c.w, rats, 'The Cyber-Rat Swarm');
       rats.role = 'swarm';
       rats.tags = ['robot'];
       rats.level = 1;
