@@ -1,5 +1,6 @@
 import type { Ctx, Hero, Item, Npc, World } from './types';
 import { acquire, addHeat, fight, here, relocate, remember } from './combat';
+import { postBounty } from './bounty';
 import { clamp, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { ODDS } from './hobbies';
@@ -297,6 +298,7 @@ export function ambientGraffiti(c: Ctx): void {
     if (heat >= 2 && rng.chance(0.045 * heat)) {
       if (scoutSaves(c)) return;
       const crew = spawnGroup(c, 'ganger', rng.int(2, 3), g);
+      for (const thug of crew) postBounty(thug);
       c.emit('gang_hunt', 'bad', { gang: g, count: crew.length, place: loc.name, turf: loc.territory === g });
       fight(c, crew, { cause: 'gangers looking for the vandal', joiners: false });
       return;

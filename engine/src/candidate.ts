@@ -2,6 +2,7 @@ import type { Drive } from './personality';
 import type { Ctx, Npc, World } from './types';
 import type { EventData } from './events';
 import { addHeat, fight, here, npcsAt, remember, relocate } from './combat';
+import { postBounty } from './bounty';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { enterRoom } from './dungeons';
@@ -38,8 +39,7 @@ export function spawnGroup(c: Ctx, archetype: string, count: number, faction?: s
   for (let i = 0; i < count; i++) {
     const id = `tmp_${c.w.beat}_${archetype}_${i}`;
     const n = spawnNpc(c.rng, id, archetype, c.w.hero.locationId, { faction });
-    // Muggers always have paper out on them, so stepping in is never a crime. Fixed amount: no rng draw, so seeds don't shift.
-    if (archetype === 'mugger') n.bounty = { amount: n.level * 35 + 60, hidden: false };
+    if (archetype === 'mugger') postBounty(n);
     addNpc(c.w, n);
     out.push(n);
   }

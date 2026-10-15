@@ -58,6 +58,11 @@ export function ensureBounties(npcs: Record<Id, Npc>): void {
 export const tippable = (w: World, except: Id): Npc[] =>
   Object.values(w.npcs).filter((n) => n.id !== except && hasBounty(n) && n.bounty!.hidden && !knowsBounty(w, n.id) && !n.id.startsWith('tmp_'));
 
+/** Street attackers (muggers, gangs hunting her) always have paper out, so fighting them is never a crime. Fixed amount: no rng draw, so seeds don't shift. */
+export const postBounty = (n: Npc): void => {
+  n.bounty = { amount: n.level * 35 + 60, hidden: false };
+};
+
 /** Her optics read what's posted. Busted optics read nothing. A bounty-grade scanner reads what isn't. */
 export function scanBounties(c: Ctx): void {
   const { w } = c;
