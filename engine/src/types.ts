@@ -285,6 +285,8 @@ export interface Npc {
   bond?: Feelings;
   /** What they know about Blackbird's past runs that she might not expect them to. See universe.ts. */
   knows?: { died?: number; saw?: boolean; reacted?: boolean };
+  /** The dungeon (its entrance's id) they are garrisoned in. Until they have noticed her, she can't deal with them one at a time; see dungeons.ts. */
+  post?: Id;
 }
 
 export interface Feature {
@@ -316,7 +318,7 @@ export interface Hazards {
 export interface Location {
   id: Id;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair';
   exits: Exit[];
   /** 0..10. Raises the chance of being spotted while sneaking. */
   security: number;
@@ -349,12 +351,14 @@ export interface Location {
   gen?: GenInfo;
   /** One line about what she sees the first time she walks in (generated places only). */
   blurb?: string;
+  /** Part of a dungeon: the id of its entrance, which is also the key into `World.dungeons`. See dungeons.ts. */
+  dungeon?: Id;
 }
 
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip';
+export type GenRole = 'street' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'chamber';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -370,6 +374,60 @@ export interface GenInfo {
   /** For things that run on (corporate floors, tunnels): how far in this is, and how far it goes. */
   rank?: number;
   max?: number;
+  /** Dungeon entrances: how hard it is, 1 (a few thugs) to 5 (a fortress). Rolled with the place, so it's known before anyone has been inside. */
+  tier?: number;
+}
+
+export type DungeonKind = 'outpost' | 'hideout';
+
+/** What a room's spoils are, and so what it takes to get at them. */
+export type CacheKind = 'cash' | 'stash' | 'arms' | 'armor' | 'supplies' | 'data' | 'vault';
+
+/** Something worth taking, left lying in a room. */
+export interface Cache {
+  kind: CacheKind;
+  /** Roughly what it's worth, in neodollars. */
+  value: number;
+  taken: boolean;
+  /** Failed attempts. Two and whatever was in it is ruined. */
+  fails: number;
+}
+
+export interface DungeonRoom {
+  id: Id;
+  /** What the room is (barracks, data core...). Picks its blurb and what's in it. */
+  role: string;
+  cache?: Cache;
+}
+
+/**
+ * A facility with rooms of its own, a garrison, traps and spoils: an Atlas outpost or a ganger hideout. It is part of
+ * the map like any other place and persists with it. See dungeons.ts.
+ */
+export interface Dungeon {
+  /** The entrance's location id. */
+  id: Id;
+  kind: DungeonKind;
+  name: string;
+  /** 1..5. Decided when the place is made and never changes: it sets how tough the garrison is, how nasty the traps and how rich the spoils. */
+  tier: number;
+  /** Who holds it. */
+  faction: Id;
+  /** Entrance first. */
+  rooms: DungeonRoom[];
+  /** Everyone posted here, in this garrisoning. */
+  garrison: Id[];
+  /** How many times it has been garrisoned. The first is 1. */
+  occupation: number;
+  /** Noise this run: the louder it has been, the less the rooms stay asleep. */
+  alert: number;
+  /** Rooms whose garrison knows she is in the building. */
+  aware: Id[];
+  /** The run (`legacy.runs`) in which the last of the garrison fell, and the run it fills up again. Both null while it's held. */
+  clearedRun: number | null;
+  returnsRun: number | null;
+  /** How many times it has been cleared out. */
+  clears: number;
 }
 
 /** Per-run situational variables, layered on the persistent macro-Neo. */
@@ -469,6 +527,8 @@ export interface World {
   factions: Record<Id, Faction>;
   features: Record<Id, Feature>;
   locations: Record<Id, Location>;
+  /** Outposts and hideouts, by the id of their entrance. Persistent, like the places they are in. */
+  dungeons: Record<Id, Dungeon>;
   /** Wanted level per faction, decays over time. */
   heat: Record<string, number>;
   /** What the gunsmith has on the shelf tonight (and any other generated gear for sale), by item id. */
@@ -488,7 +548,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
@@ -507,7 +567,7 @@ export interface Goal {
   loc?: Id;
   /** cash: the money she wants on hand. weapon: the power she wants to be swinging. */
   amount?: number;
-  /** kill: 'kill' | 'beat_up'. heist: 'approach' | 'loot' | 'escape'. */
+  /** kill: 'kill' | 'beat_up'. heist: 'approach' | 'loot' | 'escape'. raid: 'approach' | 'raid' | 'out' (it's done) | 'retreat' (it's too much). */
   mode?: string;
   /** Her reason, in her own words-ish; shown in the log and the status panel. */
   why: string;

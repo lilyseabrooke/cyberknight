@@ -48,7 +48,7 @@ export function graffitiCandidates(w: World): Candidate[] {
   const artist = (h.skills.art ?? 0) > 0;
 
   // ---- tagging: anywhere with a surface, if she has paint
-  if (paintCharges(h) > 0 && !['overpass', 'paint_shop'].includes(loc.id)) {
+  if (paintCharges(h) > 0 && !['overpass', 'paint_shop'].includes(loc.id) && !loc.dungeon) {
     const risk =
       (loc.kind === 'corp' ? 1.2 : loc.kind === 'bar' ? 0.5 : loc.kind === 'club' ? 0.5 : loc.id === 'halo_roof' ? 0 : 0.25) +
       (loc.territory ? 0.5 : 0) +

@@ -145,8 +145,11 @@ export const everyoneAt = (w: Population, loc: Id): Npc[] => {
   return inOrder(ix, ix.byLoc.get(loc) ?? []).map((id) => w.npcs[id]!);
 };
 
-/** The people actually there to deal with: alive and on their feet. */
-export const npcsAt = (w: World, loc: Id): Npc[] => everyoneAt(w, loc).filter((n) => n.alive && n.downUntil <= w.beat);
+/**
+ * The people actually there to deal with: alive and on their feet. Somebody posted in a dungeon who hasn't noticed her
+ * isn't one of them: they are part of the building until they come at her (see dungeons.ts).
+ */
+export const npcsAt = (w: World, loc: Id): Npc[] => everyoneAt(w, loc).filter((n) => n.alive && n.downUntil <= w.beat && (!n.post || n.hostile));
 
 /** Who turns up in a place from time to time (and isn't necessarily there now). */
 export const hauntersOf = (w: Population, loc: Id): Npc[] => {

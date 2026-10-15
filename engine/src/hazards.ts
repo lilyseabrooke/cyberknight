@@ -1,9 +1,10 @@
 import { Rng } from './rng';
-import type { Ctx, Location, Npc } from './types';
+import type { Ctx, Location, Npc, World } from './types';
 import { addHeat, fight, heroPower, maybeInjure } from './combat';
 import { clamp, spawnGroup } from './candidate';
 import { BARKS, TRAPS, barkOf, rollHazards } from './content/hazards';
 import { skillLevel, train } from './skills';
+import { renameNpc } from './population';
 
 /**
  * Guard dogs and traps. A home that is well secured keeps better ones (content/hazards.ts). She meets them on the way
@@ -41,7 +42,7 @@ function meetDogs(c: Ctx, home: Location, dogs: NonNullable<Location['hazards']>
     return false;
   }
   const pack = spawnGroup(c, 'guard_dog', dogs.count);
-  for (const d of pack) setStats(d, `BARK-${bark.model}`, bark.hp, bark.power, 1 + rank * 2);
+  for (const d of pack) setStats(w, d, `BARK-${bark.model}`, bark.hp, bark.power, 1 + rank * 2);
   c.emit('home_hazard', 'bad', { variant: 'dogs', ...data });
   const res = fight(c, pack, { cause: `${dogs.count > 1 ? 'guard dogs' : 'a guard dog'} at ${home.name}`, joiners: false });
   if (w.over || res !== 'win') return false;
@@ -49,8 +50,9 @@ function meetDogs(c: Ctx, home: Location, dogs: NonNullable<Location['hazards']>
   return true;
 }
 
-function setStats(n: Npc, name: string, hp: number, power: number, level: number): void {
-  n.name = name;
+function setStats(w: World, n: Npc, name: string, hp: number, power: number, level: number): void {
+  renameNpc(w, n, name); // the name index has to follow
+
   n.hp = n.maxHp = hp;
   n.power = power;
   n.level = level;
@@ -87,7 +89,7 @@ function spring(c: Ctx, home: Location, kind: string): boolean {
   if (kind === 'sentry_turret') {
     const [turret] = spawnGroup(c, 'sentry_turret', 1);
     const big = home.security >= 5;
-    setStats(turret!, 'SENTRY-9', big ? 100 : 60, big ? 24 : 16, big ? 8 : 5);
+    setStats(w, turret!, 'SENTRY-9', big ? 100 : 60, big ? 24 : 16, big ? 8 : 5);
     const res = fight(c, [turret!], { cause: `a sentry turret at ${home.name}`, joiners: false });
     return !w.over && res === 'win';
   }

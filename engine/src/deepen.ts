@@ -16,7 +16,8 @@ import type { Npc, World } from './types';
  * are never filled in.
  */
 
-export const canDeepen = (n: Npc): boolean => !n.id.startsWith('tmp_') && n.gender !== 'none' && n.archetype !== 'puppy' && !n.tags.some((t) => ['robot', 'pet', 'dragon', 'boss'].includes(t));
+export const canDeepen = (n: Npc): boolean =>
+  !n.id.startsWith('tmp_') && n.gender !== 'none' && n.archetype !== 'puppy' && !n.tags.some((t) => ['robot', 'pet', 'dragon', 'boss'].includes(t)) && (!n.post || n.tags.includes('commander')); // a dungeon's rank and file stay faceless
 
 export function ensureDeep(w: World, n: Npc): void {
   if (n.depth === 'deep' || !canDeepen(n)) return;

@@ -66,6 +66,7 @@ export const ROSTERS: Record<Location['kind'], SlotDef[]> = {
   tunnel: [{ role: 'scrapper', count: [1, 1], chance: 0.5 }],
   boss: [],
   home: [],
+  lair: [], // dungeons furnish their own rooms; see dungeons.ts
 };
 
 /** Chance a vacancy is filled by somebody who already exists, when there's a fit. */

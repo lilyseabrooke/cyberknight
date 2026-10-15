@@ -16,6 +16,7 @@ import { STIM_IDS } from './content/stims';
 import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 import { goalCandidates } from './goals';
+import { dungeonCandidates, entranceRisk } from './dungeons';
 import { discretionCandidates } from './discretion';
 import { hustleCandidates } from './hustles';
 import { knowsBounty, tippable } from './bounty';
@@ -168,6 +169,7 @@ export function gather(w: World): Candidate[] {
   out.push(...laylowCandidates(w));
   out.push(...stageCandidates(w));
   out.push(...goalCandidates(w));
+  out.push(...dungeonCandidates(w));
   out.push(...discretionCandidates(w));
   out.push(...hustleCandidates(w));
 
@@ -195,9 +197,9 @@ export function gather(w: World): Candidate[] {
     out.push({
       key: `go:${e.to}`,
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },
-      bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + urge.bonus + pull.bonus,
+      bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + (dest.kind === 'lair' && dest.dungeon === dest.id ? 0.2 : 0) + urge.bonus + pull.bonus,
       smart: (toDragon && ready ? 2.4 : 0) + urge.smart + pull.smart,
-      risk: dragonRisk * 1.4 + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0),
+      risk: dragonRisk * 1.4 + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest),
       run: (c) => moveThrough(c, e),
     });
   }

@@ -163,7 +163,7 @@ export function appeal(w: World, ware: Ware): number {
 const PRIOR: Record<string, number> = {
   till: 90, safe: 300, vault: 200, crates: 70, fence: 0, poker: 18, pool: 14, darts: 8, karaoke: 6,
   gig: 60, busk: 22, dj_set: 35, tend_bar: 20, vending: 12, dumpster: 12, hack: 25, armwrestle: 14,
-  pickpocket: 22, threaten: 28, challenge: 10, rob_paint_shop: 30,
+  pickpocket: 22, threaten: 28, challenge: 10, rob_paint_shop: 30, raid_loot: 140, raid_ambush: 45,
 };
 
 /** Spending, as opposed to earning. A hero saving up for something does not do these. */

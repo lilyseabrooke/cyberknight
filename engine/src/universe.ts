@@ -9,6 +9,7 @@ import { AWAY, allNpcs, everyoneAt, moveNpc, removeNpc } from './population';
 import { settleAt } from './movement';
 import { populate } from './roster';
 import { seedFrontier } from './mapgen';
+import { tickDungeons } from './dungeons';
 import { remember } from './combat';
 import { tiesFrom } from './ties';
 import { DROPS } from './content/drops';
@@ -29,18 +30,20 @@ import type { DeathRecord, Id, Npc, World } from './types';
  * it belongs on is a compile error rather than a bug in somebody's save file.
  */
 
-export const UNIVERSE_VERSION = 3;
+export const UNIVERSE_VERSION = 4;
 
 /**
  * Bring a universe saved by an older version forward. Version 2 added the lab (an account and
  * upgrades on the legacy) and the drop points (features). Version 3 added the generated map: the
- * hand-built district gets its edges opened onto the rest of Neo; everything else is as it was.
+ * hand-built district gets its edges opened onto the rest of Neo; everything else is as it was. Version 4 added the
+ * dungeons (outposts and hideouts), which are made the first time anyone walks into one: older saves just have none yet.
  */
 export function upgradeUniverse(u: Universe): Universe {
   const l = u.legacy;
   l.account ??= 0;
   l.upgrades ??= {};
   l.spent ??= 0;
+  u.dungeons ??= {};
   for (const [kind, d] of Object.entries(DROPS)) {
     if (!u.features[kind] && u.locations[d.at]) u.features[kind] = { id: kind, name: d.name, kind, locationId: d.at, uses: 0, flags: [] };
   }
@@ -50,15 +53,15 @@ export function upgradeUniverse(u: Universe): Universe {
 }
 
 /** The World fields that persist across runs. Everything else is per-run. */
-type Persistent = 'worldSeed' | 'legacy' | 'clock' | 'npcs' | 'ties' | 'stubs' | 'factions' | 'locations' | 'features';
+type Persistent = 'worldSeed' | 'legacy' | 'clock' | 'npcs' | 'ties' | 'stubs' | 'factions' | 'locations' | 'features' | 'dungeons';
 
 export type Universe = Pick<World, Persistent> & { version: number };
 export type RunState = Omit<World, Persistent>;
 
 /** Take a World apart. The halves share their contents with the World; nothing is copied. */
 export function splitWorld(w: World): { universe: Universe; run: RunState } {
-  const { worldSeed, legacy, clock, npcs, ties, stubs, factions, locations, features, ...run } = w;
-  return { universe: { version: UNIVERSE_VERSION, worldSeed, legacy, clock, npcs, ties, stubs, factions, locations, features }, run };
+  const { worldSeed, legacy, clock, npcs, ties, stubs, factions, locations, features, dungeons, ...run } = w;
+  return { universe: { version: UNIVERSE_VERSION, worldSeed, legacy, clock, npcs, ties, stubs, factions, locations, features, dungeons }, run };
 }
 
 export function joinWorld(universe: Universe, run: RunState): World {
@@ -165,6 +168,7 @@ function wakeTheWorld(u: Universe): void {
     f.flags = [];
   }
   ensureBounties(u.npcs);
+  tickDungeons(u); // the noise dies down, and anywhere that has been empty long enough fills up again
 }
 
 export interface BeginOptions extends Partial<Omit<RunOptions, 'worldSeed'>> {

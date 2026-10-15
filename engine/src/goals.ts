@@ -4,7 +4,7 @@ import type { Ctx, Goal, GoalKind, Id, Location, Npc, Ware, World, GameEvent } f
 import { armBest, edge, rating } from './weapons';
 import { ACT_SKILL, CALLING } from './stage';
 import { SKILL_LABELS, skillLevel } from './skills';
-import { wielded } from './arms';
+import { medPacks, wielded } from './arms';
 import type { EventData } from './events';
 import type { Trait } from './personality';
 import { heroPower, here } from './combat';
@@ -15,6 +15,7 @@ import { heatUrge } from './laylow';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { possessive } from './mapgen';
+import { estimatePressure, garrisonAlive, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
 import { MAX_IMPLANTS } from './content/implants';
 import {
   MAX_DEPTH, capacity, childrenOf, cool, cooling, depth, focusFactor, goalById, hasGoal, isHeld, isLeaf, priority, subjectOf, topLevel,
@@ -94,6 +95,7 @@ const goalData = (w: World, g: Goal, extra: EventData = {}): EventData => ({
   ...(g.npc ? { npc: npcName(w, g.npc) } : {}),
   ...(g.ware && w.mind.wares[g.ware] ? { item: w.mind.wares[g.ware]!.name } : {}),
   ...(g.loc && siteAt(g.loc) ? { place: siteAt(g.loc)!.label } : {}),
+  ...(g.kind === 'raid' && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
   ...extra,
 });
 
@@ -176,7 +178,12 @@ const KINDS: Record<GoalKind, Kind> = {
       const h = w.hero;
       const short = (g.amount ?? 0) - h.cash;
       // Small change is a grind. A proper score is a plan.
-      if (!isLeaf(w, g) || short < 120 || hpFrac(w) < 0.6 || hasGoal(w, 'heist')) return;
+      if (!isLeaf(w, g) || short < 120 || hpFrac(w) < 0.6 || hasGoal(w, 'heist') || hasGoal(w, 'raid')) return;
+      // Somebody's building full of gear is a quicker way to money than most.
+      if (rng.chance(0.03 * raidAppetite(w) * (1 + short / 300))) {
+        const lead = pickLead(c);
+        if (lead) return void startRaidGoal(c, lead, g, g.desire * 0.95, 'there is money in other people\'s buildings', 'raid_cash');
+      }
       const sites = knownSites(w).filter((s) => !cooling(w, `heist:${s.loc}`));
       if (!sites.length) return;
       const best = [...sites].sort((a, b) => b.value / (2 + distTo(w, b.loc)) - a.value / (2 + distTo(w, a.loc)))[0]!;
@@ -479,6 +486,100 @@ const KINDS: Record<GoalKind, Kind> = {
       return NOISY.has(fam) ? -2.2 : 0;
     },
   },
+  // ------------------------------------------------------------------ raid
+  // An outpost or a hideout (dungeons.ts). She walks to the door, then works through the building room by room, taking
+  // what she can: fights the people she thinks she can beat, opens what's lying about, walks past the rest. She leaves when
+  // there is nothing left (it's cleared out, which makes the place a lot less interesting) or when everything that's
+  // left looks like more than she can handle in the state she's in.
+  raid: {
+    decay: 0.0025, stick: ['thrill', 'greed'], patience: 70,
+    label: (w, g) => `raid ${w.locations[g.loc!]?.name ?? 'a facility'}`,
+    check(w, g) {
+      const entrance = w.locations[g.loc!];
+      if (!entrance) return { drop: 'gone' };
+      if (w.locations[w.hero.locationId]?.dungeon === g.loc) return null;
+      // She's out of the building.
+      if (g.mode === 'out') return { done: 'cleared' };
+      if (g.mode === 'retreat') return wealth(w.hero) - (g.amount ?? 0) >= 60 ? { done: 'spoils' } : { drop: 'outmatched' };
+      const d = w.dungeons[g.loc!];
+      // Somebody (or she, on the way out) has emptied it already.
+      if (d && raidPlan(w, d).empty) return g.mode === 'approach' ? { drop: 'moot' } : { done: 'cleared' };
+      return null;
+    },
+    plan(c, g) {
+      const { w } = c;
+      const h = w.hero;
+      const entrance = w.locations[g.loc!];
+      if (!entrance?.gen) return;
+      const d = w.dungeons[g.loc!];
+      const inside = w.locations[h.locationId]?.dungeon === g.loc;
+      if (g.mode === 'approach') {
+        if (inside) {
+          g.mode = 'raid';
+          g.lastProgress = w.beat;
+          c.emit('goal_note', 'mixed', goalData(w, g, { variant: 'raid_in', dungeon: d?.kind ?? entrance.gen.role }));
+          return;
+        }
+        if (hpFrac(w) < 0.5) return delay(c, g, 40, 'hurt');
+        // A look at the place from the street, and a sharper head thinks twice.
+        if (distTo(w, g.loc!) <= 2) {
+          const p = d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as 'outpost' | 'hideout', entrance.gen.tier ?? 1);
+          if (p > tolerance(w) * 1.15) end(c, g, 'drop', 'outmatched', { inside: false });
+        }
+        return;
+      }
+      if (!d || g.mode !== 'raid') return;
+      if (!inside && hpFrac(w) < 0.5) return delay(c, g, 40, 'hurt');
+      const rp = raidPlan(w, d);
+      if (rp.empty) {
+        g.mode = 'out';
+        g.lastProgress = w.beat;
+        c.emit('goal_note', 'good', goalData(w, g, { variant: 'raid_clear', dungeon: d.kind }));
+        return;
+      }
+      const meds = medPacks(h).length > 0;
+      const worn = hpFrac(w) < 0.22 + 0.25 * h.competence && !meds;
+      if ((rp.blocked && !(meds && hpFrac(w) < 0.7)) || worn) {
+        g.mode = 'retreat';
+        g.lastProgress = w.beat;
+        c.emit('goal_note', 'bad', goalData(w, g, { variant: 'raid_out', dungeon: d.kind, hurt: hpFrac(w) < 0.5 }));
+      }
+    },
+    metric(w, g) {
+      const entrance = w.locations[g.loc!];
+      const d = w.dungeons[g.loc!];
+      if (g.mode === 'out' || g.mode === 'retreat') return -distTo(w, entrance?.tossTo ?? g.loc!);
+      if (!d || g.mode === 'approach') return -distTo(w, g.loc!);
+      const visited = d.rooms.filter((r) => (w.locations[r.id]?.visits ?? 0) > 0).length;
+      const taken = d.rooms.filter((r) => r.cache?.taken).length;
+      const dead = d.garrison.filter((id) => !w.npcs[id]?.alive).length;
+      return visited * 3 + taken * 10 + dead * 2;
+    },
+    targets(w, g) {
+      const entrance = w.locations[g.loc!];
+      const d = w.dungeons[g.loc!];
+      if (g.mode === 'out' || g.mode === 'retreat') return entrance ? [{ loc: entrance.tossTo, value: 3.8 }] : [];
+      if (g.mode === 'approach' || !d) return [{ loc: g.loc!, value: 3.2 }];
+      return raidPlan(w, d).targets;
+    },
+    bias(w, g, fam, id) {
+      if (g.mode === 'out' || g.mode === 'retreat') {
+        if (fam === 'raid_loot') return g.mode === 'out' ? 0 : -3;
+        if (fam === 'raid_ambush') return -4;
+        return fam === 'use_med_pack' ? 1.2 : 0;
+      }
+      if (g.mode !== 'raid') return 0;
+      if (fam === 'raid_loot') return 4.5;
+      if (fam === 'use_med_pack') return hpFrac(w) < 0.7 ? 1.4 : 0;
+      if (fam === 'raid_ambush') {
+        // She picks the fights she thinks she can win.
+        const d = w.dungeons[g.loc!];
+        const foes = d && id ? garrisonAlive(w, d).filter((n) => n.locationId === id) : [];
+        return clamp(2.6 * (1 - pressure(w, foes) / tolerance(w)), -2.5, 2.6);
+      }
+      return 0;
+    },
+  },
 };
 
 /** She sets out to rob somebody's home. The goal does the walking; see `burgle` above. */
@@ -497,6 +598,39 @@ const earnPull = (e: number): number => 1.2 * Math.log1p(e / 25);
 function heistAppetite(w: World): number {
   const t = traits(w);
   return clamp(0.4 + 0.9 * ((t.thrill - 0.5) * 0.5 + (t.greed - 0.5) * 0.5 - (t.honesty - 0.5) * 0.9) * 2, 0.1, 1.5);
+}
+
+/** How much of a raider she is, 0.2..1.8. The cautious and the content leave other people's buildings alone. */
+function raidAppetite(w: World): number {
+  const t = traits(w);
+  return clamp(0.7 + 1.6 * ((t.thrill - 0.5) * 0.3 + (t.greed - 0.5) * 0.3 + (t.courage - 0.5) * 0.25 + (t.justice - 0.5) * 0.15), 0.2, 1.8);
+}
+
+/** A place she has seen the door of and fancies her chances in, picked by what's in it and how far off it is. */
+function pickLead(c: Ctx): Lead | undefined {
+  const { w, rng } = c;
+  const leads = knownDungeons(w).filter((l) => !cooling(w, `raid:${l.entrance.id}`) && !hasGoal(w, 'raid', l.entrance.id));
+  return leads.length ? rng.weighted(leads, (l) => l.appeal / (2 + distTo(w, l.entrance.id))) : undefined;
+}
+
+function startRaidGoal(c: Ctx, lead: Lead, parent: Goal | null, desire: number, why: string, variant: string): Goal | null {
+  const { w } = c;
+  const g = adopt(c, { kind: 'raid', parent: parent?.id ?? null, loc: lead.entrance.id, mode: 'approach', why, desire, variant, extra: { place: lead.entrance.name, dungeon: lead.kind, tier: lead.tier, short: parent ? Math.max(0, (parent.amount ?? 0) - w.hero.cash) : 0 } });
+  if (g && g.amount === undefined) g.amount = Math.round(wealth(w.hero));
+  return g;
+}
+
+/** She has walked into a dungeon, however she came to be there, and from here on she's raiding it. */
+export function startRaid(c: Ctx, d: { id: Id; name: string; kind: string; tier: number }, variant: string): void {
+  const { w } = c;
+  const have = w.mind.goals.find((g) => g.kind === 'raid' && g.loc === d.id);
+  if (have) {
+    if (have.mode === 'approach') have.mode = 'raid';
+    return;
+  }
+  if (cooling(w, `raid:${d.id}`) || hpFrac(w) < 0.4) return;
+  const g = adopt(c, { kind: 'raid', loc: d.id, mode: 'raid', why: 'she is already in the door', desire: 0.7, variant, extra: { place: d.name, dungeon: d.kind, tier: d.tier } });
+  if (g) g.amount = Math.round(wealth(w.hero));
 }
 
 /** The next-best thing: cheaper than `ware` by `ratio`, same sort of thing. */
@@ -597,12 +731,13 @@ function end(c: Ctx, g: Goal, how: 'done' | 'drop', variant: string, extra: Even
   const { w } = c;
   const m = w.mind;
   const outcome = how === 'done' ? 'good' : variant === 'frustrated' || variant === 'cold' ? 'bad' : 'mixed';
-  c.emit(how === 'done' ? 'goal_done' : 'goal_drop', outcome, goalData(w, g, { variant, ...extra, ...(g.kind === 'heist' && how === 'done' ? { haul: Math.round(wealth(w.hero) - (g.amount ?? 0)) } : {}) }));
+  c.emit(how === 'done' ? 'goal_done' : 'goal_drop', outcome, goalData(w, g, { variant, ...extra, ...((g.kind === 'heist' || g.kind === 'raid') && how === 'done' ? { haul: Math.round(wealth(w.hero) - (g.amount ?? 0)) } : {}) }));
   const gone = new Set([g.id, ...descendants(w, g).map((x) => x.id)]);
   m.goals = m.goals.filter((x) => !gone.has(x.id));
   if (m.focus !== null && gone.has(m.focus)) m.focus = null;
   cool(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 220 : variant === 'overloaded' ? 40 : 90);
   if (g.kind === 'heist' && how === 'drop') cool(w, `heist:${g.loc}`, 120);
+  if (g.kind === 'raid' && how === 'drop') cool(w, `raid:${g.loc}`, variant === 'outmatched' ? 160 : 120);
   if (how === 'done') m.tally.done++;
   else m.tally.dropped++;
   const parent = goalById(w, g.parent);
@@ -733,6 +868,12 @@ function formGoals(c: Ctx): void {
     const sites = knownSites(w).filter((s) => !cooling(w, `heist:${s.loc}`));
     if (sites.length) startHeist(c, rng.pick(sites), null, 0.4 + 0.3 * t.thrill, 'because it is there', 'heist_idea');
   }
+
+  // A door with an Atlas stencil on it, or a gang's colors, and a lot of people inside who have never met her.
+  if (hpFrac(w) >= 0.7 && !hasGoal(w, 'raid') && rng.chance(0.004 * raidAppetite(w))) {
+    const lead = pickLead(c);
+    if (lead) startRaidGoal(c, lead, null, 0.45 + 0.3 * t.thrill, lead.kind === 'outpost' ? 'Atlas has it coming' : 'somebody ought to clear that place out', 'raid_idea');
+  }
 }
 
 /**
@@ -783,7 +924,8 @@ function formIdle(c: Ctx): void {
     { k: 'fame' as const, wt: 0.5 + 1.6 * (w.mind.passion?.level ?? 0) + 1.6 * (t.fame - 0.5) + 0.6 * (t.vanity - 0.5) + 0.5 * (t.artistry - 0.5) + 0.4 * (t.impress - 0.5) },
     { k: 'cash' as const, wt: 0.6 + 1.5 * (t.greed - 0.5) + (h.cash < 150 ? 0.6 : 0) },
     { k: 'dragon' as const, wt: 0.35 + 1.4 * (t.courage - 0.5) + 0.9 * (t.justice - 0.5) + 0.6 * (t.thrill - 0.5) },
-  ].filter((o) => !hasGoal(w, o.k)).map((o) => ({ ...o, wt: Math.max(0.05, o.wt) }));
+    { k: 'raid' as const, wt: knownDungeons(w).length ? 0.5 * raidAppetite(w) : 0 },
+  ].filter((o) => !hasGoal(w, o.k) && (o.k !== 'raid' || o.wt > 0)).map((o) => ({ ...o, wt: Math.max(0.05, o.wt) }));
   if (!opts.length) return;
   const pick = rng.weighted(opts, (o) => o.wt).k;
   if (pick === 'fame') {
@@ -792,6 +934,9 @@ function formIdle(c: Ctx): void {
   } else if (pick === 'cash') {
     const amount = Math.round(h.cash + rng.int(150, 350) + 0.2 * h.cash);
     adopt(c, { kind: 'cash', amount, why: h.cash < 150 ? 'being broke is embarrassing' : 'a hero needs a cushion', desire: clamp(0.4 + 0.45 * t.greed, 0.3, 0.9), variant: 'rich' });
+  } else if (pick === 'raid') {
+    const lead = pickLead(c);
+    if (lead) startRaidGoal(c, lead, null, clamp(0.45 + 0.35 * t.thrill, 0.3, 0.85), lead.kind === 'outpost' ? 'Atlas has it coming' : 'somebody ought to clear that place out', 'idle_raid');
   } else {
     adopt(c, { kind: 'dragon', amount: (w.counters.dragon_kills ?? 0) + 1, mode: 'flight', why: 'somebody has to', desire: clamp(0.45 + 0.4 * Math.max(t.courage, t.justice), 0.3, 0.9), variant: 'idle_dragon' });
   }
@@ -1024,7 +1169,7 @@ export function goalViews(w: World): GoalView[] {
   const out: GoalView[] = [];
   const walk = (g: Goal, d: number) => {
     const status = isHeld(w, g) ? 'held' : !isLeaf(w, g) ? 'waiting' : g.id === m.focus ? 'focus' : 'active';
-    const note = g.kind === 'heist' ? g.mode : g.kind === 'kill' ? (g.mode === 'beat_up' ? 'just a beating' : undefined) : g.delayUntil > w.beat ? g.delayWhy : undefined;
+    const note = g.kind === 'heist' || g.kind === 'raid' ? g.mode : g.kind === 'kill' ? (g.mode === 'beat_up' ? 'just a beating' : undefined) : g.delayUntil > w.beat ? g.delayWhy : undefined;
     out.push({ id: g.id, label: goalLabel(w, g), why: g.why, depth: d, status, priority: Math.round(priority(w, g) * 100) / 100, frustration: Math.round(g.frustration * 100) / 100, note });
     for (const k of childrenOf(w, g).sort((a, b) => priority(w, b) - priority(w, a))) walk(k, d + 1);
   };

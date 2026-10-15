@@ -131,7 +131,7 @@ export function foeProfile(n: Npc): FoeProfile {
     speed = 4;
     if (reach[1] < 4) reach = [1, 4];
   }
-  if (/scrapper|lab-bot/i.test(n.role)) speed = 2;
+  if (/scrapper|lab-bot|walker/i.test(n.role)) speed = 2;
   if (/guard dog/i.test(n.role)) speed = 5;
   if (/turret/i.test(n.role)) {
     // Bolted to the ceiling: it covers the room and goes nowhere.

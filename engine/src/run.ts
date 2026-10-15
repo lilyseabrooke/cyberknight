@@ -26,13 +26,14 @@ import { tickHustles } from './hustles';
 import { satietyBias, tickSatiety } from './romance';
 import { BASE_MIN_PER_BEAT } from './clock';
 import { npcNamed } from './population';
+import { dungeonAmbient } from './dungeons';
 
 export const MAX_BEATS = 600;
 
 /** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
 const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
 
-const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates']);
+const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush']);
 
 export function score(w: World, cand: Candidate): number {
   const h = w.hero;
@@ -123,6 +124,7 @@ export function step(w: World): GameEvent[] {
   if (!w.over) noticeTick(c);
   if (!w.over) avengerTick(c);
   if (!w.over) partnerArrives(c);
+  if (!w.over) dungeonAmbient(c);
   if (!w.over) ambientExtras(c);
   if (!w.over) ambientDragons(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);

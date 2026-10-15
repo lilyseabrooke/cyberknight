@@ -15,6 +15,7 @@ import { expand } from './mapgen';
 import { ensureDeep } from './deepen';
 import { spreadDeed } from './ties';
 import { settleContracts } from './contracts';
+import { ensureDungeon } from './dungeons';
 
 export { npcsAt };
 
@@ -41,6 +42,7 @@ export function relocate(w: World, to: string): void {
   if (dest) {
     dest.visits++;
     expand(w, dest); // the city grows to meet her; see mapgen.ts
+    if (dest.dungeon) ensureDungeon(w, dest); // and so does the inside of a dungeon; see dungeons.ts
     settleAt(w, to, w.clock);
     populate(w, dest);
   }
@@ -163,6 +165,8 @@ export interface FightOpts {
   joiners?: boolean;
   /** She started this one, on people who weren't already trying to hurt her. Anyone who sees it will have opinions. */
   assault?: boolean;
+  /** She gets the jump on them (they weren't ready), but nobody outside is watching, so there's no heat and no crowd. */
+  ambush?: boolean;
 }
 
 /** Crowd members who might pile in on the other side, and how likely each is to. */
@@ -242,7 +246,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
         !n.tags.some((t) => ['kid', 'pet', 'robot', 'dragon'].includes(t)),
     );
   const maxRounds = (foes.some((f) => f.tags.includes('boss')) ? 26 : 14) + 2;
-  const sim = new Sim(c, HOOKS, { foes, arrivals, lethal, assault: !!o.assault, maxRounds, backup });
+  const sim = new Sim(c, HOOKS, { foes, arrivals, lethal, assault: !!o.assault || !!o.ambush, maxRounds, backup });
   const res = sim.run();
   let result: FightResult = res.result;
   const wield = res.wield;

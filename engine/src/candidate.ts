@@ -3,6 +3,7 @@ import type { Ctx, Npc, World } from './types';
 import { addHeat, fight, here, npcsAt, remember, relocate } from './combat';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
+import { enterRoom } from './dungeons';
 
 /**
  * A thing Blackbird could do right now. Everything in Neo advertises these (the Sims model):
@@ -58,6 +59,9 @@ export function arrive(c: Ctx, to: string, variant: string, extra: Record<string
     ...(dest.visits === 1 && dest.blurb ? { blurb: dest.blurb } : {}),
     ...extra,
   });
+  // A room in a dungeon: whatever's in it finds out about her.
+  if (dest.dungeon && !w.over) enterRoom(c, dest);
+  if (w.over || w.hero.locationId !== to) return;
   // The world remembers: somebody here knows what she did.
   const known = here(w).filter((n) => n.memories.length > 0 && !n.hostile && n.archetype !== 'puppy');
   if (known.length && c.rng.chance(0.25)) {

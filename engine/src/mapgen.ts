@@ -1,5 +1,6 @@
 import { Rng, hashString } from './rng';
 import { inheritInfluence, pickFaction } from './factions';
+import { ENTRANCE_BLURB, hideoutName, outpostName, rollTier } from './content/dungeons';
 import type { District, Exit, GenRole, Id, Location, World } from './types';
 
 /**
@@ -38,16 +39,16 @@ const NEXT_TO: Record<District, District[]> = {
   slum: ['tenement', 'industrial', 'nightlife'],
 };
 
-type Lot = Exclude<GenRole, 'street' | 'unit' | 'backroom' | 'cellar' | 'vip'>;
+type Lot = Exclude<GenRole, 'street' | 'unit' | 'backroom' | 'cellar' | 'vip' | 'chamber'>;
 
 /** What stands along a street, by district. */
 const LOTS: Record<District, Record<Lot, number>> = {
-  market: { shop: 5, bar: 2, club: 0.5, corp: 0.4, flat: 1, tunnel: 0.5 },
-  nightlife: { shop: 1.5, bar: 4, club: 3, corp: 0.3, flat: 0.5, tunnel: 0.5 },
-  tenement: { shop: 2, bar: 2, club: 0.2, corp: 0.2, flat: 5, tunnel: 1 },
-  industrial: { shop: 1, bar: 1, club: 0.2, corp: 2, flat: 1, tunnel: 3 },
-  corporate: { shop: 1.5, bar: 1, club: 1, corp: 4, flat: 0.5, tunnel: 0.3 },
-  slum: { shop: 1.5, bar: 2, club: 0.3, corp: 0.1, flat: 3, tunnel: 2 },
+  market: { shop: 5, bar: 2, club: 0.5, corp: 0.4, flat: 1, tunnel: 0.5, outpost: 0, hideout: 0.1 },
+  nightlife: { shop: 1.5, bar: 4, club: 3, corp: 0.3, flat: 0.5, tunnel: 0.5, outpost: 0, hideout: 0.2 },
+  tenement: { shop: 2, bar: 2, club: 0.2, corp: 0.2, flat: 5, tunnel: 1, outpost: 0.1, hideout: 0.3 },
+  industrial: { shop: 1, bar: 1, club: 0.2, corp: 2, flat: 1, tunnel: 3, outpost: 0.6, hideout: 0.35 },
+  corporate: { shop: 1.5, bar: 1, club: 1, corp: 4, flat: 0.5, tunnel: 0.3, outpost: 0.7, hideout: 0 },
+  slum: { shop: 1.5, bar: 2, club: 0.3, corp: 0.1, flat: 3, tunnel: 2, outpost: 0, hideout: 0.55 },
 };
 
 const STREET_SECURITY: Record<District, number> = { market: 2, nightlife: 2, tenement: 1, industrial: 1, corporate: 3, slum: 1 };
@@ -104,6 +105,10 @@ const BLURB: Record<Exclude<GenRole, 'street'>, string[]> = {
   backroom: ['{name}: smoke, a card table and the feeling of a conversation that stopped when she opened the door.', '{name}: crates, a lock on the inside and a single bulb. The kind of room with a reason.'],
   cellar: ['{name}: kegs, damp and a single bulb on a string. The ceiling hums with whoever is above it.', '{name}: stairs down, stairs down, and then a room that is mostly bottles and spiders.'],
   vip: ['{name}: leather, a mirrored ceiling and a minibar that costs more than her armor.', '{name}: a velvet cage above the dance floor, where the people who matter are being watched by the people who don\'t.'],
+  // Dungeons write their own (content/dungeons.ts); these are only here so nothing is ever blank.
+  outpost: ['{name}: a grey Atlas block with its lights on.'],
+  hideout: ['{name}: a door with someone\'s colors on it.'],
+  chamber: ['{name}: a room in somebody else\'s building.'],
 };
 
 // ===================================================================== ids
@@ -176,7 +181,7 @@ export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, l
       const roads: Location[] = [];
       for (let i = 0; i < lots; i++) {
         const weights = LOTS[here];
-        const role = rng.weighted(Object.keys(weights) as Lot[], (r) => weights[r] * (taken.includes(r) ? 0.4 : 1) * (r === 'corp' && g.depth < 2 && here !== 'corporate' ? 0.3 : 1));
+        const role = rng.weighted(Object.keys(weights) as Lot[], (r) => weights[r] * (taken.includes(r) ? 0.4 : 1) * (r === 'corp' && g.depth < 2 && here !== 'corporate' ? 0.3 : 1) * ((r === 'outpost' || r === 'hideout') ? NEARBY_DUNGEONS(g.depth) : 1));
         taken.push(role);
         fronts.push(add(role, here, g.depth));
       }
@@ -229,6 +234,9 @@ export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, l
   }
 }
 
+/** Dungeons are worth finding, so the streets near the hand-built district have more of them than the ones far out. */
+const NEARBY_DUNGEONS = (depth: number): number => (depth <= 2 ? 3.5 : depth <= 4 ? 2.2 : 1.4);
+
 /** Chance two roads leaving a street are joined by a cut-through, and that neighbours along it share a side door. */
 const LOOP_ROADS = 0.7;
 const LOOP_DOORS = 0.25;
@@ -259,10 +267,15 @@ interface ChildOpts {
   security?: number;
   cameras?: number;
   blurb?: string;
+  /** Rooms of a dungeon: the entrance it belongs to. */
+  dungeon?: Id;
+  /** Dungeon entrances: how hard it is, when the dice shouldn't decide. */
+  tier?: number;
 }
 
 const KIND: Record<GenRole, Location['kind']> = {
   street: 'street', shop: 'shop', bar: 'bar', club: 'club', corp: 'corp', flat: 'home', unit: 'home', tunnel: 'tunnel', backroom: 'bar', cellar: 'tunnel', vip: 'club',
+  outpost: 'lair', hideout: 'lair', chamber: 'lair',
 };
 
 const clampSec = (n: number): number => Math.max(0, Math.min(9, Math.round(n)));
@@ -282,8 +295,13 @@ function sketch(
   if (existing) return existing;
   const rng = stream(w, id);
   const street = role === 'street';
-  const interior = role === 'unit' || role === 'backroom' || role === 'cellar' || role === 'vip' || (role === 'corp' && o.rank !== undefined) || (role === 'tunnel' && o.rank !== undefined);
-  const name = o.name ?? nameFor(rng, role, district, parent, o.rank);
+  const interior = role === 'unit' || role === 'backroom' || role === 'cellar' || role === 'vip' || role === 'chamber' || (role === 'corp' && o.rank !== undefined) || (role === 'tunnel' && o.rank !== undefined);
+  const entrance = role === 'outpost' || role === 'hideout';
+  // Dungeons draw on a stream of their own, so adding them to the map doesn't reshuffle anything else.
+  const drng = entrance ? new Rng(`dungeon:${w.worldSeed}:${id}`) : null;
+  const tier = entrance ? o.tier ?? rollTier(drng!, role as 'outpost' | 'hideout', depth, district) : undefined;
+  // (An entrance is named once it's known whose it is, below.)
+  let name = o.name ?? (entrance ? '' : nameFor(rng, role, district, parent, o.rank));
   const deep = Math.min(2, Math.floor(depth / 4));
 
   let security: number;
@@ -299,23 +317,34 @@ function sketch(
     case 'backroom': security = parent.security + 2; break;
     case 'cellar': security = 1; break;
     case 'vip': security = parent.security + 1; break;
+    case 'outpost': security = 3 + tier!; break;
+    case 'hideout': security = 2 + tier!; break;
+    case 'chamber': security = o.security ?? parent.security; break;
   }
-  security = clampSec(Math.min(security, role === 'unit' ? 9 : role === 'corp' || role === 'backroom' || role === 'vip' ? 9 : 6));
+  security = clampSec(Math.min(security, role === 'unit' || role === 'chamber' ? 9 : role === 'corp' || role === 'backroom' || role === 'vip' ? 9 : 6));
 
   const crowded = role === 'bar' ? rng.chance(0.3 + (district === 'nightlife' ? 0.3 : 0)) : role === 'club' || role === 'vip' ? true : street ? rng.chance(CROWDED[district]) : false;
-  const noCameras = role === 'flat' || (role === 'unit' && o.cameras === undefined) || role === 'tunnel' || role === 'cellar' || role === 'backroom';
-  const blurbs = street ? [`${name}. ${pick(rng, MOOD[district])}`] : BLURB[role as Exclude<GenRole, 'street'>];
+  const noCameras = role === 'flat' || (role === 'unit' && o.cameras === undefined) || role === 'tunnel' || role === 'cellar' || role === 'backroom' || entrance || role === 'chamber';
 
   // Its own corner of the city: a whiff of whoever is round about, and the owners where there are owners.
   const influence = inheritInfluence(w as World, [parent], rng.fork('influence'));
   const gang = street ? pickFaction(w as World, rng.fork('turf'), influence, ['gang']) : null;
   let faction: Id | undefined;
-  if (role === 'shop') faction = 'shop';
+  if (role === 'outpost') {
+    faction = 'atlas';
+    name = o.name ?? outpostName(drng!);
+  } else if (role === 'hideout') {
+    const crews = Object.values(w.factions).filter((f) => f.kind === 'gang' && f.id !== 'ganger');
+    // Whose it is is the world's business, not the run's: the turf around it can differ from one run's setup to the next.
+    faction = crews.length ? drng!.pick(crews).id : 'ganger';
+    name = o.name ?? hideoutName(drng!, w.factions[faction]?.name ?? 'Street gang');
+  } else if (role === 'shop') faction = 'shop';
   else if (role === 'corp') faction = 'atlas';
   else if (role === 'bar' || role === 'club') {
     faction = `v:${id}`;
     w.factions[faction] ??= { id: faction, name, kind: 'venue', relations: {} };
-  } else if (role === 'backroom' || role === 'vip' || role === 'cellar') faction = parent.faction;
+  } else if (role === 'backroom' || role === 'vip' || role === 'cellar' || role === 'chamber') faction = parent.faction;
+  const blurbs = street ? [`${name}. ${pick(rng, MOOD[district])}`] : entrance ? ENTRANCE_BLURB[role as 'outpost' | 'hideout'] : BLURB[role as Exclude<GenRole, 'street'>];
 
   const toStreet = streetOf(w, parent);
   const loc: Location = {
@@ -335,14 +364,32 @@ function sketch(
     influence,
     populated: false,
     blurb: o.blurb ?? pick(rng, blurbs).replace('{name}', name.charAt(0).toUpperCase() + name.slice(1)),
-    gen: { role, parent: parent.id, slot, depth, district, expanded: false, ...(o.rank !== undefined ? { rank: o.rank } : {}), ...(o.max !== undefined ? { max: o.max } : {}) },
+    gen: { role, parent: parent.id, slot, depth, district, expanded: false, ...(o.rank !== undefined ? { rank: o.rank } : {}), ...(o.max !== undefined ? { max: o.max } : {}), ...(tier !== undefined ? { tier } : {}) },
   };
   if (faction) loc.faction = faction;
+  if (entrance) loc.dungeon = id;
+  else if (o.dungeon) loc.dungeon = o.dungeon;
   w.locations[id] = loc;
 
   const label = (o.label ?? name).replace('{name}', name);
   parent.exits.push({ to: id, label, hidden: !!o.hidden, gate: o.gate ?? null });
   return loc;
+}
+
+/** An outpost or a hideout on a street that already exists. (Streets grow them on their own; this is for putting one somewhere on purpose.) */
+export function addDungeon(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, street: Location, kind: 'outpost' | 'hideout', slot: number, tier?: number): Location {
+  expand(w, street);
+  return sketch(w, street, slot, kind, street.gen?.district ?? 'industrial', street.gen?.depth ?? 1, { tier });
+}
+
+/** A room inside a dungeon, off `parent`. Dungeons say what it's called, how well it's guarded and what it looks like. */
+export function addChamber(
+  w: Pick<World, 'worldSeed' | 'locations' | 'factions'>,
+  parent: Location,
+  slot: number,
+  o: { name: string; security: number; blurb: string; label: string; dungeon: Id },
+): Location {
+  return sketch(w, parent, slot, 'chamber', parent.gen?.district ?? 'industrial', parent.gen?.depth ?? 1, { name: o.name, security: o.security, cameras: 0, blurb: o.blurb, label: o.label, dungeon: o.dungeon });
 }
 
 /** The nearest outdoor place back up the tree, for being thrown out onto. */
@@ -371,6 +418,7 @@ function nameFor(rng: Rng, role: GenRole, district: District, parent: Location, 
     case 'backroom': return `${possessive(parent.name)} back room`;
     case 'cellar': return `${possessive(parent.name)} cellar`;
     case 'vip': return `${possessive(parent.name)} VIP lounge`;
+    case 'outpost': case 'hideout': case 'chamber': return parent.name; // dungeons name themselves; see sketch
   }
 }
 

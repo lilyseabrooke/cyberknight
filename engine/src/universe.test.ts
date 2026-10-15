@@ -39,7 +39,7 @@ describe('world and run, as two things', () => {
 
   it('the people, places and factions are the persistent half; her night is the run', () => {
     const { universe, run } = splitWorld(createWorld({ seed: 'which' }));
-    expect(Object.keys(universe).sort()).toEqual(['clock', 'factions', 'features', 'legacy', 'locations', 'npcs', 'stubs', 'ties', 'version', 'worldSeed']);
+    expect(Object.keys(universe).sort()).toEqual(['clock', 'dungeons', 'factions', 'features', 'legacy', 'locations', 'npcs', 'stubs', 'ties', 'version', 'worldSeed']);
     expect(run).toHaveProperty('hero');
     expect(run).toHaveProperty('heat');
     expect(run).not.toHaveProperty('npcs');

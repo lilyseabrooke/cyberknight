@@ -199,6 +199,47 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['riot_shotgun'], armors: ['kevlar_duster'], armorChance: 1, loot: [], lootChance: 0, cash: [150, 400],
     desc: ['a gunsmith with forearms like cargo cranes who sells bagels out of the same display case as the grenades'],
   },
+  // ---------------- what dungeons keep (the base stats are tier 1; dungeons.ts scales them by how hard the place is) ----------------
+  atlas_drone: {
+    role: 'Atlas sentry drone', level: [3, 3], tags: ['robot', 'patrol', 'sentry'], faction: 'atlas',
+    names: 'robot', weapons: [], loot: ['drone_core', 'memory_shard'], lootChance: 0.55, cash: [0, 0], hp: 36, power: 9,
+    desc: ['an Atlas sentry drone, ticking quietly on its charging cradle with one lens half-open'],
+  },
+  atlas_walker: {
+    role: 'Atlas enforcer walker', level: [5, 5], tags: ['robot', 'security', 'strong'], faction: 'atlas',
+    names: 'robot', weapons: [], loot: ['drone_core', 'memory_shard', 'scrap_metal'], lootChance: 0.7, cash: [0, 0], hp: 95, power: 18,
+    desc: ['an Atlas enforcer walker: two and a half metres of grey alloy on hydraulic legs, built to hold a door and enjoy it'],
+  },
+  atlas_trooper: {
+    role: 'Atlas security trooper', level: [3, 4], tags: ['security', 'augmented'], faction: 'atlas',
+    names: 'person', weapons: ['service_pistol', 'stunner_mk3'], armors: ['riot_vest'], armorChance: 0.45,
+    loot: ['corp_creds', 'memory_shard', 'med_pack', 'patch_kit'], lootChance: 0.4, cash: [30, 110],
+    desc: ['an Atlas trooper in grey plating with a company-issue haircut and a company-issue stare'],
+  },
+  atlas_officer: {
+    role: 'Atlas outpost commander', level: [6, 6], tags: ['security', 'augmented', 'strong', 'commander'], faction: 'atlas',
+    names: 'person', weapons: ['pulse_rifle'], armors: ['corp_plate'], armorChance: 0.8,
+    loot: ['corp_creds', 'helix_sample', 'memory_shard'], lootChance: 1, cash: [200, 500],
+    desc: ['an Atlas commander with a cybernetic jaw, three service stripes and an expression like a closed ledger'],
+  },
+  gang_runner: {
+    role: 'gang runner', level: [1, 2], tags: ['rowdy', 'ganger'], faction: 'ganger',
+    names: 'person', weapons: ['broken_bottle', 'pool_cue', 'switchblade', 'zip_pistol'], armors: ['leather_jacket'], armorChance: 0.3,
+    loot: ['vipers_patch', 'credchip', 'gold_tooth', 'patch_kit', 'neural_gum'], lootChance: 0.5, cash: [5, 35],
+    desc: ['a gang runner with fresh colors, a borrowed weapon and something to prove'],
+  },
+  gang_enforcer: {
+    role: 'gang enforcer', level: [3, 4], tags: ['rowdy', 'ganger', 'strong'], faction: 'ganger',
+    names: 'person', weapons: ['cleaver', 'arc_gauntlet', 'zip_pistol'], armors: ['leather_jacket', 'kevlar_duster'], armorChance: 0.55,
+    loot: ['gold_tooth', 'credchip', 'med_pack', 'stim'], lootChance: 0.55, cash: [25, 80],
+    desc: ['a gang enforcer with the jacket sleeves cut off and the knuckles chromed'],
+  },
+  gang_captain: {
+    role: 'gang captain', level: [6, 6], tags: ['rowdy', 'ganger', 'strong', 'commander'], faction: 'ganger',
+    names: 'person', weapons: ['rail_revolver', 'gauss_smg', 'riot_shotgun'], armors: ['kevlar_duster', 'riot_vest'], armorChance: 1,
+    loot: ['gold_tooth', 'credchip', 'med_pack', 'memory_shard', 'stim'], lootChance: 1, cash: [150, 400],
+    desc: ['the captain, a mountain of a person in a coat of stitched-together colors, with the calm of someone who has never had to raise a voice'],
+  },
   // ---------------- generic people for places nobody wrote by hand ----------------
   shopkeeper: {
     role: 'shopkeeper', level: [2, 3], tags: ['staff', 'shopkeeper'], faction: 'shop',
@@ -284,6 +325,11 @@ const PEOPLE: Record<string, PersonSpec> = {
   npd_officer: { age: [24, 56] },
   npd_sergeant: { age: [38, 60] },
   shopkeeper: { age: [26, 68] },
+  atlas_trooper: { women: 0.4, age: [24, 48] },
+  atlas_officer: { women: 0.4, age: [34, 58] },
+  gang_runner: { age: [18, 30] },
+  gang_enforcer: { age: [22, 40] },
+  gang_captain: { age: [30, 52] },
   drifter: { age: [19, 72] },
 };
 
