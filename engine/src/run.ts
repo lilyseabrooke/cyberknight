@@ -46,6 +46,7 @@ export function score(w: World, cand: Candidate): number {
   s += heatBias(w, cand);
   s += passionBias(w, cand);
   s += (cand.smart ?? 0) * h.competence;
+  s += restlessness(w, cand);
   // Not in front of people. Not where the police will hear about it.
   s -= discretion(w, cand);
   s -= (cand.risk ?? 0) * (0.25 + h.competence * 1.5) * riskScale(w);
@@ -56,6 +57,22 @@ export function score(w: World, cand: Candidate): number {
   const repeats = w.recent.filter((k) => k === cand.key).length;
   s -= repeats * 0.5;
   return s;
+}
+
+/** How interesting a place still is: untouched is 1, and every thing she does there wears it down. */
+const interest = (w: World, id: string): number => 1 / (1 + (w.locations[id]?.doings ?? 0) / 6);
+
+/**
+ * Novelty-seeking. The more she's done somewhere the less it holds her, so she drifts toward places
+ * she knows less, in proportion to how much more interesting they are than where she's standing.
+ * Curious, thrill-seeking girls feel it most; the incurious homebody still gets bored, just slower.
+ */
+export function restlessness(w: World, cand: Candidate): number {
+  const [family, dest] = cand.key.split(':') as [string, string | undefined];
+  if (family !== 'go' || !dest) return 0;
+  const t = w.hero.personality.traits;
+  const appetite = Math.max(0.3, 0.8 + (t.curiosity - 0.5) + 0.4 * (t.thrill - 0.5));
+  return 1.5 * appetite * (interest(w, dest) - interest(w, w.hero.locationId));
 }
 
 /** Softmax pick. Competence lowers the temperature, so a sharper mind picks the best option more reliably. */
@@ -137,6 +154,10 @@ export function step(w: World): GameEvent[] {
       const pick = choose(w, rng, cands);
       chosen = pick;
       w.recent.push(pick.key);
+      if (!pick.key.startsWith('go:')) {
+        const loc = w.locations[w.hero.locationId];
+        if (loc) loc.doings = (loc.doings ?? 0) + 1;
+      }
       if (w.recent.length > 14) w.recent.shift();
       pick.run(c);
     }

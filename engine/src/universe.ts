@@ -159,6 +159,7 @@ function wakeTheWorld(u: Universe): void {
   }
   for (const l of Object.values(u.locations)) {
     l.visits = 0;
+    delete l.doings;
     delete l.fatigue;
     delete l.wary;
     l.graffiti = 0; // TODO: pieces should outlast the run once their effects are per-piece rather than a count

@@ -329,6 +329,8 @@ export interface Location {
   /** Where the hero scrambles when fleeing. */
   fleeTo: Id;
   visits: number;
+  /** Things she has done here (arriving doesn't count). Familiarity breeds boredom; see `restlessness` in run.ts. */
+  doings?: number;
   /** Security cameras. They see everything she does, unless the power is out. */
   cameras: number;
   /** How tired this place's crowd is of her, per skill she performs with (singing, guitar...). Recovers with time. */
