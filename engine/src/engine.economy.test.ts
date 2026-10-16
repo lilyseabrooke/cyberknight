@@ -764,11 +764,14 @@ describe('resources and consequences', () => {
 
     slow('in the sim she actually shops: med packs, ammo, gear and stims all get bought', () => {
       const seen = new Set<string>();
-      for (let i = 0; i < 80; i++) for (const e of play(`shop-${i}`, 0.9).events) seen.add(`${e.type}${e.data.variant ? ':' + e.data.variant : ''}`);
+      const stims = () => [...seen].some((k) => k.startsWith('buy_stim'));
+      // Buying stims off a dealer turns up in about one run in sixty, so give it more nights than the rest need (the
+      // seeds are fixed, so this is still the same test every time).
+      for (let i = 0; i < 80 || (!stims() && i < 400); i++) for (const e of play(`shop-${i}`, 0.9).events) seen.add(`${e.type}${e.data.variant ? ':' + e.data.variant : ''}`);
       for (const k of ['buy_med_pack', 'buy_ammo', 'buy_gear:weapon', 'use_med_pack', 'out_of_ammo', 'crime_seen:camera', 'heat_up:npd', 'bystander:call_cops']) {
         expect(seen.has(k), k).toBe(true);
       }
-      expect([...seen].some((k) => k.startsWith('buy_stim'))).toBe(true);
+      expect(stims()).toBe(true);
     });
   });
 

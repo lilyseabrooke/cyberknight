@@ -52,7 +52,7 @@ Gang writing rules:
 
 ## Venues and shops
 
-Venues and shops are factions too (`kind: 'venue'|'shop'`), but **they are not permanent**: the owner can be killed,
+Venues and shops (bars, clubs, gyms, pawn shops) are factions too (`kind: 'venue'|'shop'`), but **they are not permanent**: the owner can be killed,
 the place closed, the stock robbed. Write them as *types with a personality*, not as institutions the world depends on.
 - The starting district has the Rusty Halo (scruffy home bar), the Neon Pharaoh (glossy nightclub) and Strand Street
   shops (Chem-Mart, Bullets & Bagels, Spray & Pray). Their current lore is in `engine/src/world.ts`; don't repeat it here.

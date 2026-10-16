@@ -17,6 +17,7 @@ import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } f
 import { getImplant } from './extras';
 import { possessive } from './mapgen';
 import { estimatePressure, garrisonAlive, isEntrance, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
+import { appraise, giverPlace, livePending, objectiveRoom, questReady } from './quests';
 import { MAX_IMPLANTS } from './content/implants';
 import { maybeAsk, waiting, type Proposal } from './advice';
 import {
@@ -98,8 +99,39 @@ const goalData = (w: World, g: Goal, extra: EventData = {}): EventData => ({
   ...(g.ware && w.mind.wares[g.ware] ? { item: w.mind.wares[g.ware]!.name } : {}),
   ...(g.loc && siteAt(g.loc) ? { place: siteAt(g.loc)!.label } : {}),
   ...((g.kind === 'raid' || g.kind === 'explore') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
+  ...(g.kind === 'quest' ? questData(w, g) : {}),
   ...extra,
 });
+
+
+/** What the log needs to tell a job: who wants it, what it is, where, and the pay. */
+function questData(w: World, g: Goal): EventData {
+  const q = g.npc ? w.npcs[g.npc]?.quest : undefined;
+  if (!q) return {};
+  return {
+    place: w.locations[q.site]?.name ?? 'somewhere', what: q.what, qkind: q.kind, reward: q.reward, style: g.mode ?? 'approach',
+    ...(q.kind === 'flatline' ? { target: q.what, target_g: q.targetGender ?? 'nonbinary' } : {}),
+  };
+}
+
+/** The job, as she'd put it to herself. */
+function questLabel(w: World, g: Goal): string {
+  const giver = g.npc ? w.npcs[g.npc] : undefined;
+  const q = giver?.quest;
+  const name = giver?.name ?? 'someone';
+  if (!q) return `do a job for ${name}`;
+  if (g.mode === 'return') return `report back to ${name}`;
+  return q.kind === 'flatline' ? `flatline ${q.what} for ${name}` : q.kind === 'retrieve' ? `get ${q.what} for ${name}` : `get into ${q.what} for ${name}`;
+}
+
+/** Quiet or loud, once she's through the door. A place she can't take on loud is one she sneaks through; otherwise it's her nature. */
+function questStyle(c: Ctx, d: { kind: DungeonKind; tier: number }, kind: string, p: number): 'sneak' | 'clear' {
+  const { w, rng } = c;
+  const t = traits(w);
+  if (p > tolerance(w)) return 'sneak';
+  const loud = clamp(0.3 + 0.4 * (t.thrill - 0.5) + 0.4 * (t.courage - 0.5) + 0.3 * (t.temper - 0.5) + 0.3 * (t.justice - 0.5) + (kind === 'flatline' ? 0.1 : kind === 'hack' ? -0.15 : 0), 0.05, 0.85);
+  return rng.chance(loud) ? 'clear' : 'sneak';
+}
 
 // ===================================================================== kinds
 
@@ -614,6 +646,127 @@ const KINDS: Record<GoalKind, Kind> = {
     targets: (_w, g) => [{ loc: g.loc!, value: 2.8 }],
     bias: () => 0,
   },
+  // ------------------------------------------------------------------ quest
+  // A job for somebody (quests.ts). The trip there is ordinary travel; inside, she goes about it quietly or loudly: sneaking
+  // straight for the room that matters, or clearing the place out on the way. Once the job is done she wants to find whoever
+  // asked, wherever they have got to.
+  quest: {
+    decay: 0.0016, stick: ['loyalty', 'greed', 'courage'], patience: 120,
+    label: (w, g) => questLabel(w, g),
+    check(w, g) {
+      const giver = g.npc ? w.npcs[g.npc] : undefined;
+      const q = giver?.quest;
+      if (!giver || !giver.alive || !q || q.site !== g.loc) return { drop: 'gone' };
+      if (q.state === 'done') return { done: 'quest' };
+      if (q.state === 'failed') return { drop: 'quest_failed' };
+      return null;
+    },
+    plan(c, g) {
+      const { w } = c;
+      const h = w.hero;
+      const giver = w.npcs[g.npc!]!;
+      const q = giver.quest!;
+      const entrance = w.locations[g.loc!];
+      if (!entrance?.gen) return;
+      const d = w.dungeons[g.loc!];
+      const inside = w.locations[h.locationId]?.dungeon === g.loc;
+      // It's done. Now to say so.
+      if (g.mode !== 'return' && questReady(w, giver)) {
+        q.state = 'ready';
+        g.mode = 'return';
+        g.lastProgress = w.beat;
+        c.emit('goal_note', 'good', goalData(w, g, { variant: 'quest_ready' }));
+        return;
+      }
+      if (g.mode === 'return') return;
+      const pressureNow = (): number => (d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen!.role as DungeonKind, entrance.gen!.tier ?? 1));
+      if (!inside) {
+        // Out of the building and hurt: patch up first, then back to it.
+        if (g.mode === 'retreat') {
+          g.mode = 'approach';
+          return delay(c, g, 40, 'hurt');
+        }
+        g.mode = 'approach';
+        if (hpFrac(w) < 0.5) return delay(c, g, 40, 'hurt');
+        // A look at the place from the street, and a sharper head thinks twice.
+        if (distTo(w, g.loc!) <= 2 && pressureNow() > tolerance(w) * 1.5) end(c, g, 'drop', 'outmatched', { inside: false });
+        return;
+      }
+      if (!d) return;
+      if (g.mode === 'approach' || g.mode === 'retreat' || g.mode === undefined) {
+        g.mode = questStyle(c, d, q.kind, pressureNow());
+        g.lastProgress = w.beat;
+        if (!g.entered) c.emit('goal_note', 'mixed', goalData(w, g, { variant: 'quest_in', dungeon: d.kind }));
+        g.entered = true;
+        return;
+      }
+      // Quiet, and it has gone loud: no point being shy now.
+      if (g.mode === 'sneak' && d.alert >= 2) {
+        g.mode = 'clear';
+        c.emit('goal_note', 'bad', goalData(w, g, { variant: 'quest_blown', dungeon: d.kind }));
+        return;
+      }
+      const meds = medPacks(h).length > 0;
+      if (hpFrac(w) < 0.22 + 0.25 * h.competence && !meds) {
+        g.mode = 'retreat';
+        g.lastProgress = w.beat;
+        c.emit('goal_note', 'bad', goalData(w, g, { variant: 'quest_retreat', dungeon: d.kind }));
+      }
+    },
+    metric(w, g) {
+      const giver = g.npc ? w.npcs[g.npc] : undefined;
+      const entrance = w.locations[g.loc!];
+      if (g.mode === 'return') return 40 - (giver ? distTo(w, giverPlace(w, giver)) : 12);
+      if (g.mode === 'retreat') return -distTo(w, entrance?.tossTo ?? g.loc!);
+      const d = w.dungeons[g.loc!];
+      if (!d || g.mode === 'approach') return -distTo(w, g.loc!);
+      const visited = d.rooms.filter((r) => (w.locations[r.id]?.visits ?? 0) > 0).length;
+      const dead = d.garrison.filter((id) => !w.npcs[id]?.alive).length;
+      return 5 + visited * 2 + dead;
+    },
+    targets(w, g) {
+      const giver = g.npc ? w.npcs[g.npc] : undefined;
+      const q = giver?.quest;
+      if (!giver || !q) return [];
+      if (g.mode === 'return') return [{ loc: giverPlace(w, giver), value: 3.8 }];
+      const entrance = w.locations[g.loc!];
+      if (g.mode === 'retreat') return entrance ? [{ loc: entrance.tossTo, value: 3.8 }] : [];
+      const d = w.dungeons[g.loc!];
+      if (!d || g.mode === 'approach') return [{ loc: g.loc!, value: 3.4 }];
+      const room = objectiveRoom(w, q);
+      const out = room ? [{ loc: room, value: 3.6 }] : [];
+      if (g.mode === 'clear') for (const t of raidPlan(w, d).targets) if (t.loc !== room) out.push(t);
+      return out;
+    },
+    bias(w, g, fam, id) {
+      const giver = g.npc ? w.npcs[g.npc] : undefined;
+      const q = giver?.quest;
+      if (!giver || !q) return 0;
+      if (g.mode === 'return') {
+        if (fam === 'turn_in_quest') return id === g.npc ? 7 : 0;
+        return fam === 'raid_ambush' ? -3 : NOISY.has(fam) ? -1.5 : 0;
+      }
+      if (g.mode === 'retreat') {
+        if (fam === 'raid_loot') return -3;
+        if (fam === 'raid_ambush') return -4;
+        return fam === 'use_med_pack' ? 1.2 : 0;
+      }
+      if (g.mode === 'approach') return NOISY.has(fam) ? -1 : 0;
+      const room = objectiveRoom(w, q);
+      if (fam === 'quest_take' || fam === 'quest_hack') return id === room ? 6.5 : 0;
+      if (fam === 'use_med_pack') return hpFrac(w) < 0.7 ? 1.4 : 0;
+      if (fam === 'raid_ambush') {
+        // The one she came for is worth a fight, however she's going about it.
+        if (q.kind === 'flatline' && id === room) return 5.5;
+        if (g.mode === 'sneak') return -3.5;
+        const d = w.dungeons[g.loc!];
+        const foes = d && id ? garrisonAlive(w, d).filter((n) => n.locationId === id) : [];
+        return clamp(2.6 * (1 - pressure(w, foes) / tolerance(w)), -2.5, 2.6);
+      }
+      if (fam === 'raid_loot') return g.mode === 'clear' ? 3 : 0.5;
+      return g.mode === 'sneak' && NOISY.has(fam) ? -2.2 : 0;
+    },
+  },
 };
 
 /** Places she has never been that she could walk to: streets and rooms, not other people's homes, dungeons or corp floors. */
@@ -705,6 +858,8 @@ export function startRaid(c: Ctx, d: { id: Id; name: string; kind: string; tier:
     if (have.mode === 'approach') have.mode = 'raid';
     return;
   }
+  // A job that brought her here goes about the place its own way.
+  if (w.mind.goals.some((g) => g.kind === 'quest' && g.loc === d.id)) return;
   if (cooling(w, `raid:${d.id}`) || hpFrac(w) < 0.4) return;
   const g = adopt(c, { kind: 'raid', loc: d.id, mode: 'raid', why: 'she is already in the door', desire: 0.7, variant, extra: { place: d.name, dungeon: d.kind, tier: d.tier } });
   if (g) g.amount = Math.round(wealth(w.hero));
@@ -790,6 +945,13 @@ export function adoptContract(c: Ctx, targetId: string, mode: 'kill' | 'beat_up'
   return adopt(c, { kind: 'kill', npc: targetId, mode, why, desire, variant: 'contract', extra: { npc: t.name } });
 }
 
+/** She takes a job on as a goal, if she has room for it. */
+export function startQuestGoal(c: Ctx, giver: Npc, desire: number, variant: string): Goal | null {
+  const q = giver.quest;
+  if (!q) return null;
+  return adopt(c, { kind: 'quest', npc: giver.id, loc: q.site, mode: 'approach', why: `${giver.name} is paying ${money(q.reward)}`, desire, variant, extra: { reward: q.reward } });
+}
+
 function adopt(c: Ctx, s: Spec): Goal | null {
   const { w, rng } = c;
   const m = w.mind;
@@ -828,6 +990,8 @@ function adopt(c: Ctx, s: Spec): Goal | null {
   };
   g.metric = KINDS[g.kind].metric(w, g);
   m.goals.push(g);
+  // A job she'd been keeping in mind is a goal now.
+  if (g.kind === 'quest' && m.quests) m.quests = m.quests.filter((id) => id !== g.npc);
   c.emit('goal_new', 'mixed', goalData(w, g, { variant: s.variant, ...s.extra }));
   return g;
 }
@@ -860,6 +1024,9 @@ function end(c: Ctx, g: Goal, how: 'done' | 'drop', variant: string, extra: Even
   m.goals = m.goals.filter((x) => !gone.has(x.id));
   if (m.focus !== null && gone.has(m.focus)) m.focus = null;
   cool(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 220 : variant === 'overloaded' ? 40 : 90);
+  // She still has the job, even if she's put it down for now. (And a place that looked like too much from the street still does.)
+  if (g.kind === 'quest' && variant === 'outmatched') cool(w, `quest:${subjectOf(g)}`, 240);
+  if (g.kind === 'quest' && how === 'drop' && g.npc && w.npcs[g.npc]?.quest && !['gone', 'quest_failed'].includes(variant) && !(m.quests ??= []).includes(g.npc)) m.quests.push(g.npc);
   if (g.kind === 'heist' && how === 'drop') cool(w, `heist:${g.loc}`, 120);
   if (g.kind === 'raid' && how === 'drop') cool(w, `raid:${g.loc}`, variant === 'outmatched' ? 160 : 120);
   if (how === 'done') m.tally.done++;
@@ -961,6 +1128,30 @@ function observe(c: Ctx): void {
   adopt(c, spec);
 }
 
+/**
+ * A job she said yes to and hasn't got round to. Now and then, when she has room for a new goal, she thinks about it again:
+ * whichever she likes the look of best is the one she considers, and whether it becomes a goal depends on how it looks to her now.
+ */
+export function recallJobs(c: Ctx): void {
+  const { w, rng } = c;
+  if (hpFrac(w) < 0.6 || waiting(w) || cooling(w, 'quest_think')) return;
+  const jobs = livePending(w);
+  if (!jobs.length) return;
+  // Money she is owed comes first, and she doesn't wait for room.
+  const owed = jobs.filter((n) => questReady(w, n));
+  if (owed.length && rng.chance(0.2)) {
+    cool(w, 'quest_think', 25);
+    const pick = rng.pick(owed);
+    startQuestGoal(c, pick, Math.max(0.7, appraise(w, pick, pick.quest!).desire), 'quest_collect');
+    return;
+  }
+  if (topLevel(w).length >= capacity(w) || !rng.chance(0.03)) return;
+  cool(w, 'quest_think', 25);
+  const pick = rng.weighted(jobs, (n) => Math.max(0.05, appraise(w, n, n.quest!).score + 0.6));
+  const a = appraise(w, pick, pick.quest!);
+  if (rng.chance(clamp(0.35 + 0.6 * a.score, 0.15, 0.9))) startQuestGoal(c, pick, a.desire, 'quest_resume');
+}
+
 function formGoals(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
@@ -989,6 +1180,8 @@ function formGoals(c: Ctx): void {
   if (h.cash < 25 && !hasGoal(w, 'cash') && rng.chance(0.01 + 0.03 * Math.max(0, t.greed - 0.4))) {
     adopt(c, { kind: 'cash', amount: h.cash + 120 + rng.int(0, 180), why: 'being broke is embarrassing', desire: 0.35 + 0.4 * t.greed, variant: 'rich' });
   }
+
+  recallJobs(c);
 
   formIdle(c);
 
@@ -1071,14 +1264,17 @@ function formIdle(c: Ctx): void {
   const t = traits(w);
   if (topLevel(w).length || waiting(w)) return;
   if (w.beat > 3 && !rng.chance(0.5)) return;
-  type Pick = 'fame' | 'cash' | 'dragon' | 'raid';
+  type Pick = 'fame' | 'cash' | 'dragon' | 'raid' | 'quest';
+  const jobs = livePending(w);
   const opts = [
     // Fame is a sideline now; a real calling (passion) can still pull her toward it.
     { k: 'fame' as Pick, wt: 0.12 + 1.2 * (w.mind.passion?.level ?? 0) + 0.5 * (t.fame - 0.5) + 0.2 * (t.vanity - 0.5) + 0.2 * (t.artistry - 0.5) },
     { k: 'cash' as Pick, wt: 0.9 + 1.5 * (t.greed - 0.5) + (h.cash < 150 ? 0.6 : 0) },
     { k: 'dragon' as Pick, wt: 0.5 + 1.4 * (t.courage - 0.5) + 0.9 * (t.justice - 0.5) + 0.6 * (t.thrill - 0.5) },
     { k: 'raid' as Pick, wt: knownDungeons(w).length ? 0.9 * raidAppetite(w) : 0 },
-  ].filter((o) => !hasGoal(w, o.k) && (o.k !== 'raid' || o.wt > 0)).map((o) => ({ ...o, wt: Math.max(0.05, o.wt) }));
+    // A job she has already said yes to is the obvious thing to do with an empty head.
+    { k: 'quest' as Pick, wt: jobs.length ? 1.4 : 0 },
+  ].filter((o) => !hasGoal(w, o.k) && ((o.k !== 'raid' && o.k !== 'quest') || o.wt > 0)).map((o) => ({ ...o, wt: Math.max(0.05, o.wt) }));
   if (!opts.length) return;
   const pick = rng.weighted(opts, (o) => o.wt).k;
   const specOf = (k: Pick): Spec | null => {
@@ -1089,6 +1285,12 @@ function formIdle(c: Ctx): void {
     if (k === 'cash') {
       const amount = Math.round(h.cash + rng.int(150, 350) + 0.2 * h.cash);
       return { kind: 'cash', amount, why: h.cash < 150 ? 'being broke is embarrassing' : 'a hero needs a cushion', desire: clamp(0.4 + 0.45 * t.greed, 0.3, 0.9), variant: 'rich' };
+    }
+    if (k === 'quest') {
+      const best = [...jobs].sort((a, b) => appraise(w, b, b.quest!).score - appraise(w, a, a.quest!).score)[0];
+      if (!best) return null;
+      const q = best.quest!;
+      return { kind: 'quest', npc: best.id, loc: q.site, mode: 'approach', why: `${best.name} is paying ${money(q.reward)}`, desire: appraise(w, best, q).desire, variant: 'quest_resume', extra: { reward: q.reward } };
     }
     if (k === 'raid') {
       const lead = pickLead(c);
@@ -1108,6 +1310,7 @@ function formIdle(c: Ctx): void {
         o.k === 'fame' ? { id: 'fame', label: 'Get famous', hint: `${sp.amount} fame`, spec: sp }
         : o.k === 'cash' ? { id: 'cash', label: 'Get rich', hint: `${money(sp.amount ?? 0)} neodollars`, spec: sp }
         : o.k === 'dragon' ? { id: 'dragon', label: 'Hunt a dragon', hint: 'big, and made of Atlas', spec: sp }
+        : o.k === 'quest' ? { id: 'quest', label: `Do the job for ${npcName(w, sp.npc)}`, hint: `${money(Number(sp.extra?.reward ?? 0))} neodollars`, spec: sp }
         : { id: 'raid', label: `Clear out ${sp.extra?.place ?? 'a building'}`, hint: `tier ${sp.extra?.tier ?? 1}`, spec: sp },
       );
     }
@@ -1369,7 +1572,7 @@ export function goalViews(w: World): GoalView[] {
   const out: GoalView[] = [];
   const walk = (g: Goal, d: number) => {
     const status = isHeld(w, g) ? 'held' : !isLeaf(w, g) ? 'waiting' : g.id === m.focus ? 'focus' : 'active';
-    const note = g.kind === 'heist' || g.kind === 'raid' ? g.mode : g.kind === 'kill' ? (g.mode === 'beat_up' ? 'just a beating' : undefined) : g.delayUntil > w.beat ? g.delayWhy : undefined;
+    const note = g.kind === 'heist' || g.kind === 'raid' || g.kind === 'quest' ? g.mode : g.kind === 'kill' ? (g.mode === 'beat_up' ? 'just a beating' : undefined) : g.delayUntil > w.beat ? g.delayWhy : undefined;
     out.push({ id: g.id, label: goalLabel(w, g), why: g.why, depth: d, status, priority: Math.round(priority(w, g) * 100) / 100, frustration: Math.round(g.frustration * 100) / 100, note });
     for (const k of childrenOf(w, g).sort((a, b) => priority(w, b) - priority(w, a))) walk(k, d + 1);
   };

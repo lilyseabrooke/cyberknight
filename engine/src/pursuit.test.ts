@@ -304,8 +304,9 @@ describe('fame: pick an act, then find the stage', () => {
   });
 
   slow('actually gets famous over a night', () => {
+    // (About a quarter of these nights finish a fame goal. Sixty nights rather than thirty, so the count doesn't hang on a few seeds.)
     let finished = 0;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
       const { world: w, events } = createRun({ seed: `fame-${i}`, competence: 0.8, personality: personalityFrom({ fame: 0.95, vanity: 0.9, artistry: 0.8 }) });
       // Eating and sleeping take beats now (and a few more of the hero's lives than they used to), so the night is a little longer.
       for (let k = 0; k < 360 && !w.over; k++) events.push(...step(w));

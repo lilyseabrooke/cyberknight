@@ -99,6 +99,8 @@ export interface Hero {
   drunk: number;
   /** 0..1. How content she is, romantically, for now. Decays slowly; amorous company speeds it up. */
   satiety?: number;
+  /** 0..1. How worked over her body is from training. Trims her in a fight and makes injuries likelier; a sauna or a physio helps. See gym.ts. */
+  sore?: number;
   /** 0..100, full to empty. Falls slowly with world time; eating refills it; at zero she starves. Absent (an older save) means full. See needs.ts. */
   hunger?: number;
   /** 0..100, rested to wrecked. Falls with world time while she is awake; sleeping refills it; at zero she passes out. Absent means rested. See needs.ts. */
@@ -299,6 +301,35 @@ export interface Npc {
   knows?: { died?: number; saw?: boolean; reacted?: boolean };
   /** The dungeon (its entrance's id) they are garrisoned in. Until they have noticed her, she can't deal with them one at a time; see dungeons.ts. */
   post?: Id;
+  /** A job they have for Blackbird, once they've told her about it. Persists with them: the world remembers a job even when she doesn't. See quests.ts. */
+  quest?: Quest;
+}
+
+export type QuestKind = 'flatline' | 'retrieve' | 'hack';
+
+/**
+ * A job somebody wants done: go to a place that was made for it and do one thing there. The place (a spot or a dungeon at the end
+ * of a trail of new streets) is built when the job is first described and is part of the map from then on.
+ */
+export interface Quest {
+  kind: QuestKind;
+  /** The want (a fact on the giver) it grew out of. */
+  fact: string;
+  /** The entrance of the place (also the key into `World.dungeons`). */
+  site: Id;
+  /** The role of the room the objective is in (`spot` for a spot, which is one room). */
+  room: string;
+  /** Neodollars, on delivery. */
+  reward: number;
+  /** flatline: who has to go (set once the place has been built and they are in it), and what they are. */
+  target?: Id;
+  targetGender?: Gender;
+  /** What it is, for the log: the target's name, the thing to bring back, the system to get into. */
+  what: string;
+  /** open: not done yet. ready: done, waiting to be reported. done: paid. failed: spoiled for tonight. */
+  state: 'open' | 'ready' | 'done' | 'failed';
+  /** Run the job was described in. */
+  run: number;
 }
 
 export interface Feature {
@@ -330,7 +361,7 @@ export interface Hazards {
 export interface Location {
   id: Id;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
   exits: Exit[];
   /** 0..10. Raises the chance of being spotted while sneaking. */
   security: number;
@@ -376,12 +407,91 @@ export interface Location {
   pendingHire?: { due: number };
   /** Part of a dungeon: the id of its entrance, which is also the key into `World.dungeons`. See dungeons.ts. */
   dungeon?: Id;
+  /** A gym's makeup: what it is, what building it's in, what it has. Rolled with the place. See content/gyms.ts. */
+  gym?: GymInfo;
+  /** A room of a gym (locker room, pit, sauna...): which gym, and which room. */
+  gymRoom?: { main: Id; room: string };
+  /** The gym's fight ladder: the rung she has reached and how many bouts she has won here. See gym.ts. */
+  ladder?: { rank: number; wins: number };
+  /** A pawn shop's makeup: what it is, what building it's in, what it has. Rolled with the place. See content/pawns.ts. */
+  pawn?: PawnInfo;
+  /** A room of a pawn shop (vault, workshop, parlour...): which shop, and which room. */
+  pawnRoom?: { main: Id; room: string };
+  /** A pawn shop's shelf: what is on it, including whatever she hocked and may still buy back. Made the first time it is looked at. See pawnkit.ts. */
+  shelf?: PawnLot[];
+}
+
+/**
+ * What a pawn shop is. Every field is rolled independently from the shop's own stream, so any combination can turn up.
+ * (content/pawns.ts says what each id means; ids that are no longer known are ignored, so the tables can grow.)
+ */
+export interface PawnInfo {
+  variant: string;
+  shell: string;
+  /** 0 (a closet) to 4 (a sprawl). */
+  size: number;
+  /** 0 (derelict) to 4 (immaculate). */
+  condition: number;
+  /** 1..5. How good the appraiser is, how rich the stock and the till are. Independent of everything else. */
+  tier: number;
+  traits: string[];
+  /** Feature ids present anywhere in the building, as "room:feature". */
+  features: string[];
+  /** Room ids it has (the rooms themselves are places off the main floor). */
+  rooms: string[];
+  /** A one-in-a-dozen oddity that breaks the rules. */
+  wild?: string;
+}
+
+/**
+ * One thing on a pawn shop's shelf. Hers (she hocked it: `paid` is what she took, `since` is the day) or the house's.
+ * Whether it is still held for her, forfeit, or gone is a function of the day (`until`), so it cannot drift.
+ */
+export interface PawnLot {
+  item: Item;
+  hers: boolean;
+  /** What she was paid for it (hers only). */
+  paid: number;
+  /** The day it went on the shelf. */
+  since: number;
+  /** The day it is gone (sold on). */
+  until: number;
+  /** Hers: the day the hold ends and it goes up for retail. */
+  held?: number;
+  /** Where it sits: the main floor if absent. */
+  room?: string;
+  /** Stolen from this shop once; it is hot to them for good. */
+  hot?: boolean;
+  /** It comes back (the cursed item). */
+  cursed?: boolean;
+}
+
+/**
+ * What a gym is. Every field is rolled independently from the gym's own stream, so any combination can turn up.
+ * (content/gyms.ts says what each id means; ids that are no longer known are ignored, so the tables can grow.)
+ */
+export interface GymInfo {
+  variant: string;
+  shell: string;
+  /** 0 (a closet) to 4 (a sprawl). */
+  size: number;
+  /** 0 (derelict) to 4 (immaculate). */
+  condition: number;
+  /** 1..5. Trainer quality, pit fighters, prices. Independent of everything else. */
+  tier: number;
+  traits: string[];
+  /** Feature ids present anywhere in the building (each lives in a room; see FEATURES). */
+  features: string[];
+  /** Room ids it has (the rooms themselves are places off the main floor). */
+  rooms: string[];
+  /** A one-in-a-dozen oddity that breaks the rules. */
+  wild?: string;
 }
 
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -401,6 +511,8 @@ export interface GenInfo {
   tier?: number;
   /** Small encounter spots: which one it is (content/spots.ts). */
   spot?: string;
+  /** Made for a job: the id of the person who wants it done. See quests.ts. */
+  quest?: Id;
 }
 
 export type DungeonKind = 'outpost' | 'hideout' | 'spot';
@@ -425,6 +537,8 @@ export interface DungeonRoom {
   /** What the room is (barracks, data core...). Picks its blurb and what's in it. */
   role: string;
   cache?: Cache;
+  /** What a job needs doing in here: a thing to take or a system to get into (flatline jobs are a person, not a fixture). */
+  objective?: { kind: 'item' | 'terminal'; done: boolean; fails: number };
 }
 
 /**
@@ -460,6 +574,8 @@ export interface Dungeon {
   posted?: number;
   /** Spots: what is going on in this garrisoning (the setup it was dealt). */
   scene?: string;
+  /** Made for a job: the person who wants it done (their `quest` says what). */
+  quest?: Id;
 }
 
 /** Per-run situational variables, layered on the persistent macro-Neo. */
@@ -580,7 +696,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
@@ -591,15 +707,16 @@ export interface Goal {
   id: number;
   kind: GoalKind;
   parent: number | null;
-  /** The person (kill, romance). */
+  /** The person (kill, romance). For a quest, the one who wants it done. */
   npc?: Id;
   /** The thing (buy): a key into `Mind.wares`. */
   ware?: string;
-  /** The place (heist, raid, explore). */
+  /** The place (heist, raid, explore, quest). */
   loc?: Id;
   /** cash: the money she wants on hand. weapon: the power she wants to be swinging. */
   amount?: number;
-  /** kill: 'kill' | 'beat_up'. heist: 'approach' | 'loot' | 'escape'. raid: 'approach' | 'raid' | 'out' (it's done) | 'retreat' (it's too much). */
+  /** kill: 'kill' | 'beat_up'. heist: 'approach' | 'loot' | 'escape'. raid: 'approach' | 'raid' | 'out' (it's done) | 'retreat' (it's too much).
+   *  quest: 'approach' | 'sneak' | 'clear' (how she's going about it, once inside) | 'retreat' | 'return' (the job is done; go and tell them). */
   mode?: string;
   /** Her reason, in her own words-ish; shown in the log and the status panel. */
   why: string;
@@ -619,6 +736,8 @@ export interface Goal {
   revisions: number;
   /** Kill: she has actually thrown a punch at them. */
   struck?: boolean;
+  /** Quest: she has been inside the place (so coming back through the door isn't news). */
+  entered?: boolean;
   /** Heist bookkeeping. */
   heat0?: number;
   looted?: boolean;
@@ -744,6 +863,8 @@ export interface Mind {
   known?: Record<Id, string[]>;
   /** Scores she has agreed to settle. */
   contracts?: Contract[];
+  /** Jobs she has said yes to but hasn't made a goal yet, by the id of whoever wants them done. She considers them when she has room for a new goal. See quests.ts. */
+  quests?: Id[];
   /** How she feels about the people she's got something with. Her side only; this resets with her body. */
   bonds?: Record<Id, Feelings>;
   /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */

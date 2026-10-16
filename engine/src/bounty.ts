@@ -19,6 +19,10 @@ const WANTED: Record<string, { chance: number; hidden: number }> = {
   hacker: { chance: 0.5, hidden: 0.8 },
   scrapper: { chance: 0.4, hidden: 0.5 },
   patron: { chance: 0.12, hidden: 0.5 },
+  // The pit: most of them have paper, and she can only collect it by killing one, which the pit does not forgive (see gymkit.ts).
+  pit_fighter: { chance: 0.7, hidden: 0.5 },
+  // The back of a pawn shop: a fence has paper more often than not.
+  pawn_fence: { chance: 0.55, hidden: 0.6 },
 };
 
 export const hasBounty = (n: Npc | undefined): n is Npc & { bounty: { amount: number; hidden: boolean } } => !!n && n.alive && !!n.bounty;
@@ -78,6 +82,7 @@ export function collectBounties(c: Ctx, foes: Npc[]): number {
   let total = 0;
   for (const f of foes) {
     if (!f.bounty) continue;
+    if (f.tags.includes('pit') && f.alive) continue; // beaten in the pit is not delivered
     total += f.bounty.amount;
     c.emit('bounty_paid', 'good', { npc: f.name, amount: f.bounty.amount, dead: !f.alive });
     delete f.bounty;

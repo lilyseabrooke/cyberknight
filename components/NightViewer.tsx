@@ -100,6 +100,8 @@ interface Snapshot {
   implants: string[];
   goals: GoalView[];
   satiety: number;
+  /** 0..1, from training; see gym.ts. */
+  sore: number;
   /** Hunger and Sleep, 0..100 (full and rested at 100), and how bad each is. */
   hunger: number;
   sleep: number;
@@ -130,7 +132,7 @@ const SPEEDS = [
 
 const HEAT_NAMES: Record<string, string> = { npd: 'Police', atlas: 'Atlas', halo: 'The Halo', club: 'Neon Pharaoh' };
 const heatName = (k: string) => HEAT_NAMES[k] ?? gangName(k);
-const DRAMA = new Set(['advice_ask', 'need', 'rest_incident', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout']);
+const DRAMA = new Set(['advice_ask', 'need', 'rest_incident', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout', 'quest']);
 const MAX_LINES = 600;
 
 function snap(w: World): Snapshot {
@@ -169,6 +171,7 @@ function snap(w: World): Snapshot {
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
     goals: goalViews(w),
     satiety: h.satiety ?? 0,
+    sore: h.sore ?? 0,
     hunger: hungerOf(h),
     sleep: sleepOf(h),
     hungerTier: hungerTier(hungerOf(h)),
@@ -527,6 +530,7 @@ export default function NightViewer() {
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
               <dt>Armor</dt><dd>{status.armor}</dd>
               {status.satiety > 0.08 && (<><dt>Afterglow</dt><dd>{'♥'.repeat(Math.max(1, Math.round(status.satiety * 5)))} <span className="muted">sated</span></dd></>)}
+              {status.sore > 0.08 && (<><dt>Sore</dt><dd>{'▮'.repeat(Math.max(1, Math.round(status.sore * 5)))} <span className="muted">{status.sore > 0.6 ? 'wrecked' : status.sore > 0.3 ? 'aching' : 'tender'}</span></dd></>)}
               {status.sleepDebt > 0 && (<><dt>Sleep debt</dt><dd className="bad">{status.sleepDebt} <span className="muted">(poor beds leave it; a good bed clears it)</span></dd></>)}
               <dt>Drunk</dt><dd>{'🍸'.repeat(Math.min(status.drunk, 6)) || 'sober (suspicious)'}</dd>
               {status.companions.length > 0 && (

@@ -45,6 +45,8 @@ const SPECS: Record<Location['kind'], Spec> = {
   corp: { w: [6, 7], h: [6, 7], cover: [3, 5], walls: [2, 4], hazards: [0, 1], exits: [2, 2] },
   boss: { w: [8, 8], h: [8, 8], cover: [5, 7], walls: [0, 2], hazards: [2, 4], exits: [2, 2] },
   lair: { w: [6, 8], h: [5, 7], cover: [3, 6], walls: [1, 3], hazards: [0, 1], exits: [2, 2] },
+  gym: { w: [6, 7], h: [5, 6], cover: [3, 5], walls: [0, 1], hazards: [0, 1], exits: [1, 2] },
+  pawn: { w: [5, 6], h: [4, 5], cover: [3, 4], walls: [0, 1], hazards: [0, 0], exits: [1, 2] },
 };
 
 export const idx = (g: Grid, p: Pos): number => p.y * g.w + p.x;
