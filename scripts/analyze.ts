@@ -134,6 +134,11 @@ const METRICS: Metric[] = [
   { section: 'goals', label: 'goals given up per night', of: (n) => n.goalsDropped, good: 'less' },
   { section: 'goals', label: 'beats with no goal at all', of: (n) => (n.beats ? n.noGoalBeats / n.beats : 0), good: 'less', asPct: true },
   ...['cash', 'buy', 'kill', 'romance', 'weapon', 'fame', 'dragon', 'heist'].map((k): Metric => ({ section: 'goals', label: `  ${k} goals done`, of: (n) => n.done[k] ?? 0, good: 'more', digits: 2 })),
+  ...['cash', 'buy', 'kill', 'romance', 'weapon', 'fame', 'dragon', 'heist', 'raid', 'explore', 'burgle'].map((k): Metric => ({ section: 'goals', label: `  beats holding a ${k} goal`, of: (n) => (n.beats ? (n.held[k] ?? 0) / n.beats : 0), good: 'any', asPct: true })),
+  { section: 'goals', label: '  beats holding 2+ kill goals', of: (n) => (n.beats ? (n.heldMulti.kill ?? 0) / n.beats : 0), good: 'any', asPct: true },
+  ...['cash', 'buy', 'kill', 'romance', 'weapon', 'fame', 'dragon', 'heist', 'raid', 'explore', 'burgle'].map((k): Metric => ({ section: 'goals', label: `  mean beats a ${k} goal lasts`, of: (n) => ((n.ended[k] ?? 0) ? (n.life[k] ?? 0) / n.ended[k]! : 0), good: 'any', digits: 0 })),
+  ...['grudge', 'slight', 'contract'].map((v): Metric => ({ section: 'goals', label: `  kill goals formed (${v})`, of: (n) => n.formed[`kill:${v}`] ?? 0, good: 'any', digits: 2 })),
+  { section: 'goals', label: '  kill goals dropped', of: (n) => Object.entries(n.dropped).filter(([k]) => k.startsWith('kill:')).reduce((a, [, v]) => a + v, 0), good: 'any', digits: 2 },
 
   { section: 'movement', label: 'beats spent moving', of: (n) => (n.beats ? n.goBeats / n.beats : 0), good: 'less', asPct: true },
   { section: 'movement', label: 'moves that go straight back (A to B to A)', of: (n) => (n.goBeats ? n.flips / n.goBeats : 0), good: 'less', asPct: true },

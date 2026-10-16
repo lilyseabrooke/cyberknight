@@ -38,6 +38,15 @@ export interface Night {
   dropped: Record<string, number>;
   hustles: Record<string, number>;
   pursuit: Record<string, number>;
+  /** Beats she held at least one top-level goal of this kind. */
+  held: Record<string, number>;
+  /** Beats she held two or more top-level goals of this kind. */
+  heldMulti: Record<string, number>;
+  /** Goals taken on, by `kind:variant`. */
+  formed: Record<string, number>;
+  /** Total beats lived by goals that have ended, and how many have, by kind. */
+  life: Record<string, number>;
+  ended: Record<string, number>;
 }
 
 export const HUSTLES = ['odd_jobs', 'security_shift', 'courier_run', 'bodyguard_gig', 'burgle_home', 'burgle_flat', 'protection_racket', 'scam_mark', 'sell_fake_goods', 'cold_read', 'odd_request', 'panhandle'];
@@ -61,14 +70,16 @@ export async function collect(root: string, competence: number, nights: number, 
     const n: Night = {
       beats: 0, ending: '', early: 0, death: '', goalsDone: 0, goalsDropped: 0, noGoalBeats: 0, goBeats: 0, flips: 0, fame: 0, level: 0, kills: 0,
       dragonKills: 0, cash: 0, weaponRating: 0, heatEvents: 0, ambushOfficers: 0, ambushDrones: 0, kisses: 0, moves: 0, bountyPaid: 0, passions: 0,
-      crowdTired: 0, layLow: 0, hustleCash: 0, done: {}, dropped: {}, hustles: {}, pursuit: {},
+      crowdTired: 0, layLow: 0, hustleCash: 0, done: {}, dropped: {}, hustles: {}, pursuit: {}, held: {}, heldMulti: {}, formed: {}, life: {}, ended: {},
     };
     const gos: string[] = [];
+    const seen = new Map<number, { kind: string; born: number; last: number }>();
     const eat = (events: { type: string; outcome: string; data: Record<string, unknown> }[]) => {
       for (const e of events) {
         const d = e.data;
         switch (e.type) {
           case 'goal_done': bump(n.done, String(d.kind)); n.goalsDone++; break;
+          case 'goal_new': bump(n.formed, `${d.kind}:${d.variant}`); break;
           case 'goal_drop': bump(n.dropped, `${d.kind}:${d.variant}`); n.goalsDropped++; break;
           case 'go': gos.push(String(d.toId)); n.goBeats++; break;
           case 'heat_up': if (d.variant === 'npd') n.heatEvents++; break;
@@ -94,7 +105,25 @@ export async function collect(root: string, competence: number, nights: number, 
       const ev = engine.step(w);
       eat(ev);
       for (const e of ev) if (e.type === 'death') allEvents.push(e);
-      if (!w.mind.goals.some((g: { parent: number | null }) => g.parent === null)) n.noGoalBeats++;
+      const top = (w.mind.goals as { id: number; kind: string; born: number; parent: number | null }[]).filter((g) => g.parent === null);
+      if (!top.length) n.noGoalBeats++;
+      const count: Record<string, number> = {};
+      for (const g of top) bump(count, g.kind);
+      for (const [k, c] of Object.entries(count)) {
+        bump(n.held, k);
+        if (c > 1) bump(n.heldMulti, k);
+      }
+      // A goal that was here last beat and is not now has ended; its life is the beats it was around.
+      const live = new Set(w.mind.goals.map((g: { id: number }) => g.id));
+      for (const [id, g] of seen) {
+        if (live.has(id)) continue;
+        bump(n.life, g.kind, g.last - g.born + 1);
+        bump(n.ended, g.kind);
+        seen.delete(id);
+      }
+      for (const g of w.mind.goals as { id: number; kind: string; born: number; parent: number | null }[]) {
+        if (g.parent === null) seen.set(g.id, { kind: g.kind, born: g.born, last: w.beat });
+      }
     }
     for (let k = 2; k < gos.length; k++) if (gos[k] === gos[k - 2]) n.flips++;
     n.beats = w.beat;
