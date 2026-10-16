@@ -61,7 +61,7 @@ victims of Atlas takeovers, or just their own brand of shady.
 ## The Dragon Family
 
 Named after Greek gods, with a Mark number: **Apollo Mk. II** ("CINDERJAW", the stationary boss on the Kowloon
-Overpass), **Artemis Mk. I** (roaming patrol flights), **Hera Mk. V** (rare, effectively unkillable fly-through).
+Overpass), **Artemis Mk. I** (roaming patrol flights), **Hera Mk. V** (rare fly-through; the hardest thing in the early city and a late-mid threat later).
 Specifics are in `docs/DESIGN.md` ("The dragon family").
 
 - **Naming.** New models take another Greek god (**Ares, Athena, Hermes, Poseidon, Hades, Demeter**…) plus a Mark.

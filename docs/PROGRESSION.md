@@ -1,7 +1,51 @@
 # Combat progression: the long game
 
-Status: **design sketch, nothing implemented.** Written against the engine as of `558937e`. Per the "feel over balance"
-stance in `CLAUDE.md`, every number here is a starting guess to be felt out, not a target to be balanced.
+Status: **built, apart from the items under "Not done yet" below.** The sketch was written against the engine as of
+`558937e`; the "As built" section says where the build departs from it. Per the "feel over balance" stance in
+`CLAUDE.md`, every number here is a starting guess to be felt out, not a target to be balanced.
+
+## As built
+
+| Piece | Where |
+|---|---|
+| Grade curves, skill XP to 100, hero level cost, the danger walk | `engine/src/grade.ts` (+ `grade.test.ts`) |
+| `gen.danger` on every generated place, start district, cordon, `liftCordon`, `sealCordon` | `engine/src/mapgen.ts`, `types.ts` |
+| Save upgrade (version 5) | `engine/src/universe.ts` |
+| Enemies at the local grade (`spawnNpc` `grade` option) | `content/archetypes.ts`, `roster.ts`, `dungeons.ts`, `quests.ts`, `candidate.ts` |
+| Dungeon tier from danger, garrison grade, pressure estimates | `content/dungeons.ts`, `content/spots.ts`, `dungeons.ts` |
+| Skills uncapped, steeper XP, fight training by relative grade, generic titles above level 8 | `skills.ts`, `content/skills.ts`, `combat.ts` |
+| Hero power, hp per level and XP per level on the same curves | `combat.ts`, `lab.ts` |
+| CINDERJAW as the gate (`legacy.gate`) | `combat.ts`, `mapgen.ts`, `gate.test.ts` |
+| Tools | `npm run danger` (the field by depth), `npm run district-size` |
+
+Departures from the sketch, and why:
+
+- **Skills are not rescaled.** An old level `n` is a grade `n`: the XP curve is unchanged up to 10 and steeper after,
+  `synergy()` and every existing `odds()` call are untouched, and hobby odds simply saturate at their clamps well before
+  100. The levels above that matter for combat and for checks against a target's grade, which already subtract
+  `n.level x k` in a few dozen places. (The sketch's "`synergy` takes `level/10`" would have made old level 10 only a tenth
+  of the way up the new scale.)
+- **Hero level stays XP-driven**, not derived from skills. It is the simplest thing that keeps the whole pipeline working:
+  XP per level bends upward (`levelCost`), hp per level follows the enemy hp curve (`hpPerLevel`), fights pay XP by
+  enemy level so the high end is slow, and the stat-per-level cycle is as before. Combat skills still train from fights,
+  now by relative grade.
+- **The starting district is 4 streets deep, not 6**, with narrow branching (15% of streets run on two ways instead of
+  50%), which comes to about 320 locations once rooms are counted (the hand-built 22 are about 7%). Depth 3 is about
+  175 (12%). `START_DEPTH` in `grade.ts` is the dial; `npm run district-size` counts.
+- **Dungeon `tier` stays** (the tables are indexed by it) but is rolled from the danger around the place, and a place's
+  garrison is made at `danger +/- 4 per tier` away from what that danger would have rolled.
+- Dragons ignore the local grade: Apollo is grade 15, Artemis 12, Hera 60, wherever they are.
+
+### Not done yet
+
+- The Atlas CEO (grade 80). The curves are anchored on her but she does not exist in the game.
+- Weapon, armor and loot tables by grade outside dungeons (street NPCs carry what their archetype says, with weapon
+  power scaled by level; `genWeapon` tiers are only raised by dungeon tier).
+- Artemis flights past the cordon are still grade 12 (they should rise with the local danger).
+- Opposed checks beyond the ones that already subtract the target's level.
+- Stats growing by use, and a status-panel readout of the local danger.
+- The lab tree. Flat nodes (`skill`, `stat`, `level`) are priced for 0-10 and are wrong at 100.
+- `scripts/analyze.ts` still counts `ending === 'victory'` as a win; the dragon no longer ends a night.
 
 ## Goals
 
@@ -68,9 +112,8 @@ multiplier; the CEO grade 80 with the largest). Hand-set hp and power in `ARCHET
 
 - XP curve: `xp(L) = 2 L^2` up to level 10, so existing saves and low-level tests do not move. Beyond that it steepens:
   `xp(L) = 2 L^2 (L/10)` (L=50: 25k, L=80: 102k, L=100: 200k). It is a function in one place, so it is easy to retune.
-- `synergy()` takes `level/10` as its input, so every existing weight, base and slope keeps its meaning at low levels,
-  and a high skill saturates against the existing 0.93 `odds` clamp. Social and hobby odds at high levels are therefore
-  flat. That is acceptable.
+- `synergy()` is unchanged (see "As built"): the scale is the old one, extended, so a high skill saturates against the
+  existing 0.93 `odds` clamp. Social and hobby odds at high levels are therefore flat. That is acceptable.
 - **Opposed checks.** Pickpocket, threaten, sneak, lockpick and similar checks that touch a target subtract the target's
   grade, the way `n.level x 0.05` already does in a few places. This is what makes high-grade districts feel different
   for non-combat skills too.

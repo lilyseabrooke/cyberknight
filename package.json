@@ -12,6 +12,7 @@
     "targets": "tsx scripts/targets.ts",
     "districts": "tsx scripts/districts.ts",
     "district-size": "tsx scripts/district-size.ts",
+    "danger": "tsx scripts/danger.ts",
     "play": "tsx scripts/play.ts",
     "dev": "next dev",
     "build": "next build",
