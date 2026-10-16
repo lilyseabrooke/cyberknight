@@ -10,7 +10,8 @@ import {
   HUNGER_PER_MIN, SLEEP_PER_MIN, effectiveQuality, hungerOf, hungerRate, hungerTier, nightHours, penaltyFor, refreshFx, sleepOf, sleepRate, sleepTier, wearDown,
 } from './needs';
 import { debtOf } from './needs';
-import { bedDown, feed, lodgingAt, needsBias, quietSpot, stallAt, tickNeeds } from './rest';
+import { personalityFrom } from './personality';
+import { luxuryTaste, restCandidates, wantsBetter, bedDown, feed, lodgingAt, needsBias, quietSpot, stallAt, tickNeeds } from './rest';
 import { LODGING } from './content/lodging';
 import { hungerUrge, sleepUrge } from './urges';
 import { perk } from './lab';
@@ -342,6 +343,29 @@ describe('beds', () => {
     expect(hungerOf(s.w.hero)).toBeGreaterThanOrEqual(2.9);
     const wake = s.events.find((e) => e.type === 'wake')!;
     expect(wake.data.variant).toBe('hunger');
+  });
+});
+
+describe('tastes in beds', () => {
+  const gap = (vanity: number, impress: number) => {
+    const s = scenario({ at: 'street_main', personality: personalityFrom({ vanity, impress }), setup: (w) => bedtime(w, 20) });
+    const by = Object.fromEntries(restCandidates(s.w).map((c) => [c.key, c.bonus ?? 0]));
+    return by.sleep_hotel! - by.sleep_pod!;
+  };
+
+  it('she is drawn to a nicer bed than she needs, more so if she is vain, less if she is unfussy', () => {
+    const fussy = gap(0.95, 0.9);
+    const plain = gap(0.5, 0.5);
+    const frugal = gap(0.05, 0.1);
+    expect(fussy).toBeGreaterThan(plain);
+    expect(plain).toBeGreaterThan(frugal);
+    expect(luxuryTaste(scenario({ personality: personalityFrom({ vanity: 0.95, impress: 0.9 }) }).w.hero)).toBeGreaterThan(0.5);
+    expect(luxuryTaste(scenario({ personality: personalityFrom({ vanity: 0.05, impress: 0.1 }) }).w.hero)).toBeLessThan(-0.5);
+  });
+
+  it('a very unfussy girl wants nothing beyond what she needs', () => {
+    const s = scenario({ personality: personalityFrom({ vanity: 0.02, impress: 0.02 }) });
+    expect(wantsBetter(s.w.hero, 1)).toBe(0);
   });
 });
 

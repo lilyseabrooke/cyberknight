@@ -1,4 +1,4 @@
-import type { Ctx, District, Id, Location, Npc, World } from './types';
+import type { Ctx, District, Hero, Id, Location, Npc, World } from './types';
 import { spawnGroup, type Candidate } from './candidate';
 import { nested } from './events';
 import { Rng, hashString } from './rng';
@@ -246,6 +246,24 @@ function scrounge(c: Ctx): void {
 
 // ===================================================================== choosing a bed
 
+/**
+ * How expensive her tastes are, -1 (a pod is a bed, a bed is a bed) to 1 (she'd like the hotel, please): vain, show-off
+ * girls like nice things, and the unfussy don't care.
+ */
+export function luxuryTaste(h: Hero): number {
+  const t = h.personality.traits;
+  return clamp(2 * (0.6 * (t.vanity - 0.5) + 0.4 * (t.impress - 0.5)), -1, 1);
+}
+
+/**
+ * What she'd like of a bed beyond what she needs, because she is human: a nicer one is a nicer night, whatever the debt says.
+ * Expensive tastes make it count for a lot (and the price less); cheap ones for nothing.
+ */
+export function wantsBetter(h: Hero, quality: number): number {
+  const taste = luxuryTaste(h);
+  return Math.max(0, quality - LODGING.pod.quality) * 3 * clamp(1 + 1.5 * taste, 0, 2.5);
+}
+
 export function restCandidates(w: World): Candidate[] {
   const out = eatCandidates(w);
   const h = w.hero;
@@ -262,7 +280,7 @@ export function restCandidates(w: World): Candidate[] {
     out.push({
       key: `sleep_${id}`, drives: {}, smart: 0.3 * su,
       // A better bed is worth more to someone who is carrying sleep debt: it's the only thing that clears it.
-      bonus: decided(su) * 1.2 + (q - DEBT_PIVOT) * 4 * (1 + debtOf(h)) - (1.2 * cost) / Math.max(cost, h.cash) - def.rob * 2,
+      bonus: decided(su) * 1.2 + (q - DEBT_PIVOT) * 4 * (1 + debtOf(h)) + wantsBetter(h, q) - (1.2 * cost * clamp(1 - 0.5 * luxuryTaste(h), 0.3, 1.6)) / Math.max(cost, h.cash) - def.rob * 2,
       run: (c) => sleepOut(c, lodgingPlan(c.w, loc, id)),
     });
   }
