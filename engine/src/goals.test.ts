@@ -11,7 +11,7 @@ import { addNpc, moveNpc } from './population';
 import { isFairGame } from './people';
 
 const world = (loc: string, traits: Parameters<typeof personalityFrom>[0] = {}, competence = 0.5): World => {
-  const w = createWorld({ seed: 'goals', competence, personality: personalityFrom(traits) });
+  const w = createWorld({ seed: 'goals2', competence, personality: personalityFrom(traits) });
   w.hero.locationId = loc;
   return w;
 };
@@ -203,6 +203,50 @@ describe('goals', () => {
       for (let g: Goal | undefined = deepest; g; g = goalById(w, g.parent)) kinds.unshift(g.kind);
       expect(kinds.slice(0, 4)).toEqual(['kill', 'weapon', 'buy', 'cash']);
       expect(w.mind.goals.find((g) => g.kind === 'kill')).toBe(kill);
+    });
+  });
+
+  describe('exploring', () => {
+    const fresh = () => {
+      const w = tough(world('halo_floor', { curiosity: 0.6 }, 1));
+      const target = Object.values(w.locations).find((l) => l.visits === 0 && !l.dungeon && !['home', 'corp', 'boss', 'lair'].includes(l.kind) && routeTo(w, 'halo_floor', l.id));
+      return { w, target: target! };
+    };
+
+    it('ends the moment she has been to the place', () => {
+      const { w, target } = fresh();
+      const g = want(w, { kind: 'explore', loc: target.id });
+      expect(tick(w, 1).some((e) => e.type === 'goal_done')).toBe(false);
+      target.visits = 1;
+      expect(tick(w, 1).some((e) => e.type === 'goal_done' && e.data.variant === 'explored')).toBe(true);
+      expect(w.mind.goals).not.toContain(g);
+    });
+
+    it('turns up on its own rarely, and much more when she is sick of where she is standing', () => {
+      const count = (doings: number) => {
+        let n = 0;
+        for (let i = 0; i < 40; i++) {
+          const { w } = fresh();
+          w.locations.halo_floor!.doings = doings;
+          if (tick(w, 200, `idle-${doings}-${i}`).some((e) => e.type === 'goal_new' && e.data.variant === 'explore_idea')) n++;
+        }
+        return n;
+      };
+      const calm = count(0);
+      const bored = count(40);
+      expect(bored).toBeGreaterThan(calm);
+      expect(bored).toBeGreaterThan(10);
+    });
+
+    it('is a step toward money when she knows few places to earn', () => {
+      let steps = 0;
+      for (let i = 0; i < 40; i++) {
+        const { w } = fresh();
+        want(w, { kind: 'cash', amount: 500 });
+        const events = tick(w, 200, `sub-${i}`);
+        for (const e of events) if (e.type === 'goal_new' && e.data.variant === 'explore_cash') steps++;
+      }
+      expect(steps).toBeGreaterThan(3);
     });
   });
 
