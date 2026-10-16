@@ -16,6 +16,7 @@ npm run test:full             # everything, incl. the ~34 slow whole-game simula
 npm run typecheck
 npm run play -- neo-7 0.2     # watch one night in Neo: <seed> <competence 0..1>
 npm run sim -- 1000 0.1       # headless balance harness: <runs> <competence 0..1>
+npm run districts -- demo 6     # roll random districts (vector-described, not labelled): <seed> <count> [archetype]
 npm run analyze               # play lots of nights and report; --vs main compares with another version (docs/ANALYSIS.md)
 ```
 

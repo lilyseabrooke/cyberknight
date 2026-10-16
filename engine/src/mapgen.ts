@@ -40,10 +40,10 @@ const NEXT_TO: Record<District, District[]> = {
   slum: ['tenement', 'industrial', 'nightlife'],
 };
 
-type Lot = Exclude<GenRole, 'street' | 'clinic' | 'unit' | 'backroom' | 'cellar' | 'vip' | 'chamber' | 'spot'>;
+export type Lot = Exclude<GenRole, 'street' | 'clinic' | 'unit' | 'backroom' | 'cellar' | 'vip' | 'chamber' | 'spot'>;
 
 /** What stands along a street, by district. */
-const LOTS: Record<District, Record<Lot, number>> = {
+export const LOTS: Record<District, Record<Lot, number>> = {
   market: { shop: 5, bar: 2, club: 0.5, corp: 0.4, flat: 1, tunnel: 0.5, outpost: 0, hideout: 0.1 },
   nightlife: { shop: 1.5, bar: 4, club: 3, corp: 0.3, flat: 0.5, tunnel: 0.5, outpost: 0, hideout: 0.2 },
   tenement: { shop: 2, bar: 2, club: 0.2, corp: 0.2, flat: 5, tunnel: 1, outpost: 0.1, hideout: 0.3 },
@@ -53,10 +53,10 @@ const LOTS: Record<District, Record<Lot, number>> = {
 };
 
 /** Chance a street has a street clinic on it, by district. Rolled on a stream of its own so it never reshuffles the rest of the map. */
-const CLINIC_CHANCE: Record<District, number> = { market: 0.25, nightlife: 0.2, tenement: 0.3, industrial: 0.2, corporate: 0.12, slum: 0.4 };
+export const CLINIC_CHANCE: Record<District, number> = { market: 0.25, nightlife: 0.2, tenement: 0.3, industrial: 0.2, corporate: 0.12, slum: 0.4 };
 
-const STREET_SECURITY: Record<District, number> = { market: 2, nightlife: 2, tenement: 1, industrial: 1, corporate: 3, slum: 1 };
-const CROWDED: Record<District, number> = { market: 0.5, nightlife: 0.6, tenement: 0.25, industrial: 0.05, corporate: 0.2, slum: 0.2 };
+export const STREET_SECURITY: Record<District, number> = { market: 2, nightlife: 2, tenement: 1, industrial: 1, corporate: 3, slum: 1 };
+export const CROWDED: Record<District, number> = { market: 0.5, nightlife: 0.6, tenement: 0.25, industrial: 0.05, corporate: 0.2, slum: 0.2 };
 
 // ===================================================================== names and words
 
@@ -90,7 +90,7 @@ const pick = <T>(rng: Rng, xs: readonly T[]): T => rng.pick(xs);
 export const possessive = (name: string): string => (name.endsWith('s') ? `${name}'` : `${name}'s`);
 
 /** The words along the way: one sentence about what she sees the first time she's there. */
-const MOOD: Record<District, string[]> = {
+export const MOOD: Record<District, string[]> = {
   market: ['Hawkers, steam and a hundred hand-lettered signs, none of them accurate.', 'Every doorway is selling something, and most of it is the doorway.', 'A haggle in six languages is going on at a volume nobody asked for.'],
   nightlife: ['Neon, bass through the walls, and a queue of people dressed for a worse idea than they know.', 'Every other window is a bar, and every bar has a bouncer who has already judged her boots.', 'The gutters are full of confetti and something that used to be a cocktail.'],
   tenement: ['Laundry on every balcony, a thousand small windows, and a smell of someone else\'s dinner.', 'Stacked homes lean over the street like they\'re eavesdropping.', 'Kids\' chalk on the pavement, and a drone from the management company watching it fade.'],

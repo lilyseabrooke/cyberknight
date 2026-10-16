@@ -10,6 +10,7 @@
     "sim": "tsx scripts/sim.ts",
     "analyze": "tsx scripts/analyze.ts",
     "targets": "tsx scripts/targets.ts",
+    "districts": "tsx scripts/districts.ts",
     "play": "tsx scripts/play.ts",
     "dev": "next dev",
     "build": "next build",
