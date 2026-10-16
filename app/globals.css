@@ -78,7 +78,19 @@ dd.bad { color: var(--bad); }
 .dev label { display: block; margin: 8px 0; }
 .dev input { width: 100%; }
 
+/* Blackbird has stopped to ask the lab something. */
+.logwrap.asking .log { height: calc(100dvh - 470px); min-height: 200px; }
+.ask { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--cyan); border-radius: 8px; background: #0f1830; }
+.ask .q { margin: 0 0 10px; }
+.ask .opts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.ask .opts .btn { text-align: left; }
+.ask .opts .btn:hover { background: #17284a; }
+.ask .clock { position: relative; height: 4px; background: #0d0818; border-radius: 2px; overflow: hidden; }
+.ask .clock .fill { background: var(--cyan); }
+.ask .small { margin: 6px 0 0; font-size: 12px; }
+
 @media (max-width: 800px) {
+  .logwrap.asking .log { height: 40dvh; }
   .grid { grid-template-columns: 1fr; }
   .log { height: 55dvh; }
   .thought { margin-left: 0; }

@@ -655,6 +655,58 @@ export interface Ware {
 }
 
 /** What she knows, what she wants, and how she's going about it. All plain JSON. */
+/** A goal she could take on, as plain data: what `adopt` needs, so it can wait in an `Ask` until somebody answers. */
+export interface GoalSpec {
+  kind: GoalKind;
+  parent?: number | null;
+  npc?: Id;
+  ware?: string;
+  loc?: Id;
+  amount?: number;
+  mode?: string;
+  why: string;
+  desire: number;
+  /** Which line of the log introduces it. */
+  variant: string;
+  extra?: EventData;
+}
+
+export type AskKind = 'want' | 'earn' | 'door' | 'idle';
+
+/** One thing the lab can tell her. */
+export interface AskOption {
+  id: string;
+  /** The button. */
+  label: string;
+  /** Small print under it. */
+  hint?: string;
+  /** She takes this on if it's the answer. */
+  spec?: GoalSpec;
+  /** Things she puts off if it's the answer: cooldown key -> beats. */
+  cool?: Record<string, number>;
+}
+
+/**
+ * Blackbird has stopped and asked the lab tech what to do. It waits a few beats; if nobody answers, she goes with `lean`,
+ * which is what she'd have done anyway. See advice.ts. Plain JSON, like the rest of the world.
+ */
+export interface Ask {
+  id: number;
+  kind: AskKind;
+  asked: number;
+  /** The beat she decides for herself. */
+  until: number;
+  /** What she says, in her own words. */
+  question: string;
+  options: AskOption[];
+  /** The option she goes with if nobody answers. */
+  lean: string;
+  /** The goal she's asking about, if she's asking about one (earn), so a stale answer can be told from a live one. */
+  about?: number;
+  /** What the log needs to tell it (item, place, amount). */
+  data?: EventData;
+}
+
 export interface Mind {
   goals: Goal[];
   nextId: number;
@@ -684,6 +736,10 @@ export interface Mind {
   bonds?: Record<Id, Feelings>;
   /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */
   bounties?: Record<Id, 'scan' | 'scanner' | 'tip'>;
+  /** What she is waiting to hear from the lab about. See advice.ts. */
+  ask?: Ask;
+  /** How the lab's advice has gone this night. */
+  advice?: { asked: number; taken: number; lapsed: number; nextId: number };
 }
 
 export interface Ctx {

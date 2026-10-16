@@ -1,6 +1,6 @@
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
-import type { Ctx, DungeonKind, Goal, GoalKind, Id, Location, Npc, Ware, World, GameEvent } from './types';
+import type { AskOption, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Location, Npc, Ware, World, GameEvent } from './types';
 import { armBest, edge, rating } from './weapons';
 import { ACT_SKILL, CALLING } from './stage';
 import { SKILL_LABELS, skillLevel } from './skills';
@@ -18,6 +18,7 @@ import { getImplant } from './extras';
 import { possessive } from './mapgen';
 import { estimatePressure, garrisonAlive, isEntrance, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
 import { MAX_IMPLANTS } from './content/implants';
+import { maybeAsk, waiting, type Proposal } from './advice';
 import {
   MAX_DEPTH, capacity, childrenOf, cool, cooling, depth, focusFactor, goalById, hasGoal, interest, isHeld, isLeaf, priority, subjectOf, topLevel,
 } from './mind';
@@ -180,17 +181,20 @@ const KINDS: Record<GoalKind, Kind> = {
       const short = (g.amount ?? 0) - h.cash;
       // Not many places to earn that she knows about? Go and find some.
       exploreFor(c, g, 0.012, () => knownSites(w).length + knownDungeons(w).length, 'there has to be money somewhere she has not looked', 'explore_cash');
-      // Small change is a grind. A proper score is a plan.
-      if (!isLeaf(w, g) || short < 120 || hpFrac(w) < 0.6 || hasGoal(w, 'heist') || hasGoal(w, 'raid')) return;
+      // Small change is a grind. A proper score is a plan. (Unless the lab said to keep it steady, or she's waiting to hear.)
+      if (!isLeaf(w, g) || short < 120 || hpFrac(w) < 0.6 || hasGoal(w, 'heist') || hasGoal(w, 'raid') || waiting(w) || cooling(w, 'bigscore')) return;
       // Somebody's building full of gear is a quicker way to money than most.
       if (rng.chance(0.03 * raidAppetite(w) * (1 + short / 300))) {
         const lead = pickLead(c);
-        if (lead) return void startRaidGoal(c, lead, g, g.desire * 0.95, 'there is money in other people\'s buildings', 'raid_cash');
+        if (lead) {
+          if (maybeAsk(c, 'earn', () => earnAsk(w, g, { lead }))) return;
+          return void startRaidGoal(c, lead, g, g.desire * 0.95, 'there is money in other people\'s buildings', 'raid_cash');
+        }
       }
-      const sites = knownSites(w).filter((s) => !cooling(w, `heist:${s.loc}`));
-      if (!sites.length) return;
-      const best = [...sites].sort((a, b) => b.value / (2 + distTo(w, b.loc)) - a.value / (2 + distTo(w, a.loc)))[0]!;
+      const best = bestSite(w);
+      if (!best) return;
       if (rng.chance(0.05 * heistAppetite(w) * (1 + short / 300))) {
+        if (maybeAsk(c, 'earn', () => earnAsk(w, g, { site: best }))) return;
         startHeist(c, best, g, g.desire * 0.95, 'the quick way to money', 'heist');
       }
     },
@@ -673,10 +677,23 @@ function pickLead(c: Ctx): Lead | undefined {
   return leads.length ? rng.weighted(leads, (l) => l.appeal / (2 + distTo(w, l.entrance.id))) : undefined;
 }
 
+const raidSpec = (w: World, lead: Lead, parent: Goal | null, desire: number, why: string, variant: string): Spec => ({
+  kind: 'raid', parent: parent?.id ?? null, loc: lead.entrance.id, mode: 'approach', why, desire, variant,
+  extra: { place: lead.entrance.name, dungeon: lead.kind, tier: lead.tier, short: parent ? Math.max(0, (parent.amount ?? 0) - w.hero.cash) : 0 },
+});
+
 function startRaidGoal(c: Ctx, lead: Lead, parent: Goal | null, desire: number, why: string, variant: string): Goal | null {
-  const { w } = c;
-  const g = adopt(c, { kind: 'raid', parent: parent?.id ?? null, loc: lead.entrance.id, mode: 'approach', why, desire, variant, extra: { place: lead.entrance.name, dungeon: lead.kind, tier: lead.tier, short: parent ? Math.max(0, (parent.amount ?? 0) - w.hero.cash) : 0 } });
-  if (g && g.amount === undefined) g.amount = Math.round(wealth(w.hero));
+  return adoptSpec(c, raidSpec(c.w, lead, parent, desire, why, variant));
+}
+
+/** Take on a goal from its plain-data spec, and set up what a heist or a raid keeps track of. Also how a goal is adopted once the lab has answered. */
+export function adoptSpec(c: Ctx, s: Spec): Goal | null {
+  const g = adopt(c, s);
+  if (g?.kind === 'raid' && g.amount === undefined) g.amount = Math.round(wealth(c.w.hero));
+  if (g?.kind === 'heist' && g.heat0 === undefined) {
+    g.heat0 = totalHeat(c.w);
+    g.amount = Math.round(wealth(c.w.hero));
+  }
   return g;
 }
 
@@ -700,22 +717,70 @@ function alternative(w: World, ware: { id: string; kind: string; price: number }
     .sort((a, b) => appeal(w, b) - appeal(w, a))[0];
 }
 
+// ===================================================================== asking the lab
+
+const richness = (l: Lead): string => (l.appeal >= 1.2 ? 'rich pickings' : l.appeal >= 0.6 ? 'a decent take' : 'slim pickings');
+const doorHint = (l: Lead): string => `tier ${l.tier}, ${richness(l)}`;
+
+/** A door she could kick in: clear it out, or leave it. `lean` is what she does if the lab says nothing. */
+function raidAsk(lead: Lead, spec: Spec, lean: 'clear' | 'leave', near: boolean): Proposal {
+  const place = lead.entrance.name;
+  const question = lead.kind === 'outpost' ? `There's an Atlas outpost at ${place}. Clear it out?` : lead.kind === 'hideout' ? `There's a ganger hideout at ${place}. Clear it out?` : `${place} looks like money. Worth a look?`;
+  return {
+    question, lean,
+    options: [
+      { id: 'clear', label: lead.kind === 'spot' ? `Go through ${place}` : `Clear out ${place}`, hint: doorHint(lead), spec },
+      { id: 'leave', label: 'Leave it', hint: 'not worth the trouble', cool: { [`raid:${lead.entrance.id}`]: 120 } },
+    ],
+    data: { place, dungeon: lead.kind, tier: lead.tier, near },
+  };
+}
+
+/** Something in a window she can't pay for yet: save for it, or forget it. She has usually made up her mind already. */
+function wantAsk(x: Ware, spec: Spec, cost: number, cash: number, shop: string): Proposal {
+  const short = Math.max(0, cost - cash);
+  return {
+    question: `The ${x.name} is ${money(cost)} and I'm ${money(short)} short. Save up for it?`, lean: 'save',
+    options: [
+      { id: 'save', label: `Save up for the ${x.name}`, hint: `${money(short)} to find`, spec },
+      { id: 'skip', label: 'Forget it', hint: 'walk away from the glass', cool: { [`buy:${x.id}`]: 150 } },
+    ],
+    data: { item: x.name, price: cost, cash, short, shop, implant: x.kind === 'implant' },
+  };
+}
+
+/** The best door she knows of, by what's in it over how far off it is. No dice, so asking about one doesn't change which she'd pick. */
+function bestLead(w: World): Lead | undefined {
+  return knownDungeons(w)
+    .filter((l) => !cooling(w, `raid:${l.entrance.id}`) && !hasGoal(w, 'raid', l.entrance.id))
+    .sort((a, b) => b.appeal / (2 + distTo(w, b.entrance.id)) - a.appeal / (2 + distTo(w, a.entrance.id)))[0];
+}
+
+function bestSite(w: World): Site | undefined {
+  return knownSites(w)
+    .filter((s) => !cooling(w, `heist:${s.loc}`))
+    .sort((a, b) => b.value / (2 + distTo(w, b.loc)) - a.value / (2 + distTo(w, a.loc)))[0];
+}
+
+/** Still short, and she's about to go for a big score. The lab can point her at a different one, or at the steady grind. */
+function earnAsk(w: World, g: Goal, pick: { lead?: Lead; site?: Site }): Proposal {
+  const short = Math.max(0, (g.amount ?? 0) - w.hero.cash);
+  const lead = pick.lead ?? bestLead(w);
+  const site = pick.site ?? bestSite(w);
+  const options: AskOption[] = [];
+  if (lead) options.push({ id: 'raid', label: `Raid ${lead.entrance.name}`, hint: doorHint(lead), spec: raidSpec(w, lead, g, g.desire * 0.95, "there is money in other people's buildings", 'raid_cash') });
+  if (site) options.push({ id: 'heist', label: `Rob ${site.label}`, hint: 'quiet, if she manages it', spec: heistSpec(w, site, g, g.desire * 0.95, 'the quick way to money', 'heist') });
+  options.push({ id: 'steady', label: 'Odd jobs and bounties', hint: 'slow, and nobody shoots at her', cool: { bigscore: 150 } });
+  const place = lead ? lead.entrance.name : site?.label ?? 'somewhere';
+  return {
+    question: lead && site ? `I'm ${money(short)} short. Raid ${lead.entrance.name}, rob ${site.label}, or work the street?` : `I'm ${money(short)} short. Go big at ${place}, or work the street?`,
+    options, lean: pick.lead ? 'raid' : 'heist', about: g.id, data: { short, place },
+  };
+}
+
 // ===================================================================== lifecycle
 
-interface Spec {
-  kind: GoalKind;
-  parent?: number | null;
-  npc?: Id;
-  ware?: string;
-  loc?: Id;
-  amount?: number;
-  mode?: string;
-  why: string;
-  desire: number;
-  /** Which line of the log introduces it. */
-  variant: string;
-  extra?: EventData;
-}
+type Spec = GoalSpec;
 
 /** Take on a new goal, if she has room (or if it beats the weakest thing she's already juggling). */
 /** She takes on someone's score as her own. */
@@ -770,14 +835,13 @@ function adopt(c: Ctx, s: Spec): Goal | null {
 const label = (w: World, s: Spec): string =>
   KINDS[s.kind].label(w, { ...s, id: 0, parent: null, frustration: 0, born: 0, lastProgress: 0, metric: 0, delayUntil: 0, setbacks: 0, revisions: 0, lastFocus: 0 });
 
+const heistSpec = (w: World, site: Site, parent: Goal | null, desire: number, why: string, variant: string): Spec => ({
+  kind: 'heist', parent: parent?.id ?? null, loc: site.loc, mode: 'approach', why, desire, variant,
+  extra: { place: site.label, short: parent ? Math.max(0, (parent.amount ?? 0) - w.hero.cash) : 0 },
+});
+
 function startHeist(c: Ctx, site: Site, parent: Goal | null, desire: number, why: string, variant: string): Goal | null {
-  const { w } = c;
-  const g = adopt(c, { kind: 'heist', parent: parent?.id ?? null, loc: site.loc, mode: 'approach', why, desire, variant, extra: { place: site.label, short: parent ? Math.max(0, (parent.amount ?? 0) - w.hero.cash) : 0 } });
-  if (g && g.heat0 === undefined) {
-    g.heat0 = totalHeat(w);
-    g.amount = Math.round(wealth(w.hero));
-  }
-  return g;
+  return adoptSpec(c, heistSpec(c.w, site, parent, desire, why, variant));
 }
 
 function descendants(w: World, g: Goal): Goal[] {
@@ -886,11 +950,15 @@ function observe(c: Ctx): void {
   const short = Math.max(0, cost - w.hero.cash);
   // A sharper head thinks twice about a thing she can't come near.
   const feasible = 1 - w.hero.competence * 0.5 * Math.min(1, short / 1500);
-  adopt(c, {
+  const shop = w.locations[x.loc]?.name ?? 'the shop';
+  const spec: Spec = {
     kind: 'buy', ware: x.id, why: x.kind === 'implant' ? 'chrome is a lifestyle' : 'she deserves nice things',
     desire: clamp((0.35 + 0.25 * wanted.a) * feasible, 0.25, 0.9), variant: 'want_item',
-    extra: { item: x.name, price: cost, cash: w.hero.cash, short, shop: w.locations[x.loc]?.name ?? 'the shop', implant: x.kind === 'implant' },
-  });
+    extra: { item: x.name, price: cost, cash: w.hero.cash, short, shop, implant: x.kind === 'implant' },
+  };
+  // Not something she can just walk up and buy: that's worth asking about.
+  if (short > 0 && maybeAsk(c, 'want', () => wantAsk(x, spec, cost, w.hero.cash, shop))) return;
+  adopt(c, spec);
 }
 
 function formGoals(c: Ctx): void {
@@ -935,15 +1003,27 @@ function formGoals(c: Ctx): void {
   }
 
   // Because it's there.
-  if (hpFrac(w) >= 0.6 && !hasGoal(w, 'heist') && rng.chance(0.0025 * heistAppetite(w))) {
+  if (hpFrac(w) >= 0.6 && !hasGoal(w, 'heist') && !cooling(w, 'bigscore') && rng.chance(0.0025 * heistAppetite(w))) {
     const sites = knownSites(w).filter((s) => !cooling(w, `heist:${s.loc}`));
     if (sites.length) startHeist(c, rng.pick(sites), null, 0.4 + 0.3 * t.thrill, 'because it is there', 'heist_idea');
   }
 
   // A door with an Atlas stencil on it, or a gang's colors, and a lot of people inside who have never met her.
-  if (hpFrac(w) >= 0.7 && !hasGoal(w, 'raid') && rng.chance(0.004 * raidAppetite(w))) {
+  if (hpFrac(w) >= 0.7 && !hasGoal(w, 'raid') && !waiting(w) && !cooling(w, 'bigscore') && rng.chance(0.004 * raidAppetite(w))) {
     const lead = pickLead(c);
-    if (lead) startRaidGoal(c, lead, null, 0.45 + 0.3 * t.thrill, raidWhy(lead.kind), 'raid_idea');
+    if (lead) {
+      const spec = raidSpec(w, lead, null, 0.45 + 0.3 * t.thrill, raidWhy(lead.kind), 'raid_idea');
+      if (!maybeAsk(c, 'door', () => raidAsk(lead, spec, 'clear', lead.entrance.gen?.parent === h.locationId))) adoptSpec(c, spec);
+    }
+  }
+
+  // The door is right there. She might ask whether it's worth it, with nothing else on her mind.
+  if (hpFrac(w) >= 0.7 && !hasGoal(w, 'raid') && !waiting(w) && !cooling(w, 'advice') && !cooling(w, 'bigscore')) {
+    const lead = knownDungeons(w).find((l) => l.entrance.gen?.parent === h.locationId && !cooling(w, `raid:${l.entrance.id}`) && !cooling(w, `door:${l.entrance.id}`));
+    if (lead && rng.chance(0.08 * raidAppetite(w))) {
+      cool(w, `door:${lead.entrance.id}`, 30);
+      maybeAsk(c, 'door', () => raidAsk(lead, raidSpec(w, lead, null, 0.45 + 0.3 * t.thrill, raidWhy(lead.kind), 'raid_idea'), rng.chance(clamp(0.3 + 0.45 * raidAppetite(w), 0.3, 0.9)) ? 'clear' : 'leave', true));
+    }
   }
 }
 
@@ -989,29 +1069,51 @@ function formIdle(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const t = traits(w);
-  if (topLevel(w).length) return;
+  if (topLevel(w).length || waiting(w)) return;
   if (w.beat > 3 && !rng.chance(0.5)) return;
+  type Pick = 'fame' | 'cash' | 'dragon' | 'raid';
   const opts = [
     // Fame is a sideline now; a real calling (passion) can still pull her toward it.
-    { k: 'fame' as const, wt: 0.12 + 1.2 * (w.mind.passion?.level ?? 0) + 0.5 * (t.fame - 0.5) + 0.2 * (t.vanity - 0.5) + 0.2 * (t.artistry - 0.5) },
-    { k: 'cash' as const, wt: 0.9 + 1.5 * (t.greed - 0.5) + (h.cash < 150 ? 0.6 : 0) },
-    { k: 'dragon' as const, wt: 0.5 + 1.4 * (t.courage - 0.5) + 0.9 * (t.justice - 0.5) + 0.6 * (t.thrill - 0.5) },
-    { k: 'raid' as const, wt: knownDungeons(w).length ? 0.9 * raidAppetite(w) : 0 },
+    { k: 'fame' as Pick, wt: 0.12 + 1.2 * (w.mind.passion?.level ?? 0) + 0.5 * (t.fame - 0.5) + 0.2 * (t.vanity - 0.5) + 0.2 * (t.artistry - 0.5) },
+    { k: 'cash' as Pick, wt: 0.9 + 1.5 * (t.greed - 0.5) + (h.cash < 150 ? 0.6 : 0) },
+    { k: 'dragon' as Pick, wt: 0.5 + 1.4 * (t.courage - 0.5) + 0.9 * (t.justice - 0.5) + 0.6 * (t.thrill - 0.5) },
+    { k: 'raid' as Pick, wt: knownDungeons(w).length ? 0.9 * raidAppetite(w) : 0 },
   ].filter((o) => !hasGoal(w, o.k) && (o.k !== 'raid' || o.wt > 0)).map((o) => ({ ...o, wt: Math.max(0.05, o.wt) }));
   if (!opts.length) return;
   const pick = rng.weighted(opts, (o) => o.wt).k;
-  if (pick === 'fame') {
-    const amount = Math.floor(h.fame) + rng.int(4, 8) + Math.floor(h.fame * 0.15);
-    adopt(c, { kind: 'fame', amount, why: t.vanity > 0.6 ? 'she has the face for it' : 'the city should know her name', desire: clamp(0.45 + 0.4 * t.fame, 0.3, 0.9), variant: 'idle_fame', extra: { amount } });
-  } else if (pick === 'cash') {
-    const amount = Math.round(h.cash + rng.int(150, 350) + 0.2 * h.cash);
-    adopt(c, { kind: 'cash', amount, why: h.cash < 150 ? 'being broke is embarrassing' : 'a hero needs a cushion', desire: clamp(0.4 + 0.45 * t.greed, 0.3, 0.9), variant: 'rich' });
-  } else if (pick === 'raid') {
-    const lead = pickLead(c);
-    if (lead) startRaidGoal(c, lead, null, clamp(0.45 + 0.35 * t.thrill, 0.3, 0.85), raidWhy(lead.kind), 'idle_raid');
-  } else {
-    adopt(c, { kind: 'dragon', amount: (w.counters.dragon_kills ?? 0) + 1, mode: 'flight', why: 'somebody has to', desire: clamp(0.45 + 0.4 * Math.max(t.courage, t.justice), 0.3, 0.9), variant: 'idle_dragon' });
-  }
+  const specOf = (k: Pick): Spec | null => {
+    if (k === 'fame') {
+      const amount = Math.floor(h.fame) + rng.int(4, 8) + Math.floor(h.fame * 0.15);
+      return { kind: 'fame', amount, why: t.vanity > 0.6 ? 'she has the face for it' : 'the city should know her name', desire: clamp(0.45 + 0.4 * t.fame, 0.3, 0.9), variant: 'idle_fame', extra: { amount } };
+    }
+    if (k === 'cash') {
+      const amount = Math.round(h.cash + rng.int(150, 350) + 0.2 * h.cash);
+      return { kind: 'cash', amount, why: h.cash < 150 ? 'being broke is embarrassing' : 'a hero needs a cushion', desire: clamp(0.4 + 0.45 * t.greed, 0.3, 0.9), variant: 'rich' };
+    }
+    if (k === 'raid') {
+      const lead = pickLead(c);
+      return lead ? raidSpec(w, lead, null, clamp(0.45 + 0.35 * t.thrill, 0.3, 0.85), raidWhy(lead.kind), 'idle_raid') : null;
+    }
+    return { kind: 'dragon', amount: (w.counters.dragon_kills ?? 0) + 1, mode: 'flight', why: 'somebody has to', desire: clamp(0.45 + 0.4 * Math.max(t.courage, t.justice), 0.3, 0.9), variant: 'idle_dragon' };
+  };
+  const spec = specOf(pick);
+  if (!spec) return;
+  // Nothing to do and several ideas: she might ask which.
+  const asked = maybeAsk(c, 'idle', () => {
+    const options: AskOption[] = [];
+    for (const o of opts) {
+      const sp = o.k === pick ? spec : specOf(o.k);
+      if (!sp) continue;
+      options.push(
+        o.k === 'fame' ? { id: 'fame', label: 'Get famous', hint: `${sp.amount} fame`, spec: sp }
+        : o.k === 'cash' ? { id: 'cash', label: 'Get rich', hint: `${money(sp.amount ?? 0)} neodollars`, spec: sp }
+        : o.k === 'dragon' ? { id: 'dragon', label: 'Hunt a dragon', hint: 'big, and made of Atlas', spec: sp }
+        : { id: 'raid', label: `Clear out ${sp.extra?.place ?? 'a building'}`, hint: `tier ${sp.extra?.tier ?? 1}`, spec: sp },
+      );
+    }
+    return { question: 'Nothing on my plate. What should I do with myself?', options, lean: pick };
+  });
+  if (!asked) adoptSpec(c, spec);
 }
 
 /** Somebody looks at her wrong. Whether that becomes anything depends on who she is. */
@@ -1083,7 +1185,7 @@ export function dungeonLure(w: World, dest: Id): number {
   const loc = w.locations[dest];
   if (!loc || !isEntrance(loc) || w.locations[w.hero.locationId]?.dungeon) return 0;
   const lead = knownDungeons(w).find((l) => l.entrance.id === dest);
-  if (!lead) return 0;
+  if (!lead || cooling(w, `raid:${dest}`) || cooling(w, 'bigscore')) return 0;
   // Kicking in doors is what she's for: fit and fearless, she is drawn to a door she fancies her chances against even with nothing in particular on her mind.
   const t = w.hero.personality.traits;
   let want = hpFrac(w) >= 0.6 ? clamp(0.45 + 0.5 * (t.courage - 0.5) + 0.3 * (t.thrill - 0.5), 0.1, 0.8) : 0;
