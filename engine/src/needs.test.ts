@@ -9,6 +9,7 @@ import { Rng } from './rng';
 import {
   HUNGER_PER_MIN, SLEEP_PER_MIN, effectiveQuality, hungerOf, hungerRate, hungerTier, nightHours, penaltyFor, refreshFx, sleepOf, sleepRate, sleepTier, wearDown,
 } from './needs';
+import { debtOf } from './needs';
 import { bedDown, feed, lodgingAt, needsBias, quietSpot, stallAt, tickNeeds } from './rest';
 import { LODGING } from './content/lodging';
 import { hungerUrge, sleepUrge } from './urges';
@@ -344,6 +345,58 @@ describe('beds', () => {
   });
 });
 
+describe('sleep debt', () => {
+  const night = (bed: 'pod' | 'hostel' | 'hotel', debt = 0) => {
+    const s = scenario({ at: 'street_main' });
+    bedtime(s.w, 10);
+    s.w.hero.sleepDebt = debt;
+    s.do(`sleep_${bed}`, never());
+    return s;
+  };
+
+  it('a poor bed leaves stacks behind, and a good one takes them off, more the better', () => {
+    expect(debtOf(night('pod').w.hero)).toBeGreaterThan(0);
+    const hostel = debtOf(night('hostel', 4).w.hero);
+    const hotel = debtOf(night('hotel', 4).w.hero);
+    expect(hostel).toBeLessThan(4);
+    expect(hotel).toBeLessThan(hostel);
+    expect(debtOf(night('hotel', 0).w.hero)).toBe(0);
+  });
+
+  it('worse beds add more, the bar refilling or not', () => {
+    const rough = scenario({ at: 'halo_alley', setup: (w) => bedtime(w, 10) });
+    rough.run((c) => bedDown(c, 'rough'), never());
+    const street = scenario({ at: 'street_main', setup: (w) => { bedtime(w, 10); w.hero.cash = 3; } });
+    street.run((c) => bedDown(c, 'street'), never());
+    expect(debtOf(rough.w.hero)).toBeGreaterThan(debtOf(night('pod').w.hero));
+    expect(debtOf(street.w.hero)).toBeGreaterThan(debtOf(rough.w.hero));
+  });
+
+  it('stays until a good bed clears it, costs her something, and is capped', () => {
+    const s = scenario();
+    s.w.hero.sleepDebt = 6;
+    s.w.hero.hunger = 100;
+    s.w.hero.sleep = 100;
+    wearDown(s.w, 60);
+    expect(debtOf(s.w.hero)).toBe(6);
+    const worn = penaltyFor(s.w.hero, s.w.legacy);
+    expect(worn.power + worn.reflex + worn.hack).toBeGreaterThan(0);
+    s.w.hero.sleepDebt = 0;
+    expect(penaltyFor(s.w.hero, s.w.legacy).power).toBe(0);
+    let t = night('pod', 9.9);
+    for (let i = 0; i < 3; i++) t = night('pod', debtOf(t.w.hero));
+    expect(debtOf(t.w.hero)).toBeLessThanOrEqual(10);
+  });
+
+  it('the lab’s orthopedic spine makes the same bed leave less', () => {
+    const s = scenario({ at: 'street_main' });
+    bedtime(s.w, 10);
+    withUpgrades(s.w, { 'rest.2': 4 });
+    s.do('sleep_pod', never());
+    expect(debtOf(s.w.hero)).toBeLessThan(debtOf(night('pod').w.hero));
+  });
+});
+
 describe('the street', () => {
   const street = (setup?: (w: World) => void) =>
     scenario({ at: 'street_main', setup: (w) => { bedtime(w, 20); w.hero.cash = 5; setup?.(w); } });
@@ -606,7 +659,7 @@ describe('text', () => {
       ['rest_incident', 'attacked_npd'], ['rest_incident', 'attacked_atlas'], ['rest_incident', 'attacked_gang'], ['rest_incident', 'faint'], ['rest_incident', 'dumped'],
       ['need', 'hunger_hungry'], ['need', 'hunger_famished'], ['need', 'hunger_starving'], ['need', 'hunger_wasting'],
       ['need', 'sleep_tired'], ['need', 'sleep_exhausted'], ['need', 'sleep_spent'],
-      ['death', 'starved'],
+      ['death', 'starved'], ['sleep_debt', 'up'], ['sleep_debt', 'down'],
     ];
     for (const [type, variant] of variants) expect(hasTemplate({ ...base, type, data: { variant } }), `${type}:${variant}`).toBe(true);
     // And not by falling through to a generic line.

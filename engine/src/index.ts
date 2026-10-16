@@ -31,5 +31,5 @@ export { TREE, NODES, NODE_IDS, describeFx, parseNeed, type UpgradeDef, type Bra
 export { DROPS } from './content/drops';
 export { buy, priceOf, stateOf, missing, rankOf, perk, growthPct, dropCut, ownedNodes, treeSize, settleAccount, applyUpgrades, BASE_CUT, type NodeState, type BuyResult } from './lab';
 export { FLOAT, worthDepositing } from './bank';
-export { hungerOf, sleepOf, hungerTier, sleepTier, hungerRate, sleepRate, nightHours, penaltyFor, type HungerTier, type SleepTier } from './needs';
+export { hungerOf, sleepOf, hungerTier, sleepTier, hungerRate, sleepRate, nightHours, penaltyFor, debtOf, type HungerTier, type SleepTier } from './needs';
 export { LODGING, FOOD } from './content/lodging';

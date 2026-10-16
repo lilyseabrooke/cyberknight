@@ -18,7 +18,7 @@ import {
   type FoodId, type LodgingId,
 } from './content/lodging';
 import {
-  HUNGER_WAKE, NIGHT_HOURS, effectiveQuality, hoursBeforeHungerWakes, hungerOf, hungerTier, nightHours, refreshFx, sleepOf, sleepTier, wearDown,
+  HUNGER_WAKE, NIGHT_HOURS, DEBT_PIVOT, debtOf, settleDebt, effectiveQuality, hoursBeforeHungerWakes, hungerOf, hungerTier, nightHours, refreshFx, sleepOf, sleepTier, wearDown,
 } from './needs';
 
 /**
@@ -261,7 +261,8 @@ export function restCandidates(w: World): Candidate[] {
     const q = effectiveQuality(w.legacy, def.quality);
     out.push({
       key: `sleep_${id}`, drives: {}, smart: 0.3 * su,
-      bonus: decided(su) * (0.5 + 0.7 * q) - (1.2 * cost) / Math.max(cost, h.cash) - def.rob * 2,
+      // A better bed is worth more to someone who is carrying sleep debt: it's the only thing that clears it.
+      bonus: decided(su) * (0.5 + 0.7 * q) + (q - DEBT_PIVOT) * 4 * (1 + debtOf(h)) - (1.2 * cost) / Math.max(cost, h.cash) - def.rob * 2,
       run: (c) => sleepOut(c, lodgingPlan(c.w, loc, id)),
     });
   }
@@ -376,7 +377,14 @@ function sleepOut(c: Ctx, plan: Plan): void {
     if (w.over) return;
     const minutes = w.clock - start;
     h.sleep = Math.min(100, sleepOf(h) + gained);
+    // Poor beds leave their mark and good ones clear it, whatever the bar says.
+    const frac = clamp(minutes / 60 / nightHours(w.legacy), 0.05, 1);
+    const debtBefore = Math.round(debtOf(h));
+    settleDebt(h, clamp(gained / 100 / frac, 0, 1), frac);
     afterSleep(c, minutes, plan.mode === 'lodging');
+    if (Math.round(debtOf(h)) !== debtBefore) {
+      c.emit('sleep_debt', Math.round(debtOf(h)) > debtBefore ? 'bad' : 'good', { variant: Math.round(debtOf(h)) > debtBefore ? 'up' : 'down', stacks: Math.round(debtOf(h)) });
+    }
     const rested = Math.round(gained);
     c.emit('wake', how === 'rested' && rested >= 70 ? 'good' : how === 'rested' || how === 'hunger' ? 'mixed' : 'bad', {
       variant: how, venue: plan.venue, place, hours: Math.round(minutes / 60), gained: rested, sleep: Math.round(sleepOf(h)), to: released, fine,

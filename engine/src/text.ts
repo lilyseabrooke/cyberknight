@@ -1483,6 +1483,14 @@ const T: Record<string, Entry> = {
     (d) => [`Blackbird is running on spite. Sleep: ${d.level}. Any minute now, her body takes the decision out of her hands.`],
     ['I am awake. I am extremely awake. Why is the floor so close.', 'Do not blink. Do not blink. Do not blink.'],
   ),
+  'sleep_debt:up': e(
+    (d) => [`The bed did not do the job. Blackbird carries it with her: sleep debt ${d.stacks}. Only a good bed will clear it.`, `Something in Blackbird's neck has decided that last night was not sleep. Sleep debt ${d.stacks}, and it does not fade on its own.`],
+    ['I am fine. I am only a little bit made of gravel.', 'I will catch up on it later. Everyone says that.'],
+  ),
+  'sleep_debt:down': e(
+    (d) => [d.stacks ? `A proper bed helps. Blackbird sheds some of the weight she has been carrying. Sleep debt ${d.stacks}.` : 'A proper bed, finally. The last of the sleep debt goes out of Blackbird like a held breath.'],
+    ['Oh, THAT is what it is supposed to feel like.', 'Do not tell the pods I said this.'],
+  ),
   'death:starved': e(
     (d) => [`Blackbird is dead. Level ${d.level}. ${d.place}. Cause: starvation. She just kept putting it off.`, `Blackbird flatlines in ${d.place}, level ${d.level}. The report says "starvation", which is the worst thing it could say about a girl with money in her pocket.`],
     ['I was going to eat. I had a plan.', "Apparently 'later' was a bad plan."],

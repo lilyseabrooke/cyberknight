@@ -109,6 +109,8 @@ export interface Hero {
   needsFx?: { power: number; muscle: number; reflex: number; hack: number; charm: number };
   /** The tier each meter was last announced at, so a slide down the bar is remarked on once per step. */
   needTier?: { hunger: string; sleep: string };
+  /** Stacks of lingering tiredness from poor beds: poor nights add them, good ones take them off, and they don't wear off with time. See needs.ts. */
+  sleepDebt?: number;
   muscle: number;
   reflex: number;
   hack: number;

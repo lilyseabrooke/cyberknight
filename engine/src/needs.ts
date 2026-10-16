@@ -90,6 +90,25 @@ export const SLEEP_PENALTY: Record<SleepTier, Penalty> = {
   spent: pen(3, 0, 1, 2, 1),
 };
 
+/** A bed this good neither adds nor removes sleep debt: a pod falls short of it, an average hostel clears it, a hotel clears more. */
+export const DEBT_PIVOT = 0.8;
+export const MAX_DEBT = 10;
+export const debtOf = (h: Hero): number => h.sleepDebt ?? 0;
+
+/** What the debt costs her: a few points off power and the head and hands, growing with the stacks. */
+export const debtPenalty = (stacks: number): Penalty => pen(Math.round(stacks / 2.5), 0, Math.floor(stacks / 3), Math.floor(stacks / 3), Math.floor(stacks / 5));
+
+/**
+ * One night's sleep at this realised quality (0..1, after the lab's help) changes her debt. Poor beds add stacks, the worse
+ * the more; good ones take them off, the better the more. `fraction` is how much of a full night she got. Returns the change.
+ */
+export function settleDebt(h: Hero, quality: number, fraction: number): number {
+  const before = debtOf(h);
+  const delta = quality < DEBT_PIVOT ? (DEBT_PIVOT - quality) * 8 * fraction : -(quality - DEBT_PIVOT) * 12 * fraction;
+  h.sleepDebt = clamp(before + delta, 0, MAX_DEBT);
+  return h.sleepDebt - before;
+}
+
 const KEYS = ['power', 'muscle', 'reflex', 'hack', 'charm'] as const;
 
 /** What she is losing at these levels, after the lab's softening. */
@@ -98,8 +117,9 @@ export function penaltyFor(h: Hero, l: Owned): Penalty {
   const sleepSoft = clamp(1 - perk(l, 'sleepSoft') / 100, 0.2, 1);
   const a = hungerPenalty(hungerSteps(hungerOf(h)));
   const b = SLEEP_PENALTY[sleepTier(sleepOf(h))];
+  const d = debtPenalty(debtOf(h));
   const out = { ...NONE };
-  for (const k of KEYS) out[k] = Math.round(a[k] * hungerSoft) + Math.round(b[k] * sleepSoft);
+  for (const k of KEYS) out[k] = Math.round(a[k] * hungerSoft) + Math.round((b[k] + d[k]) * sleepSoft);
   return out;
 }
 
