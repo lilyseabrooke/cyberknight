@@ -228,6 +228,8 @@ export default function NightViewer() {
   const queueRef = useRef<Chunk[]>([]);
   const universeRef = useRef<Universe | null>(null);
   const started = useRef(false);
+  /** The speed to go back to once her question is over (set when we slowed down for it). */
+  const speedBeforeAsk = useRef<number | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
 
   /** Send her out into Neo, in whatever universe we have (a fresh one on the first night). */
@@ -346,6 +348,20 @@ export default function NightViewer() {
     return () => clearTimeout(id);
   }, [playing, speed, tick, advance]);
 
+  // A question slows the clock to 1× so there's time to answer, and the old speed comes back when it's answered or she decides.
+  const askId = status?.ask?.id ?? null;
+  useEffect(() => {
+    if (askId !== null) {
+      setSpeed((cur) => {
+        if (cur !== 0 && speedBeforeAsk.current === null) speedBeforeAsk.current = cur;
+        return 0;
+      });
+    } else if (speedBeforeAsk.current !== null) {
+      setSpeed(speedBeforeAsk.current);
+      speedBeforeAsk.current = null;
+    }
+  }, [askId]);
+
   useEffect(() => {
     if (follow && logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [lines, follow]);
@@ -382,7 +398,7 @@ export default function NightViewer() {
           )}
           <div className="speeds" role="group" aria-label="Speed">
             {SPEEDS.map((s, i) => (
-              <button key={s.label} className={`btn small ${i === speed ? 'on' : ''}`} onClick={() => setSpeed(i)}>
+              <button key={s.label} className={`btn small ${i === speed ? 'on' : ''}`} onClick={() => { speedBeforeAsk.current = null; setSpeed(i); }}>
                 {s.label}
               </button>
             ))}

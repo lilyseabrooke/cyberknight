@@ -541,4 +541,4 @@ The first thing the player can do mid-night besides watch. At a fork in the road
 
 **State and replay.** The open question is `world.mind.ask` (plain JSON, saved with the night). The player's answer is `advise(world, optionId)` in `run.ts`: it takes no beat of its own, emits `advice_taken` and whatever the answer causes (`goal_new`…), and uses the world's dice, so a night with the answers logged by beat replays identically. Events: `advice_ask`, `advice_taken`, `advice_lapsed`.
 
-**UI.** `NightViewer` shows the question and its options in a card under the log, with a countdown. It counts beats, not seconds, so at 20× there's no time to answer; *Next drama* stops at a question.
+**UI.** `NightViewer` shows the question and its options in a card under the log, with a countdown. It counts beats, not seconds, so opening a question drops the speed to 1× and puts it back when the question is answered or times out (picking a speed meanwhile cancels the revert). *Next drama* stops at a question.
