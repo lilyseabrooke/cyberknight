@@ -443,7 +443,7 @@ The roguelite half of the game. Blackbird dies; she is rebuilt in the lab; you s
 - **Interest** is a perk, capped at 500nd per rebuild so a fat account is not a printing press.
 
 ### The trees (`content/tree.ts`, `lab.ts`)
-258 nodes / ~650 purchasable ranks in 10 branches, all data. Each branch holds **lines** (a row of nodes you walk along) and a node needs the one before it in its line plus, sometimes, nodes in other lines (`id` or `id:rank`), so the thing is a web and not a ladder. Prices rise per rank; a cost-sort of lines: universal things are dear, niche things cheap.
+351 nodes / ~1070 purchasable ranks in 16 branches, all data. Each branch holds **lines** (a row of nodes you walk along) and a node needs the one before it in its line plus, sometimes, nodes in other lines (`id` or `id:rank`), so the thing is a web and not a ladder. Prices rise per rank; a cost-sort of lines: universal things are dear, niche things cheap.
 
 | Branch | What it is |
 |---|---|
@@ -452,17 +452,32 @@ The roguelite half of the game. Blackbird dies; she is rebuilt in the lab; you s
 | Treasury | starting purse, drop-point fees, banking habit, estate (death insurance), interest |
 | The Lab | start levels, bench discounts, spare med kits and stims, the Perfect Rebuild capstone |
 | Arsenal | a ladder of starting melee weapons and one of guns (with ammo), ammo locker, weapon drills |
+| Doctrine (six branches) | Combat routines: see below |
 | Stagecraft / Brawl / Ghost / Charm / Hustle | one four-node line per skill (Quick Study, Head Start, Prodigy, Master), plus group-wide lines and crossovers that need two skills' worth of work |
 
 Some are good every night (reflexes), some are for a very specific Blackbird (beatboxing grows faster, and costs well under half what a melee line does).
 
 **Effects** are `Fx` values. Most are applied once, when the body is printed (`applyUpgrades`, from `beginRun`): stats, HP, levels, cash, competence, skill levels, kit, a better starting weapon/armor, implants (up to four), and personality nudges (applied to the hero's copy; the backup in `legacy.personality` is untouched). A few are looked up during the night with `perk(legacy, id)` and `growthPct(legacy, skill)`: skill growth (`train`), XP (`gainXp`), healing (`useMedPack`), the drop-point cut, and the bank habit.
 
+### Doctrine: combat routines (`content/doctrine.ts`, `doctrine.ts`)
+
+Six branches of combat skills flashed into the body before she wakes up: **Blades** (knife, blade, whip), **Blunt** (club, gauntlet), **Small Arms** (pistol, energy sidearm), **Heavy** (shotgun, SMG), **Precision** (rifle, beam rifle) and **Combat** (general, any weapon). About 95 nodes, 57-63k to buy out a weapon branch and 85k for Combat. The shop half is data (`content/doctrine.ts`: one `ArtSpec` per node, `per` = what one rank adds); the fight half is `engine/src/doctrine.ts`.
+
+- **Every node is bought in ranks** and does more with each. Nothing is once-per-fight or once-per-night: strong things are chances, passives or cooldowns (a cooldown technique's cooldown shortens with ranks).
+- **Weapon match.** A weapon branch's routines only work while she is holding a weapon of that branch (`branchOf(item)`, from the weapon class; named weapons have no generated class, so `NAMED` in `doctrine.ts` says which they would have rolled). `art(sim, id)` is zero for the wrong weapon, so no caller checks. Combat works with anything.
+- **The base node is the gate.** Each branch opens on a ten-rank base (+4% damage with that weapon family; for Combat, Thick Skin: -3% damage taken per rank). Every other node needs 3 ranks of it. No node asks for skill levels, because she is built before she has any. Capstones need a couple of nodes from their own branch. Battle Sense (Combat's capstone) adds hit chance and crit chance for every round a fight has gone on.
+- **Passives** are looked up through `Sim.arts` (a per-fight snapshot of her ranks, `lab.artsOf`): damage (`dmgMult`, used for what she does *and* what the AI expects), crit, accuracy, armor soak, hits taken (Thick Skin, Brace, Roll with It, **Last Gasp**: +10% a rank to 50%, a fatal blow leaves her on 1 HP and can happen again on the next), dodges, riposte and deflect, leech, regeneration (a percentage of max HP per round, plus a small capped trickle between fights in `run.ts`), nerve (`foeMorale`, Intimidating Presence), free actions (Berserker, Blade Dance, Follow-Through).
+- **On-hit effects** (`afterStrike`) put statuses on foes: **bleed** (stacking damage over time, not robots), **slow**, **pinned**, **marked**, **suppressed**, **broken limbs** (a leg: slow and can't flee; an arm: they hit softer; ribs: they aim worse), **stripped armor**, **disarmed**, plus stuns, knockback, ricochets and area blasts. Foes' statuses tick in `Sim.turn`.
+- **Actives** are techniques like the existing ones (`doctrineTechniques`): Lunge, Whirl, Haymaker, Bulldoze, Pile Driver, Aftershock, Fan the Hammer, Pistol Whip, Buckshot Wall, Suppressive Fire, Spray and Pray, Barrage, Mark Target, Pin Down. They are valued in the same units as everything else, so Blackbird chooses them on her own.
+- **Not here yet:** thrown items and grenades; friendly fire from area attacks; any change to how she picks fights (only what happens in them).
+
+`npx tsx scripts/doctrine-audit.ts [seeds]` runs every routine against the same fights with and without it and flags the ones that change nothing. Fully maxed (one weapon branch plus Combat), a level-6 Blackbird beats three Artemis dragons every time (plain: she runs or dies); with only the bases she still runs about 90% of the time and dies 5-17% rather than 33%. Hera still beats every build at least half the time.
+
 ### Persistence
 `legacy` gained `account`, `upgrades` (node id -> ranks) and `spent`; `World.stats` gained `deposited` and `fees`. `UNIVERSE_VERSION` is 2; `deserialize` brings version 1 saves forward (`upgradeUniverse`: adds the account and the drop-point features). The UI saves the universe to `localStorage` whenever she is in the lab; `?seed=` / `?world=` still start a replayable night in a fresh world.
 
 ### The screen (`components/Lab.tsx`)
-Balance, last night's books, ten branch tabs, each line as a row of cards with ranks, effects, price and what it still needs; a search across all nodes and an "only what I can buy now" filter; and a live preview of the body she'll wake up in and the money perks. Buying is immediate. There is no refund.
+Balance, last night's books, sixteen branch tabs (the six Doctrine branches grouped at the end), each line as a row of cards with ranks, effects, price and what it still needs; a search across all nodes and an "only what I can buy now" filter; and a live preview of the body she'll wake up in and the money perks. Buying is immediate. There is no refund.
 
 ### Balance notes
 At a typical competence, a night is worth a few hundred neodollars banked (a good one over a thousand), against a full tree that costs about 390k, so the early game is a slow trickle of cheap nodes and the late game is long. Greedy-buying the universal lines for 25 nights took a competence-0.1 Blackbird from 90 to 158 HP and 0.10 to 0.19 competence; she still mostly dies. That is the point of the long tree, but the Firmware and Chassis prices are the first knobs to turn.

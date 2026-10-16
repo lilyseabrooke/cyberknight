@@ -6,6 +6,9 @@ import { loaded, spendAmmo, wielded } from './arms';
 import { skillLevel, skillValue, train } from './skills';
 import { dist, hasLos, idx, inCover, makeGrid, nearestFree, passable, pathTo, posOf, reach, same, terrainAt, type Grid, type Pos, type Reach } from './grid';
 import { techniquesFor, type Technique } from './techniques';
+import { artsOf } from './lab';
+import type { ArtBranch } from './content/doctrine';
+import * as D from './doctrine';
 
 /**
  * A fight, played out on a small grid. Nobody watches it: the player gets a report of the interesting bits and the result.
@@ -44,6 +47,22 @@ export interface Unit extends Pos {
   stunned: boolean;
   disabled: boolean;
   burning: number;
+  /** Rounds of bleeding left, and how many cuts are open. */
+  bleedT: number;
+  bleedN: number;
+  /** Rounds left slowed, pinned in place, marked for her, suppressed, and rattled (acting late). */
+  slow: number;
+  pinned: number;
+  marked: number;
+  supp: number;
+  stagger: number;
+  /** Broken limbs, a fraction of armor stripped, a weapon taken, and whether it moved on its last turn. */
+  leg: boolean;
+  arm: boolean;
+  ribs: boolean;
+  shred: number;
+  disarmed: boolean;
+  moved: boolean;
   fleeing: boolean;
   scared: boolean;
   watching: boolean;
@@ -218,6 +237,18 @@ export class Sim {
   readonly fled = new Set<string>();
   readonly arrived: Npc[] = [];
   readonly stats = { ammoSpent: 0, backfires: 0, crits: 0, ambushes: 0, hacks: 0, scares: 0, shoves: 0, threw: 0, overwatch: 0, leaps: 0, flurries: 0, assists: 0 };
+  /** Her combat routines (see `doctrine.ts`), and the branch of the weapon in her hand. */
+  readonly arts: Record<string, number>;
+  branch: ArtBranch | null;
+  /** Foes she has put down this fight, free actions owed to her, whether she moved on her last turn, and a dodge that sets up her next strike. */
+  kills = 0;
+  bonus = 0;
+  moved = false;
+  mirage = false;
+  /** Till which round the other side stays unaware of her. */
+  hush = 0;
+  overwatching = false;
+  hitExtra = 0;
   private result: TacticalResult | null = null;
   private lastWield: string;
   private readonly procs = new Set<string>();
@@ -238,6 +269,8 @@ export class Sim {
     const loc = c.w.locations[h.locationId]!;
     this.grid = makeGrid(c.rng, loc.kind, loc.crowded);
     this.wield = wielded(h, o.foes);
+    this.arts = artsOf(c.w.legacy);
+    this.branch = D.branchOf(this.wield);
     this.lastWield = h.weapon.id;
     this.fleeAt = 0.1 + h.competence * 0.35;
     // She might lob something first. Cues, bottles, knives, and cocktails.
@@ -256,7 +289,7 @@ export class Sim {
 
   private heroUnit(): Unit {
     const h = this.w.hero;
-    const speed = clamp(3 + (h.reflex >= 6 ? 1 : 0) + (h.implants.includes('hydraulic_calves') ? 1 : 0) - (this.hooks.hasInjury(this.w, 'broken_leg') ? 1 : 0), 1, 6);
+    const speed = clamp(3 + (h.reflex >= 6 ? 1 : 0) + (h.implants.includes('hydraulic_calves') ? 1 : 0) - (this.hooks.hasInjury(this.w, 'broken_leg') ? 1 : 0) + Math.floor(D.art(this, 'footwork') / 2), 1, 7);
     return this.blank({ id: 'hero', name: 'Blackbird', team: 'hero', kind: 'hero', ref: h, speed, hit: 0.94, reach: weaponReach(this.wield), caution: 4, canFlee: true, alert: true });
   }
 
@@ -303,6 +336,19 @@ export class Sim {
       stunned: false,
       disabled: false,
       burning: 0,
+      bleedT: 0,
+      bleedN: 0,
+      slow: 0,
+      pinned: 0,
+      marked: 0,
+      supp: 0,
+      stagger: 0,
+      leg: false,
+      arm: false,
+      ribs: false,
+      shred: 0,
+      disarmed: false,
+      moved: false,
       fleeing: false,
       scared: false,
       watching: false,
@@ -312,7 +358,7 @@ export class Sim {
     };
   }
 
-  private occupant(p: Pos, except?: Unit): Unit | undefined {
+  occupant(p: Pos, except?: Unit): Unit | undefined {
     return this.units.find((u) => u.state === 'active' && u !== except && same(u, p));
   }
 
@@ -348,7 +394,7 @@ export class Sim {
     return this.units.filter((e) => e.state === 'active' && e.team === u.team && e !== u);
   }
 
-  private standingFoes(): Unit[] {
+  standingFoes(): Unit[] {
     return this.units.filter((u) => u.team === 'foe' && u.state === 'active');
   }
 
@@ -377,6 +423,7 @@ export class Sim {
       if (d > far) p -= 0.07 * (d - far);
     }
     if (this.flanked(att, tgt, from)) p += 0.08;
+    p += D.foeHit(this, att, tgt, from);
     return clamp(p, 0.1, 0.97);
   }
 
@@ -401,10 +448,11 @@ export class Sim {
       if (!thrown && cls === 'rifle' && d <= 1) p -= 0.1;
     }
     if (this.flanked(this.hero, t, from)) p += 0.08;
+    if (!thrown) p += D.hitBonus(this, t, from, weapon);
     return clamp(p, 0.1, 0.99);
   }
 
-  private power(weapon: Item): number {
+  power(weapon: Item): number {
     let p = this.pw.get(weapon.id);
     if (p === undefined) {
       p = this.hooks.heroPower(this.w, weapon, false);
@@ -415,8 +463,8 @@ export class Sim {
 
   heroExpected(t: Unit, weapon: Item, mult: number, ignoreArmor = false): number {
     const fx = fxOf(weapon);
-    let d = this.power(weapon) * 0.75 * vsMult(fx, t.npc) * (1 + fx.crit * (fx.critMult - 1));
-    if (!ignoreArmor && t.npc) d -= Math.max(0, foeArmor(t.npc) * 0.5 - fx.pierce);
+    let d = this.power(weapon) * 0.75 * vsMult(fx, t.npc) * (1 + (fx.crit + D.critBonus(this, t)) * (fx.critMult - 1)) * D.dmgMult(this, t, this.hero);
+    if (!ignoreArmor && t.npc) d -= D.soak(this, t, fx.pierce, false);
     return Math.max(1, d * mult);
   }
 
@@ -431,7 +479,7 @@ export class Sim {
     else {
       let fp = att.power - (att.disabled ? 3 : 0);
       if (att.npc?.tags.includes('apollo') && this.w.flags.dragon_weak) fp *= 0.65;
-      d = Math.max(1, fp * 0.4 - this.armorOf(tgt));
+      d = Math.max(1, fp * D.foePower(att) * 0.4 - this.armorOf(tgt));
       if (tgt.kind === 'ally') d *= 0.6;
     }
     this.dmgCache.set(key, d);
@@ -444,24 +492,28 @@ export class Sim {
     this.log.push({ type, outcome, data, weight, key, round: this.round });
   }
 
-  private proc(kind: string, foe: Unit): void {
+  proc(kind: string, foe: Unit, extra: EventData = {}): void {
     if (this.procs.has(kind)) return;
     this.procs.add(kind);
-    this.note('weapon_proc', 'good', { variant: kind, weapon: this.wield.name, foe: foe.name }, 2.5, `proc:${kind}`);
+    this.note('weapon_proc', 'good', { variant: kind, weapon: this.wield.name, foe: foe.name, ...extra }, 2.5, `proc:${kind}`);
   }
 
   // ------------------------------------------------------------------ damage and its consequences
 
   damage(att: Unit | null, tgt: Unit, amount: number): number {
     let n = Math.max(0, Math.round(amount));
-    if (tgt.kind === 'hero') n = this.interpose(n);
+    if (tgt.kind === 'hero') n = D.taken(this, this.interpose(n));
     if (n > 0 && att) {
       if (tgt.kind === 'foe' && att.kind === 'hero') this.dealt.set(tgt.name, (this.dealt.get(tgt.name) ?? 0) + n);
       else if (tgt.kind === 'hero') this.hitBy.set(att.name, (this.hitBy.get(att.name) ?? 0) + n);
     }
     tgt.ref.hp -= n;
     tgt.alert = true;
-    if (tgt.ref.hp <= 0 && tgt.state === 'active') this.defeat(tgt);
+    if (att?.kind === 'hero' && tgt.kind === 'foe') D.leech(this, n);
+    if (tgt.ref.hp <= 0 && tgt.state === 'active') {
+      this.defeat(tgt);
+      if (att?.kind === 'hero' && tgt.kind === 'foe') D.onKill(this, tgt);
+    }
     return n;
   }
 
@@ -500,7 +552,8 @@ export class Sim {
     }
   }
 
-  private panicIfCan(t: Unit): boolean {
+  panicIfCan(t: Unit): boolean {
+    if (t.leg || t.pinned > 0) return false;
     const free = this.exitMap(t);
     if (!free.size || !free.has(idx(this.grid, t))) return false;
     t.fleeing = true;
@@ -509,12 +562,19 @@ export class Sim {
 
   // ------------------------------------------------------------------ strikes
 
-  heroStrike(t: Unit, o: { mult: number; ignoreArmor?: boolean; sure?: boolean }): number {
+  heroStrike(t: Unit, o: { mult: number; ignoreArmor?: boolean; sure?: boolean; bonus?: boolean; noAmmo?: boolean }): number {
     const h = this.w.hero;
     const wield = this.wield;
     const fx = fxOf(wield);
-    this.stats.ammoSpent += spendAmmo(h, wield);
-    if (!o.sure && !this.c.rng.chance(this.heroHitChance(t, this.hero, wield))) return 0;
+    if (!o.noAmmo) {
+      const spent = spendAmmo(h, wield);
+      this.stats.ammoSpent += spent - D.refund(this, spent);
+    }
+    const sure = o.sure || this.mirage;
+    this.mirage = false;
+    if (!sure && !this.c.rng.chance(this.heroHitChance(t, this.hero, wield))) return 0;
+    const wasStunned = t.stunned;
+    const wasUnaware = !t.alert;
     const rng = this.c.rng;
     let dmg = Math.round(this.power(wield) * (0.45 + rng.next() * 0.6));
     if (wield.unstable) {
@@ -529,11 +589,13 @@ export class Sim {
     }
     // What the weapon does besides hit: edge against this sort of enemy, crits, and plating it gets through.
     dmg = Math.round(dmg * vsMult(fx, t.npc));
-    if (rng.chance(fx.crit)) {
+    const crit = rng.chance(fx.crit + D.critBonus(this, t));
+    if (crit) {
       dmg = Math.round(dmg * fx.critMult);
       this.proc('crit', t);
     }
-    if (!o.ignoreArmor && t.npc) dmg = Math.max(1, dmg - Math.round(Math.max(0, foeArmor(t.npc) * 0.5 - fx.pierce)));
+    if (!o.ignoreArmor && t.npc) dmg = Math.max(1, dmg - Math.round(D.soak(this, t, fx.pierce, crit)));
+    dmg = Math.round(dmg * D.dmgMult(this, t, this.hero));
     if (this.flanked(this.hero, t, this.hero)) dmg = Math.round(dmg * 1.2);
     dmg = Math.max(1, Math.round(dmg * o.mult));
     const dealt = this.damage(this.hero, t, dmg);
@@ -547,18 +609,23 @@ export class Sim {
         this.proc('burn', t);
       }
     }
+    D.afterStrike(this, t, { dealt, crit, wasStunned, wasUnaware, bonus: !!o.bonus });
     return dealt;
   }
 
   unitStrike(att: Unit, tgt: Unit): void {
     const rng = this.c.rng;
-    if (!rng.chance(this.hitChance(att, tgt, att))) return;
-    let fp = att.power - (att.disabled ? 3 : 0);
+    if (!rng.chance(this.hitChance(att, tgt, att))) {
+      if (tgt.kind === 'hero') D.onFoeMiss(this, att);
+      return;
+    }
+    if (tgt.kind === 'hero' && D.deflected(this, att)) return;
+    let fp = (att.power - (att.disabled ? 3 : 0)) * D.foePower(att);
     if (att.npc?.tags.includes('apollo') && this.w.flags.dragon_weak) fp *= 0.65;
     let d = Math.max(1, Math.round(fp * (0.2 + rng.next() * 0.4)) - this.armorOf(tgt));
     if (tgt.kind === 'ally') d = Math.round(d * 0.6);
     const dealt = this.damage(att, tgt, d);
-    if (tgt.kind === 'hero') this.hooks.maybeInjure(this.c, dealt);
+    if (tgt.kind === 'hero' && !D.shrugsOff(this)) this.hooks.maybeInjure(this.c, dealt);
   }
 
   allyStrike(me: Unit, t: Unit, base: number): void {
@@ -611,6 +678,42 @@ export class Sim {
   }
 
   // ------------------------------------------------------------------ shoving, hacking, scaring
+
+  /** What a unit can actually move this turn: slowed, pinned and broken-legged units cover less ground. */
+  speedOf(u: Unit): number {
+    if (u.pinned > 0) return 0;
+    if (u.speed === 0) return 0;
+    return Math.max(1, u.speed - (u.slow > 0 ? 1 : 0) - (u.leg ? 2 : 0));
+  }
+
+  /** Throw a foe back up to `n` tiles away from `me`: into a wall or person for damage and a daze, through an exit to be rid of them, onto a hazard for more. */
+  knockback(me: Unit, t: Unit, n: number, slam = 1): void {
+    const h = this.w.hero;
+    for (let i = 0; i < n && t.state === 'active'; i++) {
+      const dest = { x: t.x + Math.sign(t.x - me.x), y: t.y + Math.sign(t.y - me.y) };
+      if (same(dest, t)) return;
+      const terrain = terrainAt(this.grid, dest.x, dest.y);
+      if (terrain === null || terrain === 'wall' || terrain === 'cover' || this.occupant(dest)) {
+        this.damage(me, t, Math.max(1, Math.round((h.muscle * 1.2 + h.level) * slam)));
+        if (t.state === 'active') {
+          t.stunned = true;
+          t.stagger = 2;
+        }
+        return;
+      }
+      if (terrain === 'exit') {
+        this.eject(t, 'thrown_out');
+        return;
+      }
+      t.x = dest.x;
+      t.y = dest.y;
+      if (terrain === 'hazard' && !t.flying) {
+        this.damage(me, t, hazardDmg(t));
+        if (t.state === 'active') t.stunned = true;
+        return;
+      }
+    }
+  }
 
   shoveOutcome(me: Unit, t: Unit): { kind: 'out' | 'hazard' | 'slam' | 'push'; dmg: number; dest: Pos } | null {
     const dest = { x: t.x + Math.sign(t.x - me.x), y: t.y + Math.sign(t.y - me.y) };
@@ -693,7 +796,7 @@ export class Sim {
   }
 
   /** Off the board alive: through an exit, or thrown out of one. */
-  private eject(t: Unit, how: 'thrown_out' | 'ran' | 'scared'): void {
+  eject(t: Unit, how: 'thrown_out' | 'ran' | 'scared'): void {
     t.state = 'fled';
     if (t.npc) {
       this.fled.add(t.npc.id);
@@ -729,7 +832,7 @@ export class Sim {
       }
       this.closeRound(hpBefore);
       // Whoever she crept up on has noticed her by the second round.
-      if (this.round >= 2 || !this.o.assault) for (const f of this.units) if (f.team === 'foe') f.alert = true;
+      if ((this.round >= 2 && this.round >= this.hush) || !this.o.assault) for (const f of this.units) if (f.team === 'foe') f.alert = true;
     }
     return {
       result: this.result ?? 'flee',
@@ -763,14 +866,15 @@ export class Sim {
 
   private initiative(u: Unit): number {
     const h = this.w.hero;
-    if (u.kind === 'hero') return 2 + h.reflex * 0.8 + skillValue(h, 'athletics') * 0.3 + (this.round === 1 && this.o.assault ? 10 : 0);
+    if (u.kind === 'hero') return 2 + h.reflex * 0.8 + skillValue(h, 'athletics') * 0.3 + (this.round === 1 && this.o.assault ? 10 : 0) + D.initiativeBonus(this, u);
     if (u.kind === 'ally') return 3 + u.speed * 0.4;
-    return 2 + (u.npc?.level ?? 1) * 0.3 + u.speed * 0.3;
+    return 2 + (u.npc?.level ?? 1) * 0.3 + u.speed * 0.3 + D.initiativeBonus(this, u);
   }
 
   private beginRound(): void {
     const rng = this.c.rng;
     for (const u of this.units) u.interposed = false;
+    D.regen(this);
     // Late arrivals come through the doors.
     const now = this.queue.filter((q) => q.round <= this.round);
     const groups = new Map<string, Unit[]>();
@@ -830,6 +934,7 @@ export class Sim {
     this.dmgCache.clear();
     u.watching = false;
     for (const k of Object.keys(u.cd)) if (u.cd[k]! > 0) u.cd[k]!--;
+    if (!D.tickStatus(this, u)) return;
     if (u.burning > 0) {
       u.burning--;
       this.damage(null, u, Math.max(2, Math.round((u.kind === 'foe' ? this.power(this.wield) : u.power) * 0.15)));
@@ -843,6 +948,13 @@ export class Sim {
     if (u.kind === 'foe') this.foeMorale(u);
     const opt = this.plan(u);
     if (opt) this.execute(u, opt);
+    if (u.kind === 'hero') {
+      // Free actions: a kill that keeps her moving, or nothing left to lose.
+      for (let extra = D.bonusActions(this); extra > 0 && u.state === 'active' && !this.result && this.standingFoes().length; extra--) {
+        const more = this.plan(u);
+        if (more) this.execute(u, more);
+      }
+    }
     if (u.state === 'active' && !u.flying && terrainAt(this.grid, u.x, u.y) === 'hazard') {
       this.damage(null, u, hazardDmg(u));
       this.note('tactic', u.kind === 'foe' ? 'good' : 'bad', { variant: 'hazard', who: u.name, hero: u.kind !== 'foe' }, 2.5, `hazard:${u.id}`);
@@ -854,6 +966,8 @@ export class Sim {
     const living = this.standingFoes().map((f) => f.npc!);
     this.wield = wielded(h, living);
     this.hero.reach = weaponReach(this.wield);
+    this.branch = D.branchOf(this.wield);
+    D.presence(this);
     if (this.wield.id !== this.lastWield) {
       const foe = living[0]?.name ?? 'them';
       if (!loaded(h, h.weapon)) this.note('out_of_ammo', 'bad', { weapon: h.weapon.name, ammo: h.weapon.ammoType ?? 'ammo', fallback: this.wield.name, bare: this.wield.id === 'fists' }, 3, 'ammo');
@@ -863,7 +977,7 @@ export class Sim {
     // No point running from a fight she's about to finish.
     const finishing = this.standingFoes().every((f) => f.ref.hp <= this.heroExpected(f, this.wield, 1) * 1.25);
     if (finishing) this.hero.fleeing = false;
-    if (!finishing && !this.hero.fleeing && this.round >= 2 && h.hp / h.maxHp < this.fleeAt && this.c.rng.chance(0.55 + h.reflex * 0.03 + skillValue(h, 'athletics') * 0.02) && this.exitMap(this.hero).has(idx(this.grid, this.hero))) {
+    if (!finishing && !this.hero.fleeing && this.round >= 2 && h.hp / h.maxHp < this.fleeAt && this.c.rng.chance(0.55 + h.reflex * 0.03 + skillValue(h, 'athletics') * 0.02 + D.art(this, 'escape_artist') / 100) && this.exitMap(this.hero).has(idx(this.grid, this.hero))) {
       this.hero.fleeing = true;
       this.note('tactic', 'mixed', { variant: 'retreat', hpPct: Math.round((h.hp / h.maxHp) * 100) }, 3, 'retreat');
     }
@@ -872,7 +986,7 @@ export class Sim {
   private foeMorale(u: Unit): void {
     if (!u.canFlee || u.fleeing) return;
     const r = u.ref.hp / u.ref.maxHp;
-    if (r < 0.28 && this.c.rng.chance(0.35 + 0.35 * this.lostFraction())) this.panicIfCan(u);
+    if (r < 0.28 + D.nervePenalty(this, u) && this.c.rng.chance(0.35 + 0.35 * this.lostFraction())) this.panicIfCan(u);
   }
 
   private checkEnd(): void {
@@ -922,7 +1036,7 @@ export class Sim {
     for (const e of enemies) {
       if (e.stunned || e.fleeing) continue;
       const gap = dist(e, tile);
-      if (gap > e.speed + e.reach[1] + (e.flying ? 1 : 0)) continue;
+      if (gap > this.speedOf(e) + e.reach[1] + (e.flying ? 1 : 0)) continue;
       let p = e.npc?.tags.includes('hera') ? 1 : e.hit;
       if (e.reach[1] > 1 && inCover(this.grid, e, tile)) p -= 0.25;
       d += Math.min(1, this.avgDamage(e, u) / Math.max(1, u.ref.hp)) * Math.max(0.05, p);
@@ -972,8 +1086,9 @@ export class Sim {
     const k: TurnCtx = { enemies, caution: fleeing ? 1 : caution, fleeing, exitDist, enemyDist: this.enemyDistMap(u, enemies), pos: new Map() };
     const techs = fleeing ? techniquesFor(this, u).filter((t) => t.id === 'leave') : techniquesFor(this, u);
     const blocked = (p: Pos) => enemies.some((e) => same(e, p));
-    const walk = reach(g, u, u.speed, blocked, u.flying);
-    const sprint = reach(g, u, u.speed * 2, blocked, u.flying);
+    const speed = this.speedOf(u);
+    const walk = reach(g, u, speed, blocked, u.flying);
+    const sprint = reach(g, u, speed * 2, blocked, u.flying);
 
     const cands: { tile: Pos; mode: Option['mode']; r: Reach | null; cost: number }[] = [];
     for (const [i, c] of sprint.cost) {
@@ -1022,6 +1137,8 @@ export class Sim {
   }
 
   private execute(u: Unit, o: Option): void {
+    u.moved = o.mode !== 'stay';
+    if (u.kind === 'hero') this.moved = u.moved;
     if (o.mode === 'leap') {
       u.x = o.tile.x;
       u.y = o.tile.y;
@@ -1053,7 +1170,9 @@ export class Sim {
     if (dist(w, mover) > w.reach[1] || (w.reach[1] > 1 && !hasLos(this.grid, w, mover))) return;
     w.watching = false;
     this.stats.overwatch++;
-    this.heroStrike(mover, { mult: 0.75 });
+    this.overwatching = true;
+    this.heroStrike(mover, { mult: 0.75 + D.art(this, 'hair_trigger') / 100 });
+    this.overwatching = false;
     this.note('tactic', 'good', { variant: 'overwatch', foe: mover.name, weapon: this.wield.name }, 3, `watch:${this.round}`);
   }
 }

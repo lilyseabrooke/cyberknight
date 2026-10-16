@@ -28,6 +28,7 @@ import { satietyBias, tickSatiety } from './romance';
 import { BASE_MIN_PER_BEAT } from './clock';
 import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
+import { art } from './lab';
 
 export const MAX_BEATS = 600;
 
@@ -237,7 +238,11 @@ function upkeep(c: Ctx): void {
   tickVenues(w);
   tickHustles(c);
   if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;
-  // No passive regeneration. Wounds stay until a med pack or a street doc deals with them.
+  // No passive regeneration, bar the lab's Steady Regeneration: a few hit points now and then, never past half health. Real wounds still want a med pack or a street doc.
+  if (w.beat % 10 === 0 && h.hp > 0 && h.hp < h.maxHp * 0.5) {
+    const regen = art(w.legacy, 'regen');
+    if (regen > 0) h.hp = Math.min(Math.ceil(h.maxHp * 0.5), h.hp + regen);
+  }
   if (h.drunk >= 6 + Math.floor(skillLevel(h, 'tolerance') / 2)) {
     const lost = Math.round(h.cash * 0.4);
     h.cash -= lost;

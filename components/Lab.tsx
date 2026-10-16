@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import {
   IMPLANTS,
   NODES,
@@ -137,11 +137,14 @@ export default function Lab({ universe, onChange, onSendOut }: { universe: Unive
       <div className="labgrid">
         <section className="tree" aria-label="Upgrade trees">
           <nav className="tabs" role="tablist" aria-label="Branches">
-            {TREE.map((b) => (
-              <button key={b.id} role="tab" aria-selected={b.id === branchId} className={`tab ${b.id === branchId ? 'on' : ''}`} onClick={() => setBranchId(b.id)}>
-                {b.label}
-                <small>{counts[b.id]!.got}/{counts[b.id]!.of}</small>
-              </button>
+            {TREE.map((b, i) => (
+              <Fragment key={b.id}>
+                {b.id.startsWith('doctrine_') && !TREE[i - 1]!.id.startsWith('doctrine_') && <span className="tabsep" aria-hidden="true">Doctrine</span>}
+                <button role="tab" aria-selected={b.id === branchId} className={`tab ${b.id === branchId ? 'on' : ''}`} onClick={() => setBranchId(b.id)}>
+                  {b.label}
+                  <small>{counts[b.id]!.got}/{counts[b.id]!.of}</small>
+                </button>
+              </Fragment>
             ))}
           </nav>
           <div className="toolbar">

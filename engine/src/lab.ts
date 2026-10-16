@@ -43,6 +43,16 @@ export function perk(l: Owned, id: PerkId): number {
   return n;
 }
 
+/** Her combat routines, summed over ranks: art id -> total. One snapshot per fight, so the hot loop never walks the upgrades. */
+export function artsOf(l: Owned): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const fx of owned(l)) if ('art' in fx) out[fx.art] = (out[fx.art] ?? 0) + fx.n;
+  return out;
+}
+
+/** One combat routine's total at the lab's say-so, for the few places that are not inside a fight. */
+export const art = (l: Owned, id: string): number => artsOf(l)[id] ?? 0;
+
 /** Percentage skill growth she has, for one skill. Group and blanket upgrades count too. */
 export function growthPct(l: Owned, skill: SkillId): number {
   let pct = 0;

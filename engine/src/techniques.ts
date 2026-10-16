@@ -2,6 +2,7 @@ import type { Item } from './types';
 import type { Pos } from './grid';
 import { dist, terrainAt } from './grid';
 import type { Sim, Unit } from './tactics';
+import { doctrineTechniques } from './doctrine';
 
 /**
  * Everything a unit can do with its action, as data plus two small functions. Adding a way to fight is adding an entry
@@ -24,7 +25,7 @@ export interface Technique {
 const frac = (dmg: number, hp: number): number => Math.min(1, dmg / Math.max(1, hp));
 
 /** How attractive a hit of this size is: mostly how much of the target it takes, plus a premium for finishing it. */
-const strikeValue = (p: number, exp: number, hp: number): number => 18 * frac(p * exp, hp) + (exp >= hp * 0.9 ? 7 * p : 0);
+export const strikeValue = (p: number, exp: number, hp: number): number => 18 * frac(p * exp, hp) + (exp >= hp * 0.9 ? 7 * p : 0);
 
 const personOnly = (t: Unit): boolean => !!t.npc && !t.npc.tags.some((x) => ['robot', 'dragon', 'boss'].includes(x));
 
@@ -274,7 +275,7 @@ function allyAttack(u: Unit): Technique {
 // ------------------------------------------------------------------ the registry
 
 export function techniquesFor(s: Sim, u: Unit): Technique[] {
-  if (u.kind === 'hero') return [attack(s, u), ...throwing(s), ...ambush(s), ...flurry(s), ...shove(s), ...hack(s, u), ...intimidate(s), ...overwatch(s), leave()];
+  if (u.kind === 'hero') return [attack(s, u), ...throwing(s), ...ambush(s), ...flurry(s), ...shove(s), ...hack(s, u), ...intimidate(s), ...overwatch(s), ...doctrineTechniques(s), leave()];
   if (u.kind === 'ally') return [allyAttack(u), ...hack(s, u)];
   return [attack(s, u), leave()];
 }

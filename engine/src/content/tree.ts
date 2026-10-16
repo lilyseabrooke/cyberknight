@@ -1,6 +1,7 @@
 import { SKILLS, SKILL_IDS, type SkillId, type StatId } from './skills';
 import type { Trait } from '../personality';
 import { AMMO } from './ammo';
+import { BASE_GATE, DOCTRINE, describeArt } from './doctrine';
 
 /**
  * The lab's upgrade trees. Everything here is data: what a node costs, what it needs, what it does.
@@ -54,7 +55,9 @@ export type Fx =
   /** Pushes a personality trait around (and back; she can be talked out of things, a little). */
   | { trait: Trait; n: number }
   | { fame: number }
-  | { perk: PerkId; n: number };
+  | { perk: PerkId; n: number }
+  /** A combat routine from the Doctrine branches (see `doctrine.ts`), looked up by the fight, once per rank. */
+  | { art: string; n: number };
 
 /** A requirement: a node id (any rank) or `id:rank`. */
 export type Need = string;
@@ -446,6 +449,31 @@ shelf(hustle, 'mix_hustle', 'Crossover', ['cooking.1', 'mixology.1'], [
   { name: 'Kitchen Chemistry', blurb: 'If it is edible, it is food. If it isn\'t, it\'s a drink.', cost: 600, max: 2, step: 1.8, needs: ['cooking.2', 'mixology.2'], fx: [{ skill: 'medicine', lvl: 1 }, { grow: 'craft', pct: 25 }] },
 ]);
 
+// ====================================================================== doctrine
+
+/** The combat branches are written as data in `doctrine.ts`; this is where they become nodes. */
+{
+  const nodeOf: Record<string, string> = {};
+  for (const d of DOCTRINE) {
+    nodeOf[d.base.id] = `${d.id}_base.1`;
+    for (const l of d.lines) l.arts.forEach((a, i) => (nodeOf[a.id] = `${l.id}.${i + 1}`));
+  }
+  const spec = (a: (typeof DOCTRINE)[number]['base']): Spec => ({
+    name: a.name,
+    blurb: a.blurb,
+    cost: a.cost,
+    max: a.max,
+    step: a.step,
+    needs: a.needs?.map((n) => nodeOf[n]!),
+    fx: [{ art: a.id, n: a.per }],
+  });
+  for (const d of DOCTRINE) {
+    const b = branch(`doctrine_${d.id}`, d.label, d.blurb);
+    chain(b, `${d.id}_base`, 'Mastery', [], [spec(d.base)]);
+    for (const l of d.lines) shelf(b, l.id, l.label, [`${d.id}_base.1:${BASE_GATE}`], l.arts.map(spec));
+  }
+}
+
 // ====================================================================== reading it
 
 export const TREE: readonly BranchDef[] = BRANCHES;
@@ -476,6 +504,7 @@ export function describeFx(fx: Fx, itemName: (id: string) => string, implantName
   if ('armor' in fx) return `starts in ${itemName(fx.armor)}`;
   if ('trait' in fx) return `${fx.trait} ${fx.n > 0 ? 'up' : 'down'} ${Math.round(Math.abs(fx.n) * 100)}`;
   if ('fame' in fx) return `starts with ${fx.fame} fame`;
+  if ('art' in fx) return describeArt(fx.art, fx.n);
   switch (fx.perk) {
     case 'fee': return `drop points take ${fx.n} points less`;
     case 'keep': return `${fx.n}% of carried cash survives her death`;
