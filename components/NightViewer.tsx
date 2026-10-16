@@ -120,7 +120,7 @@ const SPEEDS = [
 
 const HEAT_NAMES: Record<string, string> = { npd: 'Police', atlas: 'Atlas', halo: 'The Halo', club: 'Neon Pharaoh' };
 const heatName = (k: string) => HEAT_NAMES[k] ?? gangName(k);
-const DRAMA = new Set(['advice_ask', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout']);
+const DRAMA = new Set(['advice_ask', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout', 'quest']);
 const MAX_LINES = 600;
 
 function snap(w: World): Snapshot {

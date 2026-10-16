@@ -27,6 +27,8 @@ The loop: Blackbird goes out, banks money at drop points around Neo, dies, and i
 
 Neo is built as she explores: the Rusty Halo district is hand-made, and everything past it is generated when she first gets there and kept in the save (`engine/src/mapgen.ts`). Some of what's out there is a dungeon: an Atlas outpost or a ganger hideout, with rooms, a garrison, traps and spoils at a difficulty of its own, which she raids on her own initiative and which fills up again a couple of runs after it's cleared (`engine/src/dungeons.ts`).
 
+People with a want can hand her a job (`engine/src/quests.ts`): flatline someone, bring something back, or get into a system. Each job gets a place made for it, at the end of a trail of new streets, and she decides for herself whether to take it, whether to start tonight, and whether to creep in or kick the door down.
+
 `engine/` is pure, deterministic TypeScript (seeded RNG, no DOM). `app/` + `components/` are the Next.js log UI (no backend yet; Supabase saves/login come in M2).
 
 ## Deploying

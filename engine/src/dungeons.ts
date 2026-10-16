@@ -19,6 +19,7 @@ import { meetHazards } from './hazards';
 import { sneakBonus } from './extras';
 import { skillLevel, train } from './skills';
 import { startRaid } from './goals';
+import { nightfall, stockQuest } from './quests';
 
 /**
  * Dungeons: Atlas outposts and ganger hideouts. A building on a street with rooms behind the door, a garrison in the
@@ -89,6 +90,7 @@ export function ensureDungeon(w: Realm, entrance: Location): Dungeon | undefined
     tier: entrance.gen.tier ?? 1,
     faction: entrance.faction ?? (kind === 'outpost' ? 'atlas' : 'ganger'),
     ...(kind === 'spot' ? { spot: entrance.gen.spot } : {}),
+    ...(entrance.gen.quest ? { quest: entrance.gen.quest } : {}),
     rooms: [],
     garrison: [],
     occupation: 1,
@@ -134,7 +136,7 @@ function layoutOf(w: Pick<World, 'worldSeed'>, d: Dungeon): { layout: { def: Roo
 }
 
 /** Swap their weapon for another, and their punch with it. */
-function rearm(n: Npc, id: string): void {
+export function rearm(n: Npc, id: string): void {
   const at = n.loadout.findIndex((i) => i.kind === 'weapon');
   const old = at >= 0 ? n.loadout[at]! : undefined;
   const next = makeItem(id);
@@ -202,6 +204,8 @@ function stock(w: Realm, d: Dungeon, def: RoomDef, loc: Location): void {
     room.cache = { kind, value: Math.round(cacheValue(kind, d.tier) * (0.85 + rng.next() * 0.3) * rich), taken: false, fails: 0, ...(rich > 1 ? { rich: Math.round(rich * 100) / 100 } : {}) };
   }
   loc.hazards = rollRoomHazards(new Rng(`rig:${w.worldSeed}:${d.id}:${d.occupation}:${def.key}`), d.kind, d.tier, def.hazard);
+  // And if the place was made for a job, the one thing that makes it so.
+  if (d.quest) stockQuest(w, d, def.key, loc.id);
 }
 
 // ===================================================================== between runs
@@ -215,6 +219,7 @@ export function tickDungeons(u: Realm): Dungeon[] {
   for (const d of Object.values(u.dungeons)) {
     d.alert = 0;
     d.aware = [];
+    if (d.quest) nightfall(u, d);
     if (d.clearedRun !== null && d.returnsRun !== null && u.legacy.runs >= d.returnsRun) {
       regarrison(u, d);
       back.push(d);
@@ -367,6 +372,11 @@ function raiseAlarm(c: Ctx, d: Dungeon, loc: Location, why: Why): FightResult | 
   return fightRoom(c, d, loc, why === 'ambush');
 }
 
+/** Something she did made noise in a room with people in it. */
+export function tripAlarm(c: Ctx, d: Dungeon, loc: Location): void {
+  raiseAlarm(c, d, loc, 'tripped');
+}
+
 /** Fight everyone in the room, in waves of a few if there are a lot of them. */
 export function fightRoom(c: Ctx, d: Dungeon, loc: Location, ambush: boolean): FightResult | null {
   const { w } = c;
@@ -385,10 +395,10 @@ export function fightRoom(c: Ctx, d: Dungeon, loc: Location, ambush: boolean): F
 }
 
 /** Whoever ran for it is gone for good: out the back and not coming back to a building like this. */
-function routed(c: Ctx, d: Dungeon): void {
+export function routed(c: Ctx, d: Dungeon): void {
   const { w } = c;
   for (const n of garrisonAlive(w, d)) {
-    if (n.downUntil <= w.beat) continue;
+    if (n.downUntil <= w.beat || n.tags.includes('quest_target')) continue; // (somebody a job is about doesn't leave)
     delete n.post;
     sendAway(w, n);
   }
@@ -400,6 +410,8 @@ export function checkCleared(c: Ctx, d: Dungeon): boolean {
   const { w } = c;
   if (d.clearedRun !== null) return true;
   if (garrisonAlive(w, d).length) return false;
+  // A place made for a job isn't cleared out while the job's thing is still in it.
+  if (d.rooms.some((r) => r.objective && !r.objective.done)) return false;
   // A spot that was only ever a stash is not "cleared" until the stash is gone, and nobody had to be put down for it.
   const bare = d.posted === 0;
   if (bare && d.rooms.some((r) => r.cache && !r.cache.taken)) return false;

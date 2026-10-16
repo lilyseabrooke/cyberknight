@@ -493,6 +493,49 @@ export function addSpot(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, 
   return sketch(w, street, slot, 'spot', street.gen?.district ?? 'industrial', street.gen?.depth ?? 1, { tier, spot: key });
 }
 
+/** Child slots from here up are for places made to order (a job's trail and site), so they can't land on a slot a street grows on its own. */
+const MADE_TO_ORDER = 1000;
+
+const TRAIL_TAIL = ['that the map has stopped bothering with', 'where the streetlights give up', 'that nobody has fixed in years', 'running out past the last shuttered stall', 'with more drains than doors', 'where the signs are mostly warnings'];
+
+export interface SiteSpec {
+  role: 'outpost' | 'hideout' | 'spot';
+  /** Spots: which one (content/spots.ts). */
+  spot?: string;
+  tier: number;
+}
+
+/**
+ * A place made for a job: a trail of `length` new streets leading off `from`, and a spot or a dungeon on the last of them.
+ * Everything comes from `key` (and the world), so the same job is in the same place however the save got there. The streets
+ * are ordinary streets and grow when she reaches them; the site is an ordinary spot or dungeon, built when she reaches its door,
+ * with `giver` written on it so the building knows what it is for. Idempotent: asking again returns what is already there.
+ */
+export function addQuestSite(
+  w: Pick<World, 'worldSeed' | 'locations' | 'factions'>,
+  from: Location,
+  key: string,
+  length: number,
+  site: SiteSpec,
+  giver: Id,
+): { streets: Location[]; entrance: Location } {
+  const rng = new Rng(`trail:${w.worldSeed}:${key}`);
+  const streets: Location[] = [];
+  let at = from;
+  let district: District = from.gen?.district ?? 'slum';
+  for (let i = 0; i < length; i++) {
+    district = rng.chance(0.7) ? district : pick(rng, NEXT_TO[district]);
+    at = sketch(w, at, MADE_TO_ORDER + (hashString(`${key}:${i}`) % 9000), 'street', district, (at.gen?.depth ?? 0) + 1, { label: `{name}, ${pick(rng, TRAIL_TAIL)}` });
+    streets.push(at);
+  }
+  // The street the site is on is lived in like any other: it grows its own lots, and the site is one more thing on it.
+  expand(w, at);
+  const depth = at.gen?.depth ?? 1;
+  const entrance = sketch(w, at, MADE_TO_ORDER + (hashString(`${key}:site`) % 9000), site.role, district, depth, { tier: site.tier, ...(site.spot ? { spot: site.spot } : {}) });
+  entrance.gen!.quest = giver;
+  return { streets, entrance };
+}
+
 /** "the Chrome Vipers' dead drop", "Atlas drone repair bay 4-B". */
 function spotName(def: SpotDef, rng: Rng, crew: string | undefined): string {
   return rng.pick(def.names).replace('{gang}', `the ${possessive(crew ?? 'Street gang')}`).replace('{code}', rng.pick(OUTPOST_CODE));

@@ -289,6 +289,35 @@ export interface Npc {
   knows?: { died?: number; saw?: boolean; reacted?: boolean };
   /** The dungeon (its entrance's id) they are garrisoned in. Until they have noticed her, she can't deal with them one at a time; see dungeons.ts. */
   post?: Id;
+  /** A job they have for Blackbird, once they've told her about it. Persists with them: the world remembers a job even when she doesn't. See quests.ts. */
+  quest?: Quest;
+}
+
+export type QuestKind = 'flatline' | 'retrieve' | 'hack';
+
+/**
+ * A job somebody wants done: go to a place that was made for it and do one thing there. The place (a spot or a dungeon at the end
+ * of a trail of new streets) is built when the job is first described and is part of the map from then on.
+ */
+export interface Quest {
+  kind: QuestKind;
+  /** The want (a fact on the giver) it grew out of. */
+  fact: string;
+  /** The entrance of the place (also the key into `World.dungeons`). */
+  site: Id;
+  /** The role of the room the objective is in (`spot` for a spot, which is one room). */
+  room: string;
+  /** Neodollars, on delivery. */
+  reward: number;
+  /** flatline: who has to go (set once the place has been built and they are in it), and what they are. */
+  target?: Id;
+  targetGender?: Gender;
+  /** What it is, for the log: the target's name, the thing to bring back, the system to get into. */
+  what: string;
+  /** open: not done yet. ready: done, waiting to be reported. done: paid. failed: spoiled for tonight. */
+  state: 'open' | 'ready' | 'done' | 'failed';
+  /** Run the job was described in. */
+  run: number;
 }
 
 export interface Feature {
@@ -470,6 +499,8 @@ export interface GenInfo {
   tier?: number;
   /** Small encounter spots: which one it is (content/spots.ts). */
   spot?: string;
+  /** Made for a job: the id of the person who wants it done. See quests.ts. */
+  quest?: Id;
 }
 
 export type DungeonKind = 'outpost' | 'hideout' | 'spot';
@@ -494,6 +525,8 @@ export interface DungeonRoom {
   /** What the room is (barracks, data core...). Picks its blurb and what's in it. */
   role: string;
   cache?: Cache;
+  /** What a job needs doing in here: a thing to take or a system to get into (flatline jobs are a person, not a fixture). */
+  objective?: { kind: 'item' | 'terminal'; done: boolean; fails: number };
 }
 
 /**
@@ -529,6 +562,8 @@ export interface Dungeon {
   posted?: number;
   /** Spots: what is going on in this garrisoning (the setup it was dealt). */
   scene?: string;
+  /** Made for a job: the person who wants it done (their `quest` says what). */
+  quest?: Id;
 }
 
 /** Per-run situational variables, layered on the persistent macro-Neo. */
@@ -649,7 +684,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
@@ -660,15 +695,16 @@ export interface Goal {
   id: number;
   kind: GoalKind;
   parent: number | null;
-  /** The person (kill, romance). */
+  /** The person (kill, romance). For a quest, the one who wants it done. */
   npc?: Id;
   /** The thing (buy): a key into `Mind.wares`. */
   ware?: string;
-  /** The place (heist, raid, explore). */
+  /** The place (heist, raid, explore, quest). */
   loc?: Id;
   /** cash: the money she wants on hand. weapon: the power she wants to be swinging. */
   amount?: number;
-  /** kill: 'kill' | 'beat_up'. heist: 'approach' | 'loot' | 'escape'. raid: 'approach' | 'raid' | 'out' (it's done) | 'retreat' (it's too much). */
+  /** kill: 'kill' | 'beat_up'. heist: 'approach' | 'loot' | 'escape'. raid: 'approach' | 'raid' | 'out' (it's done) | 'retreat' (it's too much).
+   *  quest: 'approach' | 'sneak' | 'clear' (how she's going about it, once inside) | 'retreat' | 'return' (the job is done; go and tell them). */
   mode?: string;
   /** Her reason, in her own words-ish; shown in the log and the status panel. */
   why: string;
@@ -688,6 +724,8 @@ export interface Goal {
   revisions: number;
   /** Kill: she has actually thrown a punch at them. */
   struck?: boolean;
+  /** Quest: she has been inside the place (so coming back through the door isn't news). */
+  entered?: boolean;
   /** Heist bookkeeping. */
   heat0?: number;
   looted?: boolean;
@@ -813,6 +851,8 @@ export interface Mind {
   known?: Record<Id, string[]>;
   /** Scores she has agreed to settle. */
   contracts?: Contract[];
+  /** Jobs she has said yes to but hasn't made a goal yet, by the id of whoever wants them done. She considers them when she has room for a new goal. See quests.ts. */
+  quests?: Id[];
   /** How she feels about the people she's got something with. Her side only; this resets with her body. */
   bonds?: Record<Id, Feelings>;
   /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */
