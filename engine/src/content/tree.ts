@@ -40,7 +40,7 @@ export type PerkId =
   | 'sleepSlow'
   /** Percent faster sleep: the same rest in fewer than eight hours. */
   | 'sleepFast'
-  /** Percent of the shortfall in a poor night's sleep that she makes up anyway. */
+  /** Percent of the shortfall in a poor bed's quality that she makes up anyway (less sleep debt). */
   | 'restQuality'
   /** Percent off what hunger takes out of her. */
   | 'hungerSoft'
@@ -561,7 +561,7 @@ export function describeFx(fx: Fx, itemName: (id: string) => string, implantName
     case 'hungerSlow': return `hunger ${fx.n}% slower`;
     case 'sleepSlow': return `tiredness ${fx.n}% slower`;
     case 'sleepFast': return `sleeps ${fx.n}% faster (fewer hours for the same rest)`;
-    case 'restQuality': return `makes up ${fx.n}% of what a poor bed costs her`;
+    case 'restQuality': return `makes up ${fx.n}% of what a poor bed lacks (less sleep debt)`;
     case 'hungerSoft': return `hunger bites ${fx.n}% less`;
     case 'sleepSoft': return `tiredness bites ${fx.n}% less`;
     case 'foodValue': return `meals feed ${fx.n}% more`;

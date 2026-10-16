@@ -1,8 +1,8 @@
 /**
  * Somewhere to sleep, and something to eat. Data only: `rest.ts` decides where each is on offer and what it does.
  *
- * A night's sleep is always eight hours unless something interrupts it. `quality` is how much of a full Sleep bar those eight
- * hours put back: a hotel refills it, a pod nearly does, a hostel does a bit better and a pavement doesn't come close.
+ * A night's sleep is always eight hours unless something interrupts it, and fills the Sleep bar whatever the bed. `quality` is
+ * what the bed does to sleep debt (see needs.ts): a pod and the pavement leave stacks behind, a hostel clears some, a hotel more.
  */
 
 export type LodgingId = 'pod' | 'hostel' | 'hotel';
@@ -13,7 +13,7 @@ export interface LodgingDef {
   noun: string;
   /** Neodollars for the night, before haggling and the lab's discounts. */
   price: number;
-  /** 0..1: the share of a full Sleep bar a night here restores. */
+  /** 0..1: how good a night here is; under 0.8 it adds sleep debt, over it takes some off. */
   quality: number;
   /** Chance of being robbed in her sleep over the night. */
   rob: number;

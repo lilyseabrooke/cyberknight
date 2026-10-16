@@ -271,24 +271,24 @@ describe('beds', () => {
     expect(s.offers()).not.toContain('sleep_street');
   });
 
-  it('a night in a bed is eight hours, and quality is how much comes back', () => {
-    const got: Record<string, number> = {};
+  it('a night in any bed is eight hours and fills the bar; quality is what it does to sleep debt', () => {
+    const debt: Record<string, number> = {};
     for (const bed of ['pod', 'hostel', 'hotel'] as const) {
       const s = scenario({ at: 'street_main' });
       bedtime(s.w, 10);
+      s.w.hero.sleepDebt = 3;
       const t0 = s.w.clock;
       const cash0 = s.w.hero.cash;
       s.do(`sleep_${bed}`, never());
       expect(s.w.clock - t0).toBe(hours(8));
       expect(cash0 - s.w.hero.cash).toBe(LODGING[bed].price);
-      got[bed] = sleepOf(s.w.hero) - 10;
+      expect(sleepOf(s.w.hero)).toBe(100);
+      debt[bed] = debtOf(s.w.hero);
       expect(s.saw('wake')).toBe(true);
     }
-    expect(got.pod).toBeCloseTo(72, 0);
-    expect(got.hostel).toBeCloseTo(88, 0);
-    expect(got.hotel).toBeCloseTo(90, 0); // capped at a full bar
-    expect(got.pod! < got.hostel!).toBe(true);
-    expect(got.hostel! < got.hotel!).toBe(true);
+    expect(debt.pod!).toBeGreaterThan(3);
+    expect(debt.hostel!).toBeLessThan(3);
+    expect(debt.hotel!).toBeLessThan(debt.hostel!);
   });
 
   it('a hotel is never robbed; a hostel sometimes is', () => {
@@ -405,8 +405,8 @@ describe('the street', () => {
     const s = street();
     expect(s.offers()).toContain('sleep_street');
     s.do('sleep_street', never());
-    expect(sleepOf(s.w.hero) - 20).toBeLessThan(45);
-    expect(sleepOf(s.w.hero) - 20).toBeGreaterThan(20);
+    expect(sleepOf(s.w.hero)).toBe(100);
+    expect(debtOf(s.w.hero)).toBeGreaterThan(2);
   });
 
   it('gets her robbed, or arrested, more nights than not', () => {
@@ -470,12 +470,11 @@ describe('sleeping rough', () => {
     expect(s.offers()).toContain('sleep_rough');
   });
 
-  it('quality is poor but not as poor as the pavement', () => {
+  it('leaves less debt than the pavement does', () => {
     const s = alley();
     s.do('sleep_rough', never());
-    const gain = sleepOf(s.w.hero) - 20;
-    expect(gain).toBeGreaterThan(30);
-    expect(gain).toBeLessThan(55);
+    expect(sleepOf(s.w.hero)).toBe(100);
+    expect(debtOf(s.w.hero)).toBeGreaterThan(1);
   });
 
   it('a cop who walks by has her arrested; sleeping rough is illegal', () => {
@@ -499,8 +498,6 @@ describe('sleeping rough', () => {
       if (!events.some((e) => e.type === 'rest_incident' && e.data.variant === 'shaken')) continue;
       moved++;
       expect(events.find((e) => e.type === 'wake')!.data.variant).toBe('woken');
-      // Cut short: not a full night's rest.
-      expect(sleepOf(s.w.hero) - 20).toBeLessThan(50);
     }
     expect(moved).toBeGreaterThan(10);
   });

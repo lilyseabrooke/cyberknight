@@ -1353,7 +1353,7 @@ const T: Record<string, Entry> = {
   ),
 
   'wake:rested': e(
-    (d) => [Number(d.gained) >= 70 ? `Blackbird wakes after ${d.hours} hours feeling almost like a person. Sleep: ${d.sleep}.` : `Blackbird wakes after ${d.hours} hours, stiff and only half rested. Sleep: ${d.sleep}.`],
+    (d) => [Number(d.quality) >= 80 ? `Blackbird wakes after ${d.hours} hours feeling almost like a person. Sleep: ${d.sleep}.` : `Blackbird wakes after ${d.hours} hours, stiff, sore and not convinced that counted. Sleep: ${d.sleep}.`],
     ['Slept like the dead. Not literally.', 'Who needs sleep? I clearly do.'],
   ),
   'wake:hunger': e(

@@ -262,7 +262,7 @@ export function restCandidates(w: World): Candidate[] {
     out.push({
       key: `sleep_${id}`, drives: {}, smart: 0.3 * su,
       // A better bed is worth more to someone who is carrying sleep debt: it's the only thing that clears it.
-      bonus: decided(su) * (0.5 + 0.7 * q) + (q - DEBT_PIVOT) * 4 * (1 + debtOf(h)) - (1.2 * cost) / Math.max(cost, h.cash) - def.rob * 2,
+      bonus: decided(su) * 1.2 + (q - DEBT_PIVOT) * 4 * (1 + debtOf(h)) - (1.2 * cost) / Math.max(cost, h.cash) - def.rob * 2,
       run: (c) => sleepOut(c, lodgingPlan(c.w, loc, id)),
     });
   }
@@ -284,7 +284,7 @@ interface Plan {
   venue: Venue;
   /** What the place is, for the dangers: a bed with a lock, the open street, a quiet corner, or somewhere that wants her gone. */
   mode: Mode;
-  /** Share of a full Sleep bar a full night here restores, before the lab's help. */
+  /** 0..1: how good the sleep is, before the lab's help. Decides the sleep debt it adds or clears. */
   quality: number;
   /** Hours the sleep would take at full length (the lab can shorten it). */
   nominal: number;
@@ -337,7 +337,9 @@ function sleepOut(c: Ctx, plan: Plan): void {
   const hungry = hungerCap < hours;
   if (hungry) hours = hungerCap;
   const q = effectiveQuality(w.legacy, plan.quality);
-  const full = 100 * q * (plan.nominal / NIGHT_HOURS) * (faint ? 1 + perk(w.legacy, 'faintRest') / 100 : 1);
+  // A night's sleep fills the bar, whatever the bed (passing out, which is short and fitful, fills only part of it). What a
+  // poor bed costs her is sleep debt, not an empty bar: see `settleDebt`.
+  const full = 100 * (plan.nominal / NIGHT_HOURS) * (faint ? FAINT_QUALITY * (1 + perk(w.legacy, 'faintRest') / 100) : 1);
   const perHour = full / (faint ? FAINT_HOURS : nightHours(w.legacy));
   const night: Night = {
     plan, hours, seen: new Set(),
@@ -347,6 +349,8 @@ function sleepOut(c: Ctx, plan: Plan): void {
   const start = w.clock;
   const place = loc.name;
   let gained = 0;
+  /** Bar gained, weighted by the quality of the bed it was gained in. */
+  let weighted = 0;
   let how: 'rested' | 'hunger' | 'woken' | 'jail' | 'captured' = hungry ? 'hunger' : 'rested';
   let released = '';
   let fine = 0;
@@ -357,15 +361,19 @@ function sleepOut(c: Ctx, plan: Plan): void {
       if (!stop) {
         w.clock += 60;
         gained += perHour;
+        weighted += perHour * q;
         continue;
       }
       w.clock += 30;
       gained += perHour / 2;
+      weighted += (perHour / 2) * q;
       if (stop.end === 'jail' || stop.end === 'captured') {
         // The rest of the night is spent on a cell bunk, and then there is the paperwork.
         const left = hours - i - 0.5;
         const cell = stop.end === 'jail' ? CELL_QUALITY : CELL_QUALITY * 0.7;
-        gained += 100 * cell * (plan.nominal / NIGHT_HOURS) * (left / hours);
+        const inCell = full * (left / hours);
+        gained += inCell;
+        weighted += inCell * cell;
         w.clock += (left + stop.extra) * 60;
         fine = stop.fine;
         relocate(w, 'street_main');
@@ -380,14 +388,14 @@ function sleepOut(c: Ctx, plan: Plan): void {
     // Poor beds leave their mark and good ones clear it, whatever the bar says.
     const frac = clamp(minutes / 60 / nightHours(w.legacy), 0.05, 1);
     const debtBefore = Math.round(debtOf(h));
-    settleDebt(h, clamp(gained / 100 / frac, 0, 1), frac);
+    settleDebt(h, clamp(weighted / Math.max(gained, 1e-9), 0, 1), frac);
     afterSleep(c, minutes, plan.mode === 'lodging');
     if (Math.round(debtOf(h)) !== debtBefore) {
       c.emit('sleep_debt', Math.round(debtOf(h)) > debtBefore ? 'bad' : 'good', { variant: Math.round(debtOf(h)) > debtBefore ? 'up' : 'down', stacks: Math.round(debtOf(h)) });
     }
     const rested = Math.round(gained);
     c.emit('wake', how === 'rested' && rested >= 70 ? 'good' : how === 'rested' || how === 'hunger' ? 'mixed' : 'bad', {
-      variant: how, venue: plan.venue, place, hours: Math.round(minutes / 60), gained: rested, sleep: Math.round(sleepOf(h)), to: released, fine,
+      variant: how, venue: plan.venue, place, hours: Math.round(minutes / 60), gained: rested, quality: Math.round((weighted / Math.max(gained, 1e-9)) * 100), sleep: Math.round(sleepOf(h)), to: released, fine,
     });
   });
 }
