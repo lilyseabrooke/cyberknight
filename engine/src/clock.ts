@@ -14,8 +14,36 @@ import type { World } from './types';
 export const MIN_PER_DAY = 24 * 60;
 /** A world's first moment: eight in the evening on day 0. */
 export const START_MINUTE = 20 * 60;
-/** World minutes in one ordinary beat. */
-export const BASE_MIN_PER_BEAT = 1;
+/** World minutes in one ordinary beat (a glance, a word, a few steps). */
+export const BASE_MIN_PER_BEAT = 3;
+
+/**
+ * How long a beat's chosen action takes, by the part of its key before the colon, when it isn't an ordinary beat.
+ * Walking is quick; a gig, a job, a heist or sleeping it off eats the evening. Anything not listed takes BASE_MIN_PER_BEAT.
+ */
+export const ACTION_MINUTES: Record<string, number> = {
+  go: 2, chat: 2, ask_around: 4, ask_work: 4,
+  buy_ware: 4, buy_stim: 4, buy_med: 4, buy_info: 4, buy_gear: 4, buy_ammo: 4,
+  eat_noodles: 12, eat_dish: 15, cook: 25, order_drink: 10, buy_round: 10, sober_up: 40, hangout: 30, darts: 20, poker: 45, jam: 30,
+  flirt: 15, kiss: 20, pool_date: 60, serenade: 20, serenade_girl: 20,
+  busk: 30, sing_busk: 30, karaoke: 30, gig: 60, dj_set: 90, crash_gig: 60, guitar_duel: 30, beat_battle: 30,
+  odd_jobs: 90, odd_request: 30, security_shift: 120, bodyguard_gig: 120, tend_bar: 90, courier_run: 45, take_contract: 15,
+  lay_low: 120, hide_flight: 45, get_patched: 30, use_med_pack: 10, patch_up: 20,
+  burgle_home: 25, burgle_flat: 25, rob_paint_shop: 20, pickpocket: 10, scam_mark: 20, sell_fake_goods: 20, hack: 20, jack: 20,
+  raid_loot: 40, raid_ambush: 30, graffiti: 25, tail: 30, hunt_drone: 30, fence: 10, implant: 60,
+};
+
+/** Extra world minutes a fight adds to the beat it happens in. */
+export const FIGHT_MINUTES = 15;
+
+/** World minutes the beat's action takes (before any fight). */
+export const actionMinutes = (key: string): number => ACTION_MINUTES[key.replace(/:.*$/, '')] ?? BASE_MIN_PER_BEAT;
+
+/** True when the clock has just passed 05:00, the hour night gives way to dawn. */
+export const crossedDawn = (before: number, after: number): boolean => {
+  const dawn = (t: number) => Math.floor((t - 5 * 60) / MIN_PER_DAY);
+  return dawn(after) > dawn(before);
+};
 
 /** World minutes per real second while the game is closed (about 5 days for a night away). */
 export const OFFLINE_MIN_PER_REAL_SEC = 0.25;

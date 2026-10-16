@@ -39,11 +39,12 @@ describe('the clock', () => {
     const t0 = world.clock;
     step(world);
     step(world);
-    expect(world.clock).toBe(t0 + 2 * BASE_MIN_PER_BEAT);
+    const t1 = world.clock;
+    expect(t1).toBeGreaterThanOrEqual(t0 + 2 * BASE_MIN_PER_BEAT);
     elapse(world, 45);
-    expect(world.clock).toBe(t0 + 2 * BASE_MIN_PER_BEAT + 45);
+    expect(world.clock).toBe(t1 + 45);
     elapse(world, -10);
-    expect(world.clock).toBe(t0 + 2 * BASE_MIN_PER_BEAT + 45);
+    expect(world.clock).toBe(t1 + 45);
   });
 
   it('turns time away from the game into world time, at its own pace and with a ceiling', () => {
