@@ -11,7 +11,7 @@ const lean = process.argv[4];
 
 const bar = (x: number) => '█'.repeat(Math.round(x * 10)).padEnd(10, '·');
 for (const d of generateDistricts(new Rng(seed), count, { lean })) {
-  console.log(`\n${d.name.toUpperCase()}  (${d.mix})`);
+  console.log(`\n${d.name.toUpperCase()} — ${d.description}  (${d.mix})`);
   console.log(`  ${d.blurb}`);
   console.log(`  ${d.blend.slice(0, 3).map((e) => `${e.id} ${Math.round(e.weight * 100)}%`).join(' · ')}`);
   console.log('  ' + AXES.map((k) => `${k.slice(0, 4)} ${bar(d.vector[k])}`).join('  '));

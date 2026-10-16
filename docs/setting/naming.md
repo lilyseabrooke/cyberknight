@@ -30,7 +30,9 @@
   Pacification Annex… + a short code (K-7, 4-B, Sigma). Bureaucratic, faintly ominous, numbered.
 - **Gang sites:** `<gang's> <place>` (the Chrome Vipers' chop shop).
 - **Venues** are a noun phrase with an attitude: The Rusty Halo, The Neon Pharaoh. Keep to two or three words.
-- **Districts:** descriptive, not proper nouns, because they're procedural. Reserve proper names for canon places.
+- **Districts:** generated ones (`engine/src/districtgen.ts`) get a cheerful two-word name (Lantern Bazaar, Kiln Yards) plus a
+  brief description ("Over-policed bazaar"). The last word says what kind of place it is. Reserve names that aren't
+  built from those tables for canon places.
 
 ## Brands and shops
 

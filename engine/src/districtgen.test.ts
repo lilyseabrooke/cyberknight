@@ -16,9 +16,15 @@ describe('district generator', () => {
       expect(d.blend.reduce((s, e) => s + e.weight, 0)).toBeCloseTo(1, 6);
       expect(d.blend[0]!.id).toBe(d.dominant);
       expect(Object.values(districtWeights(d.blend)).reduce((s, x) => s + x, 0)).toBeCloseTo(1, 6);
-      expect(d.name).toBeTruthy();
+      expect(d.name).toMatch(/^\S+ \S+$/);
+      expect(d.description).toBeTruthy();
       expect(d.blurb).toBeTruthy();
     }
+  });
+
+  it('gives districts in one batch different names', () => {
+    const names = sample(60).map((d) => d.name);
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it('is a spectrum, not six boxes: plenty of districts sit between archetypes', () => {

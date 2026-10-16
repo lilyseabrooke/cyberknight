@@ -103,6 +103,33 @@ function gauss(rng: Rng): number {
 
 // ===================================================================== words
 
+/** Proper names: a first word and a place word, by archetype. The first words are shared by everywhere; the place words say what kind of place it is. */
+const NAME_FIRST = ['Lantern', 'Sodium', 'Cinder', 'Copper', 'Hollow', 'Velvet', 'Kerosene', 'Saffron', 'Tin', 'Glass', 'Static', 'Orchid', 'Brass', 'Paper', 'Ember', 'Heron', 'Moth', 'Kiln', 'Pinwheel', 'Abacus', 'Quiet', 'Lucky', 'Drowned', 'Slate'];
+const NAME_FIRST_BY: Record<string, string[]> = {
+  market: ['Dumpling', 'Haggle', 'Tangerine', 'Abacus', 'Soda'],
+  nightlife: ['Afterglow', 'Ultraviolet', 'Strobe', 'Neon', 'Last-Call'],
+  tenement: ['Marigold', 'Laundry', 'Sparrow', 'Harmony', 'Rent'],
+  industrial: ['Coolant', 'Rivet', 'Conveyor', 'Gantry', 'Foundry'],
+  corporate: ['Meridian', 'Quorum', 'Obelisk', 'Tessellate', 'Paragon'],
+  slum: ['Tarp', 'Patch', 'Scrap', 'Gutter', 'Rust'],
+  dockside: ['Barge', 'Eel', 'Anchor', 'Tide', 'Container'],
+  bohemian: ['Easel', 'Mixtape', 'Noodle', 'Zine', 'Paintcan'],
+  enclave: ['Serenity', 'Halcyon', 'Sunrise', 'Aegis', 'Lavender'],
+  salvage: ['Spare', 'Hot', 'Bargain', 'Cannibal', 'Scrapheap'],
+};
+const NAME_LAST_BY: Record<string, string[]> = {
+  market: ['Bazaar', 'Market', 'Arcade', 'Row', 'Exchange'],
+  nightlife: ['Strip', 'Mile', 'Quarter', 'Row', 'Promenade'],
+  tenement: ['Stacks', 'Terraces', 'Court', 'Blocks', 'Warren'],
+  industrial: ['Yards', 'Works', 'Freightway', 'Depot', 'Flats'],
+  corporate: ['Plaza', 'Concourse', 'Heights', 'Boulevard', 'Park'],
+  slum: ['Flats', 'Warren', 'Hollow', 'Sprawl', 'Bottoms'],
+  dockside: ['Docks', 'Wharf', 'Quay', 'Slip', 'Basin'],
+  bohemian: ['Quarter', 'Row', 'Lofts', 'Alley', 'Commons'],
+  enclave: ['Gardens', 'Estate', 'Close', 'Green', 'Terrace'],
+  salvage: ['Yard', 'Heap', 'Alley', 'Flats', 'Market'],
+};
+
 /** Words for an axis at its extremes. The extreme that a district has *beyond* its nearest archetype is what makes it itself. */
 const WORDS: Record<Axis, { high: string[]; low: string[] }> = {
   wealth: { high: ['affluent', 'gilded', 'well-heeled'], low: ['impoverished', 'threadbare', 'hand-to-mouth'] },
@@ -165,8 +192,10 @@ export interface DistrictProfile {
   secondary?: string;
   /** How decisively it's its dominant: 1 is a textbook example, near 0 means it's between several. */
   purity: number;
-  /** A descriptive name, not a proper noun (docs/setting/naming.md): "over-policed bazaar". */
+  /** What it's called: "Lantern Bazaar". The first word may come from anywhere; the last says what kind of place it is. */
   name: string;
+  /** A brief description to go with the name: "Over-policed bazaar". */
+  description: string;
   /** "Mostly market, some slum." */
   mix: string;
   /** Two or three sentences. */
@@ -238,7 +267,9 @@ export function describeDistrict(vector: DistrictVector, words: Rng): DistrictPr
   }
   const adjective = Math.abs(gap) >= 0.15 ? words.pick(WORDS[axis][gap > 0 ? 'high' : 'low']) : '';
   const noun = words.pick(top.nouns);
-  const name = [adjective, noun].filter(Boolean).join(' ');
+  const description = cap([adjective, noun].filter(Boolean).join(' '));
+  const first = words.pick([...NAME_FIRST, ...(NAME_FIRST_BY[top.id] ?? []), ...(NAME_FIRST_BY[top.id] ?? [])]);
+  const name = `${first} ${words.pick(NAME_LAST_BY[top.id]!)}`;
 
   const share = (id: string) => Math.round((blend.find((e) => e.id === id)?.weight ?? 0) * 100);
   const mix = secondary
@@ -271,6 +302,7 @@ export function describeDistrict(vector: DistrictVector, words: Rng): DistrictPr
     ...(secondary ? { secondary } : {}),
     purity: round2(blend[0]!.weight),
     name,
+    description,
     mix,
     blurb,
     security,
@@ -288,9 +320,20 @@ function blendedAxis(blend: BlendEntry[], k: Axis): number {
   return blend.reduce((s, e) => s + e.weight * archetype(e.id).at[k], 0);
 }
 
+const cap = (x: string): string => x.charAt(0).toUpperCase() + x.slice(1);
+
 const districtLine = (rng: Rng, d: District): string => rng.pick(MOOD[d]);
 
-/** n districts from one stream, each rolled independently. */
+/** n districts from one stream, each rolled independently, and no two with the same name. */
 export function generateDistricts(rng: Rng, n: number, o: GenOptions = {}): DistrictProfile[] {
-  return Array.from({ length: n }, (_, i) => generateDistrict(rng.fork(`district-${i}`), o));
+  const out: DistrictProfile[] = [];
+  const taken = new Set<string>();
+  for (let i = 0; i < n; i++) {
+    let d = generateDistrict(rng.fork(`district-${i}`), o);
+    // A repeat is the same point reworded; the point stays, only the name is rerolled.
+    for (let tries = 1; taken.has(d.name) && tries < 20; tries++) d = describeDistrict(d.vector, rng.fork(`district-${i}-name-${tries}`));
+    taken.add(d.name);
+    out.push(d);
+  }
+  return out;
 }
