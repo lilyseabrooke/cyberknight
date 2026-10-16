@@ -27,6 +27,8 @@ const $ = (n: unknown): string => Number(n).toLocaleString('en-US');
 /** An act of fame, as a phrase. */
 const ACTS: Record<string, string> = { karaoke: 'a karaoke number', dj_set: 'a DJ set', gig: 'a gig with the band', billboard: 'hijacking a billboard', graffiti: 'a big piece of graffiti', busk: 'busking', parkour: 'some rooftop parkour', sing_busk: 'singing on the street', crash_gig: 'crashing somebody else\'s gig', guitar_duel: 'a guitar duel', backlot_set: 'a set for the kids behind the club', beat_battle: 'a beat battle', jam: 'a jam with the band' };
 const act = (a: unknown): string => ACTS[String(a)] ?? String(a);
+/** Lower-case the first letter, so a button's label can sit in the middle of a sentence. */
+const lc = (s: unknown): string => String(s).charAt(0).toLowerCase() + String(s).slice(1);
 /** Start a sentence with whatever it is. */
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -998,6 +1000,60 @@ const T: Record<string, Entry> = {
     ['Somewhere out there is a door with my name on it. Not literally.', 'I know the way. I know the lock. I know the neighbours are loud.'],
   ),
   'goal_new:heist_idea': e((d) => [`Blackbird stares at ${d.place} for a long time. Nobody looks at a safe like that and walks away. New objective: ${d.goal}.`], ["It's there. I'm here. That's basically an invitation."]),
+  // ------------------------------------------------------------------ asking the lab
+  // She asks the lab tech (you) at a fork; you have a few beats before she decides herself. `label` is the option she ended up with.
+  'advice_ask:want': e(
+    (d) => [
+      `Blackbird stops at the ${d.item}: ${$(d.price)}, and she has ${$(d.cash)}. She taps her earpiece. "Lab. Hypothetically. Should I save up for it?"`,
+      `The ${d.item} is ${$(d.short)} out of reach. Blackbird patches in the lab. "Quick question. Is this the one?"`,
+    ],
+    ["I'm not asking. I'm informing, with a question mark.", 'Consulting. Very senior of me.'],
+  ),
+  'advice_ask:earn': e(
+    (d) => [
+      `Blackbird is ${$(d.short)} short, and the options are not all the same size. She taps her earpiece. "Lab. Big score or honest work. Go."`,
+      `${$(d.short)} neodollars short. Blackbird opens a line to the lab. "Say I wanted to get it fast. Would I do it the loud way or the boring way?"`,
+    ],
+    ['They love being asked. It is good for them.', 'Two plans. One of them is mine.'],
+  ),
+  'advice_ask:door': e(
+    (d) => [
+      d.near
+        ? d.dungeon === 'outpost' ? `There's an Atlas outpost at ${d.place}, and Blackbird is standing in front of it. She taps her earpiece. "Lab. Outpost. Clear it out?"`
+        : d.dungeon === 'hideout' ? `There's a ganger hideout at ${d.place}, and Blackbird is standing in front of it. She taps her earpiece. "Lab. Hideout. Should I clear it out?"`
+        : `Blackbird is looking at ${d.place}. It looks like money. She taps her earpiece. "Lab. Worth a look?"`
+        : `Blackbird has been thinking about ${d.place}. She patches in the lab. "Hypothetically. Should I kick that in?"`,
+    ],
+    ['I know the answer. It is yes. I am being polite.', 'Door. Me. Quick vote.'],
+  ),
+  'advice_ask:idle': e(
+    () => ['Nothing on her mind. Blackbird taps her earpiece. "Lab. I am bored. Give me a goal."', 'Blackbird has run out of ideas, a rare event. She calls the lab. "What should I do with myself?"'],
+    ['Delegating. Leaders do that.', 'I could pick. But then what would you do all night?'],
+  ),
+  'advice_taken:want': e(
+    (d) => (d.pick === 'skip'
+      ? [`The lab says forget the ${d.item}. Blackbird says "fine" in the voice of someone who is not fine, and leaves the glass alone.`]
+      : [`The lab says save up. Blackbird says she was already going to.`, `"Save up," says the lab. Blackbird writes it down as her own idea.`]),
+    ['Good call. Mine, mostly.', 'I have excellent staff.'],
+  ),
+  'advice_taken:door': e(
+    (d) => (d.pick === 'leave'
+      ? [`The lab says leave it. Blackbird looks at ${d.place} for a long moment, then at the sky, then walks away from it. She is allowed to.`]
+      : [`The lab says kick it in. Blackbird has been waiting her whole life for someone to say that.`, `"Clear it out," says the lab. Blackbird cracks her knuckles one at a time.`]),
+    ['Smart. I was about to say that.', 'Finally, a staff member who gets it.'],
+  ),
+  'advice_taken:earn': e(
+    (d) => [`The lab says: "${d.label}." Blackbird nods like it was her idea.`, `"${d.label}," says the lab. Blackbird says she was just about to say that.`],
+    ['Good call. Mine, mostly.', 'I have excellent staff.'],
+  ),
+  'advice_taken:idle': e(
+    (d) => [`The lab says: "${d.label}." Blackbird takes this as a vote of confidence in her.`, `"${d.label}," says the lab. Blackbird writes it on her hand.`],
+    ['I knew you would pick that one.', 'Orders. I love orders. Mine, but still.'],
+  ),
+  'advice_lapsed': e(
+    (d) => [`Nobody picks up. Blackbird decides for herself: ${lc(d.label)}.`, `The lab is silent. Blackbird shrugs and goes with her gut: ${lc(d.label)}.`, `Dead air from the lab. Blackbird takes that as a yes to whatever she was thinking. ${cap(lc(d.label))}.`],
+    ['Dead air. Fine. I do my best work solo.', 'The lab is asleep. Typical.', 'I asked. That counts.'],
+  ),
   'goal_pass:full': e((d) => [`Blackbird has ${d.count} plans on the go and a new one is waving at her. She has enough on her plate. ("To ${d.goal}", it says.) She lets it wave.`], ["I'm a busy woman. Very busy. Don't look at my schedule."]),
 
   // Finished.

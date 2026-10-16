@@ -21,6 +21,7 @@ import { recognizeRevenant } from './revenant';
 import { bondTick, partnerArrives } from './bonds';
 import { avengerTick, noticeTick } from './knowledge';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
+import { adviceTick, resolveAsk } from './advice';
 import { interest } from './mind';
 import { haloShun, heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
@@ -181,6 +182,7 @@ export function step(w: World): GameEvent[] {
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambient(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientMind(c);
+  if (!w.over) adviceTick(c);
   if (!w.over) mindTick(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) {
     const cands = gather(w);
@@ -215,6 +217,20 @@ export function step(w: World): GameEvent[] {
     w.ending = 'dawn';
     c.emit('dawn', 'mixed', { place: w.locations[w.hero.locationId]!.name });
   }
+  w.rngPosition = rng.position;
+  return events;
+}
+
+/**
+ * The lab tech answers Blackbird's question: `optionId` is one of the open question's options. Returns what came of it,
+ * for the log (empty if there is nothing to answer, or no such option). Call it between beats; it takes no beat of its
+ * own, and it uses the world's dice like any other step, so the night stays replayable.
+ */
+export function advise(w: World, optionId: string): GameEvent[] {
+  if (w.over || !w.mind.ask) return [];
+  const rng = Rng.fromPosition(w.rngPosition);
+  const events: GameEvent[] = [];
+  resolveAsk(makeCtx(w, rng, events), optionId, 'lab');
   w.rngPosition = rng.position;
   return events;
 }

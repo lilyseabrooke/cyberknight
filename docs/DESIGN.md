@@ -522,3 +522,23 @@ For the nights she wants a bit of money and a fight without a whole dungeon. A s
 - **Balance.** Tier is 1..4 (a few are 2..4, the dragon hatch 3..5), gentler than a building at the same depth. Measured over 120 nights (competence 0.2, 0.5 and 0.9): about 2.4 spot raids a night, 227 spots cleared, bounties paid four and a half times as often, and no more deaths than before (68 either way, none in a spot). Tune with `scripts/sim.ts`.
 - **Tests.** `spots.test.ts`: the table is sound at every tier, streets grow them without moving anything else, the paper rule (every crew, every tier), the richness rule, unguarded and guarded, refilling, heat, saves, words for every crew, and nights.
 
+
+## Asking the lab (`advice.ts`)
+
+The first thing the player can do mid-night besides watch. At a fork in the road Blackbird stops, taps her earpiece and asks the lab tech what to do. The question stays open for `ASK_BEATS` (10) beats; if nobody answers, she decides for herself.
+
+**What she asks.** Four kinds, each hooked into a place where the mind already makes the choice (`goals.ts`):
+- `want`: something she can't afford yet. *Should I save up for the shotgun?* (save up / forget it)
+- `earn`: she's short on a cash goal and about to go for a big score. *Raid the hideout, rob the vault, or work the street?* (the raid and heist she knows of, or odd jobs and bounties)
+- `door`: a hideout or outpost she's seen the door of, in front of her or on her mind. *Should I clear it out?* (clear it out / leave it)
+- `idle`: nothing on her mind. *What should I do with myself?* (the same ideas she'd pick from: fame, money, a dragon, a raid)
+
+**What the answer does.** Options are plain data (`AskOption`): a goal to take on (`spec`, the same thing `adopt` takes) and/or things to put off (`cool`, cooldown keys). Taking advice makes the goal a little stronger (+0.1 desire). *Leave it* cools the door for 120 beats, so she stops being drawn to it. *Odd jobs* sets the `bigscore` cooldown (150 beats): no raids or heists, and no lure from doors, while it lasts. A question about a goal that has gone away by the time it's answered is answered and forgotten.
+
+**If nobody answers**, she goes with `lean`: what she'd have done had she not asked (`want` always leans to saving up: she asks, but has usually decided). So the headless sim, offline catch-up and a player who isn't looking all play the same game as before, just a few beats later.
+
+**When she asks.** `maybeAsk` gates every question: not in the first 8 beats of a night, not while one is open, not within 45 beats of the last, and with a probability from her personality (`askiness`: sociable and loyal ask more; vain and impulsive tell the lab what she's doing). When she doesn't ask, the caller carries on as it always did. About one or two questions a night in the sim.
+
+**State and replay.** The open question is `world.mind.ask` (plain JSON, saved with the night). The player's answer is `advise(world, optionId)` in `run.ts`: it takes no beat of its own, emits `advice_taken` and whatever the answer causes (`goal_new`…), and uses the world's dice, so a night with the answers logged by beat replays identically. Events: `advice_ask`, `advice_taken`, `advice_lapsed`.
+
+**UI.** `NightViewer` shows the question and its options in a card under the log, with a countdown. It counts beats, not seconds, so at 20× there's no time to answer; *Next drama* stops at a question.

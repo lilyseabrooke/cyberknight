@@ -26,6 +26,8 @@ import {
   render,
   depths,
   step,
+  advise,
+  ASK_BEATS,
   type GameEvent,
   type World,
   describeWeapon,
@@ -93,6 +95,8 @@ interface Snapshot {
   account: number;
   /** What she has put in at drop points tonight, after their cut. */
   banked: number;
+  /** She has stopped to ask the lab something. */
+  ask: { id: number; question: string; options: { id: string; label: string; hint?: string }[]; left: number } | null;
 }
 
 interface Night {
@@ -110,7 +114,7 @@ const SPEEDS = [
 
 const HEAT_NAMES: Record<string, string> = { npd: 'Police', atlas: 'Atlas', halo: 'The Halo', club: 'Neon Pharaoh' };
 const heatName = (k: string) => HEAT_NAMES[k] ?? gangName(k);
-const DRAMA = new Set(['heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout']);
+const DRAMA = new Set(['advice_ask', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout']);
 const MAX_LINES = 600;
 
 function snap(w: World): Snapshot {
@@ -149,6 +153,7 @@ function snap(w: World): Snapshot {
     satiety: h.satiety ?? 0,
     account: w.legacy.account,
     banked: w.stats.deposited,
+    ask: w.mind.ask ? { id: w.mind.ask.id, question: w.mind.ask.question, options: w.mind.ask.options.map(({ id, label, hint }) => ({ id, label, hint })), left: Math.max(0, w.mind.ask.until - w.beat) } : null,
   };
 }
 
@@ -304,6 +309,21 @@ export default function NightViewer() {
     setTick((t) => t + 1);
   }, [release, stepWorld]);
 
+  /** The lab tech answers what she asked. What comes of it goes into the log straight away. */
+  const answer = useCallback((optionId: string) => {
+    const night = nightRef.current;
+    if (!night) return;
+    const events = advise(night.world, optionId);
+    if (!events.length) return;
+    const chunks = toChunks(night, events);
+    const snapshot = snap(night.world);
+    if (chunks.length) chunks[chunks.length - 1]!.snap = snapshot;
+    else chunks.push({ lines: [], nested: false, snap: snapshot });
+    queueRef.current.push(...chunks);
+    while (release());
+    setTick((t) => t + 1);
+  }, [release]);
+
   /** Skip ahead to the next fight, level-up or disaster, showing everything on the way. */
   const skipToDrama = useCallback(() => {
     const night = nightRef.current;
@@ -381,7 +401,7 @@ export default function NightViewer() {
       )}
 
       <div className="grid">
-        <section className="logwrap" aria-label="Field report">
+        <section className={`logwrap${status?.ask ? ' asking' : ''}`} aria-label="Field report">
           <div className="log" ref={logRef} onScroll={(e) => {
             const el = e.currentTarget;
             setFollow(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
@@ -418,6 +438,23 @@ export default function NightViewer() {
           </div>
           {!follow && (
             <button className="btn jump" onClick={() => setFollow(true)}>↓ Latest</button>
+          )}
+          {status?.ask && (
+            <div className="ask" role="group" aria-label="Blackbird is asking the lab">
+              <p className="q"><b>Blackbird, on the earpiece:</b> “{status.ask.question}”</p>
+              <div className="opts">
+                {status.ask.options.map((o) => (
+                  <button key={o.id} className="btn" onClick={() => answer(o.id)}>
+                    {o.label}
+                    {o.hint && <small className="muted"> {o.hint}</small>}
+                  </button>
+                ))}
+              </div>
+              <div className="clock" role="progressbar" aria-label="Time before she decides" aria-valuenow={status.ask.left} aria-valuemax={ASK_BEATS}>
+                <div className="fill" style={{ width: `${(status.ask.left / ASK_BEATS) * 100}%` }} />
+              </div>
+              <p className="muted small">{playing ? `She decides for herself in ${status.ask.left} beat${status.ask.left === 1 ? '' : 's'}.` : 'Paused. She is still waiting.'}</p>
+            </div>
           )}
         </section>
 
