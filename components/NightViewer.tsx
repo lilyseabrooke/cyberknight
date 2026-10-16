@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AMMO,
   describePersonality,
+  clockLabel,
+  dayOf,
   Rng,
   STIMS,
   medPacks,
@@ -79,6 +81,8 @@ interface Snapshot {
   companions: { name: string; kind: string; hp: number; maxHp: number; loyalty: number }[];
   location: string;
   beat: number;
+  time: string;
+  day: number;
   kills: number;
   heat: [string, number][];
   buffs: string[];
@@ -139,6 +143,8 @@ function snap(w: World): Snapshot {
     companions: h.companions.map((a) => ({ name: a.name, kind: a.kind, hp: a.hp, maxHp: a.maxHp, loyalty: a.loyalty })),
     location: w.locations[h.locationId]?.name ?? '?',
     beat: w.beat,
+    time: clockLabel(w.clock),
+    day: dayOf(w.clock),
     kills: w.stats.kills,
     heat: Object.entries(w.heat).filter(([, v]) => v > 0),
     buffs: h.buffs.filter((b) => b.until > w.beat).map((b) => STIMS[b.id.replace('stim:', '')]?.name ?? b.id),
@@ -436,7 +442,7 @@ export default function NightViewer() {
               <div className={`ending ${status.ending}`}>
                 <h2>{status.ending === 'victory' ? 'DRAGON SLAIN' : status.ending === 'dead' ? 'BLACKBIRD HAS FLATLINED' : 'DAWN OVER NEO'}</h2>
                 <p>
-                  Level {status.level} · {status.kills} kills · {status.beat} beats.
+                  Level {status.level} · {status.kills} kills · {status.beat} beats · {status.day + 1} night{status.day ? 's' : ''}, ending at {status.time}.
                 </p>
                 <p className="muted">
                   {status.banked > 0 ? `${status.banked} neodollars made it into the account. ` : 'Nothing made it into the account. '}
@@ -493,6 +499,7 @@ export default function NightViewer() {
               </div>
             )}
             <dl>
+              <dt>Time</dt><dd>{status.time} · night {status.day + 1}</dd>
               <dt>Location</dt><dd>{status.location}</dd>
               <dt>Neodollars</dt><dd>{status.cash}</dd>
               <dt>Account</dt><dd>{status.account}{status.banked > 0 && <span className="muted"> ({status.banked} banked tonight)</span>}</dd>

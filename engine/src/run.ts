@@ -27,12 +27,13 @@ import { haloShun, heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
 import { satietyBias, tickSatiety } from './romance';
-import { BASE_MIN_PER_BEAT } from './clock';
+import { BASE_MIN_PER_BEAT, FIGHT_MINUTES, actionMinutes, crossedDawn, dayOf } from './clock';
 import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
 import { art } from './lab';
 
-export const MAX_BEATS = 600;
+/** Runs end when Blackbird does, not on a timer. This is only the runaway guard for headless loops and tests. */
+export const MAX_BEATS = 1500;
 
 /** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
 const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
@@ -161,6 +162,7 @@ export function step(w: World): GameEvent[] {
   const rng = Rng.fromPosition(w.rngPosition);
   const events: GameEvent[] = [];
   w.beat++;
+  const clockBefore = w.clock;
   w.clock += BASE_MIN_PER_BEAT;
   const c = makeCtx(w, rng, events);
 
@@ -196,8 +198,10 @@ export function step(w: World): GameEvent[] {
       }
       if (w.recent.length > 14) w.recent.shift();
       perform(c, pick);
+      w.clock += Math.max(0, actionMinutes(pick.key) - BASE_MIN_PER_BEAT);
     }
   }
+  w.clock += FIGHT_MINUTES * events.filter((e) => e.type === 'fight_end').length;
 
   if (!w.over) mindAfter(c, chosen, before, events);
 
@@ -212,10 +216,9 @@ export function step(w: World): GameEvent[] {
     w.ending = 'dead';
     c.emit('death', 'bad', { killer: 'her own terrible idea', place: w.locations[w.hero.locationId]!.name, cause: 'misadventure', level: w.hero.level });
   }
-  if (!w.over && w.beat >= MAX_BEATS) {
-    w.over = true;
-    w.ending = 'dawn';
-    c.emit('dawn', 'mixed', { place: w.locations[w.hero.locationId]!.name });
+  // Dawn doesn't end anything: it breaks, and she carries on into the next night.
+  if (!w.over && crossedDawn(clockBefore, w.clock)) {
+    c.emit('dawn', 'mixed', { place: w.locations[w.hero.locationId]!.name, day: dayOf(w.clock) });
   }
   w.rngPosition = rng.position;
   return events;

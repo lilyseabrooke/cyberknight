@@ -1324,7 +1324,7 @@ const T: Record<string, Entry> = {
     ['Huh. Okay. That was unexpected.', "Tell my fans I'll be back. Tell the cops I wasn't here."],
   ),
   victory: e(() => ['CINDERJAW comes down in a spiral of fire and flapping ads. The Kowloon Overpass falls silent. Somewhere, an Atlas stock price flickers.'], ['Dragon: slain. Honestly, I expected it to be harder.']),
-  dawn: e((d) => [`Dawn over Neo. Blackbird, somehow still alive, slumps in ${d.place}. The night ran out before she did.`], ['Next time I\'ll start earlier.']),
+  dawn: e((d) => [`Dawn breaks over Neo. Blackbird, somehow still alive, squints at it from ${d.place}. Day ${d.day}. The night ran out before she did, so she carries on.`, `The sky over ${d.place} goes grey, then pink, then an ad. Blackbird is still here. Day ${d.day} begins.`], ['Still not dead. Keep going.', "Sun's up. I'm told that's bad for people like me."]),
 };
 
 /** Thoughts that surface when a trait is turned up high (>= QUIRK_AT), keyed by event type. */
