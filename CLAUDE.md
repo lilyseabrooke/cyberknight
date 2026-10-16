@@ -14,3 +14,11 @@ encodes the design principles (maximal, unbalanced, multidimensional).
 - Text after a colon is the concept (`PROTOCOL: new location, review: a pawn shop`).
 
 Always: typecheck and tests green before starting; commit to the session's designated branch; no PR unless asked.
+
+## Running tests
+
+- Use `npm test` (about 40 s) for all routine verification, together with `npm run typecheck`.
+- **Never run `npm run test:full` (or `vitest --mode full`) without asking the author first.** It takes about 22 minutes and
+  adds only the Monte Carlo balance tests. Balance is not a concern at this stage, so only raise it when there is a really
+  good reason (e.g. you changed core simulation logic and `npm test` can't cover it), and say why when you ask.
+- Never start vitest in watch mode (always `vitest run`, never bare `vitest`).
