@@ -3,6 +3,9 @@ import { scenario } from './testkit';
 import { fight } from './combat';
 import { gather } from './interactions';
 import { closureTick, heavyFor, hiringTick, isShut } from './shutdown';
+import { adoptContract } from './goals';
+import { beginRun, endRun, newUniverse } from './universe';
+import { makeCtx } from './run';
 import { relocate } from './combat';
 import { childId } from './mapgen';
 import { nearestDoc, docErrand } from './supply';
@@ -205,5 +208,160 @@ describe('street clinics', () => {
     const end = seen.find((e) => e.type === 'fight_end')!;
     expect(end.data.count).toBeGreaterThan(1); // the guard piled in
     expect(guard.hostile).toBe(true);
+  });
+});
+
+describe('killing the people the house protects', () => {
+  /** She has her mind on the real thing. */
+  const want = (s: ReturnType<typeof scenario>, id: string, mode: 'kill' | 'beat_up') => s.run((c) => void adoptContract(c, id, mode, 'test', 0.9));
+
+  it('lets her kill the owner when she means to, and shuts the building for good', () => {
+    const s = scenario({ seed: 'kill-dutch', at: 'halo_floor' });
+    mighty(s.w);
+    want(s, 'dutch', 'kill');
+    layOut(s, s.w.npcs.dutch!);
+    expect(s.w.npcs.dutch!.alive).toBe(false);
+    for (const id of ['halo_floor', 'halo_kitchen', 'halo_arcade', 'halo_backroom']) {
+      expect(isShut(s.w, id)).toBe(true);
+      expect(s.w.locations[id]!.sealed).toBeDefined();
+    }
+    // Not just for the night: a beat far off in the future is still shut.
+    s.w.beat = 5000;
+    expect(isShut(s.w, 'halo_floor')).toBe(true);
+    expect(s.w.hero.locationId).not.toBe('halo_floor');
+    expect(s.events.some((e) => e.type === 'shut_down' && e.data.variant === 'owner_dead')).toBe(true);
+    expect(s.events.filter((e) => e.type === 'shut_down').every(hasTemplate)).toBe(true);
+    // The staff are out looking for other work.
+    expect(s.w.npcs.nyx!.locationId).toBe('_away');
+  });
+
+  it('lets her kill the bouncer too, and the house weighs it up like any other bad night', () => {
+    const s = scenario({ seed: 'kill-tiny', at: 'halo_floor' });
+    mighty(s.w);
+    s.w.heat.halo = 0;
+    want(s, 'tiny', 'kill');
+    layOut(s, s.w.npcs.tiny!);
+    expect(s.w.npcs.tiny!.alive).toBe(false);
+    expect(isShut(s.w, 'halo_floor') || !!s.w.locations.halo_floor!.pendingHire).toBe(true);
+  });
+
+  it('keeps a beating a beating: with only a lesson in mind, or nothing, nobody dies', () => {
+    for (const mode of ['beat_up', null] as const) {
+      const s = scenario({ seed: `lesson-${mode}`, at: 'halo_floor' });
+      mighty(s.w);
+      if (mode) want(s, 'dutch', mode);
+      layOut(s, s.w.npcs.dutch!);
+      expect(s.w.npcs.dutch!.alive).toBe(true);
+      expect(s.w.locations.halo_floor!.sealed).toBeUndefined();
+    }
+  });
+
+  it('only changes the rules for the one she is after', () => {
+    const s = scenario({ seed: 'wrong-man', at: 'halo_floor' });
+    mighty(s.w);
+    want(s, 'dutch', 'kill');
+    layOut(s, s.w.npcs.tiny!);
+    expect(s.w.npcs.tiny!.alive).toBe(true);
+  });
+});
+
+describe('a bar whose owner is dead', () => {
+  interface Morning {
+    run: number;
+    shut: boolean;
+    kitchenShut: boolean;
+    sealed: boolean;
+    name: string;
+    restroom: string;
+    house: string;
+    blurb: string | undefined;
+    dutchAlive: boolean;
+    nyxAt: string;
+    owner: { id: string; role: string; at: string } | undefined;
+  }
+
+  /** Kill Dutch on the first night, then sleep through `nights` more, taking notes each morning. Null if he got away. */
+  function mornings(seed: string, nights: number): { reopenRun: number; days: Morning[] } | null {
+    const w1 = beginRun(newUniverse(seed), { seed: 'first' });
+    w1.hero.locationId = 'halo_floor';
+    mighty(w1);
+    const c = makeCtx(w1, new Rng(`${seed}:setup`), []);
+    adoptContract(c, 'dutch', 'kill', 'test', 0.9);
+    w1.beat = 10;
+    w1.npcs.dutch!.hostile = true;
+    fight(c, [w1.npcs.dutch!], { cause: 'test', joiners: false });
+    if (w1.npcs.dutch!.alive) return null; // he ran for it
+    const reopenRun = w1.locations.halo_floor!.sealed!.reopenRun;
+    const days: Morning[] = [];
+    let u = endRun(w1);
+    for (let i = 0; i < nights; i++) {
+      const w = beginRun(u, { seed: `night-${i}` });
+      const floor = w.locations.halo_floor!;
+      const boss = Object.values(w.npcs).find((n) => n.tags.includes('owner') && n.alive);
+      days.push({
+        run: w.legacy.runs,
+        shut: isShut(w, 'halo_floor'),
+        kitchenShut: isShut(w, 'halo_kitchen'),
+        sealed: !!floor.sealed,
+        name: floor.name,
+        restroom: w.locations.halo_restroom!.name,
+        house: w.factions.halo!.name,
+        blurb: floor.blurb,
+        dutchAlive: w.npcs.dutch!.alive,
+        nyxAt: w.npcs.nyx!.locationId,
+        owner: boss && { id: boss.id, role: boss.role, at: boss.locationId },
+      });
+      u = endRun(w);
+    }
+    return { reopenRun, days };
+  }
+
+  const several = (tag: string, n: number) => Array.from({ length: n }, (_, i) => mornings(`${tag}-${i}`, 7)).filter((x) => x !== null);
+
+  it('stays shut for several nights, and then opens under somebody new', () => {
+    const r = several('closure', 4)[0]!;
+    expect(r.reopenRun).toBeGreaterThanOrEqual(4);
+    expect(r.reopenRun).toBeLessThanOrEqual(6);
+    for (const d of r.days) {
+      const open = d.run >= r.reopenRun;
+      expect(d.shut, `night ${d.run}`).toBe(!open);
+      expect(d.kitchenShut).toBe(!open);
+      expect(d.sealed).toBe(!open);
+      expect(d.dutchAlive).toBe(false);
+      if (!open) expect(d.nyxAt).toBe('_away');
+    }
+    const d = r.days.find((x) => x.run === r.reopenRun)!;
+    expect(d.owner).toBeDefined();
+    expect(d.owner!.id).not.toBe('dutch');
+    expect(d.owner!.at).toBe('halo_floor');
+    expect(d.owner!.role).toBe(`owner of ${d.name}`);
+  });
+
+  it('comes back as something else more often than not, with a new name that sticks to the rooms and the house', () => {
+    let renamed = 0;
+    let same = 0;
+    for (const r of several('rebrand', 14)) {
+      const d = r.days.find((x) => x.run === r.reopenRun)!;
+      if (d.name === 'The Rusty Halo') {
+        same++;
+        continue;
+      }
+      renamed++;
+      expect(d.restroom).toBe(`${d.name.split(' ').pop()} restroom`);
+      expect(d.house).toBe(d.name);
+      expect(d.blurb).toContain('Rusty Halo');
+    }
+    expect(renamed).toBeGreaterThan(same);
+    expect(same).toBeGreaterThan(0);
+  });
+
+  it('gets its staff back, except for the odd one who found something better', () => {
+    let back = 0;
+    let gone = 0;
+    for (const r of several('staff', 14)) {
+      if (r.days.find((x) => x.run === r.reopenRun)!.nyxAt === 'halo_floor') back++;
+      else gone++;
+    }
+    expect(back).toBeGreaterThan(gone);
   });
 });

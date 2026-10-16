@@ -87,7 +87,7 @@ export const slotId = (role: string, loc: Id, slot: number, j: number): Id => `$
  * Where a wanderer turns up: their own place most of the time, the rooms next to it now and then.
  * Gated and hidden exits are left out; people don't wander through a locked door.
  */
-export function wanderHaunts(w: World, loc: Location): Record<Id, number> {
+export function wanderHaunts(w: Pick<World, 'locations'>, loc: Location): Record<Id, number> {
   const haunts: Record<Id, number> = { [loc.id]: 4 };
   for (const e of loc.exits) {
     const to = w.locations[e.to];
@@ -98,7 +98,7 @@ export function wanderHaunts(w: World, loc: Location): Record<Id, number> {
 }
 
 /** Make somebody belong to a place: their home, and where they turn up. */
-export function rehome(w: World, n: Npc, loc: Location, resident: boolean): void {
+export function rehome(w: Pick<World, 'npcs' | 'clock' | 'locations'>, n: Npc, loc: Location, resident: boolean): void {
   n.home = loc.id;
   setHaunts(w, n, resident ? { [loc.id]: 1 } : wanderHaunts(w, loc));
   n.settledAt = w.clock;
@@ -163,7 +163,7 @@ export function populate(w: World, loc: Location): Npc[] {
 }
 
 /** Send somebody off the known map. They can be cast into a newly discovered place later. */
-export function sendAway(w: World, n: Npc): void {
+export function sendAway(w: Pick<World, 'npcs'>, n: Npc): void {
   moveNpc(w, n, AWAY);
   setHaunts(w, n, undefined);
   delete n.home;
