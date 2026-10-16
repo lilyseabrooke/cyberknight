@@ -7,7 +7,8 @@ culture, delivery drones, and also chrome, implants, neon rain and street docs. 
 mirrorshades. Everything has a subscription tier, including safety.
 
 - **Mostly procedural.** Only the hand-built **Rusty Halo district** (the bar, Strand Street, the Neon Pharaoh,
-  Helix Biotech, the Kowloon Overpass) and **Atlas HQ** are fixed canon. Everything else is generated per save
+  Helix Biotech, the Kowloon Overpass) is the hand-built *starting layout* and **Atlas HQ** is fixed. Even
+  the starting layout is not sacred: Blackbird can close the Halo by killing its owner. Everything else is generated per save
   (`engine/src/mapgen.ts`) from district *types*: market, nightlife, tenement, industrial, corporate, slum.
   Content should describe what a district type is *like*, never a fixed street address in the generated city.
 - Distance from the Rusty Halo is difficulty. Nearer is gentler; further is richer and nastier.
@@ -50,6 +51,12 @@ Some sword-and-sorcery terms are in-world; the rest is Blackbird's own framing.
 | **Quests, relics, dungeons** | Blackbird-only / game words | The world says "jobs," "salvage," "outposts," "hideouts." |
 
 Rule of thumb: if an NPC would say it, it's in-world. If only Blackbird's thoughts or the field report say it, it's framing.
+
+## Other Corporations
+
+Neo is full of corporations. **Atlas is just the big bad**, not the only company. Biotech, media, logistics, food and
+more exist independently (Helix Biotech is one). Don't make every corp Atlas's; independents can be allies, rivals,
+victims of Atlas takeovers, or just their own brand of shady.
 
 ## The Dragon Family
 

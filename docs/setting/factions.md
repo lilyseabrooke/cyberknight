@@ -5,6 +5,10 @@ Mechanics (standing, `relations`, `SAME_FACTION`) live in `engine/src/factions.t
 ## Atlas
 See [`world.md`](world.md) and [`board.md`](board.md). Atlas is at odds with every gang (`-20`) and allied with the NPD (`+25`).
 
+**Locations are fluid.** Places are generated and can be destroyed by what Blackbird does (she can shut down the
+Rusty Halo by killing its owner). So faction lore describes *people, styles and vices*, never fixed addresses. Where a
+faction "has a place," say what *kind* of place it favors, not which one.
+
 ## NPD — Neo Protective Division ("the King")
 
 All of them are Atlas puppets in the end. **The tone escalates with rank**, and so should content that is
@@ -42,14 +46,16 @@ Gang writing rules:
 - Gangs are **not noble** and **not victims of the joke**. They're comedic and dangerous in equal measure: the
   joke is their ego and logistics, never their poverty.
 - Every gang has a **vice** (what they sell) and a **style** (how they look and sound). New gangs need both.
-- Hideouts use the places in `content/dungeons.ts` (scrapyard, old chapel, pool hall, boiler room…); a Rust Choir
-  hideout should plausibly be a scrapyard, not a chapel; a Saint Sixers hideout plausibly *is* the chapel.
+- Hideouts are generated (`content/dungeons.ts`). Don't tie a gang to a specific location; tie it to a *kind* of
+  place if at all, and always allow any gang to turn up anywhere the generator puts them.
 - Gang names: **Adjective/Noun + Noun** (Chrome Vipers, Neon Marrow, Rust Choir, Saint Sixers). See [`naming.md`](naming.md).
 
 ## Venues and shops
 
-Venues and shops are factions too (`kind: 'venue'|'shop'`):
-- **The Rusty Halo**: home bar, warm, scruffy, the bartender and a barkeep with a bat named Judgment.
-- **The Neon Pharaoh**: nightclub; glossy, bouncers, rich kids, kitsch-Egyptian neon.
-- **Strand Street shopkeepers**: Chem-Mart, Bullets & Bagels, Spray & Pray Paint Supply, etc.
-  Shops are cheerful commercial pun-brands; they're friends of the NPD (`+20`) because they want to stay open.
+Venues and shops are factions too (`kind: 'venue'|'shop'`), but **they are not permanent**: the owner can be killed,
+the place closed, the stock robbed. Write them as *types with a personality*, not as institutions the world depends on.
+- The starting district has the Rusty Halo (scruffy home bar), the Neon Pharaoh (glossy nightclub) and Strand Street
+  shops (Chem-Mart, Bullets & Bagels, Spray & Pray). Their current lore is in `engine/src/world.ts`; don't repeat it here.
+- Shops are cheerful commercial pun-brands and friendly to the NPD (`+20`) because they want to stay open.
+- New content must survive a venue being gone. Reference a place through its role ("the bartender") or via game state
+  (callbacks, memory), never assume it still stands.
