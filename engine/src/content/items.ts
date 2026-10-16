@@ -65,11 +65,18 @@ export const ITEMS: Record<string, Def> = {
   stim_cortex: c(STIMS.stim_cortex!.name, 0, 45, ['stim']),
   stim_silver: c(STIMS.stim_silver!.name, 0, 35, ['stim']),
   noodles: c('mystery-meat noodle bowl', 12, 5),
+  protein_tub: c('tub of protein of uncertain provenance', 8, 14),
   spray_can: c('can of spray paint (5 left)', 5, 15, ['paint']),
   dish_good: c('a plated noodle special (it is, shockingly, good)', 30, 40, ['dish']),
   cocktail_molotov: c('Molotov Mule (the cocktail, mostly)', 18, 25, ['throwable', 'fire']),
   ...Object.fromEntries(AMMO_IDS.map((t) => [`ammo_${t}`, c(`box of ${AMMO[t]!.label}`, 0, Math.round(AMMO[t]!.price / 2), ['ammo'])])),
   vintage_guitar: l('vintage guitar (previous owner: a band)', 400, ['instrument']),
+  // ---- gyms ----
+  speed_gloves: w('speed gloves (weighted)', 6, 55, ['gloves']),
+  boxing_wraps: a('hand wraps and a mouthguard', 1, 12),
+  champ_belt: l('championship belt (the gold is mostly paint)', 120, ['trophy']),
+  forged_pass: l('forged gym pass (laminated, very convincing)', 20, ['key']),
+  society_card: l('plain card with a number and no name', 45, ['key']),
 };
 
 export function makeItem(id: string): Item {

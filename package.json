@@ -14,7 +14,9 @@
     "play": "tsx scripts/play.ts",
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "gyms": "tsx scripts/gyms.ts",
+    "coverage": "tsx scripts/coverage.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

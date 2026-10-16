@@ -82,6 +82,7 @@ export function heroPower(w: World, weapon: Item = wielded(w.hero), allies = tru
   if (hasInjury(w, 'cracked_ribs')) mult *= 0.85;
   if (hasInjury(w, 'concussion')) mult *= 0.85;
   if (hasInjury(w, 'fried_optics')) mult *= 0.9;
+  mult *= 1 - 0.25 * (h.sore ?? 0); // a body worked over by the gym (see gym.ts)
   return Math.max(1, p * mult);
 }
 
@@ -127,19 +128,19 @@ export function gainXp(c: Ctx, amount: number): void {
  * allows, unless she has set her mind on the real thing (a kill goal, not a lesson) and is swinging at exactly him.
  */
 const marked = (w: World, f: Npc): boolean =>
-  (f.tags.includes('owner') || (!!f.authored && f.role === 'bouncer')) && w.mind.goals.some((g) => g.kind === 'kill' && g.mode === 'kill' && g.npc === f.id);
+  (f.tags.includes('owner') || f.tags.includes('pit') || (!!f.authored && f.role === 'bouncer')) && w.mind.goals.some((g) => g.kind === 'kill' && g.mode === 'kill' && g.npc === f.id);
 
 export function isLethal(foes: Npc[], w: World): boolean {
   if (foes.length && foes.every((f) => f.tags.includes('nonlethal'))) return false;
   if (foes.some((f) => marked(w, f))) return true;
   if (foes.some((f) => f.tags.some((t) => ['robot', 'cop', 'corp', 'boss'].includes(t)) && !f.tags.includes('nonlethal'))) return true;
   const kind = w.locations[w.hero.locationId]?.kind;
-  return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home');
+  return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home' || kind === 'gym');
 }
 
 export function maybeInjure(c: Ctx, hit: number, chance = 0.4): void {
   const h = c.w.hero;
-  if (hit < h.maxHp * 0.18 || !c.rng.chance(chance)) return;
+  if (hit < h.maxHp * 0.18 || !c.rng.chance(chance * (1 + (h.sore ?? 0)))) return;
   const options = (['broken_leg', 'cracked_ribs', 'fried_optics', 'concussion'] as const).filter((i) => !h.injuries.includes(i));
   if (!options.length) return;
   const injury = c.rng.pick(options);

@@ -95,6 +95,8 @@ interface Snapshot {
   implants: string[];
   goals: GoalView[];
   satiety: number;
+  /** 0..1, from training; see gym.ts. */
+  sore: number;
   /** Neodollars in her account, which outlives her. */
   account: number;
   /** What she has put in at drop points tonight, after their cut. */
@@ -157,6 +159,7 @@ function snap(w: World): Snapshot {
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
     goals: goalViews(w),
     satiety: h.satiety ?? 0,
+    sore: h.sore ?? 0,
     account: w.legacy.account,
     banked: w.stats.deposited,
     ask: w.mind.ask ? { id: w.mind.ask.id, question: w.mind.ask.question, options: w.mind.ask.options.map(({ id, label, hint }) => ({ id, label, hint })), left: Math.max(0, w.mind.ask.until - w.beat) } : null,
@@ -508,6 +511,7 @@ export default function NightViewer() {
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
               <dt>Armor</dt><dd>{status.armor}</dd>
               {status.satiety > 0.08 && (<><dt>Afterglow</dt><dd>{'♥'.repeat(Math.max(1, Math.round(status.satiety * 5)))} <span className="muted">sated</span></dd></>)}
+              {status.sore > 0.08 && (<><dt>Sore</dt><dd>{'▮'.repeat(Math.max(1, Math.round(status.sore * 5)))} <span className="muted">{status.sore > 0.6 ? 'wrecked' : status.sore > 0.3 ? 'aching' : 'tender'}</span></dd></>)}
               <dt>Drunk</dt><dd>{'🍸'.repeat(Math.min(status.drunk, 6)) || 'sober (suspicious)'}</dd>
               {status.companions.length > 0 && (
                 <>

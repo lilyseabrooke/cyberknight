@@ -484,6 +484,11 @@ const T: Record<string, Entry> = {
   'intent:billboard': e(() => ['Blackbird eyes the billboard. It is begging for an update.', 'Blackbird has a feeling about that billboard. It is a feeling with a USB port.']),
   'intent:till': e(() => ['Blackbird slides toward the till, looking at the ceiling.', 'Blackbird takes an interest in the till.']),
   'intent:karaoke': e(() => ['Blackbird takes the mic.', 'Blackbird has added her name to the karaoke list, above everyone else.']),
+  // ---- gyms: the affordance rows carry their own prose (content/gym*.ts); one entry reads it back
+  gym: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:gym': e((d) => [String(d.text)]),
+  'intent:gymquick': e((d) => [String(d.text)]),
+  'intent:gymfight': e((d) => [String(d.text)]),
   'intent:pool': e(() => ['Blackbird racks the balls for a game with money on it.', 'Blackbird puts cash on the rail and chalks a cue.']),
   // ---- a round of a fight, as it went
   'fight_round:quiet': e((d) => [`Round ${d.round}. Nobody lands anything. ${d.left} still standing.`, `Round ${d.round}: feints, footwork, a chair that goes nowhere. ${d.left} still standing.`]),
@@ -1141,6 +1146,14 @@ const T: Record<string, Entry> = {
   ),
   'shut_down:owner_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. Nobody in ${d.place} says so out loud. The staff drift out with their coats, the punters follow, and someone with a key shows Blackbird to the pavement. The shutters come down and stay down.` : `${d.place} has shut, and it is not the usual kind of shut. ${d.npc} is dead, the staff have gone to look for other work, and somebody has put a lock the size of a fist on the shutters.`],
+    ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
+  'shut_down:gym': e(
+    (d) => [d.inside ? `With ${d.npc} on the mat there is nobody to run ${d.place}. The coaches stop pretending, the regulars drift for the doors, and someone with a key and a towel shows Blackbird out. The shutters come down behind her.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The gym shuts for a few days. The bags swing a bit, then stop.`],
+    ['I closed a gym. Rest day, everyone. You are welcome.', 'A day off. For the whole district. That is leadership.'],
+  ),
+  'shut_down:gym_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. Nobody in ${d.place} says so out loud. The regulars lay their gloves on the bench, the coaches switch off the lights and someone with a key shows Blackbird to the pavement. The shutters come down and stay down.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, and nobody has the keys.`],
     ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
   ),
   'shut_down:clinic': e(

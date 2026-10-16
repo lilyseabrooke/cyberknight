@@ -335,6 +335,94 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'hera', weapons: [], loot: [], lootChance: 0, cash: [0, 0], hp: 8000, power: 900,
     desc: ['a Hera Mk. V: a city-scale Atlas pacification platform, with a presence like weather'],
   },
+  // ---------------- Gyms (content/gyms.ts) ----------------
+  gym_owner: {
+    role: 'gym owner', level: [5, 6], tags: ['owner', 'strong', 'staff'], faction: null,
+    names: 'person', weapons: ['judgment'], loot: ['champ_belt', 'credchip', 'mom_photo'], lootChance: 0.6, cash: [80, 260],
+    desc: ['a retired champion with a cauliflower ear, a bad knee and a belt in a case behind the desk', 'a barrel-chested owner who still wraps his own hands, out of spite', 'a sharp-eyed owner in a tracksuit that has outlasted three business plans', 'a former fighter whose nose has been broken in more ways than the building has fire exits'],
+  },
+  gym_coach: {
+    role: 'coach', level: [3, 5], tags: ['staff', 'strong', 'trainer'], faction: null,
+    names: 'person', weapons: [], loot: ['boxing_wraps', 'protein_tub'], lootChance: 0.3, cash: [15, 70],
+    desc: ['a coach with a whistle on a string, a towel on one shoulder and the word "again" permanently on his lips', 'a tired, patient coach who has seen every kind of mistake and fixed most of them', 'a coach with arms like bridge cables and the gentlest voice in the district'],
+  },
+  sensei: {
+    role: 'sensei', level: [4, 6], tags: ['staff', 'strong', 'trainer'], faction: null,
+    names: 'person', weapons: [], loot: ['boxing_wraps', 'society_card'], lootChance: 0.2, cash: [20, 90],
+    desc: ['a very upright sensei in a belt that has seen things', 'a sensei who bows at an angle that is clearly a rank', 'a quiet sensei who looks at her once, and has already written a report'],
+  },
+  rig_tech: {
+    role: 'rig technician', level: [3, 5], tags: ['staff', 'augmented', 'trainer'], faction: null,
+    names: 'person', weapons: ['speed_gloves'], loot: ['memory_shard', 'neural_gum'], lootChance: 0.35, cash: [30, 100],
+    desc: ['a rig tech with hydraulic forearms and a laminated "Tune-Up Tuesday" menu', 'a rig tech whose shoulders are more engineering than anatomy', 'a rig tech who calls every customer by their load rating'],
+  },
+  instructor: {
+    role: 'instructor', level: [2, 4], tags: ['staff', 'trainer'], faction: null,
+    names: 'person', weapons: [], loot: ['neural_gum', 'protein_tub'], lootChance: 0.3, cash: [20, 80],
+    desc: ['an instructor with a headset, an astonishing smile and a following', 'an instructor with a calm voice and a clipboard of everyone\'s weaknesses', 'a relentlessly encouraging instructor in a branded vest'],
+  },
+  range_officer: {
+    role: 'range officer', level: [3, 5], tags: ['staff', 'trainer'], faction: null,
+    names: 'person', weapons: ['zip_pistol'], loot: ['credchip', 'walkman'], lootChance: 0.3, cash: [20, 80],
+    desc: ['a range officer in ear defenders with a laminated safety card in his top pocket', 'a very still range officer who has not blinked since Tuesday'],
+  },
+  gym_desk: {
+    role: 'front desk', level: [1, 2], tags: ['staff', 'shopkeeper'], faction: null,
+    names: 'person', weapons: ['broken_bottle'], loot: ['credchip', 'forged_pass'], lootChance: 0.4, cash: [10, 60],
+    desc: ['a front-desk attendant with a tablet and an unreadable smile', 'someone behind the desk eating protein out of a tub with a spoon the size of a trowel'],
+  },
+  gym_sparrer: {
+    role: 'sparring regular', level: [2, 4], tags: ['regular', 'strong'], faction: null,
+    names: 'person', weapons: [], loot: ['boxing_wraps', 'mom_photo'], lootChance: 0.3, cash: [5, 40],
+    desc: ['a regular with a gap-toothed grin who will spar with anyone for the price of a drink', 'a lean, quiet fighter with a bruise that has been the same shape for a month', 'a sparring regular who talks nonstop and punches in silence'],
+    startAffinity: 3,
+  },
+  gym_regular: {
+    role: 'gym-goer', level: [1, 2], tags: ['regular'], faction: null,
+    names: 'person', weapons: [], loot: ['protein_tub', 'neural_gum', 'credchip'], lootChance: 0.3, cash: [3, 40],
+    desc: ['a gym-goer mid-set, staring at nothing', 'a gym-goer who has been on the same machine for an hour and a half', 'someone in a vest that has a slogan on it she can\'t quite read'],
+  },
+  gym_cleaner: {
+    role: 'cleaner', level: [1, 1], tags: ['staff'], faction: null,
+    names: 'person', weapons: ['broken_bottle'], loot: ['credchip', 'mom_photo', 'gold_tooth'], lootChance: 0.4, cash: [2, 20],
+    desc: ['a cleaner with a mop and a very long memory', 'a cleaner who knows what is behind every locker'],
+  },
+  gym_barista: {
+    role: 'juice bar attendant', level: [1, 2], tags: ['staff'], faction: null,
+    names: 'person', weapons: ['broken_bottle'], loot: ['protein_tub', 'neural_gum'], lootChance: 0.4, cash: [10, 50],
+    desc: ['an attendant at the blender, who has opinions about kale', 'someone behind the counter making a drink that is a colour she has not seen'],
+  },
+  gym_physio: {
+    role: 'physio', level: [2, 3], tags: ['staff', 'doc'], faction: null,
+    names: 'person', weapons: [], loot: ['patch_kit', 'neural_gum'], lootChance: 0.4, cash: [20, 90],
+    desc: ['a physio with strong thumbs and a quiet, merciless professional smile', 'a physio who can find the bruise she has not met yet'],
+  },
+  gym_influencer: {
+    role: 'gym influencer', level: [1, 2], tags: ['staff', 'influencer'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'neural_gum', 'walkman'], lootChance: 0.4, cash: [15, 90],
+    desc: ['an influencer with a ring light on a stick and an audience of eleven', 'a tanned influencer filming a set from three angles, one of which is her own'],
+  },
+  atlas_rep: {
+    role: 'Atlas wellness rep', level: [2, 3], tags: ['corp', 'staff'], faction: 'atlas',
+    names: 'person', weapons: ['zip_pistol'], loot: ['corp_creds', 'fake_id'], lootChance: 0.3, cash: [40, 150],
+    desc: ['a cheerful Atlas wellness rep with a lanyard, a clipboard and a smile that has never been tested', 'an Atlas rep in a branded vest, delighted to inform her that she is, technically, covered'],
+  },
+  sparring_bot: {
+    role: 'sparring robot', level: [3, 4], tags: ['robot', 'guard', 'staff'], faction: null,
+    names: 'robot', weapons: [], loot: ['drone_core', 'scrap_metal'], lootChance: 0.5, cash: [0, 0], hp: 70, power: 10,
+    desc: ['a sparring robot with padded hands and a calm, unblinking sensor', 'a sparring bot in boxing gloves, standing in the corner like a very good idea'],
+  },
+  pit_boss: {
+    role: 'pit boss', level: [5, 6], tags: ['staff', 'strong', 'bookie'], faction: null,
+    names: 'person', weapons: ['judgment', 'switchblade'], loot: ['credchip', 'champ_belt', 'fake_id'], lootChance: 0.6, cash: [100, 320],
+    desc: ['a pit boss with a ledger, a patient stare and a ring of keys', 'a pit boss in a very good suit who has been splashed with something and does not mention it'],
+  },
+  pit_fighter: {
+    role: 'pit fighter', level: [3, 7], tags: ['strong', 'pit', 'fighter'], faction: null,
+    names: 'person', weapons: ['speed_gloves'], armors: ['boxing_wraps'], armorChance: 0.4, loot: ['champ_belt', 'credchip', 'gold_tooth'], lootChance: 0.35, cash: [30, 160],
+    desc: ['a pit fighter with a shaved head, taped knuckles and a face that is mostly scar tissue', 'a pit fighter who smiles at her like an old friend and holds the smile like a guard', 'a fighter with a bandaged hand and a tattoo of the number of fights she has won'],
+  },
+
 };
 
 /** Who these archetypes tend to be, beyond the job. Anything not listed is anyone between 22 and 55. */

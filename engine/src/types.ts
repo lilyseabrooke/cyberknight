@@ -99,6 +99,8 @@ export interface Hero {
   drunk: number;
   /** 0..1. How content she is, romantically, for now. Decays slowly; amorous company speeds it up. */
   satiety?: number;
+  /** 0..1. How worked over her body is from training. Trims her in a fight and makes injuries likelier; a sauna or a physio helps. See gym.ts. */
+  sore?: number;
   muscle: number;
   reflex: number;
   hack: number;
@@ -318,7 +320,7 @@ export interface Hazards {
 export interface Location {
   id: Id;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym';
   exits: Exit[];
   /** 0..10. Raises the chance of being spotted while sneaking. */
   security: number;
@@ -364,12 +366,40 @@ export interface Location {
   pendingHire?: { due: number };
   /** Part of a dungeon: the id of its entrance, which is also the key into `World.dungeons`. See dungeons.ts. */
   dungeon?: Id;
+  /** A gym's makeup: what it is, what building it's in, what it has. Rolled with the place. See content/gyms.ts. */
+  gym?: GymInfo;
+  /** A room of a gym (locker room, pit, sauna...): which gym, and which room. */
+  gymRoom?: { main: Id; room: string };
+  /** The gym's fight ladder: the rung she has reached and how many bouts she has won here. See gym.ts. */
+  ladder?: { rank: number; wins: number };
+}
+
+/**
+ * What a gym is. Every field is rolled independently from the gym's own stream, so any combination can turn up.
+ * (content/gyms.ts says what each id means; ids that are no longer known are ignored, so the tables can grow.)
+ */
+export interface GymInfo {
+  variant: string;
+  shell: string;
+  /** 0 (a closet) to 4 (a sprawl). */
+  size: number;
+  /** 0 (derelict) to 4 (immaculate). */
+  condition: number;
+  /** 1..5. Trainer quality, pit fighters, prices. Independent of everything else. */
+  tier: number;
+  traits: string[];
+  /** Feature ids present anywhere in the building (each lives in a room; see FEATURES). */
+  features: string[];
+  /** Room ids it has (the rooms themselves are places off the main floor). */
+  rooms: string[];
+  /** A one-in-a-dozen oddity that breaks the rules. */
+  wild?: string;
 }
 
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {

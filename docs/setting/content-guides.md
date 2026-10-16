@@ -129,7 +129,25 @@ the header of the file you're editing first.
   - Disaster reads calmer than triumph.
 - **Test:** "every event has text" tests (`engine.sandbox.test.ts`, `groups.test.ts`, `tactics.test.ts`); no unresolved templates.
 
-## 14. New events and mechanics
+## 14. Locations that offer things (gyms, and whatever follows)
+
+A whole kind of place, rolled from many independent axes and offering something to every kind of capability. The spec
+and worked example is [`../locations/gym.md`](../locations/gym.md); the code is `content/gyms.ts` (what a gym is),
+`content/gym*.ts` (affordance rows), `gymkit.ts` (machinery) and `gym.ts` (candidates).
+
+- **Where it goes:** a new `GenRole` and `Location.kind`, rolled on **its own random stream after everything else on the
+  street** (so no existing map changes), with rooms as child places.
+- **Shape:** data tables (variants, shells, traits, situations, features, rooms), plus **affordance rows** in the shared
+  registry (`affordances.ts`). A row says where it applies, which capabilities it draws on (`needs`), what that
+  capability *sees* here, what it does, and what it costs. Requirements are soft; anyone can try anything.
+- **Setting:** maximal (more of everything, not all at once), unbalanced on purpose (outliers are features; limits come
+  from the world), and multidimensional (every skill, stat and drive has something to do here). Atlas is wallpaper.
+- **Always:** run `npm run coverage` and give any capability with nothing here at least one row; add the new place's
+  rows to the registry rather than to a hand-written `switch`.
+- **Test:** `gym.test.ts` is the pattern: determinism, tables only name things that exist, every row runs and renders,
+  every capability is covered, and the rules specific to the place.
+
+## 15. New events and mechanics
 
 - Emit structured events (`c.emit(...)`); the text layer renders them. Add the template (guide 13) in the same change.
 - Use `testkit.ts` `scenario()` to build the situation directly; see README "Writing tests". Only whole-game claims

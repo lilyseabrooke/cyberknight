@@ -31,6 +31,7 @@ export const ACTION_MINUTES: Record<string, number> = {
   lay_low: 120, hide_flight: 45, get_patched: 30, use_med_pack: 10, patch_up: 20,
   burgle_home: 25, burgle_flat: 25, rob_paint_shop: 20, pickpocket: 10, scam_mark: 20, sell_fake_goods: 20, hack: 20, jack: 20,
   raid_loot: 40, raid_ambush: 30, graffiti: 25, tail: 30, hunt_drone: 30, fence: 10, implant: 60,
+  gym: 35, gymfight: 15, gymquick: 6,
 };
 
 /** Extra world minutes a fight adds to the beat it happens in. */

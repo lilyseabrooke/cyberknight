@@ -1,7 +1,8 @@
 # Location spec: Gym / Dojo
 
-**Status:** DRAFT v3, rewritten around the three design principles (maximal, unbalanced, multidimensional). Everything is
-**PROPOSED** except the "Decided" box. This file is also the worked example of the location spec schema.
+**Status:** IMPLEMENTED (v3 spec; see "What was built" at the end for where the build differs). Written around the three
+design principles (maximal, unbalanced, multidimensional). This file is also the worked example of the location spec
+schema.
 
 ## 0. Decided
 
@@ -305,3 +306,30 @@ UNCOVERED at this location: <list>
 2. **Affordance registry shape** (`affordances.ts`): one registry for all location types, or one per type? Proposed: one
    shared type + one registry per location type, aggregated by the coverage script.
 3. **Atlas franchise variant** was left out in the first pass; reinstated here under maximalism (strike if unwanted).
+
+## 14. What was built (and where it differs from the draft)
+
+Code: `affordances.ts` (the schema, the registry, `coverage`), `content/gyms.ts` (all the tables and `rollGym`),
+`content/gymafford.ts` / `gymcrime.ts` / `gymevents.ts` (the rows), `gymkit.ts` (the machinery), `gym.ts` (candidates and
+`describeGym`), plus hooks in `mapgen.ts`, `roster.ts`, `combat.ts`, `bounty.ts`, `shutdown.ts`, `stage.ts`, `interactions.ts`,
+`run.ts`, `clock.ts`, `text.ts`, `grid.ts` and the status panel. Tooling: `npm run gyms`, `npm run coverage`. Tests: `gym.test.ts`.
+
+Differences from the draft:
+
+- **Feature homes are per room** (`"room:feature"` strings on `GymInfo.features`), not a flat list, so the same object can
+  live on the floor or in a room.
+- **Prose lives with the rows**, through one generic `gym` event, instead of per-affordance templates in `text.ts`.
+  The text layer has one entry that reads `text` / `thought`; pronouns still work (`{they}`, `{their}` via `npc`).
+- **The day pass is paid once a day** (a world counter), not once a session.
+- **Situations have no saved state**: a pure function of the clock and the gym's id, so they cannot desync.
+- **Youth club became an "outreach gym"** for adult young punks (TONE.md: street kids are adults), and the name no
+  longer echoes a real organisation.
+- **Added after the spec:** a pool table (so the `pool` skill has something to do), a status-panel line for soreness,
+  and the `passDays` result (a hacked pass or an unguarded way in grants free entry).
+- **Not built (still open):** pit betting; a ban spreading between gyms; the rigged tournament is a modifier plus one
+  row rather than a full fixed bracket; techniques from a sensei (deferred by decision).
+- **Wild cards built:** legendary coach, cursed rig, Atlas promotion, battle royale, secret society, ghost, rigged
+  tournament (a tip-off row and weakened ladder opponents), every-feature-a-trap (harsher failures).
+
+Numbers to watch when tuning (all deliberately unbalanced): training XP (`trainSession`), day passes (`VARIANTS.pass`),
+ladder purses, the legendary coach's 12 XP, soreness rates.
