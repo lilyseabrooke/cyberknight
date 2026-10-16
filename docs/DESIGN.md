@@ -523,6 +523,28 @@ For the nights she wants a bit of money and a fight without a whole dungeon. A s
 - **Tests.** `spots.test.ts`: the table is sound at every tier, streets grow them without moving anything else, the paper rule (every crew, every tier), the richness rule, unguarded and guarded, refilling, heat, saves, words for every crew, and nights.
 
 
+## Jobs: go there, do the one thing, come back (`quests.ts`)
+
+People with a want can have a job for her. A job is **go to a place made for it, do one thing there, then tell whoever asked**. The one thing is one of three objectives:
+
+- **flatline** a named target who is posted in the objective room (tougher than the tier says, and not the sort to run: `routed` leaves `quest_target` people alone);
+- **retrieve** a thing from the objective room (`quest_take`; the thing is an inventory item tagged `quest`, which the fence will not buy and `wealth` does not count);
+- **hack** a terminal in the objective room (`quest_hack`; each failure is a risk of noise, three in a night and the system purges itself).
+
+**Where they come from.** Wants are facts (`facts.ts`). Money, getting out, finding someone and wanting peace can each turn into a job (revenge is a score, not a job: `contracts.ts`). Seven in ten people with such a want have the nerve to ask (`questWant`, rolled from who they are). Once she knows them well enough to be told (the same visibility rule as chatting: nothing `secret` under 40 affinity), `ask_quest:<id>` is on offer in the room.
+
+**The place.** Describing a job builds it (`ensureQuest`, `addQuestSite` in `mapgen.ts`): a trail of two to four new streets off the street the giver is on, and at the end a spot or a dungeon (an outpost or a hideout, tier from her level when it is described) with the giver's id written on its `gen.quest`. Both come from the giver and the world's seed, so the same job is in the same place in every run of the save; the streets are ordinary streets that grow lots and spots of their own when she gets there, and the site is built like any other when she gets to its door, with the one extra fixture stocked into the room the job names (`stockQuest`). She knows the way because the giver told her: the trail is simply on the map. Everything else about the place is a normal spot or dungeon, with its own garrison and spoils, so she is free to clear it out or creep through it.
+
+**Whether she takes it** (`appraise`): how she feels about whoever is asking (affinity, kindness), how much the money is worth to her (reward against what she has, greed) and how much work she reckons it is (the way there, how the place looks against her `tolerance`, how she feels about killing, hacking or fetching). That is one score; a sigmoid turns it into the chance she says yes. If she does, she then decides whether to make it a goal right now (more likely the more she wants it and the more room she has) or keep it in mind (`Mind.quests`). Jobs she has kept in mind are recalled now and then when she has room for another goal (`recallJobs`); one she has already done (so the money is owed) is picked up first, room or not (`quest_collect`). They are also a candidate when she has nothing on her mind (`formIdle`, and so one of the lab's *idle* options). A job that gets dropped (bored, overloaded, "too much from the street") goes back to the notes; one whose giver has died, or that has gone wrong for the night, does not.
+
+**The goal** (`quest` in `goals.ts`) has modes: `approach` (the trip is ordinary travel; from two streets off she has a last look at the place), then inside `sneak` or `clear` (picked from her nerve and what she thinks of the place; a loud place she can't take she sneaks; a sneak that has set off the alarm twice turns into a clear), `retreat` if she is worn out with no meds (she leaves, heals, and comes back), and `return` once the job is done. Sneaking heads straight for the objective room and won't start fights on the way (but will for the target); clearing visits the rooms she can handle, loots them and does the same. Done, she wants to find whoever asked, **wherever they have gone** (`giverPlace` reads their routine at the current clock, not where she last saw them); `turn_in_quest:<id>` is on offer whenever the job is ready and they are in the room, even if she has forgotten ever taking it, since the world remembers.
+
+**What persists.** The job is on the giver (`Npc.quest`) and the site is in the map, so both outlast her body; what she decided is in her mind and does not. At nightfall (`nightfall`) a thing she carried off is gone with her and the terminal is back up; a target she put down stays down, and the job stays ready to report.
+
+**Pay.** Cash from `70 + 60*tier + 0..70` times 1.25 (flatline) / 1.0 (retrieve) / 1.1 (hack); the giver's affinity goes up fifteen, the want is satisfied (the fact goes), a little XP, and a little fame at tier 3 and up.
+
+**Tests.** `quests.test.ts`: the site is built and reachable and the same every time, each objective is stocked, her answer follows the things it should follow (liking, money, work), keeping a job in mind and picking it up again, each objective resolved, reporting to someone who has moved, the night boundary, and words for every job event. `scripts/analyze.ts` counts `quest` among the goal kinds.
+
 ## Asking the lab (`advice.ts`)
 
 The first thing the player can do mid-night besides watch. At a fork in the road Blackbird stops, taps her earpiece and asks the lab tech what to do. The question stays open for `ASK_BEATS` (10) beats; if nobody answers, she decides for herself.

@@ -129,11 +129,15 @@ the header of the file you're editing first.
   - Disaster reads calmer than triumph.
 - **Test:** "every event has text" tests (`engine.sandbox.test.ts`, `groups.test.ts`, `tactics.test.ts`); no unresolved templates.
 
-## 14. Locations that offer things (gyms, and whatever follows)
+## 14. Locations that offer things (gyms, pawn shops, and whatever follows)
 
 A whole kind of place, rolled from many independent axes and offering something to every kind of capability. The spec
 and worked example is [`../locations/gym.md`](../locations/gym.md); the code is `content/gyms.ts` (what a gym is),
-`content/gym*.ts` (affordance rows), `gymkit.ts` (machinery) and `gym.ts` (candidates).
+`content/gym*.ts` (affordance rows), `gymkit.ts` (machinery) and `gym.ts` (candidates). The second, with a shelf as its
+only state, is [`../locations/pawn.md`](../locations/pawn.md) (`content/pawns.ts`, `content/pawn*.ts`, `pawnkit.ts`,
+`pawn.ts`). Both are built on `placekit.ts`: write a `Kit` (who works there, what its events are called) and the rest
+of the machinery (`runCheck`, results, lines) is shared. A place's core business can use `pace: 'deal'`, which gives it a
+key family of its own so a long menu of rows cannot crowd it out of the AI's choice.
 
 - **Where it goes:** a new `GenRole` and `Location.kind`, rolled on **its own random stream after everything else on the
   street** (so no existing map changes), with rooms as child places.

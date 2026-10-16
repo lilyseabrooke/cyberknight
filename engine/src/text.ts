@@ -489,6 +489,12 @@ const T: Record<string, Entry> = {
   'intent:gym': e((d) => [String(d.text)]),
   'intent:gymquick': e((d) => [String(d.text)]),
   'intent:gymfight': e((d) => [String(d.text)]),
+  // ---- pawn shops: same shape (content/pawn*.ts)
+  pawn: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:pawn': e((d) => [String(d.text)]),
+  'intent:pawnquick': e((d) => [String(d.text)]),
+  'intent:pawnfight': e((d) => [String(d.text)]),
+  'intent:pawndeal': e((d) => [String(d.text)]),
   'intent:pool': e(() => ['Blackbird racks the balls for a game with money on it.', 'Blackbird puts cash on the rail and chalks a cue.']),
   // ---- a round of a fight, as it went
   'fight_round:quiet': e((d) => [`Round ${d.round}. Nobody lands anything. ${d.left} still standing.`, `Round ${d.round}: feints, footwork, a chair that goes nowhere. ${d.left} still standing.`]),
@@ -1156,6 +1162,14 @@ const T: Record<string, Entry> = {
     (d) => [d.inside ? `${d.npc} is not getting up. Nobody in ${d.place} says so out loud. The regulars lay their gloves on the bench, the coaches switch off the lights and someone with a key shows Blackbird to the pavement. The shutters come down and stay down.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, and nobody has the keys.`],
     ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
   ),
+  'shut_down:pawn': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor there is nobody to price anything at ${d.place}. The grille comes down, the clerks put the cat in a box and someone with a very large key shows Blackbird out.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The shop shuts for a few days. The window goes dark, and every tag in it looks a little more like a tombstone.`],
+    ['I closed a pawn shop. Everyone gets their stuff back. Eventually. Possibly.', 'A pawn shop, shuttered. That is a lot of other people\'s things in a very small dark.'],
+  ),
+  'shut_down:pawn_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. Nobody in ${d.place} says so out loud. The clerks lay a cloth over the counter, someone turns the sign and a very quiet person with a key shows Blackbird to the pavement. The grille comes down and stays down.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, the ledger is under a lock and every tag in the window is waiting for somebody who is not coming.`],
+    ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
   'shut_down:clinic': e(
     (d) => [d.inside ? `With ${d.npc} out cold and nobody else qualified to hold a scalpel, ${d.place} locks up. The guards herd Blackbird to the door and the shutters come down on her heels.` : `${d.place} has shut. With ${d.npc} on the floor there is nobody left to hold the scalpel, and the guards have locked the door from the inside.`],
     ['Okay. Hitting the doctor. Sub-optimal. Noted.', 'Where do people go when the clinic is closed? Other clinics. Probably.'],
@@ -1338,6 +1352,126 @@ const T: Record<string, Entry> = {
   ),
   victory: e(() => ['CINDERJAW comes down in a spiral of fire and flapping ads. The Kowloon Overpass falls silent. Somewhere, an Atlas stock price flickers.'], ['Dragon: slain. Honestly, I expected it to be harder.']),
   dawn: e((d) => [`Dawn breaks over Neo. Blackbird, somehow still alive, squints at it from ${d.place}. Day ${d.day}. The night ran out before she did, so she carries on.`, `The sky over ${d.place} goes grey, then pink, then an ad. Blackbird is still here. Day ${d.day} begins.`], ['Still not dead. Keep going.', "Sun's up. I'm told that's bad for people like me."]),
+  // ---------------------------------------------------------------- jobs (quests.ts)
+  'quest:offer': e(
+    (d) => {
+      const job =
+        d.qkind === 'flatline' ? `${d.target} has to go, and ${d.target} is at ${d.place}`
+        : d.qkind === 'retrieve' ? `${d.what} is in ${d.place}, and wants fetching`
+        : `${d.what} is behind a door at ${d.place}, and somebody has to get into it`;
+      const want =
+        d.want === 'wants_money' ? `${d.npc} is short, and says so`
+        : d.want === 'wants_out' ? `${d.npc} wants out, and knows it will take someone else's hands`
+        : d.want === 'wants_to_find' ? `${d.npc} is looking for ${d.rel ? `a ${d.rel}` : 'someone'}, and this is the way to it`
+        : `${d.npc} wants some peace, and this is what peace costs`;
+      return [
+        `${want}. ${cap(job)}. The pay is ${$(d.reward)} neodollars, and ${d.npc} draws the way on a napkin: a few streets past anything Blackbird has bothered to look at.`,
+        `${d.npc} has a job. ${cap(job)}. ${cap(want)}. ${$(d.reward)} neodollars on delivery. The napkin has a route on it, and the route has street names in it that Blackbird does not know yet.`,
+      ];
+    },
+    ['A job. A real one. With a napkin.', 'People always know exactly where the thing is. Never how to get it.', 'I have never once been handed a napkin I did not later regret.'],
+  ),
+  'quest:accept': e(
+    (d) => [
+      d.why === 'liking' ? `${d.npc} has been decent to Blackbird, and Blackbird, for reasons she will deny, takes the job.` : `${$(d.reward)} neodollars is ${$(d.reward)} neodollars. Blackbird says yes before ${d.npc} finishes the sentence.`,
+      `Blackbird takes the job. ${d.npc} looks relieved, and a little afraid of what ${d.npc} has just set in motion.`,
+    ],
+    ['Consider it handled.', 'It is only a job. I have done the thing before. Something like it.', 'Say no more. Actually say the amount again.'],
+  ),
+  'quest:decline': e(
+    (d) =>
+      d.why === 'work' ? [`Blackbird hears ${d.npc} out, looks at how far it is and what it will take, and says no. ${d.npc} says that is fair. ${d.npc} does not mean it.`]
+      : d.why === 'liking' ? [`Blackbird has no reason to do ${d.npc} any favors, and says as much, in fewer words. The napkin goes back in ${d.npc}'s pocket.`]
+      : [`${$(d.reward)} neodollars does not clear the bar. Blackbird tells ${d.npc} it is not worth her evening. ${d.npc} tries a higher number, in {their} head, and does not say it.`],
+    ['Not for that.', 'I have standards. They are low, but I have them.', 'A hero has to pick her fights. This one picked itself and I disagreed.'],
+  ),
+  'quest:later': e(
+    (d) => [`The job for ${d.npc} goes on the list, behind everything Blackbird was already doing. She will get to it.`, `Blackbird tucks the napkin in her jacket. ${cap(String(d.place))} will keep. Probably.`],
+    ['Soon. Ish. In a heroic sense.', "It's on the list. The list is long. I love the list."],
+  ),
+  'quest:retrieved': e(
+    (d) => [`${cap(String(d.what))} is in Blackbird's jacket. ${d.watched ? 'The room did not notice. She is almost offended.' : 'Nobody even knew it was missing.'} Now to bring it back to ${d.npc}.`],
+    ['Fetched. Good girl. Good dog. I contain multitudes.', 'That is the whole job. Now the part where I have to walk home with it.'],
+  ),
+  'quest:fumbled': e(
+    (d) => [`Blackbird gets a grip on ${d.what} and does not get all of it. Something clatters. It is not the sort of clatter she can pretend was a pipe.`],
+    ["That was a practice grab. Everyone gets one."],
+  ),
+  'quest:ruined': e(
+    (d) => [`${cap(String(d.what))} comes apart in Blackbird's hands, in a way that matters. The job is over for tonight. ${d.npc} is not going to be pleased.`],
+    ['It was like that when I found it. It was in much better condition when I found it.'],
+  ),
+  'quest:hacked': e(
+    (d) => [`The firewall goes down easy. Blackbird is into ${d.what}, ${d.watched ? 'with the room none the wiser and its eyes on the wrong thing' : 'in the quiet'}, and does what ${d.npc} asked. It takes a moment. It takes a moment that feels, from inside, like an hour.`],
+    ['In. Out. Barely sweating. Jackpot, in the sense that it is a job well done.', 'Jacked in, no problem. Seriously, no problem.'],
+  ),
+  'quest:jammed': e(
+    (d) => [`${cap(String(d.what))} bites back: a wall of black ICE, a lockout timer and a lot of red. Blackbird backs out of it, thumbs aching.`],
+    ['It is a very rude system. No manners at all.', 'Again. Nobody remembers the first attempt. Mostly me.'],
+  ),
+  'quest:locked': e(
+    (d) => [`${cap(String(d.what))} purges itself, and everything in it, with an ugly little flourish. The way in is gone for tonight. ${d.npc} will have been hoping for better.`],
+    ['Scorched earth. Mine, I think. Maybe theirs. Hard to tell.'],
+  ),
+  'quest:paid': e(
+    (d) => [
+      d.qkind === 'flatline' ? `Blackbird tells ${d.npc} that ${d.target} is no longer a concern. ${d.npc} has to sit down. Then ${d.npc} pays the ${$(d.reward)} neodollars, counting out every note.`
+      : d.qkind === 'retrieve' ? `${d.npc} takes ${d.what}, turns it over twice and holds it against {their} chest. ${$(d.reward)} neodollars changes hands. It is the most honest transaction Blackbird has had all week.`
+      : `Blackbird tells ${d.npc} that ${d.what} is sorted. ${d.npc} checks, twice, then pays out ${$(d.reward)} neodollars with a look of pure, unhealthy gratitude.`,
+    ],
+    ['That is how a job ends. The money, then the weird silence.', 'Satisfied customer. I am a professional now.', 'I could get used to being thanked. Briefly. Then it would get weird.'],
+  ),
+  'quest:lost': e(
+    (d) => [`${d.npc} asks for ${d.what}, and Blackbird has to explain that she does not have it any more. ${d.npc} does not take it well. The job is back on.`],
+    ['It was right here. I had it. I distinctly remember having it.'],
+  ),
+  'quest:void': e(
+    (d) => [`Whatever ${d.npc} wanted, ${d.npc} is not around to pay for it. Blackbird does the math. It is annoying math.`],
+    ['Free work. I will not be doing that again.'],
+  ),
+  'goal_new:quest_now': e(
+    (d) => [`Blackbird sets out on the job for ${d.npc} straight away. New objective: ${d.goal}.`, `No time like the present. Blackbird heads for ${d.place}. New objective: ${d.goal}.`],
+    ['I am a professional now. A fast one.', 'Pay first, ask later. Wait. Wrong way round.'],
+  ),
+  'goal_new:quest_resume': e(
+    (d) => [`Blackbird remembers the job for ${d.npc}, folded up in her jacket. She decides tonight is the night. New objective: ${d.goal}.`, `The job for ${d.npc} comes back to her, as these things do. New objective: ${d.goal}.`],
+    ['That napkin. Yes. The napkin.', "Time to be a professional again."],
+  ),
+  'goal_new:quest_collect': e(
+    (d) => [`Blackbird remembers that ${d.npc} owes her ${$(d.reward)} neodollars for a job she has already done. She sets off to collect. New objective: ${d.goal}.`],
+    ['Money owed is money I am not holding. That is a crime.', 'Invoice time. In person.'],
+  ),
+  'goal_resume:quest': e((d) => [`Blackbird thinks of the job for ${d.npc}, and the ${$(d.reward)} that goes with it.`], ['The money is not going to earn itself. It is going to be earned by me.']),
+  'goal_note:quest_in': e(
+    (d) => [
+      d.style === 'clear' ? `Blackbird is through the door of ${d.place}, and she has no plans to be quiet about it. ${d.qkind === 'flatline' ? `${cap(String(d.target))} is in there somewhere, and so is everyone else.` : 'Everyone in here is in the way.'}`
+      : `Blackbird eases into ${d.place} and keeps her head low. Whatever she came for is deeper in, and so are the people who would rather she did not.`,
+    ],
+    ['Subtle is a skill. I have decided to have it.', 'Loud, quiet. Pick one, I did.', 'In. Easy. And then the rest of the thing.'],
+  ),
+  'goal_note:quest_blown': e(
+    (d) => [`The quiet part of the job is over: somebody in ${d.place} has raised the alarm. Blackbird stops creeping and starts kicking.`],
+    ['Plan B. Plan B is Plan A with a worse mood.', 'Fine. If everyone is awake, everyone is a witness. Or a target.'],
+  ),
+  'goal_note:quest_retreat': e(
+    (d) => [`Blackbird has taken more of ${d.place} than she can carry. She backs out the way she came in, bleeding in a measured, professional way.`],
+    ['Tactical retreat. A thing a pro does. Often.', 'I will come back. With a better plan. And possibly a sandwich.'],
+  ),
+  'goal_note:quest_ready': e(
+    (d) =>
+      d.qkind === 'flatline' ? [`${cap(String(d.target))} is no longer a problem. The job is done, and the only part left is telling ${d.npc}, wherever ${d.npc} has got to.`]
+      : d.qkind === 'retrieve' ? [`Blackbird has ${d.what}. The only part left is putting it into ${d.npc}'s hands, wherever ${d.npc} has got to.`]
+      : [`${cap(String(d.what))} has done as it was told. All that is left is saying so to ${d.npc}, wherever ${d.npc} has got to.`],
+    ['Half of the money is in the doing. The other half is in the telling.', 'Now the walk home. The long, rich walk home.'],
+  ),
+  'goal_done:quest': e(
+    (d) => [`The job for ${d.npc} is closed. Blackbird has the ${$(d.reward)}, and ${d.npc} has the look of someone who owes her one.`, `${cap(String(d.npc))} is square with Blackbird. The job is closed, and so is the book.`],
+    ['Done. Paid. Next.', 'One for the portfolio. Not that I have a portfolio. Yet.'],
+  ),
+  'goal_drop:quest_failed': e(
+    (d) => [`The job for ${d.npc} is spoiled for tonight. Blackbird shrugs it off and leaves it for another night. The pay is still on the table, which is something.`],
+    ['A bad night for work. There will be others.', 'Not my fault. Systems fail. Things break. I was nearby.'],
+  ),
 };
 
 /** Thoughts that surface when a trait is turned up high (>= QUIRK_AT), keyed by event type. */

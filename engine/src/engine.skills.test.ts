@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { slow } from './testkit';
-import { Rng, createRun, step, runToEnd, render, hasTemplate, rollPersonality, personalityFrom, TRAITS, synergy, skillValue, train, ODDS, heroPower, throwDamage, type World, type GameEvent } from './index';
+import { Rng, createRun, step, runToEnd, render, hasTemplate, rollPersonality, personalityFrom, TEST_BEAT_CAP, TRAITS, synergy, skillValue, train, ODDS, heroPower, throwDamage, type World, type GameEvent, type Item, type Personality } from './index';
 import { gather } from './interactions';
 import { pieceFame, paintCharges, makeCan, graffitiCandidates, FAME_DECAY } from './graffiti';
 import { acquire, fight, gainXp } from './combat';
@@ -17,6 +17,14 @@ import { AMMO_IDS } from './content/ammo';
 import { addNpc, moveNpc } from './population';
 
 const play = (seed: string, competence = 0.2) => runToEnd({ seed, competence });
+
+/** A whole night, like `runToEnd`, but she starts with something extra in her pockets. */
+function playWith(seed: string, personality: Personality | undefined, items: Item[]): { world: World; events: GameEvent[] } {
+  const { world, events } = createRun({ seed, competence: 0.3, personality });
+  world.hero.inventory.push(...items);
+  for (let k = 0; k < TEST_BEAT_CAP + 5 && !world.over; k++) events.push(...step(world));
+  return { world, events };
+}
 
 describe('layered skills', () => {
   const hero = (skills: Record<string, number> = {}, stats: Partial<{ charm: number; reflex: number }> = {}) => {
@@ -127,7 +135,8 @@ describe('layered skills', () => {
     for (let i = 0; i < 600; i++) {
       // busk is rare for the average hero; let some of the cast be buskers by temperament
       const personality = i % 4 === 0 ? personalityFrom({ fame: 0.95, artistry: 0.95, sociable: 0.9 }) : undefined;
-      const { events, world } = runToEnd({ seed: `hob-${i}`, competence: 0.3, personality });
+      // (busking needs a guitar, and the only way to one is stealing it from the green room, which comes off in about one night in a few hundred: a few of the buskers arrive with one)
+      const { events, world } = i % 8 === 0 ? playWith(`hob-${i}`, personality, [makeItem('vintage_guitar')]) : runToEnd({ seed: `hob-${i}`, competence: 0.3, personality });
       for (const e of events) seen.add(e.type);
       for (const [k, v] of Object.entries(world.hero.skills)) if (v >= 2) skills.add(k);
     }

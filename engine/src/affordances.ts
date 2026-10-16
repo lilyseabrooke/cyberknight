@@ -55,11 +55,13 @@ export interface Affordance<V = unknown> {
   consequence?: string;
   drives: Partial<Record<Drive, number>>;
   bonus?: number;
+  /** A desire adjustment that depends on the moment (what she is carrying, what is on the shelf). Added to `bonus`. */
+  appeal?(w: World, v: V, feature?: string): number;
   risk?: number;
   /** A line told when she sets about it. */
   intent?: string[];
-  /** How long it takes and how the AI treats it: a glance, a session (the default), or a scrap. */
-  pace?: 'quick' | 'session' | 'fight';
+  /** How long it takes and how the AI treats it: a glance, a session (the default), a scrap, or a deal (a place's core business, kept in a family of its own so a big menu cannot crowd it out). */
+  pace?: 'quick' | 'session' | 'fight' | 'deal';
   /** One candidate per matching feature rather than one for the lot. `run` is told which. */
   each?: boolean;
   /** For `each` rows: capabilities that depend on the feature (a rig trains different things than a bag). */

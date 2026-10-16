@@ -16,6 +16,7 @@
     "build": "next build",
     "start": "next start",
     "gyms": "tsx scripts/gyms.ts",
+    "pawns": "tsx scripts/pawns.ts",
     "coverage": "tsx scripts/coverage.ts"
   },
   "devDependencies": {

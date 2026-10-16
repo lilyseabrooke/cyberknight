@@ -7,6 +7,7 @@ Kinds of place that are rolled from many independent axes and offer something to
 | [`PROTOCOL.md`](PROTOCOL.md) | How to add a new one, end to end. `PROTOCOL: new location` runs it; `, review` stops once at the concept. |
 | [`TEMPLATE.md`](TEMPLATE.md) | The spec every location starts from |
 | [`gym.md`](gym.md) | The worked example: the gym / dojo, implemented |
+| [`pawn.md`](pawn.md) | The second location: the pawn shop (hock things, buy them back off the shelf), implemented |
 
-Code: `engine/src/affordances.ts` (the shared row schema, registry and coverage), `engine/src/content/gym*.ts`, `engine/src/gym*.ts`.
-Tools: `npm run gyms`, `npm run coverage`.
+Code: `engine/src/affordances.ts` (the shared row schema, registry and coverage), `engine/src/placekit.ts` (the machinery every place shares: `Check`, `Result`, `runCheck`), `engine/src/content/gym*.ts`, `engine/src/gym*.ts`, `engine/src/content/pawn*.ts`, `engine/src/pawn*.ts`.
+Tools: `npm run gyms`, `npm run pawns`, `npm run coverage`.

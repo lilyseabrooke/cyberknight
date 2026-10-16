@@ -16,6 +16,7 @@ import { STIM_IDS } from './content/stims';
 import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
+import { pawnCandidates } from './pawn';
 import { goalCandidates } from './goals';
 import { dungeonCandidates, entranceRisk } from './dungeons';
 import { discretionCandidates } from './discretion';
@@ -27,6 +28,7 @@ import { stageCandidates } from './stage';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
+import { questCandidates } from './quests';
 import { isFairGame } from './people';
 import { isBadGuy } from './traits';
 import { isShut } from './shutdown';
@@ -127,7 +129,7 @@ export function gather(w: World): Candidate[] {
       if (!w.flags.job_taken) {
         out.push({ key: `ask_work:${n.id}`, drives: { quest: 1.0, greed: 0.3 }, bonus: 0.2, run: (c) => askWork(c, n) });
       }
-      const sellable = h.inventory.filter((i) => (i.kind === 'loot' || i.kind === 'weapon' || i.kind === 'armor' || i.kind === 'gadget') && !i.tags.includes('instrument'));
+      const sellable = h.inventory.filter((i) => (i.kind === 'loot' || i.kind === 'weapon' || i.kind === 'armor' || i.kind === 'gadget') && !i.tags.includes('instrument') && !i.tags.includes('quest'));
       if (sellable.length) {
         out.push({
           key: 'fence', drives: { greed: 1.0 }, bonus: sellable.length * 0.1,
@@ -187,6 +189,7 @@ export function gather(w: World): Candidate[] {
   out.push(...romanceCandidates(w));
   out.push(...bondCandidates(w));
   out.push(...knowledgeCandidates(w));
+  out.push(...questCandidates(w));
   out.push(...laylowCandidates(w));
   out.push(...stageCandidates(w));
   out.push(...goalCandidates(w));
@@ -194,6 +197,7 @@ export function gather(w: World): Candidate[] {
   out.push(...discretionCandidates(w));
   out.push(...hustleCandidates(w));
   out.push(...gymCandidates(w));
+  out.push(...pawnCandidates(w));
 
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.
@@ -427,7 +431,7 @@ function askWork(c: Ctx, n: Npc): void {
 
 function fence(c: Ctx, n: Npc): void {
   const h = c.w.hero;
-  const sellable = (i: { kind: string; tags: string[] }) => ['loot', 'weapon', 'armor', 'gadget'].includes(i.kind) && !i.tags.includes('instrument');
+  const sellable = (i: { kind: string; tags: string[] }) => ['loot', 'weapon', 'armor', 'gadget'].includes(i.kind) && !i.tags.includes('instrument') && !i.tags.includes('quest');
   // Keep the best melee weapon: a gun with no rounds in it still needs a backup.
   const backup = h.inventory.filter((i) => i.kind === 'weapon' && i.tags.includes('melee')).sort((a, b) => b.power - a.power)[0];
   const loot = h.inventory.filter((i) => sellable(i) && i !== backup);
