@@ -10,7 +10,7 @@ import { hasTemplate, render } from './text';
 import { genWeapon } from './weapons';
 import { beginRun, endRun, newUniverse } from './universe';
 import { deserialize, makeSave, serialize } from './store';
-import { step, MAX_BEATS } from './run';
+import { step, TEST_BEAT_CAP } from './run';
 import { arrive } from './candidate';
 import { checkCleared, dungeonAmbient, enterRoom, fightRoom, garrisonAlive, knownDungeons, pressure, raidPlan, regarrison, roomOf, standing, tickDungeons, tolerance } from './dungeons';
 import { dungeonLure, goalViews } from './goals';
@@ -728,7 +728,7 @@ describe('over many nights', () => {
       for (let n = 0; n < 8; n++) {
         const w = beginRun(u, { competence: 0.4 });
         const events: GameEvent[] = [];
-        for (let i = 0; i < MAX_BEATS && !w.over; i++) events.push(...step(w));
+        for (let i = 0; i < TEST_BEAT_CAP && !w.over; i++) events.push(...step(w));
         raids += events.filter((e) => e.type === 'goal_new' && e.data.goal && /^raid /.test(String(e.data.goal))).length;
         clears += events.filter((e) => e.type === 'dungeon_cleared').length;
         expect(verifyIndex(w)).toEqual([]);

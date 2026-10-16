@@ -32,8 +32,8 @@ import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
 import { art } from './lab';
 
-/** Runs end when Blackbird does, not on a timer. This is only the runaway guard for headless loops and tests. */
-export const MAX_BEATS = 1500;
+/** Only for headless loops and tests (runToEnd, sims). The game itself never caps a run: it ends when Blackbird does. */
+export const TEST_BEAT_CAP = 1500;
 
 /** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
 const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
@@ -380,7 +380,7 @@ function ambient(c: Ctx): void {
 /** Run an entire night headlessly. */
 export function runToEnd(opts: RunOptions & { maxBeats?: number }): { world: World; events: GameEvent[] } {
   const { world, events } = createRun(opts);
-  const cap = opts.maxBeats ?? MAX_BEATS + 5;
+  const cap = opts.maxBeats ?? TEST_BEAT_CAP + 5;
   let guard = 0;
   while (!world.over && guard++ < cap) events.push(...step(world));
   return { world, events };
