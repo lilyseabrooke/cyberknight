@@ -489,6 +489,11 @@ const T: Record<string, Entry> = {
   'intent:gym': e((d) => [String(d.text)]),
   'intent:gymquick': e((d) => [String(d.text)]),
   'intent:gymfight': e((d) => [String(d.text)]),
+  // ---- pawn shops: same shape (content/pawn*.ts)
+  pawn: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:pawn': e((d) => [String(d.text)]),
+  'intent:pawnquick': e((d) => [String(d.text)]),
+  'intent:pawnfight': e((d) => [String(d.text)]),
   'intent:pool': e(() => ['Blackbird racks the balls for a game with money on it.', 'Blackbird puts cash on the rail and chalks a cue.']),
   // ---- a round of a fight, as it went
   'fight_round:quiet': e((d) => [`Round ${d.round}. Nobody lands anything. ${d.left} still standing.`, `Round ${d.round}: feints, footwork, a chair that goes nowhere. ${d.left} still standing.`]),
@@ -1154,6 +1159,14 @@ const T: Record<string, Entry> = {
   ),
   'shut_down:gym_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. Nobody in ${d.place} says so out loud. The regulars lay their gloves on the bench, the coaches switch off the lights and someone with a key shows Blackbird to the pavement. The shutters come down and stay down.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, and nobody has the keys.`],
+    ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
+  'shut_down:pawn': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor there is nobody to price anything at ${d.place}. The grille comes down, the clerks put the cat in a box and someone with a very large key shows Blackbird out.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The shop shuts for a few days. The window goes dark, and every tag in it looks a little more like a tombstone.`],
+    ['I closed a pawn shop. Everyone gets their stuff back. Eventually. Possibly.', 'A pawn shop, shuttered. That is a lot of other people\'s things in a very small dark.'],
+  ),
+  'shut_down:pawn_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. Nobody in ${d.place} says so out loud. The clerks lay a cloth over the counter, someone turns the sign and a very quiet person with a key shows Blackbird to the pavement. The grille comes down and stays down.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, the ledger is under a lock and every tag in the window is waiting for somebody who is not coming.`],
     ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
   ),
   'shut_down:clinic': e(

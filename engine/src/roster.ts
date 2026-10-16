@@ -4,6 +4,7 @@ import { influenceOf, pickFaction } from './factions';
 import { AWAY, addNpc, awayNpcs, moveNpc, setHaunts } from './population';
 import { BARKS } from './content/hazards';
 import { gymRoster } from './content/gyms';
+import { pawnRoster } from './content/pawns';
 import type { Id, Location, Npc, World } from './types';
 
 /**
@@ -78,6 +79,7 @@ export const ROSTERS: Record<Location['kind'], SlotDef[]> = {
   home: [],
   lair: [], // dungeons furnish their own rooms; see dungeons.ts
   gym: [], // a gym's people depend on what it is and which room this is; see gymRoster in content/gyms.ts
+  pawn: [], // so do a pawn shop's; see pawnRoster in content/pawns.ts
 };
 
 /** Chance a vacancy is filled by somebody who already exists, when there's a fit. */
@@ -119,7 +121,8 @@ export function populate(w: World, loc: Location): Npc[] {
   if (loc.populated) return [];
   loc.populated = true;
   const info = loc.gym ?? (loc.gymRoom ? w.locations[loc.gymRoom.main]?.gym : undefined);
-  const roster = loc.kind === 'gym' ? (info ? gymRoster(loc, info) : []) : ROSTERS[loc.kind] ?? [];
+  const pinfo = loc.pawn ?? (loc.pawnRoom ? w.locations[loc.pawnRoom.main]?.pawn : undefined);
+  const roster = loc.kind === 'gym' ? (info ? gymRoster(loc, info) : []) : loc.kind === 'pawn' ? (pinfo ? pawnRoster(loc, pinfo) : []) : ROSTERS[loc.kind] ?? [];
   const here: Npc[] = [];
   roster.forEach((slot, si) => {
     if (slot.minSecurity !== undefined && loc.security < slot.minSecurity) return;

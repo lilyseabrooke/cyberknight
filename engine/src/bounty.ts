@@ -21,6 +21,8 @@ const WANTED: Record<string, { chance: number; hidden: number }> = {
   patron: { chance: 0.12, hidden: 0.5 },
   // The pit: most of them have paper, and she can only collect it by killing one, which the pit does not forgive (see gymkit.ts).
   pit_fighter: { chance: 0.7, hidden: 0.5 },
+  // The back of a pawn shop: a fence has paper more often than not.
+  pawn_fence: { chance: 0.55, hidden: 0.6 },
 };
 
 export const hasBounty = (n: Npc | undefined): n is Npc & { bounty: { amount: number; hidden: boolean } } => !!n && n.alive && !!n.bounty;

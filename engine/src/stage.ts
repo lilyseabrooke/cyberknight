@@ -39,7 +39,7 @@ const FATIGUE_PER_ACT = 0.22;
 const RECOVERY = 0.004;
 
 /** Bigger stages are worth more. */
-export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : 0.8);
+export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : loc.kind === 'pawn' ? 0.7 : 0.8);
 
 /** 1 for a crowd that hasn't heard her yet, falling towards 0 as it wears out. */
 export function freshness(w: World, locId: string, skill: string): number {

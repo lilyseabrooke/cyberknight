@@ -422,6 +422,47 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['speed_gloves'], armors: ['boxing_wraps'], armorChance: 0.4, loot: ['champ_belt', 'credchip', 'gold_tooth'], lootChance: 0.35, cash: [30, 160],
     desc: ['a pit fighter with a shaved head, taped knuckles and a face that is mostly scar tissue', 'a pit fighter who smiles at her like an old friend and holds the smile like a guard', 'a fighter with a bandaged hand and a tattoo of the number of fights she has won'],
   },
+  // ---------------- Pawn shops (content/pawns.ts) ----------------
+  pawn_broker: {
+    role: 'pawnbroker', level: [3, 5], tags: ['owner', 'staff', 'broker'], faction: null,
+    names: 'person', weapons: ['judgment', 'switchblade'], loot: ['credchip', 'signet_ring', 'chrono_watch', 'gold_band'], lootChance: 0.6, cash: [90, 320],
+    desc: ['a pawnbroker with a loupe pushed up into grey hair and a ledger that has outlived two marriages', 'a pawnbroker who weighs everything she says before saying it', 'a broker in a cardigan with a bat under the counter and no visible reason for it', 'a pawnbroker with a ring on every finger and a price for each of them'],
+  },
+  pawn_clerk: {
+    role: 'clerk', level: [1, 3], tags: ['staff', 'clerk'], faction: null,
+    names: 'person', weapons: ['broken_bottle'], loot: ['credchip', 'walkman', 'gold_tooth'], lootChance: 0.4, cash: [10, 60],
+    desc: ['a clerk with a tag gun and a face like a closed shutter', 'a clerk on a stool, pricing a lamp with great care', 'a clerk who has seen everything and has been told to smile anyway'],
+  },
+  pawn_appraiser: {
+    role: 'appraiser', level: [2, 5], tags: ['staff', 'appraiser'], faction: null,
+    names: 'person', weapons: [], loot: ['chrono_watch', 'diamond_stud', 'credchip'], lootChance: 0.35, cash: [30, 130],
+    desc: ['an appraiser with a loupe, a lamp and a stare that takes everything apart', 'a quiet appraiser who weighs her coat before weighing her words', 'an appraiser with a clipboard and a tilt of the head that means no', 'a very still appraiser who has priced everything she owns, and has not mentioned it'],
+  },
+  pawn_tinker: {
+    role: 'repair tech', level: [2, 4], tags: ['staff', 'tinker'], faction: null,
+    names: 'person', weapons: ['cleaver'], loot: ['solder_kit', 'torque_wrench', 'scrap_metal'], lootChance: 0.4, cash: [15, 70],
+    desc: ['a repair tech with a soldering iron and a radio on a single station', 'a tech elbow-deep in a thing that used to be a speaker', 'a tinker with ten screwdrivers in a belt and not one of them is the right one'],
+  },
+  pawn_guard: {
+    role: 'shop guard', level: [2, 4], tags: ['staff', 'strong', 'security', 'guard'], faction: null,
+    names: 'person', weapons: ['judgment', 'service_pistol'], armors: ['leather_jacket'], armorChance: 0.4, loot: ['credchip', 'switchblade'], lootChance: 0.3, cash: [10, 70],
+    desc: ['a guard on a stool by the grille with an expression he has been practising', 'a large, tired guard who greets every customer as a suspect and every suspect as a customer', 'a guard with a keyring the size of a fist and the patience of a stone'],
+  },
+  pawn_regular: {
+    role: 'customer', level: [1, 2], tags: ['regular', 'customer'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'walkman', 'mom_photo', 'gold_tooth'], lootChance: 0.3, cash: [2, 45],
+    desc: ['a customer holding a small box and a large worry', 'a customer comparing two identical watches with total conviction', 'someone turning a brass horn over and over, quietly pricing it in their head', 'a person at the counter with a coat over one arm and a shrug in the other'],
+  },
+  pawn_fence: {
+    role: 'fence', level: [3, 5], tags: ['strong', 'fence'], faction: null,
+    names: 'person', weapons: ['switchblade', 'zip_pistol'], loot: ['credchip', 'fake_id', 'gold_tooth', 'memory_shard'], lootChance: 0.5, cash: [60, 220],
+    desc: ['a fence in a long coat with an inside pocket that clinks', 'a fence leaning on a crate with a look that says everything is for sale and nothing is yours', 'a very friendly fence who has never once asked where anything came from'],
+  },
+  pawn_bot: {
+    role: 'clerk robot', level: [2, 3], tags: ['robot', 'staff', 'clerk'], faction: null,
+    names: 'robot', weapons: [], loot: ['drone_core', 'scrap_metal'], lootChance: 0.5, cash: [0, 0], hp: 60, power: 8,
+    desc: ['a clerk robot with a lanyard, a name tag and a smile painted on', 'a counter bot that says "valued customer" in a voice that has never met one'],
+  },
 
 };
 
@@ -463,6 +504,10 @@ const PEOPLE: Record<string, PersonSpec> = {
   gang_enforcer: { age: [22, 40] },
   gang_captain: { age: [30, 52] },
   drifter: { age: [19, 72] },
+  pawn_broker: { age: [38, 72] },
+  pawn_appraiser: { age: [30, 70] },
+  pawn_fence: { age: [26, 60] },
+  pawn_guard: { women: 0.3, age: [24, 56] },
 };
 
 export const GANGS: Record<string, string> = {

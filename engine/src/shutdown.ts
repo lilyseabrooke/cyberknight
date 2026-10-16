@@ -108,12 +108,14 @@ export function afterTakedown(c: Ctx, taken: Npc[]): void {
     const wp = w.locations[f.authored && f.home ? f.home : f.locationId];
     if (!wp || wp.outdoors || wp.dungeon || wp.sealed) continue;
     // Dead, the owner takes the place with him; a place already shut for a beating is shut properly now.
-    const ownerDead = !f.alive && f.tags.includes('owner') && (wp.kind === 'bar' || wp.kind === 'club' || wp.kind === 'gym');
+    const ownerDead = !f.alive && f.tags.includes('owner') && (wp.kind === 'bar' || wp.kind === 'club' || wp.kind === 'gym' || wp.kind === 'pawn');
     if (isShut(w, wp.id) && !ownerDead) continue;
     if (ownerDead) {
-      shut(c, wp.id, 'owner', f, 0, wp.kind === 'gym' ? 'gym_dead' : 'owner_dead', true);
+      shut(c, wp.id, 'owner', f, 0, wp.kind === 'gym' ? 'gym_dead' : wp.kind === 'pawn' ? 'pawn_dead' : 'owner_dead', true);
     } else if (wp.kind === 'gym' && f.tags.includes('owner')) {
       shut(c, wp.id, 'owner', f, f.alive ? 0 : 180, 'gym');
+    } else if (wp.kind === 'pawn' && f.tags.includes('owner')) {
+      shut(c, wp.id, 'owner', f, f.alive ? 0 : 180, 'pawn');
     } else if ((wp.kind === 'bar' || wp.kind === 'club') && runsTheHouse(f)) {
       const able = building(w, wp.id)
         .flatMap((id) => everyoneAt(w, id))

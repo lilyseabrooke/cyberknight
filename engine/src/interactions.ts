@@ -16,6 +16,7 @@ import { STIM_IDS } from './content/stims';
 import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
+import { pawnCandidates } from './pawn';
 import { goalCandidates } from './goals';
 import { dungeonCandidates, entranceRisk } from './dungeons';
 import { discretionCandidates } from './discretion';
@@ -194,6 +195,7 @@ export function gather(w: World): Candidate[] {
   out.push(...discretionCandidates(w));
   out.push(...hustleCandidates(w));
   out.push(...gymCandidates(w));
+  out.push(...pawnCandidates(w));
 
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.

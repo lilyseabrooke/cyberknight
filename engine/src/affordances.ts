@@ -55,6 +55,8 @@ export interface Affordance<V = unknown> {
   consequence?: string;
   drives: Partial<Record<Drive, number>>;
   bonus?: number;
+  /** A desire adjustment that depends on the moment (what she is carrying, what is on the shelf). Added to `bonus`. */
+  appeal?(w: World, v: V, feature?: string): number;
   risk?: number;
   /** A line told when she sets about it. */
   intent?: string[];

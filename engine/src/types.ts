@@ -320,7 +320,7 @@ export interface Hazards {
 export interface Location {
   id: Id;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
   exits: Exit[];
   /** 0..10. Raises the chance of being spotted while sneaking. */
   security: number;
@@ -372,6 +372,57 @@ export interface Location {
   gymRoom?: { main: Id; room: string };
   /** The gym's fight ladder: the rung she has reached and how many bouts she has won here. See gym.ts. */
   ladder?: { rank: number; wins: number };
+  /** A pawn shop's makeup: what it is, what building it's in, what it has. Rolled with the place. See content/pawns.ts. */
+  pawn?: PawnInfo;
+  /** A room of a pawn shop (vault, workshop, parlour...): which shop, and which room. */
+  pawnRoom?: { main: Id; room: string };
+  /** A pawn shop's shelf: what is on it, including whatever she hocked and may still buy back. Made the first time it is looked at. See pawnkit.ts. */
+  shelf?: PawnLot[];
+}
+
+/**
+ * What a pawn shop is. Every field is rolled independently from the shop's own stream, so any combination can turn up.
+ * (content/pawns.ts says what each id means; ids that are no longer known are ignored, so the tables can grow.)
+ */
+export interface PawnInfo {
+  variant: string;
+  shell: string;
+  /** 0 (a closet) to 4 (a sprawl). */
+  size: number;
+  /** 0 (derelict) to 4 (immaculate). */
+  condition: number;
+  /** 1..5. How good the appraiser is, how rich the stock and the till are. Independent of everything else. */
+  tier: number;
+  traits: string[];
+  /** Feature ids present anywhere in the building, as "room:feature". */
+  features: string[];
+  /** Room ids it has (the rooms themselves are places off the main floor). */
+  rooms: string[];
+  /** A one-in-a-dozen oddity that breaks the rules. */
+  wild?: string;
+}
+
+/**
+ * One thing on a pawn shop's shelf. Hers (she hocked it: `paid` is what she took, `since` is the day) or the house's.
+ * Whether it is still held for her, forfeit, or gone is a function of the day (`until`), so it cannot drift.
+ */
+export interface PawnLot {
+  item: Item;
+  hers: boolean;
+  /** What she was paid for it (hers only). */
+  paid: number;
+  /** The day it went on the shelf. */
+  since: number;
+  /** The day it is gone (sold on). */
+  until: number;
+  /** Hers: the day the hold ends and it goes up for retail. */
+  held?: number;
+  /** Where it sits: the main floor if absent. */
+  room?: string;
+  /** Stolen from this shop once; it is hot to them for good. */
+  hot?: boolean;
+  /** It comes back (the cursed item). */
+  cursed?: boolean;
 }
 
 /**
@@ -399,7 +450,7 @@ export interface GymInfo {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
