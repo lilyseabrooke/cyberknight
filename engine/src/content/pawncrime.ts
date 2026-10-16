@@ -29,7 +29,7 @@ export const CRIME: Affordance<PawnView>[] = [
     drives: { greed: 1.2 }, bonus: 0.03, risk: 0.7, intent: ['Blackbird notices that the case lock is the kind that looks fine and is not.'],
     ok: notBanned,
     check: { parts: ['sleight', ['lockpicking', 0.6], ['stat:charm', 0.3]], base: 0.25, per: 0.07,
-      win: R(['The jewellery case at {shop} gives way to a bobby pin and a lie about a wedding. {item}, worth {amount}nd, goes into a sleeve. {npc} says "have a lovely day" to the empty space where she was.'], { train: [['sleight', 2], ['lockpicking', 2]], xp: 5, apply: liftLots([1, 2]), thought: ['I did not take it. I borrowed it, forever.'] }),
+      win: R(['The jewellery case at {shop} gives way to a bobby pin and a lie about a wedding. {Item}, worth {amount}nd, goes into a sleeve. {npc} says "have a lovely day" to the empty space where she was.'], { train: [['sleight', 2], ['lockpicking', 2]], xp: 5, apply: liftLots([1, 2]), thought: ['I did not take it. I borrowed it, forever.'] }),
       lose: R(['{npc} watches Blackbird at the jewellery case at {shop} with the patience of a cat and the speed of a different cat. "May I help you?" It is not a question.'], { heat: ['place', 1], affinity: -10, apply: banShop() }) },
   }),
   row({
@@ -39,7 +39,7 @@ export const CRIME: Affordance<PawnView>[] = [
     drives: { greed: 1.0 }, bonus: 0.03, risk: 0.5, intent: ['Blackbird walks into the showroom at {shop} like she has been before.'],
     ok: notBanned,
     check: { parts: ['sleight', ['sneak', 0.6]], base: 0.3, per: 0.07, dark: 0.15,
-      win: R(['In the showroom at {shop}, the mirrors show everything but not what she does with her left hand. {item}, worth {amount}nd, is gone from the case by closing.'], { train: [['sleight', 2], ['sneak', 1]], xp: 4, apply: liftLots([1, 2]) }),
+      win: R(['In the showroom at {shop}, the mirrors show everything but not what she does with her left hand. {Item}, worth {amount}nd, is gone from the case by closing.'], { train: [['sleight', 2], ['sneak', 1]], xp: 4, apply: liftLots([1, 2]) }),
       lose: R(['The showroom at {shop} has four mirrors, and Blackbird is in all of them. {npc} is not.'], { heat: ['place', 1], affinity: -10, fight: true, apply: banShop() }) },
   }),
   row({
@@ -59,7 +59,7 @@ export const CRIME: Affordance<PawnView>[] = [
     drives: { greed: 0.9, pride: 0.4 }, bonus: 0.03, risk: 0.5, intent: ['Blackbird takes a very good copy out of her coat and looks at the shelf as if it owed her.'],
     ok: notBanned,
     check: { parts: ['grifting', ['sleight', 0.7], ['art', 0.3], ['tinkering', 0.2]], base: 0.3, per: 0.07,
-      win: R(['The real {item} goes into her coat; a copy goes on the shelf at {shop}, tag and all. The broker says "good morning" to it. Blackbird is a block away by the time anybody checks.'], { train: [['grifting', 2], ['sleight', 1], ['art', 1]], xp: 5, apply: swapLot(), thought: ['The tag said {item}. The tag lied. I am the only one who knows.'] }),
+      win: R(['{Item} goes into her coat; a copy goes on the shelf at {shop}, tag and all. The broker says "good morning" to it. Blackbird is a block away by the time anybody checks.'], { train: [['grifting', 2], ['sleight', 1], ['art', 1]], xp: 5, apply: swapLot(), thought: ['The tag said {item}. The tag lied. I am the only one who knows.'] }),
       lose: R(['{npc} lifts the copy at {shop} to the light, and the copy, which was good, is not that good. "Interesting," {they} say{s}, which is not a word for the occasion.'], { heat: ['place', 1], affinity: -10, fight: true, apply: banShop() }) },
   }),
   row({
@@ -99,7 +99,7 @@ export const CRIME: Affordance<PawnView>[] = [
     drives: { bravery: 0.8, greed: 0.9 }, bonus: 0.0, risk: 1.0, intent: ['Blackbird looks at a cage of weapons and a padlock the size of a fist and considers both.'],
     ok: notBanned,
     check: { who: 'guard', parts: ['lockpicking', ['stat:muscle', 0.5], ['intimidation', 0.3]], base: 0.2, per: 0.07,
-      win: R(['At {shop}, the padlock on the cage gives up before the guard does. {item}, worth {amount}nd, goes out under her coat. {npc} says "there was a problem" to nobody, softly, for the rest of the shift.'], { train: [['lockpicking', 2], ['intimidation', 1]], xp: 5, heat: ['place', 1], apply: liftLots([1, 2]), thought: ['It was just resting. In my jacket.'] }),
+      win: R(['At {shop}, the padlock on the cage gives up before the guard does. {Item}, worth {amount}nd, goes out under her coat. {npc} says "there was a problem" to nobody, softly, for the rest of the shift.'], { train: [['lockpicking', 2], ['intimidation', 1]], xp: 5, heat: ['place', 1], apply: liftLots([1, 2]), thought: ['It was just resting. In my jacket.'] }),
       lose: R(['The cage at {shop} is not impressed by Blackbird. {npc} is even less impressed, with a baton.'], { fight: true, heat: ['place', 2], affinity: -18, apply: banShop() }) },
   }),
   row({
@@ -249,7 +249,7 @@ export const CRIME: Affordance<PawnView>[] = [
     drives: { bravery: 0.9, greed: 1.0 }, bonus: 0.0, risk: 1.2, intent: ['Blackbird sizes up the glass and the distance to the door and decides one of them has to give.'],
     ok: (w, v) => notBanned(w, v) && w.hero.hp >= w.hero.maxHp * 0.5,
     check: { parts: ['melee', ['stat:muscle', 0.5], ['intimidation', 0.4]], base: 0.3, per: 0.06,
-      win: R(['The case at {shop} goes in with a single, very musical crash. {item}, worth {amount}nd, goes into a bag. The alarm is still finding its voice when she is out of the door.'], { train: [['melee', 1], ['intimidation', 1]], xp: 5, heat: ['npd', 1.5], apply: liftLots([2, 3]), thought: ['Smash. Grab. Dash. The three Ds.'] }),
+      win: R(['The case at {shop} goes in with a single, very musical crash. {Item}, worth {amount}nd, goes into a bag. The alarm is still finding its voice when she is out of the door.'], { train: [['melee', 1], ['intimidation', 1]], xp: 5, heat: ['npd', 1.5], apply: liftLots([2, 3]), thought: ['Smash. Grab. Dash. The three Ds.'] }),
       lose: R(['The glass at {shop} is stronger than it looks, and so is {npc}, who is already coming over the counter with a very large lamp.'], { fight: true, heat: ['npd', 1], affinity: -20, apply: banShop() }) },
   }),
   row({
@@ -260,7 +260,7 @@ export const CRIME: Affordance<PawnView>[] = [
     ok: (w, v) => notBanned(w, v) && !!find(v, 'owner') && w.hero.hp >= w.hero.maxHp * 0.5,
     check: { who: 'owner', parts: ['intimidation', ['melee', 0.5], ['stat:muscle', 0.4]], base: 0.25, per: 0.07,
       win: R(['{npc} opens the till at {shop} without being asked twice. {amount}nd, which is everything, and a look that will outlast the shop.'], { cash: [60, 240], from: 'owner', train: [['intimidation', 2]], xp: 5, heat: ['npd', 1.5], affinity: -25, apply: banShop(), thought: ['A strongly worded withdrawal.'] }),
-      lose: R(['{npc} does not open the till at {shop}. {they} open{s} something under it, and Blackbird, who has seen it before, is suddenly very interested in the exit.'], { fight: true, heat: ['npd', 1], affinity: -25, apply: banShop() }) },
+      lose: R(['{npc} does not open the till at {shop}. {They} open{s} something under it, and Blackbird, who has seen it before, is suddenly very interested in the exit.'], { fight: true, heat: ['npd', 1], affinity: -25, apply: banShop() }) },
   }),
   row({
     id: 'fence-side-gig', where: { room: ['bay', 'parlour'] }, pace: 'session',
@@ -279,7 +279,7 @@ export const CRIME: Affordance<PawnView>[] = [
     drives: { curiosity: 0.8, greed: 0.3 }, bonus: 0.02, risk: 0.3, intent: ['Blackbird reads STAFF on a door and chooses to take it as an invitation.'],
     ok: notBanned,
     check: { parts: ['lockpicking', ['sneak', 0.5]], base: 0.4, per: 0.07, dark: 0.1,
-      win: R(['The staff door at {shop} opens on a stockroom full of boxes labelled in a hand she would know anywhere (it is a doctor\'s). She takes a handful of {amount}nd worth of small things and shuts the door.'], { cash: [10, 40], train: [['lockpicking', 2], ['sneak', 1]], xp: 3 }),
+      win: R(['The staff door at {shop} opens on a stockroom full of boxes labelled in handwriting like a prescription. She takes a handful of {amount}nd worth of small things and shuts the door.'], { cash: [10, 40], train: [['lockpicking', 2], ['sneak', 1]], xp: 3 }),
       lose: R(['The staff door at {shop} opens, and so does the other one behind it, and someone is on the far side. They look, and she looks, and neither of them has a plan.'], { affinity: -6, heat: ['place', 1] }) },
   }),
 ];

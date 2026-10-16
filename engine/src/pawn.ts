@@ -16,10 +16,12 @@ register('pawn', [...MONEY, ...CRAFT, ...CRIME, ...SITUATIONAL, ...WILDS, ...VAR
  * machinery (the shelf, hock, buy back) is in pawnkit.ts.
  *
  * Key prefix by pace, so the clock and the AI treat them right: `pawn` (a session), `pawnquick` (a glance), `pawnfight`
- * (a scrap; a hurt hero is put off it).
+ * (a scrap; a hurt hero is put off it) and `pawndeal` (hock, buy back, buy, sell: the shop's own business). The deals are
+ * a family of their own because the AI weighs a family by its size: a menu of thirty rows would otherwise crowd out the
+ * four things a pawn shop is for.
  */
 
-const KEY = { quick: 'pawnquick', session: 'pawn', fight: 'pawnfight' } as const;
+const KEY = { quick: 'pawnquick', session: 'pawn', fight: 'pawnfight', deal: 'pawndeal' } as const;
 
 /** The features in this room that a row can hang on. */
 function matchingFeatures(where: Where, v: Pick<PawnView, 'features'>): string[] | null {

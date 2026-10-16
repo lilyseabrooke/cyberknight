@@ -75,6 +75,10 @@ export const roomOf = (w: Pick<World, 'locations'>, main: Location, room: string
 export const hasSituation = (v: PlaceView, tag: string): boolean => !!v.sit?.def.tags.includes(tag);
 export const banned = (w: World, main: Location): boolean => !!w.counters[`pawnban:${main.id}`];
 
+/** "the pearls": the item as a noun phrase, and the same at the start of a sentence. Item names have no article of their own. */
+export const itemTok = (name: string): Record<string, string> => ({ item: `the ${name}`, Item: `The ${name}` });
+export const dayTok = (n: number): Record<string, string | number> => ({ days: n, dw: n === 1 ? 'day' : 'days', DW: n === 1 ? 'DAY' : 'DAYS' });
+
 /** The person at the till: the owner, or whoever is minding it. */
 export const broker = (v: PlaceView): Npc | undefined => find(v, 'owner') ?? find(v, 'clerk') ?? v.people.find((n) => n.tags.includes('owner'));
 
@@ -214,7 +218,7 @@ export function hockOne(c: Ctx, v: PawnView, lines: HockLines): void {
   const item = chooseHockItem(c);
   if (!boss || !item) return;
   const info = v.info;
-  const tok: Record<string, string | number> = { shop: v.main.name, npc: boss.name, item: item.name, tail: '' };
+  const tok: Record<string, string | number> = { shop: v.main.name, npc: boss.name, ...itemTok(item.name), ...dayTok(0), tail: '' };
   const hot = isHot(item);
   if (hot && (info.variant === 'atlasasset' || info.wild === 'sting')) {
     addHeat(w, info.variant === 'atlasasset' || info.wild === 'sting' ? 'atlas' : v.main.faction ?? null, 2);
@@ -245,7 +249,7 @@ export function hockOne(c: Ctx, v: PawnView, lines: HockLines): void {
   train(c, 'haggling', win ? 2 : 1);
   boss.affinity += win ? -1 : 1;
   tok.pay = pay;
-  tok.days = hold;
+  Object.assign(tok, dayTok(hold));
   tok.value = item.value;
   if (info.wild === 'sting') {
     addHeat(w, 'atlas', 1.5);
@@ -280,7 +284,7 @@ export function redeemOne(c: Ctx, v: PawnView, lines: BackLines): void {
   const { l, state } = pick;
   const win = haggle(c, v);
   const price = Math.max(1, Math.round(pick.price * (win ? 0.85 : 1)));
-  const tok: Record<string, string | number> = { shop: v.main.name, npc: boss.name, item: l.item.name, pay: price, paid: l.paid, days: Math.max(1, v.day - l.since), tail: '' };
+  const tok: Record<string, string | number> = { shop: v.main.name, npc: boss.name, ...itemTok(l.item.name), pay: price, paid: l.paid, ...dayTok(Math.max(1, v.day - l.since)), tail: '' };
   if (price > h.cash) {
     say(c, 'redeem.refuse', 'bad', lines.refuse, lines.thought, tok, { place: v.main.name, npc: boss.name });
     return;
@@ -324,7 +328,7 @@ export function buyOne(c: Ctx, v: PawnView, lines: BuyLines): void {
   const { l, price: ask } = rng.weighted(lots, (x) => 0.3 + 3 * usefulness(h, x.l.item) + x.l.item.value / 200);
   const win = haggle(c, v, 0.05);
   const price = Math.max(1, Math.round(ask * (win ? 0.8 : 1)));
-  const tok: Record<string, string | number> = { shop: v.main.name, npc: boss.name, item: l.item.name, pay: price, ask, tail: '' };
+  const tok: Record<string, string | number> = { shop: v.main.name, npc: boss.name, ...itemTok(l.item.name), pay: price, ask, tail: '' };
   if (price > h.cash) {
     say(c, 'buy.refuse', 'bad', lines.refuse, lines.thought, tok, { place: v.main.name, npc: boss.name });
     return;
@@ -339,7 +343,7 @@ export function buyOne(c: Ctx, v: PawnView, lines: BuyLines): void {
   let id = 'buy.win';
   if (v.info.wild === 'counterfeit' && rng.chance(0.55)) {
     got = makeItem('fake_watch');
-    tok.item = got.name;
+    Object.assign(tok, itemTok(got.name));
     said = lines.fake;
     id = 'buy.fake';
   } else if (l.cursed) {
@@ -366,7 +370,7 @@ export function sellOne(c: Ctx, v: PawnView, lines: SellLines): void {
   const boss = broker(v);
   const item = chooseHockItem(c);
   if (!boss || !item) return;
-  const tok: Record<string, string | number> = { shop: v.main.name, npc: boss.name, item: item.name, tail: '' };
+  const tok: Record<string, string | number> = { shop: v.main.name, npc: boss.name, ...itemTok(item.name), tail: '' };
   if (isHot(item) && (v.info.variant === 'atlasasset' || v.info.wild === 'sting')) {
     addHeat(w, 'atlas', 2);
     say(c, 'sell.refuse', 'bad', lines.refuse, lines.thought, tok, { place: v.main.name, npc: boss.name });
@@ -401,7 +405,7 @@ export function liftLots(n: [number, number], o: { room?: string } = {}): NonNul
     const here = (v.main.shelf ?? []).filter((l) => lotState(l, v.day) !== 'gone' && (l.room ?? 'floor') === (o.room ?? v.room));
     const take = ranked(c.rng, here).slice(0, c.rng.int(n[0], n[1]));
     if (!take.length) {
-      tok.item = 'nothing worth the risk';
+      Object.assign(tok, { item: 'nothing worth the risk', Item: 'Nothing worth the risk' });
       tok.amount = 0;
       return;
     }
@@ -411,7 +415,7 @@ export function liftLots(n: [number, number], o: { room?: string } = {}): NonNul
       acquire(c, l.item);
       total += l.item.value;
     }
-    tok.item = take.length === 1 ? take[0]!.item.name : `${take[0]!.item.name} and ${take.length - 1} more`;
+    Object.assign(tok, itemTok(take.length === 1 ? take[0]!.item.name : `${take[0]!.item.name} and ${take.length - 1} more`));
     tok.amount = total;
     c.w.counters[`pawnhot:${v.main.id}`] = (c.w.counters[`pawnhot:${v.main.id}`] ?? 0) + 1;
   };
@@ -423,11 +427,11 @@ export function swapLot(): NonNullable<import('./placekit').Result['apply']> {
     const v = view as PawnView;
     const lot = ranked(c.rng, (v.main.shelf ?? []).filter((l) => lotState(l, v.day) !== 'gone' && (l.room ?? 'floor') === v.room && !l.item.tags.includes('fake')))[0];
     if (!lot) {
-      tok.item = 'nothing worth the swap';
+      Object.assign(tok, { item: 'nothing worth the swap', Item: 'Nothing worth the swap' });
       return;
     }
     acquire(c, lot.item);
-    tok.item = lot.item.name;
+    Object.assign(tok, itemTok(lot.item.name));
     tok.amount = lot.item.value;
     lot.item = makeItem('fake_watch');
     c.w.counters[`pawnhot:${v.main.id}`] = (c.w.counters[`pawnhot:${v.main.id}`] ?? 0) + 1;

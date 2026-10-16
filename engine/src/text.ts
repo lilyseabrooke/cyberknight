@@ -494,6 +494,7 @@ const T: Record<string, Entry> = {
   'intent:pawn': e((d) => [String(d.text)]),
   'intent:pawnquick': e((d) => [String(d.text)]),
   'intent:pawnfight': e((d) => [String(d.text)]),
+  'intent:pawndeal': e((d) => [String(d.text)]),
   'intent:pool': e(() => ['Blackbird racks the balls for a game with money on it.', 'Blackbird puts cash on the rail and chalks a cue.']),
   // ---- a round of a fight, as it went
   'fight_round:quiet': e((d) => [`Round ${d.round}. Nobody lands anything. ${d.left} still standing.`, `Round ${d.round}: feints, footwork, a chair that goes nowhere. ${d.left} still standing.`]),

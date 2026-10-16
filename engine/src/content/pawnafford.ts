@@ -22,17 +22,19 @@ export const R = (text: string[], o: Partial<Result> = {}): Result => ({ text, .
 
 const open = (w: World, v: PawnView): boolean => !banned(w, v.main);
 const cash = (w: World): number => w.hero.cash;
+/** How much there is in her pockets worth hocking, 0..1 (a stash of 300nd or more is a full one). */
+const stash = (w: World): number => Math.min(1, hockable(w.hero).reduce((s, i) => s + i.value, 0) / 300);
 
 // ===================================================================== the money
 
 const HOCK: Parameters<typeof hockOne>[2] = {
   win: [
-    '{shop}: Blackbird slides {item} across the counter. {npc} turns it over twice, names a figure and, after a short and expensive silence, a better one. {pay}nd, and a tag in biro. It goes in the window with her name on it. {days} days, if she wants it back.{tail}',
-    'Blackbird hocks {item} at {shop}. {npc} says "it is not worth much", which is how every negotiation starts, and the figure ends at {pay}nd. It sits in the window under a card: HELD. {days} DAYS.{tail}',
+    '{shop}: Blackbird slides {item} across the counter. {npc} turns it over twice, names a figure and, after a short and expensive silence, a better one. {pay}nd, and a tag in biro. It goes in the window with her name on it. {days} {dw}, if she wants it back.{tail}',
+    'Blackbird hocks {item} at {shop}. {npc} says "it is not worth much", which is how every negotiation starts, and the figure ends at {pay}nd. It sits in the window under a card: HELD. {days} {DW}.{tail}',
   ],
   lose: [
-    '{shop}: {npc} looks at {item} for a long moment and offers {pay}nd. Blackbird argues. {npc} writes the same number again, slower. It goes in the window. {days} days.{tail}',
-    'Blackbird hocks {item} at {shop} for {pay}nd, which is less than the thing deserves and exactly what {npc} was always going to say. It is on a shelf with a tag. {days} days.{tail}',
+    '{shop}: {npc} looks at {item} for a long moment and offers {pay}nd. Blackbird argues. {npc} writes the same number again, slower. It goes in the window. {days} {dw}.{tail}',
+    'Blackbird hocks {item} at {shop} for {pay}nd, which is less than the thing deserves and exactly what {npc} was always going to say. It is on a shelf with a tag. {days} {dw}.{tail}',
   ],
   refuse: [
     '{npc} looks at {item}, looks at Blackbird, and puts both back across the counter. "Not here," {they} say{s}. Something at {shop} makes a note.{tail}',
@@ -43,7 +45,7 @@ const HOCK: Parameters<typeof hockOne>[2] = {
 
 const BACK: Parameters<typeof redeemOne>[2] = {
   held: [
-    '{shop}: {item} is still on the shelf, a card under it with her name. Blackbird pays {pay}nd (it was {paid}, and {days} days of interest). {npc} takes it down, wipes it and hands it over like a baby. She has it back.{saved}',
+    '{shop}: {item} is still on the shelf, a card under it with her name. Blackbird pays {pay}nd (it was {paid}, and {days} {dw} of interest). {npc} takes it down, wipes it and hands it over like a baby. She has it back.{saved}',
     'Blackbird buys {item} back from {shop}. {pay}nd across the counter, {paid} of it the original loan. {npc} says "good to see you again" in the voice of a man who is not surprised.{saved}',
   ],
   forfeit: [
@@ -57,7 +59,7 @@ const BACK: Parameters<typeof redeemOne>[2] = {
 const BUY: Parameters<typeof buyOne>[2] = {
   win: [
     '{shop}: Blackbird goes along the shelves with her hands behind her back and stops at {item}. The tag says {ask}nd. After a short, civil fight with {npc}, {pay}nd changes hands. It is hers. It will be hers until she hocks it.',
-    'Blackbird buys {item} at {shop} for {pay}nd. {npc} wraps it in a page of last year\'s timetable and tells her it is the best thing in the shop. {they} say{s} that about all of them.',
+    'Blackbird buys {item} at {shop} for {pay}nd. {npc} wraps it in a page of last year\'s timetable and tells her it is the best thing in the shop. {They} say{s} that about all of them.',
   ],
   fake: [
     'Blackbird buys what {npc} swears is {item} at {shop}. {pay}nd. It is a copy. It is, in fairness, a very good copy. The tag was the only honest part.',
@@ -81,22 +83,23 @@ const money = (w: World, v: PawnView): boolean => open(w, v) && (!!find(v, 'owne
 
 export const MONEY: Affordance<PawnView>[] = [
   row({
-    id: 'hock', where: { feature: 'counter' }, pace: 'session',
+    id: 'hock', where: { feature: 'counter' }, pace: 'deal',
     needs: ['skill:haggling', 'stat:charm', 'drive:greed', 'tag:broke'],
     sees: 'A counter where whatever she is carrying becomes a number, and the number is in cash.', stakes: 'A fraction of its worth now; it sits on the shelf with her name on it for a few days and she can buy it back, with interest.', consequence: 'The shop holds her item; the broker\'s till goes down.',
     drives: { greed: 0.9, pride: -0.2 }, bonus: 0.0,
     appeal: (w) => {
       const items = hockable(w.hero);
       if (!items.length) return -1;
-      const worth = Math.min(1, items.reduce((s, i) => s + i.value, 0) / 220);
-      return 0.55 * worth * (cash(w) < 40 ? 1.2 : cash(w) < 120 ? 0.6 : cash(w) < 300 ? 0.2 : 0);
+      const worth = stash(w);
+      // The short of cash want it most, but a pocketful of loot she never uses is an invitation too.
+      return 0.06 * Math.min(14, items.length) + 0.3 * worth + 0.6 * Math.min(1, worth * 2) * (cash(w) < 40 ? 1.2 : cash(w) < 120 ? 0.6 : cash(w) < 300 ? 0.2 : 0);
     },
     intent: ['Blackbird goes through her pockets and finds something she can live without. For a week.', 'Blackbird checks her wallet, checks her pockets and checks the pawn shop. One of them has something in it.'],
     ok: (w, v) => money(w, v) && hockable(w.hero).length > 0,
     run: (c, v) => hockOne(c, v, HOCK),
   }),
   row({
-    id: 'buy-back', where: { feature: 'counter' }, pace: 'session',
+    id: 'buy-back', where: { feature: 'counter' }, pace: 'deal',
     needs: ['drive:pride', 'skill:haggling', 'item:any', 'drive:quest'],
     sees: 'Her own stuff on the shelf, with her name on the tag and a price that goes up every day.', stakes: 'What she was paid plus interest while it is held; full retail once the hold has run out.', consequence: 'She has it back; the broker takes a little more of her day.',
     drives: { pride: 0.6, greed: 0.3, quest: 0.3 }, bonus: 0.1,
@@ -104,14 +107,14 @@ export const MONEY: Affordance<PawnView>[] = [
       const lots = herLots(v).filter((l) => (lotState(l, v.day) === 'held' ? redeemPrice(v.info, l, v.day) : shelfPrice(v.info, l, v.sit?.def)) <= cash(w));
       if (!lots.length) return -1;
       const best = Math.max(...lots.map((l) => usefulness(w.hero, l.item)));
-      return 0.35 + Math.min(0.7, best * 0.8) + Math.min(0.3, Math.max(...lots.map((l) => l.item.value)) / 400);
+      return 0.15 + Math.min(0.8, best * 1.0) + Math.min(0.4, Math.max(...lots.map((l) => l.item.value)) / 400);
     },
     intent: ['Blackbird remembers what is in the window and where it came from.', 'Blackbird has some money and a feeling about a thing on a shelf.'],
     ok: (w, v) => money(w, v) && herLots(v).some((l) => (lotState(l, v.day) === 'held' ? redeemPrice(v.info, l, v.day) : shelfPrice(v.info, l, v.sit?.def)) <= cash(w)),
     run: (c, v) => redeemOne(c, v, BACK),
   }),
   row({
-    id: 'buy', where: { feature: 'counter' }, pace: 'session',
+    id: 'buy', where: { feature: 'counter' }, pace: 'deal',
     needs: ['drive:greed', 'drive:curiosity', 'skill:haggling', 'skill:streetwise'],
     sees: 'A shelf of things somebody else needed the money more than the thing, priced to leave.', stakes: 'A price on a tag, which can move; a thing that may be better than it looks, or worse.', consequence: 'The shelf is one lot lighter; the broker\'s till is a little fuller.',
     drives: { greed: 0.4, curiosity: 0.4 }, bonus: 0.0,
@@ -119,18 +122,18 @@ export const MONEY: Affordance<PawnView>[] = [
       const lots = counterLots(v).filter((l) => !l.hers && shelfPrice(v.info, l, v.sit?.def) <= cash(w));
       if (!lots.length) return -1;
       const best = Math.max(...lots.map((l) => usefulness(w.hero, l.item)));
-      return 0.05 + Math.min(0.8, best * 1.2) + (cash(w) > 300 ? 0.1 : 0);
+      return 0.12 + Math.min(0.8, best * 1.2) + (cash(w) > 300 ? 0.2 : cash(w) > 100 ? 0.1 : 0);
     },
     intent: ['Blackbird browses with the air of a woman who is not going to buy anything.', 'Blackbird has a look at the shelves and a look at her wallet, and the wallet looks away first.'],
     ok: (w, v) => money(w, v) && counterLots(v).some((l) => !l.hers && shelfPrice(v.info, l, v.sit?.def) <= cash(w)),
     run: (c, v) => buyOne(c, v, BUY),
   }),
   row({
-    id: 'sell-outright', where: { feature: 'counter' }, pace: 'session',
+    id: 'sell-outright', where: { feature: 'counter' }, pace: 'deal',
     needs: ['skill:haggling', 'drive:greed', 'skill:streetwise'],
     sees: 'A broker who will pay more for a thing she never wants to see again.', stakes: 'More than a hock pays, and no way back; the item goes on the house shelf.', consequence: 'The shelf has one more thing on it, and it is not hers any more.',
     drives: { greed: 0.5 }, bonus: -0.05,
-    appeal: (w) => (hockable(w.hero).length ? 0.1 * (cash(w) < 80 ? 1.5 : 0.5) : -1),
+    appeal: (w) => (hockable(w.hero).length ? 0.03 * Math.min(14, hockable(w.hero).length) + 0.25 * stash(w) + (cash(w) < 80 ? 0.1 : 0) : -1),
     intent: ['Blackbird weighs a thing in her hand and decides it is no longer hers.'],
     ok: (w, v) => money(w, v) && hockable(w.hero).length > 0,
     run: (c, v) => sellOne(c, v, SELL),
@@ -324,7 +327,7 @@ export const CRAFT: Affordance<PawnView>[] = [
     drives: { lust: 0.5, pride: 0.7 }, bonus: 0.03, intent: ['Blackbird tries on a coat at a mirror and does not look away.'],
     ok: open,
     check: { who: 'fair', parts: ['romance', ['dancing', 0.4], ['stat:charm', 0.4]], base: 0.4, per: 0.06,
-      win: R(['{shop}: Blackbird tries on a long coat in the mirror, turns, and catches {npc} watching from the rack. {they} look{s} away much too late. They talk about coats for twenty minutes.'], { affinity: 7, train: [['romance', 1], ['dancing', 1]], fame: 0.3, thought: ['Coats are my love language.'] }),
+      win: R(['{shop}: Blackbird tries on a long coat in the mirror, turns, and catches {npc} watching from the rack. {They} look{s} away much too late. They talk about coats for twenty minutes.'], { affinity: 7, train: [['romance', 1], ['dancing', 1]], fame: 0.3, thought: ['Coats are my love language.'] }),
       lose: R(['Blackbird tries a coat at {shop} and the mirror, in an act of betrayal, shows her the back.'], { affinity: -1 }) },
   }),
   row({
@@ -484,8 +487,8 @@ export const CRAFT: Affordance<PawnView>[] = [
     drives: { thirst: 0.9, pride: 0.2 }, bonus: 0.03, intent: ['Blackbird sees a bottle under the counter and a broker looking at it the wrong way.'],
     ok: (w, v) => open(w, v) && !!find(v, 'owner'),
     check: { who: 'owner', parts: ['tolerance', ['mixology', 0.3]], base: 0.45, per: 0.06,
-      win: R(['After hours at {shop}, {npc} brings out the bottle. Blackbird matches {them} glass for glass. {npc} tells her three things about the shelf that are not on any tag, and gives her {amount}nd for the company.'], { cash: [6, 22], from: 'owner', drunk: 1, train: [['tolerance', 2]], affinity: 8, tip: true, thought: ['Liver of steel. Heart of chrome. Memory of the next morning: absent.'] }),
-      lose: R(['{npc} brings out the bottle at {shop} and Blackbird gets about as far as the second glass. {they} put{s} a bucket by her chair, tenderly.'], { drunk: 3, train: [['tolerance', 1]], affinity: 2 }) },
+      win: R(['After hours at {shop}, {npc} brings out the bottle. Blackbird matches {them} glass for glass. {They} tell{s} her three things about the shelf that are not on any tag, and press{es} {amount}nd on her for the company.'], { cash: [6, 22], from: 'owner', drunk: 1, train: [['tolerance', 2]], affinity: 8, tip: true, thought: ['Liver of steel. Heart of chrome. Memory of the next morning: absent.'] }),
+      lose: R(['{npc} brings out the bottle at {shop} and Blackbird gets about as far as the second glass. {They} put{s} a bucket by her chair, tenderly.'], { drunk: 3, train: [['tolerance', 1]], affinity: 2 }) },
   }),
   row({
     id: 'patch-a-regular', where: { room: ['floor', 'workshop', 'bay', 'showroom'] }, pace: 'quick',
@@ -494,7 +497,7 @@ export const CRAFT: Affordance<PawnView>[] = [
     drives: { curiosity: 0.3, greed: 0.2 }, bonus: 0.03, intent: ['Blackbird notices a customer wincing and a first-aid tin at the same time.'],
     ok: (w, v) => open(w, v) && !!(find(v, 'regular') ?? find(v, 'clerk')),
     check: { who: 'regular', parts: ['medicine', ['rapport', 0.2]], base: 0.55, per: 0.06,
-      win: R(['{shop}: {npc} slammed a hand in the shutter. Blackbird splints it with two pens and a roll of price labels. {they} give{s} her {amount}nd and a story about a very old gold watch.'], { cash: [6, 30], from: 'who', train: [['medicine', 2]], affinity: 6, xp: 2, thought: ['Doctor Blackbird. Please hold your applause.'] }),
+      win: R(['{shop}: {npc} slammed a hand in the shutter. Blackbird splints it with two pens and a roll of price labels. {They} press{es} {amount}nd into her palm and tell{s} her a story about a very old gold watch.'], { cash: [6, 30], from: 'who', train: [['medicine', 2]], affinity: 6, xp: 2, thought: ['Doctor Blackbird. Please hold your applause.'] }),
       lose: R(['Blackbird applies a splint at {shop} that is more an opinion than a splint. {npc} leaves, holding the hand up like a flag.'], { train: [['medicine', 1]], affinity: -2 }) },
   }),
   row({

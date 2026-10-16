@@ -56,7 +56,9 @@ export const fmt = (s: string, tok: Record<string, string | number>): string =>
   s
     .replace(/\{(\w+)\}/g, (whole, k: string) => (tok[k] !== undefined ? String(tok[k]) : whole))
     // "the owner" at the start of a sentence (when no one by name is there to be the owner).
-    .replace(/(^|[.!?]["']?\s+)the owner/g, (_m, pre: string) => `${pre}The owner`);
+    .replace(/(^|[.!?]["']?\s+)the owner/g, (_m, pre: string) => `${pre}The owner`)
+    // ...and "someone" (no one by name was there to be the person).
+    .replace(/(^|[.!?]["']?\s+)someone/g, (_m, pre: string) => `${pre}Someone`);
 
 /** One event for a whole kind of place: the text layer has a single entry that reads `text` and `thought`. */
 export function sayAs(event: string, c: Ctx, id: string, outcome: 'good' | 'bad' | 'mixed', lines: readonly string[], thoughts: readonly string[] | undefined, tok: Record<string, string | number>, extra: Record<string, string | number | boolean> = {}): void {

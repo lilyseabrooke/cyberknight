@@ -93,7 +93,7 @@ export const VARIANTS: Record<string, VariantDef> = {
   },
   jeweller: {
     label: 'jewellery pawn', offer: [0.35, 0.5], rate: 0.05, hold: [5, 10], grace: 4, markup: 1.8, sec: 2, crowd: 0.2,
-    names: ['Carat & Stick', 'The Glittering Excuse', 'Gold Standard (Approximately)', 'Loupe & Bloop', 'Hallmark Heist', 'Prong & Pledge', 'Setting Sun Jewellers', 'Rose Gold Rush', 'Carbon Copy Diamonds', 'Ring-a-Ding Hock', 'Bezel & Bezel', 'Karat Kid Jewellery', 'Tick-Tock Pawn', 'Facet Value'],
+    names: ['Carat & Stick', 'The Glittering Excuse', 'Gold Standard (Approximately)', 'Loupe & Bloop', 'Hallmark Heist', 'Prong & Pledge', 'Setting Sun Jewellers', 'Rose Gold Rush', 'Carbon Copy Diamonds', 'Ring-a-Ding Hock', 'Bezel & Bezel', 'Karat Cake Jewellery', 'Tick-Tock Pawn', 'Facet Value'],
     blurbs: [
       '{name}: velvet trays, a loupe on a chain and a broker who looks at her wrist before her face.',
       '{name}: glass cases lit like a surgery and every ring has its own small spotlight and its own small story.',
@@ -123,7 +123,7 @@ export const VARIANTS: Record<string, VariantDef> = {
   },
   hardware: {
     label: 'tool and kit exchange', offer: [0.3, 0.4], rate: 0.07, hold: [3, 6], grace: 2, markup: 1.5, sec: 1, crowd: 0.2,
-    names: ['Torque & Take', 'Spanner in the Works Loans', 'Nuts, Bolts & Debts', 'Tool-Time Hock', 'Rust & Redemption', 'The Rented Drill', 'Wrench Pledge', 'Sparks & Spares', 'Hammer-Time Pawn', 'Level Best Loans', 'Plumb Line Pawn', 'Gauge & Gouge', 'Used Voltage', 'Bit & Brace Exchange'],
+    names: ['Torque & Take', 'Spanner in the Works Loans', 'Nuts, Bolts & Debts', 'Tool-Shed Hock', 'Rust & Redemption', 'The Rented Drill', 'Wrench Pledge', 'Sparks & Spares', 'Claw & Pawn', 'Level Best Loans', 'Plumb Line Pawn', 'Gauge & Gouge', 'Used Voltage', 'Bit & Brace Exchange'],
     blurbs: [
       '{name}: a wall of hung tools, a counter made from a door and a broker who knows every torque by its first name.',
       '{name}: crates of cable, tins of screws and a very large wrench that is, on balance, a threat.',
@@ -153,7 +153,7 @@ export const VARIANTS: Record<string, VariantDef> = {
   },
   arms: {
     label: 'weapons locker', offer: [0.35, 0.5], rate: 0.07, hold: [3, 6], grace: 3, markup: 1.8, sec: 3, crowd: 0.15,
-    names: ['Safe Hands Securities', 'Lock, Stock & Pledge', 'The Licensed Locker', 'Calibre Credit', 'Bullet Pointless', 'Hammer & Tong Holdings', 'Last Stand Loans', 'Barrel & Bond', 'Trigger-Happy Collateral', 'Blunt & Sharp Exchange', 'Holster & Hold', 'Standing Order Pawn', 'Magazine Money', 'Ricochet Loans'],
+    names: ['Safe Hands Securities', 'Lock, Barrel & Pledge', 'The Licensed Locker', 'Calibre Credit', 'Bullet Pointless', 'Hammer & Tong Holdings', 'Last Stand Loans', 'Barrel & Bond', 'Trigger-Happy Collateral', 'Blunt & Sharp Exchange', 'Holster & Hold', 'Standing Order Pawn', 'Magazine Money', 'Ricochet Loans'],
     blurbs: [
       '{name}: a cage behind the counter, a grille on the door and a broker who has a licence for everything but mirth.',
       '{name}: racks, a case of knuckledusters labelled "gloves" and a sign that says all weapons are decorative.',

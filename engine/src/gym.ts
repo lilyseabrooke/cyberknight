@@ -18,7 +18,7 @@ import './content/gymevents';
  * (a scrap; a hurt hero is put off it).
  */
 
-const KEY = { quick: 'gymquick', session: 'gym', fight: 'gymfight' } as const;
+const KEY = { quick: 'gymquick', session: 'gym', fight: 'gymfight', deal: 'gym' } as const;
 
 /** The features in this room that a row can hang on. */
 function matchingFeatures(where: Where, v: GymView): string[] | null {

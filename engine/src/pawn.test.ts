@@ -328,7 +328,7 @@ describe('hocking, buying back, buying', () => {
     boss.cash = 800;
     w.hero.inventory = [makeItem('pearl_string')];
     w.hero.cash = 3;
-    const key = sc.offers().find((k) => k.startsWith('pawn:hock'));
+    const key = sc.offers().find((k) => k.startsWith('pawndeal:hock'));
     expect(key).toBeTruthy();
     sc.do(key!, always());
     const lot = main.shelf!.find((l) => l.hers);
@@ -369,7 +369,7 @@ describe('hocking, buying back, buying', () => {
     const boss = owner(sc);
     boss.cash = 0;
     w.hero.inventory = [makeItem('pearl_string')];
-    const key = sc.offers().find((k) => k.startsWith('pawn:hock'))!;
+    const key = sc.offers().find((k) => k.startsWith('pawndeal:hock'))!;
     const cash = w.hero.cash;
     sc.do(key, always());
     expect(w.hero.cash).toBe(cash);
@@ -392,7 +392,7 @@ describe('hocking, buying back, buying', () => {
     expect(redeemPrice(info, lot, dayOf(w.clock) + 3)).toBeGreaterThan(priceNow);
     w.hero.cash = 5000;
     w.hero.inventory = [];
-    const key = sc.offers().find((k) => k.startsWith('pawn:buy-back'));
+    const key = sc.offers().find((k) => k.startsWith('pawndeal:buy-back'));
     expect(key).toBeTruthy();
     const cash = w.hero.cash;
     sc.do(key!, never());
@@ -415,7 +415,7 @@ describe('hocking, buying back, buying', () => {
     expect(lotState(lot, day)).toBe('forfeit');
     w.hero.cash = 5000;
     const before = w.hero.cash;
-    const key = sc.offers().find((k) => k.startsWith('pawn:buy-back'))!;
+    const key = sc.offers().find((k) => k.startsWith('pawndeal:buy-back'))!;
     sc.do(key, never());
     expect(before - w.hero.cash).toBeGreaterThan(redeemPrice(main.pawn!, { ...lot, held: day + 9, until: day + 20 }, day) * 0.8);
     // And one she leaves: gone.
@@ -436,7 +436,7 @@ describe('hocking, buying back, buying', () => {
     viewAt(w);
     main.shelf!.push({ item: makeItem('walkman'), hers: false, paid: 0, since: dayOf(w.clock), until: dayOf(w.clock) + 9 });
     w.hero.cash = 5000;
-    const key = sc.offers().find((k) => k.startsWith('pawn:buy') && !k.startsWith('pawn:buy-back'));
+    const key = sc.offers().find((k) => k.startsWith('pawndeal:buy') && !k.startsWith('pawndeal:buy-back'));
     expect(key).toBeTruthy();
     const n = main.shelf!.length;
     const cash = w.hero.cash;
@@ -452,7 +452,7 @@ describe('hocking, buying back, buying', () => {
     viewAt(w);
     owner(sc).cash = 900;
     w.hero.inventory = [makeItem('pearl_string')];
-    const key = sc.offers().find((k) => k.startsWith('pawn:sell-outright'));
+    const key = sc.offers().find((k) => k.startsWith('pawndeal:sell-outright'));
     expect(key).toBeTruthy();
     const cash = w.hero.cash;
     sc.do(key!, always());

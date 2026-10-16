@@ -25,14 +25,14 @@ const SALE: Parameters<typeof buyOne>[2] = {
 const FIRE: Parameters<typeof buyOne>[2] = {
   win: ['The banner at {shop} has said EVERYTHING MUST GO for eleven years, and the prices have not moved since. Blackbird buys {item} for {pay}nd. The shelf behind {npc} is full again by the time she reaches the door.'],
   fake: ['The fire sale at {shop} sells her {item} for {pay}nd. It is a copy. Everything at a fire sale is something.'],
-  cursed: ['{item} at {shop} is a fire-sale price and a fire-sale feeling. {pay}nd, and she has a bad night coming.'],
+  cursed: ['{Item} at {shop} is a fire-sale price and a fire-sale feeling. {pay}nd, and she has a bad night coming.'],
   refuse: ['Even at a fire sale, {npc} will not move on {item}.'],
   thought: ['I have been buying things for eleven years. It does not feel like it.', 'It is on fire. Yet nothing burns.'],
 };
 
 export const SITUATIONAL: Affordance<PawnView>[] = [
   row({
-    id: 'forfeit-sale-haul', where: { situation: 'sale', feature: 'counter' }, pace: 'session',
+    id: 'forfeit-sale-haul', where: { situation: 'sale', feature: 'counter' }, pace: 'deal',
     needs: ['skill:haggling', 'drive:greed', 'skill:streetwise'],
     sees: 'A hand-written banner, a queue and a shelf of things marked down because nobody can stand to look at them any longer.', stakes: 'A price that is plainly a mistake; a crowd that has the same idea.', consequence: 'The shelf is lighter.',
     drives: { greed: 0.9, curiosity: 0.2 }, bonus: 0.2, intent: ['A banner says EVERYTHING MUST GO. Blackbird takes this personally.'],
@@ -146,7 +146,7 @@ export const SITUATIONAL: Affordance<PawnView>[] = [
     drives: { greed: 1.0 }, bonus: 0.15, risk: 0.4, intent: ['The lights are out. Blackbird sees this as a message.'],
     ok: open,
     check: { parts: ['sneak', ['sleight', 0.6], ['lockpicking', 0.3]], base: 0.45, per: 0.07, dark: 0.2,
-      win: R(['The lights go out at {shop} for six minutes, and when they come on, Blackbird has the {item} (worth {amount}nd) in a sleeve and an expression of mild alarm at the outage.'], { train: [['sneak', 2], ['sleight', 2]], xp: 5, apply: liftLots([1, 2]), thought: ['Blackout. An unmissable chance. I did not miss it.'] }),
+      win: R(['The lights go out at {shop} for six minutes, and when they come on, Blackbird has {item} (worth {amount}nd) in a sleeve and an expression of mild alarm at the outage.'], { train: [['sneak', 2], ['sleight', 2]], xp: 5, apply: liftLots([1, 2]), thought: ['Blackout. An unmissable chance. I did not miss it.'] }),
       lose: R(['In the dark at {shop} Blackbird puts a hand on {npc}\'s hand, in a case. Both of them say "oh".'], { affinity: -8, fight: true, heat: ['place', 1] }) },
   }),
   row({
@@ -207,7 +207,7 @@ export const SITUATIONAL: Affordance<PawnView>[] = [
     ok: open,
     check: { who: 'clerk', parts: ['grifting', ['haggling', 0.6], ['hustling', 0.3]], base: 0.45, per: 0.06,
       win: R(['At {shop}, the new broker values a brass candlestick that is mostly brass at 80nd, then falls in love with it. Blackbird gets {amount}nd, a receipt, and a very warm handshake.'], { cash: [40, 120], from: 'owner', train: [['grifting', 2], ['haggling', 1]], xp: 3, affinity: -5, thought: ['Training is wasted on the young.'] }),
-      lose: R(['The new broker at {shop} is very eager and not at all a fool. {they} call{s} someone, who is a lot less pleasant.'], { affinity: -8, warn: ['scam', 1] }) },
+      lose: R(['The new broker at {shop} is very eager and not at all a fool. {They} call{s} someone, who is a lot less pleasant.'], { affinity: -8, warn: ['scam', 1] }) },
   }),
   row({
     id: 'unpack-the-crates', where: { situation: 'shipment' }, pace: 'session',
@@ -279,7 +279,7 @@ export const WILDS: Affordance<PawnView>[] = [
     drives: { curiosity: 0.8, pride: 0.4 }, bonus: 0.05, risk: 0.4, intent: ['Blackbird smells a sting the way she smells a bad noodle.'],
     ok: open,
     check: { parts: ['streetwise', ['stat:hack', 0.5]], base: 0.35, per: 0.07,
-      win: R(['The mirror in the back of {shop} has a lens behind it, and the broker\'s smile has a script behind that. Blackbird puts a small sticker on the lens and walks out whistling. {tip} is going to have a very interesting week.'], { tip: true, train: [['streetwise', 2]], xp: 5, fame: 0.6, thought: ['A sting. For me? You should not have.'] }),
+      win: R(['The mirror in the back of {shop} has a lens behind it, and the broker\'s smile has a script behind that. Blackbird puts a small sticker on the lens and walks out whistling. Somewhere, an Atlas analyst is going to have a very interesting week.'], { tip: true, train: [['streetwise', 2]], xp: 5, fame: 0.6, thought: ['A sting. For me? You should not have.'] }),
       lose: R(['The scanner at {shop} gives a warm and welcoming ping. Somewhere, a database is delighted.'], { heat: ['atlas', 1.5] }) },
   }),
   row({
@@ -303,7 +303,7 @@ export const WILDS: Affordance<PawnView>[] = [
       lose: R(['The one thing Blackbird buys at {shop} for 30nd is, of course, a copy. A lovely copy. {npc} is gracious in a way that is not.'], { loseCash: [10, 30], train: [['scavenging', 1]] }) },
   }),
   row({
-    id: 'fire-sale-haul', where: { wild: 'fire_sale', feature: 'counter' }, pace: 'session',
+    id: 'fire-sale-haul', where: { wild: 'fire_sale', feature: 'counter' }, pace: 'deal',
     needs: ['drive:greed', 'skill:haggling', 'skill:scavenging'],
     sees: 'A banner that has said EVERYTHING MUST GO for eleven years, and a shelf that does not seem to have noticed.', stakes: 'Prices that are a joke at everybody\'s expense but hers.', consequence: 'The shelf is lighter, and then it is not.',
     drives: { greed: 1.0, curiosity: 0.2 }, bonus: 0.1, intent: ['Blackbird reads EVERYTHING MUST GO and obeys, in her way.'],
@@ -340,7 +340,7 @@ export const VARIANT_ROWS: Affordance<PawnView>[] = [
     drives: { pride: 0.4, greed: 0.4 }, bonus: 0.02, intent: ['Blackbird takes a deep breath and a very long run-up.'],
     ok: open,
     check: { who: 'owner', parts: [['stat:charm', 0.8], 'grifting', ['romance', 0.3]], base: 0.4, per: 0.06,
-      win: R(['At {shop}, Blackbird tells {npc} about the brother in the war, the dog in the rain and a mortgage on a heart. {npc} wipes an eye, writes a figure and adds {amount}nd to it, "for the tale".'], { cash: [8, 32], from: 'owner', train: [['grifting', 2]], affinity: 4, thought: ['They do not make stories like that any more. They do not make them, I make them.'] }),
+      win: R(['At {shop}, Blackbird tells {npc} about the brother in the war, the dog in the rain and a mortgage on a heart. {They} wipe{s} an eye, write{s} a figure and add{s} {amount}nd to it, "for the tale".'], { cash: [8, 32], from: 'owner', train: [['grifting', 2]], affinity: 4, thought: ['They do not make stories like that any more. They do not make them, I make them.'] }),
       lose: R(['{npc} listens to Blackbird\'s story at {shop} all the way through, nods, says "that one is on the board in the back", and shows her the board.'], { affinity: -2 }) },
   }),
   row({

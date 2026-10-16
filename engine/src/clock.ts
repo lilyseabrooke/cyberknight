@@ -32,7 +32,7 @@ export const ACTION_MINUTES: Record<string, number> = {
   burgle_home: 25, burgle_flat: 25, rob_paint_shop: 20, pickpocket: 10, scam_mark: 20, sell_fake_goods: 20, hack: 20, jack: 20,
   raid_loot: 40, raid_ambush: 30, graffiti: 25, tail: 30, hunt_drone: 30, fence: 10, implant: 60,
   gym: 35, gymfight: 15, gymquick: 6,
-  pawn: 30, pawnfight: 15, pawnquick: 6,
+  pawn: 30, pawnfight: 15, pawnquick: 6, pawndeal: 20,
 };
 
 /** Extra world minutes a fight adds to the beat it happens in. */
