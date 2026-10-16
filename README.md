@@ -4,6 +4,7 @@ A self-playing cyberpunk sword-and-sorcery roguelite. You're the lab assistant; 
 
 - Design: [`docs/DESIGN.md`](docs/DESIGN.md)
 - Tone & voice: [`docs/TONE.md`](docs/TONE.md)
+- Setting bible & content guides: [`docs/setting/`](docs/setting/README.md) (read before adding content)
 
 ## Dev
 

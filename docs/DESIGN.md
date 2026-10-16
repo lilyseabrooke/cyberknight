@@ -226,7 +226,7 @@ A flight gives her a few beats to react: **engage**, **hide**, **gawk**, or **fi
 ## 9. Writing and content
 
 - Prose is generated from structured events via a template/grammar layer (Tracery-like): tagged lines, variation, callbacks to remembered events, and voice that shifts as the hero grows more competent.
-- Claude drafts the content; the author is happy to be surprised. Voice, humor level and samples live in `docs/TONE.md`. Reports interleave a neutral field-report voice with Blackbird's own cocky first-person thoughts.
+- Claude drafts the content; the author is happy to be surprised. Voice, humor level and samples live in `docs/TONE.md`; the setting itself (Neo, Atlas, the board, factions, naming, per-type content checklists) lives in `docs/setting/`. Reports interleave a neutral field-report voice with Blackbird's own cocky first-person thoughts.
 - Content must be tagged (location type, mood, relationship state) so the right line appears at the right moment.
 
 ## 10. Open items
