@@ -2,6 +2,7 @@ import type { Ctx, Hero, Injury, Item, Npc, World } from './types';
 import { IMPLANTS } from './content/implants';
 import { KINDS, removeCompanion } from './companions';
 import { skillLevel, skillValue, train } from './skills';
+import { basePower, fightTraining, hpPerLevel, levelCost } from './grade';
 import { perk } from './lab';
 import { addAmmo, wielded } from './arms';
 import { fxOf, rating } from './weapons';
@@ -12,7 +13,7 @@ import { collectBounties } from './bounty';
 import { npcsAt } from './population';
 import { pinAt, settleAt } from './movement';
 import { populate } from './roster';
-import { expand } from './mapgen';
+import { expand, liftCordon } from './mapgen';
 import { ensureDeep } from './deepen';
 import { spreadDeed } from './ties';
 import { settleContracts } from './contracts';
@@ -69,7 +70,7 @@ export function remember(npc: Npc, what: string): void {
 /** `allies: false` leaves her companions out: in a fight they are on the board as people of their own. */
 export function heroPower(w: World, weapon: Item = wielded(w.hero), allies = true): number {
   const h = w.hero;
-  let p = h.level * 2 + h.muscle + weapon.power;
+  let p = basePower(h.level) + h.muscle + weapon.power;
   const style = weaponStyle(weapon.tags);
   if (style) p += skillValue(h, style) * 0.6;
   for (const b of h.buffs) if (b.until > w.beat) p += b.power;
@@ -113,10 +114,10 @@ export function acquire(c: Ctx, item: Item): void {
 export function gainXp(c: Ctx, amount: number): void {
   const h = c.w.hero;
   h.xp += Math.round(amount * (1 + perk(c.w.legacy, 'xp') / 100));
-  while (h.xp >= 24 * h.level) {
-    h.xp -= 24 * h.level;
+  while (h.xp >= levelCost(h.level)) {
+    h.xp -= levelCost(h.level);
     h.level++;
-    h.maxHp += 12; // a bigger tank, not a refill: healing costs a med pack or a street doc
+    h.maxHp += hpPerLevel(h.level); // a bigger tank, not a refill: healing costs a med pack or a street doc
     const stat = (['muscle', 'reflex', 'charm', 'hack'] as const)[h.level % 4]!;
     h[stat]++;
     c.w.stats.maxLevel = Math.max(c.w.stats.maxLevel, h.level);
@@ -378,9 +379,9 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
     h.hp = Math.max(h.hp, 1);
     c.emit('fight_end', 'good', { ...base, variant: 'win', cash, xp: Math.round(xp), loot: found.slice(0, 3).join(', ') });
     gainXp(c, xp);
-    if (foes.some((f) => f.archetype === 'apollo')) {
-      w.over = true;
-      w.ending = 'victory';
+    // CINDERJAW keeps the district shut. With it down the cordon comes off, for this night and every one after; the night goes on.
+    if (foes.some((f) => f.archetype === 'apollo') && w.legacy.gate !== 'open') {
+      liftCordon(w);
       c.emit('victory', 'good', {});
     }
   } else if (result === 'flee') {
@@ -420,7 +421,9 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
 
   for (const f of foes) f.flags = f.flags.filter((x) => x !== 'disabled');
   const style = weaponStyle(wield.tags);
-  if (style && !w.over) train(c, style, 1 + Math.min(3, foes.length));
+  // What a fight teaches depends on who she was fighting: nothing from the trivial, the most from people a little ahead of her.
+  const foeGrade = foes.length ? foes.reduce((a, f) => a + f.level, 0) / foes.length : 0;
+  if (style && !w.over) train(c, style, fightTraining(1 + Math.min(3, foes.length), skillValue(h, style), foeGrade));
   if (result === 'flee' && !w.over) train(c, 'athletics', 2);
   if (result === 'win' && foes.length >= 3) h.fame += 1;
   if (result === 'win') {

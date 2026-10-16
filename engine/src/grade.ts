@@ -12,6 +12,7 @@
  */
 
 import type { Rng } from './rng';
+import type { Id, Location } from './types';
 
 export const GRADE = { gate: 15, firstBeyond: 18, hera: 60, plateau: 70, ceo: 80, ceiling: 100 } as const;
 
@@ -51,6 +52,12 @@ export function fightTraining(base: number, skillGrade: number, foeGrade: number
   return base * (1 + foeGrade / 5) * rel;
 }
 
+/** XP from one hero level to the next. The old `24 x level`, bending upward so the high levels take a long time. */
+export const levelCost = (level: number): number => Math.round(24 * level * (1 + level / 20));
+
+/** Max HP a hero gains on reaching a level: tracks the enemy curve, so her tank keeps pace with theirs. */
+export const hpPerLevel = (level: number): number => Math.round(baseHp(level) - baseHp(level - 1));
+
 // ===================================================================== places
 
 /** Danger at the hand-built heart of the starting district. */
@@ -82,3 +89,20 @@ export function stepDanger(parent: number, mean: number, bias: number, rng: Rng)
 
 /** Which of the dungeon tables (1..5) a danger falls into. */
 export const tierOfDanger = (danger: number): number => (danger < 10 ? 1 : danger < 25 ? 2 : danger < 45 ? 3 : danger < 65 ? 4 : 5);
+
+/**
+ * How many streets deep the starting district goes. Its outermost streets are the Atlas lockdown cordon: they have lots
+ * and clinics like any street, but nothing runs on past them until CINDERJAW is dead (mapgen.ts `liftCordon`). Sized so
+ * the district comes to roughly ten times the hand-built part; `npm run district-size` counts it.
+ */
+export const START_DEPTH = 4;
+
+/** The danger the hand-built streets hand to their first generated neighbours. */
+const HAND_DANGER: Record<Id, number> = { street_main: 2, club_backlot: 3, halo_alley: 2 };
+
+/** How dangerous a place is: what it was made with, or what its depth says for places made before danger existed. */
+export function dangerOf(loc: Location | undefined): number {
+  if (!loc) return HEART_DANGER;
+  if (loc.gen) return loc.gen.danger ?? meanDanger(loc.gen.depth, START_DEPTH);
+  return HAND_DANGER[loc.id] ?? HEART_DANGER;
+}

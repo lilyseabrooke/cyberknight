@@ -4,31 +4,16 @@ import { ENTRANCE_BLURB, OUTPOST_CODE, hideoutName, outpostName, rollTier } from
 import { SPOTS, SPOT_AGAIN, SPOT_CHANCE, pickSpot, rollSpotTier, type SpotDef } from './content/spots';
 import { CONDITIONS, GYM_CHANCE, ROOMS, rollGym, roomTitle } from './content/gyms';
 import { PAWN_CHANCE, ROOMS as PAWN_ROOMS, rollPawn, roomTitle as pawnRoomTitle } from './content/pawns';
-import { DISTRICT_DANGER, HEART_DANGER, meanDanger, stepDanger, tierOfDanger } from './grade';
+import { DISTRICT_DANGER, START_DEPTH, dangerOf, meanDanger, stepDanger } from './grade';
 import type { District, Exit, GenRole, Id, Legacy, Location, World } from './types';
 
 /** What the map generator needs from a world. (`legacy` is optional so a bare test map works: no gate, so it is sealed.) */
 type MapWorld = Pick<World, 'worldSeed' | 'locations' | 'factions'> & { legacy?: Pick<Legacy, 'gate'> };
 
-/**
- * How many streets deep the starting district goes. Its outermost streets are the Atlas lockdown cordon: they have
- * lots and clinics like any street, but nothing runs on past them until CINDERJAW is dead (`liftCordon`). Sized so the
- * district comes to roughly ten times the hand-built part; see `startDistrictSize` in mapgen.test.ts.
- */
-export const START_DEPTH = 4;
+export { START_DEPTH, dangerOf };
 
 /** Has CINDERJAW been put down, so the cordon is open? */
 export const gateOpen = (w: { legacy?: Pick<Legacy, 'gate'> }): boolean => w.legacy?.gate === 'open';
-
-/** The danger the hand-built streets hand to their first generated neighbours. */
-const HAND_DANGER: Record<Id, number> = { street_main: 2, club_backlot: 3, halo_alley: 2 };
-
-/** How dangerous a place is: what it was made with, or what its depth says for places made before danger existed. */
-export function dangerOf(loc: Location | undefined): number {
-  if (!loc) return HEART_DANGER;
-  if (loc.gen) return loc.gen.danger ?? meanDanger(loc.gen.depth, START_DEPTH);
-  return HAND_DANGER[loc.id] ?? HEART_DANGER;
-}
 
 /**
  * Neo builds itself around Blackbird. The hand-built Rusty Halo district is the seed; everything

@@ -5,7 +5,7 @@ import { acquire, addHeat, fight, gainXp, heroPower, relocate, remember, type Fi
 import { ARCHETYPES, spawnNpc } from './content/archetypes';
 import { makeAmmoBox, makeItem } from './content/items';
 import {
-  ARMOR_BY_TIER, ATLAS_HEAT_ON_ALARM, ATLAS_HEAT_ON_CLEAR, CACHE_LABEL, NPD_HEAT_ON_CLEAR, DATA_LOOT, LEADER_ARMS, STASH_LOOT, TIER_MENACE, cacheValue, layoutFor, rollRoomHazards, scaleForTier, slotCount,
+  ARMOR_BY_TIER, ATLAS_HEAT_ON_ALARM, ATLAS_HEAT_ON_CLEAR, CACHE_LABEL, NPD_HEAT_ON_CLEAR, DATA_LOOT, LEADER_ARMS, STASH_LOOT, TIER_MENACE, TIER_REF_GRADE, cacheValue, dungeonGrade, layoutFor, rollRoomHazards, slotCount,
   type RoomDef,
 } from './content/dungeons';
 import { SPOTS, hasPaper, spotRoom, type Crew } from './content/spots';
@@ -18,6 +18,7 @@ import { gunsOwned } from './arms';
 import { meetHazards } from './hazards';
 import { sneakBonus } from './extras';
 import { skillLevel, train } from './skills';
+import { basePower, dangerOf } from './grade';
 import { startRaid } from './goals';
 import { nightfall, stockQuest } from './quests';
 
@@ -175,10 +176,10 @@ function stock(w: Realm, d: Dungeon, def: RoomDef, loc: Location): void {
     for (let k = 0; k < count; k++) {
       const id = `dg:${d.id}:${d.occupation}:${def.key}:${j++}`;
       const faction = spot ? spotFaction(spot.crew, slot.arch, d.faction) : slot.arch.startsWith('gang_') ? d.faction : slot.arch === 'sentry_turret' ? 'atlas' : undefined;
-      const npc = spawnNpc(new Rng(`npc:${w.worldSeed}:${id}`), id, slot.arch, loc.id, { faction });
+      const npc = spawnNpc(new Rng(`npc:${w.worldSeed}:${id}`), id, slot.arch, loc.id, { faction, grade: dungeonGrade(dangerOf(w.locations[d.id]), d.tier) });
       // The ones in charge carry what the tier says they should, not what the archetype would give a stranger.
       if (npc.tags.includes('commander')) rearm(npc, new Rng(`arms:${w.worldSeed}:${id}`).pick(LEADER_ARMS[d.tier]!));
-      scaleForTier(npc, d.tier);
+      if (d.tier > 1) npc.cash = Math.round(npc.cash * (1 + 0.3 * (d.tier - 1)));
       npc.post = d.id;
       npc.home = loc.id;
       // The ones in charge have something worth taking off them.
@@ -272,7 +273,8 @@ function misread(w: World, room: Id): number {
 }
 
 /** What she thinks of her chances before anyone has seen inside: from the tier alone. */
-export const estimatePressure = (w: World, kind: DungeonKind, tier: number): number => (TIER_MENACE[kind][tier] ?? 0) / might(w);
+export const estimatePressure = (w: World, kind: DungeonKind, tier: number, danger?: number): number =>
+  ((TIER_MENACE[kind][tier] ?? 0) * (danger === undefined ? 1 : basePower(dungeonGrade(danger, tier)) / basePower(TIER_REF_GRADE[tier] ?? 3))) / might(w);
 
 /**
  * How bad a fight she'll take on before she calls it too much. A sharper head has a lower number and is right about it;
@@ -564,7 +566,7 @@ export function entranceRisk(w: World, dest: Location): number {
   if (!isEntrance(dest) || !dest.gen) return 0;
   const d = w.dungeons[dest.id];
   if (d && d.clearedRun !== null) return 0;
-  const p = d ? typicalPressure(w, d) : estimatePressure(w, dest.gen.role as DungeonKind, dest.gen.tier ?? 1);
+  const p = d ? typicalPressure(w, d) : estimatePressure(w, dest.gen.role as DungeonKind, dest.gen.tier ?? 1, dangerOf(dest));
   return clamp(p - 0.4, 0, 3);
 }
 
@@ -650,7 +652,7 @@ export function knownDungeons(w: World): Lead[] {
     const tier = d?.tier ?? loc.gen.tier ?? 1;
     const kind = (d?.kind ?? loc.gen.role) as DungeonKind;
     const spoils = d ? spoilsLeft(w, d) : spoilsGuess(tier, kind);
-    const p = d ? typicalPressure(w, d) : estimatePressure(w, kind, tier);
+    const p = d ? typicalPressure(w, d) : estimatePressure(w, kind, tier, dangerOf(loc));
     // Having cleaned it out before takes the shine off.
     const jaded = (kind === 'spot' ? 0.85 : 0.65) ** (d?.clears ?? 0);
     out.push({ entrance: loc, d, kind, tier, appeal: (spoils / 200) * jaded * (p <= tolerance(w) ? 1 : 0) });

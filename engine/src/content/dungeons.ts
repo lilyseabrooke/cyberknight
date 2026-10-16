@@ -187,25 +187,13 @@ export function slotCount(rng: Rng, slot: GarrisonSlot, tier: number): number {
 // ===================================================================== how tough the garrison is
 
 /**
- * Scale a freshly spawned garrison member to the tier of the place. Machines get harder to break and hit harder; people
- * get more experience (and so more health and more punch). Tier 1 is what the archetype says it is.
+ * The grade a place's garrison is made at: the danger around it, nudged up or down when the place itself is a tier
+ * harder or easier than its surroundings (a fortress in a quiet quarter, a rabble in a bad one).
  */
-export function scaleForTier(n: { hp: number; maxHp: number; power: number; level: number; tags: string[]; cash: number }, tier: number): void {
-  const up = tier - 1;
-  if (!up) return;
-  if (n.tags.includes('robot')) {
-    const m = 1 + 0.3 * up;
-    n.hp = n.maxHp = Math.round(n.maxHp * m);
-    n.power = Math.round(n.power * m);
-    n.level += up;
-    return;
-  }
-  const lv = Math.round(up * (n.tags.includes('commander') ? 1.4 : n.tags.includes('strong') ? 1.1 : 0.9));
-  n.level += lv;
-  n.hp = n.maxHp = n.maxHp + lv * 12;
-  n.power += lv * 2;
-  n.cash = Math.round(n.cash * (1 + 0.3 * up));
-}
+export const dungeonGrade = (danger: number, tier: number): number => Math.max(1, danger + 4 * (tier - tierOfDanger(danger)));
+
+/** The grade the tier table's menace numbers were measured at, by tier. Estimates scale from here. */
+export const TIER_REF_GRADE = [0, 3, 4, 5, 6, 7];
 
 /**
  * What a typical room of a place of this tier is worth in a fight (see `menace` in dungeons.ts), for deciding whether to

@@ -2,6 +2,7 @@ import type { Drive } from './personality';
 import type { Ctx, Npc, World } from './types';
 import type { EventData } from './events';
 import { addHeat, fight, here, npcsAt, remember, relocate } from './combat';
+import { dangerOf } from './grade';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { enterRoom } from './dungeons';
@@ -37,7 +38,8 @@ export function spawnGroup(c: Ctx, archetype: string, count: number, faction?: s
   const out: Npc[] = [];
   for (let i = 0; i < count; i++) {
     const id = `tmp_${c.w.beat}_${archetype}_${i}`;
-    const n = spawnNpc(c.rng, id, archetype, c.w.hero.locationId, { faction });
+    const here = c.w.locations[c.w.hero.locationId];
+    const n = spawnNpc(c.rng, id, archetype, c.w.hero.locationId, { faction, ...(here?.gen ? { grade: dangerOf(here) } : {}) });
     addNpc(c.w, n);
     out.push(n);
   }

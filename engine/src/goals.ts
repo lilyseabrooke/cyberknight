@@ -16,6 +16,7 @@ import { isShut } from './shutdown';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { possessive } from './mapgen';
+import { dangerOf } from './grade';
 import { estimatePressure, garrisonAlive, isEntrance, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
 import { appraise, giverPlace, livePending, objectiveRoom, questReady } from './quests';
 import { MAX_IMPLANTS } from './content/implants';
@@ -568,7 +569,7 @@ const KINDS: Record<GoalKind, Kind> = {
         if (hpFrac(w) < 0.5) return delay(c, g, 40, 'hurt');
         // A look at the place from the street, and a sharper head thinks twice.
         if (distTo(w, g.loc!) <= 2) {
-          const p = d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1);
+          const p = d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1, dangerOf(entrance));
           if (p > tolerance(w) * 1.15) end(c, g, 'drop', 'outmatched', { inside: false });
         }
         return;
@@ -679,7 +680,7 @@ const KINDS: Record<GoalKind, Kind> = {
         return;
       }
       if (g.mode === 'return') return;
-      const pressureNow = (): number => (d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen!.role as DungeonKind, entrance.gen!.tier ?? 1));
+      const pressureNow = (): number => (d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen!.role as DungeonKind, entrance.gen!.tier ?? 1, dangerOf(entrance)));
       if (!inside) {
         // Out of the building and hurt: patch up first, then back to it.
         if (g.mode === 'retreat') {

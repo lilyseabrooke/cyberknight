@@ -1350,7 +1350,7 @@ const T: Record<string, Entry> = {
     (d) => [`Blackbird is dead. Level ${d.level}. ${d.place}. Cause: ${d.cause}. Killed by ${d.killer}.`, `Blackbird flatlines in ${d.place}. Level ${d.level}. The report will say "${d.cause}".`],
     ['Huh. Okay. That was unexpected.', "Tell my fans I'll be back. Tell the cops I wasn't here."],
   ),
-  victory: e(() => ['CINDERJAW comes down in a spiral of fire and flapping ads. The Kowloon Overpass falls silent. Somewhere, an Atlas stock price flickers.'], ['Dragon: slain. Honestly, I expected it to be harder.']),
+  victory: e(() => ['CINDERJAW comes down in a spiral of fire and flapping ads. The Kowloon Overpass falls silent. Somewhere, an Atlas stock price flickers, and out along the district edge the lockdown cordons go dark, one by one.'], ['Dragon: slain. The district is open. Neo has been waiting, and I do not think it is going to be this polite.']),
   dawn: e((d) => [`Dawn breaks over Neo. Blackbird, somehow still alive, squints at it from ${d.place}. Day ${d.day}. The night ran out before she did, so she carries on.`, `The sky over ${d.place} goes grey, then pink, then an ad. Blackbird is still here. Day ${d.day} begins.`], ['Still not dead. Keep going.', "Sun's up. I'm told that's bad for people like me."]),
   // ---------------------------------------------------------------- jobs (quests.ts)
   'quest:offer': e(

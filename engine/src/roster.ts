@@ -1,6 +1,7 @@
 import { Rng } from './rng';
 import { ARCHETYPES, spawnNpc } from './content/archetypes';
 import { influenceOf, pickFaction } from './factions';
+import { dangerOf } from './grade';
 import { AWAY, addNpc, awayNpcs, moveNpc, setHaunts } from './population';
 import { BARKS } from './content/hazards';
 import { gymRoster } from './content/gyms';
@@ -151,7 +152,7 @@ export function populate(w: World, loc: Location): Npc[] {
         here.push(cast);
         continue;
       }
-      const npc = spawnNpc(person, id, slot.role, loc.id, { faction: faction ?? undefined });
+      const npc = spawnNpc(person, id, slot.role, loc.id, { faction: faction ?? undefined, ...(loc.gen ? { grade: dangerOf(loc) } : {}) });
       if (slot.ephemeral) npc.ephemeral = true;
       // A clinic's dogs are as good as its street can afford (the same BARK models homes keep).
       if (loc.kind === 'clinic' && slot.role === 'guard_dog') {

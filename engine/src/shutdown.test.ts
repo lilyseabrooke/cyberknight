@@ -340,7 +340,7 @@ describe('a bar whose owner is dead', () => {
   it('comes back as something else more often than not, with a new name that sticks to the rooms and the house', () => {
     let renamed = 0;
     let same = 0;
-    for (const r of several('rebrand', 14)) {
+    for (const r of several('rebrand', 28)) {
       const d = r.days.find((x) => x.run === r.reopenRun)!;
       if (d.name === 'The Rusty Halo') {
         same++;

@@ -99,7 +99,7 @@ export function capabilityPull(h: Hero, needs: readonly Need[]): number {
   const vals: number[] = [];
   for (const n of needs) {
     const [kind, id] = n.split(':') as [string, string];
-    if (kind === 'skill' && id in SKILLS) vals.push(skillLevel(h, id as keyof typeof SKILLS) / 8);
+    if (kind === 'skill' && id in SKILLS) vals.push(Math.min(1.5, skillLevel(h, id as keyof typeof SKILLS) / 8));
     else if (kind === 'stat') vals.push(Math.min(10, Math.max(0, (h as unknown as Record<string, number>)[id] ?? 0)) / 10);
     else if (kind === 'implant') vals.push(id === 'any' ? Math.min(1, h.implants.length / 2) : h.implants.some((i) => i === id) ? 1 : 0);
     else if (kind === 'item') vals.push(h.inventory.some((i) => i.id === id || i.tags.includes(id)) ? 1 : 0);

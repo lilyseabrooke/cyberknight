@@ -1,4 +1,5 @@
 import { SKILLS, type SkillId } from './content/skills';
+import { hpPerLevel, skillXp } from './grade';
 import { IMPLANTS, MAX_IMPLANTS } from './content/implants';
 import { makeItem } from './content/items';
 import { NODES, NODE_IDS, TREE, parseNeed, type Fx, type PerkId, type UpgradeDef } from './content/tree';
@@ -134,8 +135,8 @@ function nudged(p: Personality, deltas: Partial<Record<(typeof TRAITS)[number], 
   return { traits, weights: driveWeights(traits) };
 }
 
-/** XP that puts a skill at exactly this level (see `skillValue`: level = sqrt(xp / 2)). */
-const xpForLevel = (lvl: number): number => 2 * lvl * lvl;
+/** XP that puts a skill at exactly this level (see `skillXp` in grade.ts). */
+const xpForLevel = skillXp;
 
 /**
  * Turn the lab's upgrades into the body that walks out the door. The hero must be a fresh one
@@ -169,7 +170,7 @@ export function applyUpgrades(h: Hero, l: Owned): void {
   // Levels first: each one is a bigger tank and a stat, the same as earning it would be.
   for (let i = 0; i < level; i++) {
     h.level++;
-    h.maxHp += 12;
+    h.maxHp += hpPerLevel(h.level);
     h[(['muscle', 'reflex', 'charm', 'hack'] as const)[h.level % 4]!]++;
   }
   h.maxHp += hp;
