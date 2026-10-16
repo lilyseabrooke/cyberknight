@@ -7,7 +7,7 @@ import { perk } from './lab';
  * lab softens all of it. What she does about it (eating, finding a bed, passing out, starving) is in `rest.ts`.
  *
  *   Hunger: 100 -> 0 in 60 hours, so she can go a couple of days without a meal before it kills her. It bites slowly, in steps
- *           (a remark at 45, then a little more off her power and her body at each of 15 and 6).
+ *           (every tenth of the bar below 90% costs a little, and the cost grows; the remarks come at 70, 45, 20 and 8).
  *   Sleep:  100 -> 0 in 20 hours awake, so she wants about eight hours of bed in every day, and passes out if she never gets them.
  *
  * Both are plain numbers on the hero, absent in older saves (absent means full).
@@ -49,7 +49,7 @@ export const effectiveQuality = (l: Owned, quality: number): number => clamp(qua
 export type HungerTier = 'fed' | 'hungry' | 'famished' | 'starving' | 'wasting';
 export type SleepTier = 'rested' | 'tired' | 'exhausted' | 'spent';
 
-export const hungerTier = (v: number): HungerTier => (v >= 45 ? 'fed' : v >= 28 ? 'hungry' : v >= 15 ? 'famished' : v >= 6 ? 'starving' : 'wasting');
+export const hungerTier = (v: number): HungerTier => (v >= 70 ? 'fed' : v >= 45 ? 'hungry' : v >= 20 ? 'famished' : v >= 8 ? 'starving' : 'wasting');
 export const sleepTier = (v: number): SleepTier => (v >= 40 ? 'rested' : v >= 22 ? 'tired' : v >= 10 ? 'exhausted' : 'spent');
 
 export interface Penalty {
@@ -64,14 +64,20 @@ export interface Penalty {
 const NONE: Penalty = { power: 0, muscle: 0, reflex: 0, hack: 0, charm: 0 };
 const pen = (power: number, muscle = 0, reflex = 0, hack = 0, charm = 0): Penalty => ({ power, muscle, reflex, hack, charm });
 
-/** What each step down the hunger bar costs her. The steps stack: it is slow, and it only gets worse. *Hungry* is only a remark. */
-export const HUNGER_PENALTY: Record<HungerTier, Penalty> = {
-  fed: NONE,
-  hungry: NONE,
-  famished: pen(1, 1),
-  starving: pen(3, 1, 1),
-  wasting: pen(5, 2, 1, 1, 1),
-};
+/** Hunger starts to cost her the moment she is below this. */
+export const HUNGER_FREE = 90;
+
+/**
+ * How many tenths of the bar she is down from "well fed": 0 at 90 and over, 1 anywhere from 89 to 80, up to 9 below 10.
+ * Every one of them costs a little, and the cost grows: staying topped up is cheap, putting it off is not, and it takes
+ * days of putting it off to be fatal.
+ */
+export const hungerSteps = (v: number): number => (v >= HUNGER_FREE ? 0 : Math.min(9, Math.ceil((HUNGER_FREE - v) / 10)));
+
+/** What the hunger bar costs her at this many steps down (see `hungerSteps`). Power first, then the body, muscle before the mind. */
+export function hungerPenalty(steps: number): Penalty {
+  return pen(Math.round((steps * steps) / 12), Math.floor(steps / 3), Math.floor(steps / 4), Math.floor(steps / 5), Math.floor(steps / 6));
+}
 
 /**
  * And each step down the sleep bar. Tiredness hits the head and the hands before the muscles. Being a little tired is just
@@ -90,7 +96,7 @@ const KEYS = ['power', 'muscle', 'reflex', 'hack', 'charm'] as const;
 export function penaltyFor(h: Hero, l: Owned): Penalty {
   const hungerSoft = clamp(1 - perk(l, 'hungerSoft') / 100, 0.2, 1);
   const sleepSoft = clamp(1 - perk(l, 'sleepSoft') / 100, 0.2, 1);
-  const a = HUNGER_PENALTY[hungerTier(hungerOf(h))];
+  const a = hungerPenalty(hungerSteps(hungerOf(h)));
   const b = SLEEP_PENALTY[sleepTier(sleepOf(h))];
   const out = { ...NONE };
   for (const k of KEYS) out[k] = Math.round(a[k] * hungerSoft) + Math.round(b[k] * sleepSoft);

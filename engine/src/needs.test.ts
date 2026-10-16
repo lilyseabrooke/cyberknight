@@ -75,11 +75,21 @@ describe('what low meters cost', () => {
     const h = s.w.hero;
     h.sleep = 100;
     const pow = [];
-    for (const v of [90, 40, 20, 10, 3]) {
+    for (const v of [95, 85, 60, 30, 3]) {
       h.hunger = v;
       pow.push(penaltyFor(h, s.w.legacy));
     }
-    expect(pow.map((p) => p.power)).toEqual([0, 0, 1, 3, 5]);
+    expect(pow.map((p) => p.power)).toEqual([0, 0, 1, 3, 7]);
+    // Small and growing: every tenth of the bar below 90 costs a bit, and no band is cheaper than the one above it.
+    let last = -1;
+    for (let v = 95; v >= 0; v -= 5) {
+      h.hunger = v;
+      const p = penaltyFor(h, s.w.legacy);
+      const total = p.power + p.muscle + p.reflex + p.hack + p.charm;
+      expect(total).toBeGreaterThanOrEqual(last);
+      last = total;
+    }
+    expect(penaltyFor({ ...h, hunger: 89 }, s.w.legacy).power).toBe(0);
     expect(pow[4]!.muscle + pow[4]!.reflex + pow[4]!.hack + pow[4]!.charm).toBeGreaterThan(pow[2]!.muscle + pow[2]!.reflex + pow[2]!.hack + pow[2]!.charm);
     expect(hungerTier(0)).toBe('wasting');
   });
@@ -199,9 +209,10 @@ describe('eating', () => {
 describe('starving', () => {
   it('a couple of days without a meal does not kill her; the third day does', () => {
     const left = (h: number) => 100 - h * 60 * HUNGER_PER_MIN;
-    expect(hungerTier(left(24))).toBe('fed');
-    expect(hungerTier(left(48))).toBe('famished');
+    expect(hungerTier(left(12))).toBe('fed');
+    expect(hungerTier(left(40))).toBe('famished');
     expect(left(48)).toBeGreaterThan(15);
+    expect(hungerTier(left(54))).toBe('starving');
     expect(hungerTier(left(57))).toBe('wasting');
     expect(left(60)).toBeCloseTo(0);
 
@@ -228,7 +239,7 @@ describe('starving', () => {
     const h = s.w.hero;
     h.hunger = 100;
     h.needsAt = s.w.clock;
-    for (let i = 0; i < 48; i++) {
+    for (let i = 0; i < 46; i++) {
       s.w.clock += hours(1);
       h.sleep = 100;
       s.run((c) => tickNeeds(c));

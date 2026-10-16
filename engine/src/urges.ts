@@ -14,14 +14,13 @@ export function healUrge(h: Hero): number {
 }
 
 /**
- * How badly she wants a meal. Nothing above 40; once it starts it climbs fast, so that she goes and eats rather than
- * drifting about half-hungry for hours:
+ * How badly she wants a meal: one point for every tenth of the bar she is down from 90, which is where hunger starts to cost
+ * her. She has made up her mind by 80 and goes to eat, rather than waiting until it hurts:
  *
- *   hunger 35 -> 0.7   hunger 30 -> 1.7   hunger 20 -> 3.9   hunger 10 -> 6.4   hunger 0 -> 9
+ *   hunger 85 -> 0.5   hunger 80 -> 1   hunger 60 -> 3   hunger 30 -> 6   hunger 0 -> 9
  */
 export function hungerUrge(h: Hero): number {
-  const empty = Math.max(0, Math.min(1, (40 - (h.hunger ?? 100)) / 40));
-  return 9 * empty ** 1.2;
+  return Math.max(0, Math.min(9, (90 - (h.hunger ?? 100)) / 10));
 }
 
 /**

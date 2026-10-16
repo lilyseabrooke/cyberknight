@@ -203,7 +203,7 @@ function eatCandidates(w: World, anyHunger = false): Candidate[] {
   const h = w.hero;
   const loc = w.locations[h.locationId]!;
   const hu = hungerUrge(h);
-  if (!anyHunger && (hungerOf(h) > 80 || hu <= 0)) return out;
+  if (!anyHunger && (hungerOf(h) > 85 || hu <= 0)) return out;
   const meal = (key: string, food: FoodId, run: (c: Ctx) => void, extra = 0): void => {
     const cost = haggle(h, FOOD[food].price);
     if (h.cash < cost) return;
@@ -213,7 +213,7 @@ function eatCandidates(w: World, anyHunger = false): Candidate[] {
   if (loc.id === 'gun_shop' && present(w, 'gunsmith')) meal('eat_bagel', 'bagel', (c) => eatOut(c, 'bagel'));
   if (loc.kind === 'bar' && present(w, 'barkeep', 'bartender', 'cook')) meal('eat_plate', 'plate', (c) => eatOut(c, 'plate'), 0.2);
   // Broke and hungry: somebody threw something away.
-  if (isStreet(loc) && (anyHunger || hungerOf(h) < 45)) {
+  if (isStreet(loc) && (anyHunger || hungerOf(h) < 60)) {
     out.push({ key: 'scrounge', drives: {}, bonus: 0.6 * decided(hu) - 0.5, smart: 0.2 * hu, risk: 0.15, run: scrounge });
   }
   return out;

@@ -549,7 +549,7 @@ Two meters on the hero, 0..100, that run down with the **world clock** (not beat
 
 | | falls | when it's bad | at zero |
 |---|---|---|---|
-| **Hunger** | 100 → 0 in 60 hours awake (half speed asleep) | steps at 45 / 28 / 15 / 6: *hungry* (a remark), then *famished, starving, wasting*, each stacking more off her fight power and her stats (muscle first, then reflex, hack, charm). | she starves: the night ends (`death:starved`) |
+| **Hunger** | 100 → 0 in 60 hours awake (half speed asleep) | every tenth of the bar below 90% costs a little and the cost grows (`hungerSteps`/`hungerPenalty`: about 1 power at 70%, 3 at 40%, 7 near empty, plus muscle, reflex, hack and charm further down), so she is better off eating regularly and staying above 90; remarks at 70 / 45 / 20 / 8 (*hungry, famished, starving, wasting*). Nothing kills her but days of putting it off. | she starves: the night ends (`death:starved`) |
 | **Sleep** | 100 → 0 in 20 hours awake | steps at 40 / 22 / 10: *tired* (a remark: it's most of an ordinary day), then *exhausted, spent*. Tiredness hits reflex and hack first. | she passes out where she stands |
 
 A hero from an older save has neither field, which counts as full. Time the game spends closed (`catchUp`) doesn't count against her.
@@ -574,4 +574,4 @@ Beds are along streets (hash of the world seed and the street, by district; Stra
 
 **The lab** adds three lines (Chassis: *Metabolism* and *Rest*; Firmware: *Discomfort management*; Treasury: *Lodging*): slower hunger, slower tiredness, faster sleep (fewer hours), more of a poor night's sleep made up, softer hunger and tiredness penalties, richer meals, cheaper beds, a light sleeper who catches thieves, and a better time when she passes out. All of them are `perk`s (see `content/tree.ts`); the lab screen shows the totals under *Body upkeep*.
 
-Tuning notes: with competence 0.4, simulated heroes sleep about a third of the time (8–9 hours a day), eat roughly once a day, and don't starve; deaths are still overwhelmingly combat. To rebalance, the knobs are the constants at the top of `needs.ts` (rates and tier thresholds), `content/lodging.ts` (prices, quality, robbery odds, food), and the hazard rates in `rest.ts` (`traffic`, `authorities`).
+Tuning notes: with competence 0.4, simulated heroes sleep about a third of the time (8–9 hours a day), eat about one to two times a day, and don't starve; deaths are still overwhelmingly combat. To rebalance, the knobs are the constants at the top of `needs.ts` (rates and tier thresholds), `content/lodging.ts` (prices, quality, robbery odds, food), and the hazard rates in `rest.ts` (`traffic`, `authorities`).
