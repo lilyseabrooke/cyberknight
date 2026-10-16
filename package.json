@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "sim": "tsx scripts/sim.ts",
     "analyze": "tsx scripts/analyze.ts",
+    "targets": "tsx scripts/targets.ts",
     "play": "tsx scripts/play.ts",
     "dev": "next dev",
     "build": "next build",
