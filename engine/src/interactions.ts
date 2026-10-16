@@ -12,6 +12,7 @@ import { hasAlly } from './companions';
 import { odds, skillLevel, synergy, train } from './skills';
 import { hobbyCandidates } from './hobbies';
 import { buyStim, supplyCandidates, supplyUrge } from './supply';
+import { needsUrge, restCandidates } from './rest';
 import { STIM_IDS } from './content/stims';
 import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
@@ -196,6 +197,8 @@ export function gather(w: World): Candidate[] {
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.
   out.push(...supplyCandidates(w));
+  // Food and a bed: the meters run down with the clock, and the city sells the cure.
+  out.push(...restCandidates(w));
   if (h.drunk >= 3) {
     out.push({
       key: 'sober_up', drives: {}, smart: 0.9, bonus: 0.1,
@@ -213,7 +216,9 @@ export function gather(w: World): Candidate[] {
     const dest = w.locations[e.to]!;
     const toDragon = e.to === 'overpass';
     const dragonRisk = toDragon && alive(dragon) ? clamp(dragonPower / heroPower(w) - 0.6, 0, 4) : 0;
-    const urge = supplyUrge(w, e.to);
+    const supply = supplyUrge(w, e.to);
+    const need = needsUrge(w, e.to);
+    const urge = { bonus: supply.bonus + need.bonus, smart: supply.smart + need.smart };
     const pull = bankPull(w, e.to);
     out.push({
       key: `go:${e.to}`,

@@ -226,6 +226,8 @@ export function makeHero(personality: Personality, realName: string, competence 
     cash: 60,
     drunk: 0,
     satiety: 0,
+    hunger: 85,
+    sleep: 100,
     muscle: 3,
     reflex: 3,
     hack: 2,

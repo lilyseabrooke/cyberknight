@@ -77,6 +77,7 @@ export function heroPower(w: World, weapon: Item = wielded(w.hero), allies = tru
   for (const i of h.implants) p += IMPLANTS[i]?.power ?? 0;
   if (w.situation.weather === 'heatwave' && w.locations[h.locationId]?.outdoors) p -= 2;
   p -= Math.max(0, h.drunk - skillLevel(h, 'tolerance') * 0.4) * 1.2;
+  p -= h.needsFx?.power ?? 0; // an empty stomach and no sleep
   let mult = 1;
   if (hasInjury(w, 'broken_leg')) mult *= 0.75;
   if (hasInjury(w, 'cracked_ribs')) mult *= 0.85;
