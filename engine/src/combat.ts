@@ -122,8 +122,16 @@ export function gainXp(c: Ctx, amount: number): void {
   }
 }
 
+/**
+ * The people a bar's rules protect her from killing: its owner and its regular door muscle. A beating is all the house
+ * allows, unless she has set her mind on the real thing (a kill goal, not a lesson) and is swinging at exactly him.
+ */
+const marked = (w: World, f: Npc): boolean =>
+  (f.tags.includes('owner') || (!!f.authored && f.role === 'bouncer')) && w.mind.goals.some((g) => g.kind === 'kill' && g.mode === 'kill' && g.npc === f.id);
+
 export function isLethal(foes: Npc[], w: World): boolean {
   if (foes.length && foes.every((f) => f.tags.includes('nonlethal'))) return false;
+  if (foes.some((f) => marked(w, f))) return true;
   if (foes.some((f) => f.tags.some((t) => ['robot', 'cop', 'corp', 'boss'].includes(t)) && !f.tags.includes('nonlethal'))) return true;
   const kind = w.locations[w.hero.locationId]?.kind;
   return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home');

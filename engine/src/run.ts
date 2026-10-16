@@ -283,8 +283,8 @@ function ambient(c: Ctx): void {
   if (loc.id === 'halo_floor' && (w.heat.halo ?? 0) >= 4 && rng.chance(0.25)) {
     const heavy = heavyFor(w, loc.id);
     if (heavy) {
-      c.emit('banned', 'bad', { npc: heavy.name });
-      fight(c, [heavy], { cause: 'being banned from the Rusty Halo' });
+      c.emit('banned', 'bad', { npc: heavy.name, place: loc.name });
+      fight(c, [heavy], { cause: `being banned from ${loc.name}` });
       return;
     }
   }
@@ -303,7 +303,7 @@ function ambient(c: Ctx): void {
   if (loc.id === 'halo_floor' && !w.flags.raided && rng.chance(0.035)) {
     w.flags.raided = true;
     const squad = spawnGroup(c, 'npd_officer', 2);
-    c.emit('raid', 'bad', { crackdown: w.situation.crackdown });
+    c.emit('raid', 'bad', { crackdown: w.situation.crackdown, place: w.locations.halo_floor?.name ?? 'the Rusty Halo' });
     if (h.drunk >= 2 || rng.chance(0.4)) {
       fight(c, squad, { cause: 'a police raid', joiners: false });
     } else {

@@ -115,10 +115,10 @@ function aftermath(c: Ctx, locId: string): void {
     if (staff.length) {
       for (const s of staff) s.affinity -= 8;
       addHeat(w, 'halo', 1);
-      const dutch = w.npcs.dutch;
+      const dutch = here(w).find((n) => n.tags.includes('owner'));
       if (present(dutch, w) && rng.chance(0.22)) {
         c.emit('tag_owner', 'bad', { npc: dutch.name, place: loc.name });
-        fight(c, [dutch], { cause: 'tagging the Rusty Halo' });
+        fight(c, [dutch], { cause: `tagging ${loc.name}` });
       }
     }
   } else if (loc.kind === 'club') {

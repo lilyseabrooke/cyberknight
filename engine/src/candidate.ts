@@ -94,6 +94,7 @@ function memoryVariant(m: string): string {
   return 'generic';
 }
 
-export const dutchHere = (w: World): Npc | undefined => here(w).find((n) => n.id === 'dutch');
+/** Whoever owns the place she is standing in (Dutch, until somebody takes the Halo off his hands). */
+export const dutchHere = (w: World): Npc | undefined => here(w).find((n) => n.tags.includes('owner'));
 
 export { addHeat, fight, here, npcsAt, remember };

@@ -67,7 +67,7 @@ export interface Site {
 }
 
 export const SITES: Site[] = [
-  { loc: 'halo_backroom', feature: 'safe', value: 330, label: "the Rusty Halo's wall safe" },
+  { loc: 'halo_backroom', feature: 'safe', value: 330, label: 'the wall safe in the backroom' },
   { loc: 'helix_dock', feature: 'crates', value: 110, label: 'the Helix loading dock' },
   { loc: 'helix_lab', feature: 'vault', value: 450, label: 'the Helix prototype vault' },
 ];

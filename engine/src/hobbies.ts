@@ -145,8 +145,8 @@ function poolDate(c: Ctx, n: Npc): void {
 function grabCue(c: Ctx): void {
   const { w } = c;
   w.hero.inventory.push(makeItem('pool_cue'));
-  const dutch = w.npcs.dutch;
-  if (alive(dutch) && dutch.locationId === w.hero.locationId) {
+  const dutch = here(w).find((n) => n.tags.includes('owner'));
+  if (dutch) {
     dutch.affinity -= 5;
     addHeat(w, 'halo', 1);
   }

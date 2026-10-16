@@ -6,7 +6,7 @@ import { ensureBounties } from './bounty';
 import { CRACKDOWNS, createWorld, makeHero, type RunOptions } from './world';
 import { nextEvening } from './clock';
 import { AWAY, allNpcs, everyoneAt, moveNpc, removeNpc } from './population';
-import { HIRED } from './shutdown';
+import { HIRED, isSealed, reopenDue, stayShut } from './shutdown';
 import { settleAt } from './movement';
 import { populate } from './roster';
 import { seedFrontier } from './mapgen';
@@ -150,6 +150,7 @@ export function warringGangs(w: Pick<World, 'factions'>): [Id, Id] {
 
 /** What the morning after looks like to the people and places Blackbird left behind. */
 function wakeTheWorld(u: Universe): void {
+  reopenDue(u); // places whose owner is dead open again, once enough nights have gone by
   for (const id of Object.keys(u.npcs)) if (id.startsWith(HIRED)) removeNpc(u, id); // the night's temps go home
   for (const n of Object.values(u.npcs)) {
     if (!n.alive) continue;
@@ -157,14 +158,18 @@ function wakeTheWorld(u: Universe): void {
     n.hostile = false;
     n.downUntil = 0; // measured in beats, and the beats start over
     // People without a routine of their own go back to where they live.
-    if (!n.haunts && !n.routine && n.home && n.home !== n.locationId && u.locations[n.home]) moveNpc(u, n, n.home);
+    if (!n.haunts && !n.routine && n.home && n.home !== n.locationId && u.locations[n.home] && !isSealed(u, n.home)) moveNpc(u, n, n.home);
   }
   for (const l of Object.values(u.locations)) {
     l.visits = 0;
     delete l.doings;
-    delete l.shutUntil;
-    delete l.shutBy;
-    delete l.pendingShut;
+    // A night's closure ends with the night; a dead owner's doesn't.
+    if (l.sealed) stayShut(l);
+    else {
+      delete l.shutUntil;
+      delete l.shutBy;
+      delete l.pendingShut;
+    }
     delete l.fatigue;
     delete l.wary;
     l.graffiti = 0; // TODO: pieces should outlast the run once their effects are per-piece rather than a count

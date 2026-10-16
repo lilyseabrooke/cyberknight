@@ -671,9 +671,9 @@ const T: Record<string, Entry> = {
   'passion:ignite': e((d) => [`Something clicks. Blackbird feels it in the back of the throat and the soles of the feet: ${d.skill}. This is the thing. She is going to ${d.calling}.`, `The night rearranges around one idea. Blackbird decides, with feeling, to ${d.calling}.`], ['I was born for this. Possibly just now, but still.', 'There is a feeling you get when it starts working. This is it.']),
   'goal_new:passion': e((d) => [`New life goal, announced to nobody: ${d.calling}.`], ['Starting tonight.']),
   'ambush:atlas': e((d) => [`Black vans, matte-black armor, no insignia but the Atlas logo stitched on every sleeve. A Helix retrieval team (${d.count}) steps out of the dark.`], ['A real hero has real enemies. Welcome to my fan club.']),
-  banned: e((d) => [`${d.npc} blocks the door of the Rusty Halo. "You're banned." Blackbird\'s name has been on the wall since Tuesday.`], ["Banned? I've never even been..."]),
+  banned: e((d) => [`${d.npc} blocks the door of ${d.place ?? 'the Rusty Halo'}. "You're banned." Blackbird\'s name has been on the wall since Tuesday.`], ["Banned? I've never even been..."]),
   security_closes_in: e((d) => [`${d.npc} and the rest of Neon Pharaoh security close in around Blackbird, tapping stunners against their palms.`], ["I can hear them coming. Flattering."]),
-  raid: e((d) => [`NPD cruisers screech to a halt outside the Rusty Halo. A crackdown on ${d.crackdown} is on, and the cops want someone to be guilty of it.`], ["Surprise inspection? I love surprises."]),
+  raid: e((d) => [`NPD cruisers screech to a halt outside ${d.place ?? 'the Rusty Halo'}. A crackdown on ${d.crackdown} is on, and the cops want someone to be guilty of it.`], ["Surprise inspection? I love surprises."]),
   raid_fine: e((d) => [`The cops write a ticket for ${d.fine} neodollars and leave. Nobody asks what it was for.`], ['Tax on greatness. Again.']),
   mugging: e((d) => [`A shadow detaches from the wall. ${d.count === 1 ? 'A mugger steps' : 'Two muggers step'} out into the neon, knives out. "Your money or your life." Blackbird considers this a negotiation.`], ["They picked the wrong hero."]),
   'drone:spots': e((d) => [`${d.npc} locks on to Blackbird, red optic whirring. "UNAUTHORIZED GREATNESS DETECTED."`], ['Oh good. XP.']),
@@ -1083,6 +1083,10 @@ const T: Record<string, Entry> = {
     (d) => [d.inside ? `With ${d.npc} on the floor there is nobody to run ${d.place}. The staff stop pretending, the punters start for the exits, and someone with a key and a grudge shows Blackbird to the pavement. The shutters come down behind her.` : `Word gets round: ${d.place} has shut. With ${d.npc} out of the picture, nobody is pouring and nobody is paying, and the lights go off.`],
     ['I closed a bar. Forty years of history, and I did it before dinner.', 'In my defence, it was not a very good bar.'],
   ),
+  'shut_down:owner_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. Nobody in ${d.place} says so out loud. The staff drift out with their coats, the punters follow, and someone with a key shows Blackbird to the pavement. The shutters come down and stay down.` : `${d.place} has shut, and it is not the usual kind of shut. ${d.npc} is dead, the staff have gone to look for other work, and somebody has put a lock the size of a fist on the shutters.`],
+    ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
   'shut_down:clinic': e(
     (d) => [d.inside ? `With ${d.npc} out cold and nobody else qualified to hold a scalpel, ${d.place} locks up. The guards herd Blackbird to the door and the shutters come down on her heels.` : `${d.place} has shut. With ${d.npc} on the floor there is nobody left to hold the scalpel, and the guards have locked the door from the inside.`],
     ['Okay. Hitting the doctor. Sub-optimal. Noted.', 'Where do people go when the clinic is closed? Other clinics. Probably.'],
@@ -1413,10 +1417,10 @@ export function render(ev: GameEvent, ctx: RenderCtx): TextLine[] {
   const extra = { hero: 'Blackbird', real: ctx.realName };
   const rs = lines(entry.r, ev.data);
   if (rs.length) out.push({ voice: 'report', text: interp(ctx.rng.pick(rs), ev.data, extra) });
-  if (ev.type === 'go' && ev.data.first === true && typeof ev.data.toId === 'string' && BLURBS[ev.data.toId]) {
+  if (ev.type === 'go' && ev.data.first === true && typeof ev.data.blurb === 'string') {
+    out.push({ voice: 'report', text: ev.data.blurb }); // a place the city made up as she got there, or one that changed hands
+  } else if (ev.type === 'go' && ev.data.first === true && typeof ev.data.toId === 'string' && BLURBS[ev.data.toId]) {
     out.push({ voice: 'report', text: BLURBS[ev.data.toId]! });
-  } else if (ev.type === 'go' && ev.data.first === true && typeof ev.data.blurb === 'string') {
-    out.push({ voice: 'report', text: ev.data.blurb }); // a place the city made up as she got there
   }
   const alwaysThought = ['death', 'victory', 'level_up', 'depart', 'fight_end', 'dragon_confront'].includes(ev.type);
   const quirk = quirkFor(ev, ctx.personality);

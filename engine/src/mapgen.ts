@@ -458,6 +458,12 @@ function nameFor(rng: Rng, role: GenRole, district: District, parent: Location, 
   }
 }
 
+/** A name for a new bar or club, the way the city makes them up. */
+export const venueName = (rng: Rng, kind: 'bar' | 'club'): string => (kind === 'bar' ? `The ${pick(rng, BAR_ADJ)} ${pick(rng, BAR_NOUN)}` : pick(rng, CLUB_NAME));
+
+/** What she sees the first time she walks into it. */
+export const venueBlurb = (rng: Rng, kind: 'bar' | 'club', name: string): string => pick(rng, BLURB[kind]).replace('{name}', name);
+
 /** Is this place a district of the generated city (and how far out)? For tests and tooling. */
 export const generated = (loc: Location): boolean => !!loc.gen;
 export const allDistricts = (): District[] => [...DISTRICTS];
