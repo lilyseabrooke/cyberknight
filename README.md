@@ -18,6 +18,7 @@ npm run play -- neo-7 0.2     # watch one night in Neo: <seed> <competence 0..1>
 npm run sim -- 1000 0.1       # headless balance harness: <runs> <competence 0..1>
 npm run districts -- demo 6     # roll random districts (vector-described, not labelled): <seed> <count> [archetype]
 npm run gyms -- demo 6          # roll random gyms (variant x shell x traits x rooms): <seed> <count> [variant] [district]
+npm run pawns -- demo 6         # roll random pawn shops (variant x shell x traits x rooms): <seed> <count> [variant] [district]
 npm run coverage                # which skills/stats/drives each kind of place has something for (affordance registry)
 npm run analyze               # play lots of nights and report; --vs main compares with another version (docs/ANALYSIS.md)
 ```

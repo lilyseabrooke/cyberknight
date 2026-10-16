@@ -1,7 +1,7 @@
 # Location spec: Pawn Shop / Hock Den
 
-**Status:** DRAFT (becomes IMPLEMENTED when "What was built" is filled in). Everything is **PROPOSED** unless it is in
-"Decided". Numbers are starting points; they are not tuned (principle 2).
+**Status:** IMPLEMENTED (see "What was built" at the end for where the build differs). Everything is **PROPOSED** unless it
+is in "Decided". Numbers are starting points; they are not tuned (principle 2).
 
 ## 0. Decided
 
@@ -16,7 +16,7 @@
 
 | Principle | In practice |
 |---|---|
-| Maximalism | A pawn shop is rolled from independent axes: 10 variants × 12 shells × 5 sizes × 5 conditions × 5 tiers × ~40 traits × ~18 situations × 8 wild cards, plus 11 room kinds and ~45 features. Two shops rarely match. |
+| Maximalism | A pawn shop is rolled from independent axes: 10 variants × 12 shells × 5 sizes × 5 conditions × 5 tiers × ~40 traits × ~20 situations × 8 wild cards, plus 11 room kinds and ~45 features. Two shops rarely match. |
 | Unbalanced | The wild cards break rules on purpose (a broker who is always right, an item that comes back, a sting, a fire sale, a bottomless till). Prices and hold times are untuned. Nothing is clamped for fairness; the limits are the world's: the broker's till is finite, the shelf is finite, an item bought is gone. |
 | Multidimensional | Every skill, stat and drive has at least one row here (the coverage test). Rows have soft requirements and read the *same* odds machinery as the gym. Nothing says "thief" or "fighter". |
 
@@ -195,3 +195,49 @@ Run `npm run coverage` after building; list thin spots in "What was built".
    any owner).
 2. **Hocking a quest item** (PROPOSED: tagged items are refused with a line, not hidden).
 3. **Pawn rows at other places** (a back-street fence, the Halo) via the same kit: not in v1.
+
+## 14. What was built (and where it differs from the draft)
+
+Code: `content/pawns.ts` (variants, shells, traits, situations, wild cards, rooms, features, `rollPawn`, the price and
+shelf maths, `pawnRoster`), `content/pawnafford.ts` / `pawncrime.ts` / `pawnevents.ts` (the rows), `pawnkit.ts` (the view,
+the shelf, hock / buy back / buy / sell / lift / swap, `tickPawns`), `pawn.ts` (candidates, registration, `describePawn`),
+`placekit.ts` (lifted out of `gymkit.ts`, which now uses it), plus hooks in `mapgen.ts`, `roster.ts`, `combat.ts`,
+`bounty.ts`, `shutdown.ts`, `stage.ts`, `interactions.ts`, `run.ts`, `clock.ts`, `text.ts`, `grid.ts`, `types.ts`, and
+people and goods in `content/archetypes.ts` and `content/items.ts` (32 new items, 8 new people). Tooling: `npm run pawns`,
+`npm run coverage` (now with a pawn column). Tests: `pawn.test.ts` (30).
+
+What exists: 10 variants (14 names, 4 blurbs and 2 wall lines each), 12 shells, 5 sizes, 5 conditions, 5 tiers, 42 traits,
+20 situations, 8 wild cards, 11 room kinds, 54 features, and 109 rows (8 money, 34 craft and crowd, 27 stealth and
+crime, 22 situational, 8 wild, 10 variant-only). Every skill, stat and drive has at least one row (the coverage test).
+
+Differences from the draft:
+
+- **No tickets, as decided.** The shelf is the only state (`Location.shelf`), made the first time a shop is looked at, so
+  an old save simply grows one. There is no hero state and nothing in the status panel.
+- **Deals have a key family of their own** (`pawndeal:`): hock, buy back, buy, sell outright and the two sale rows. The AI
+  weighs a family by how many members it has, so the shop's own business was being crowded out by a menu of thirty
+  rows: before the change no run hocked anything; after it, most visits do. `affordances.ts` gained `pace: 'deal'` and an
+  optional per-row `appeal(w, v)` for desire that depends on what is in her pockets and on the shelf.
+- **A lift is hot to the shop**, as drafted, but the effect is small: a counter (`pawnhot:<id>`) trims what the shop pays
+  her afterwards by 20%. A failed lift or heist bars her (`pawnban:<id>`), as the gym's ban does.
+- **The wild cards are mostly modifiers** (price and till multipliers, a copy on the shelf, a cursed lot that re-lists
+  itself) plus one or two rows each; "the sting" is Atlas heat on every hock and a row to spot it.
+- **Hot goods** (tagged `corp`, `gang`, `dragon`, `hot`) are refused with Atlas heat at the Atlas franchise and at a
+  sting; fence fronts and gang drops pay 30% over for them; everyone else treats them as any other thing.
+- **Holds are counted in days.** At 3 minutes a beat a day is ~480 beats, so a hold of 2-14 days is long next to a test
+  run's 600 beats. In real play (no cap) she can come back for it; in a capped sim she rarely does.
+- **The till is topped up a little by traffic** (`tickPawns`), to a cap of 150nd a tier, so a shop she has drained
+  recovers slowly. A bottomless till is never drained and pays 1.5x.
+- **Added after the spec:** a pool table in the back parlour (so `pool` has something to do), a `drunk` result field in
+  `placekit.ts` (the bottle under the counter), and the `someone` / `{Item}` / `{dw}` text tokens (capitalisation and
+  plurals in prose).
+
+Numbers to watch when tuning (all deliberately unbalanced): offer fractions (`VARIANTS.*.offer`: 20-60% of an item's
+worth), daily interest (`rate`: 3-12%), hold and grace days, retail markup (1.4-2.2x), till caps (150nd a tier), the
+savant's double buy-back price, the fire sale's 30%, the bottomless till's 1.5x, and the strength of the hock and buy
+appeals in `pawnafford.ts` (`stash`, `appeal`).
+
+Still open: pawn rows at other places (a back-street fence, the Halo) through the same kit; a goal that sends her back for
+something she hocked (today she only redeems if she happens to be in the shop again); ticketed variants were ruled out;
+what happens to an item sold on (it simply leaves the world); the kill goal against a broker is handled by the generic
+owner rule rather than a row.
