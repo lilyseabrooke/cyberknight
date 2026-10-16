@@ -1,3 +1,4 @@
+import { tierOfDanger } from '../grade';
 import type { Rng } from '../rng';
 import type { CacheKind, District } from '../types';
 import type { GarrisonSlot, RoomDef } from './dungeons';
@@ -556,9 +557,9 @@ export function pickSpot(rng: Rng, district: District): SpotDef {
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
 
 /** How hard it is. Gentler than a building of the same depth, since it's one room. */
-export function rollSpotTier(rng: Rng, def: SpotDef, depth: number): number {
+export function rollSpotTier(rng: Rng, def: SpotDef, danger: number): number {
   const [lo, hi] = def.tiers ?? [1, 4];
-  return clamp(Math.round(1 + (depth - 1) * 0.4 + (rng.next() - 0.5) * 2.2), lo, hi);
+  return clamp(tierOfDanger(danger - 3 + (rng.next() - 0.5) * 8), lo, hi);
 }
 
 /** The room a spot is, for this garrisoning: one of its setups, picked by weight. */

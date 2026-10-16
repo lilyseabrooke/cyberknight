@@ -1,6 +1,7 @@
 import type { Rng } from '../rng';
 import type { CacheKind, District, DungeonKind, Hazards } from '../types';
 import { BARKS } from './hazards';
+import { tierOfDanger } from '../grade';
 
 /**
  * What dungeons are made of. Two kinds, both a building on a street with rooms of its own behind the door:
@@ -18,12 +19,12 @@ export const MAX_TIER = 5;
 
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
 
-/** How hard a new place is. Nearer the hand-built district is easier; the dice, and the district, move it a notch either way. */
-export function rollTier(rng: Rng, kind: DungeonKind, depth: number, district: District): number {
-  let t = 1 + (depth - 1) * 0.42 + (rng.next() - 0.5) * 2.3;
-  if (kind === 'outpost' && district === 'corporate') t += 0.5;
-  if (kind === 'hideout' && (district === 'slum' || district === 'tenement')) t -= 0.2;
-  return clamp(Math.round(t), 1, MAX_TIER);
+/** How hard a new place is: the tier of the danger around it, with the dice and the district moving it a notch either way. */
+export function rollTier(rng: Rng, kind: DungeonKind, danger: number, district: District): number {
+  let d = danger + (rng.next() - 0.5) * 8;
+  if (kind === 'outpost' && district === 'corporate') d += 4;
+  if (kind === 'hideout' && (district === 'slum' || district === 'tenement')) d -= 2;
+  return clamp(tierOfDanger(d), 1, MAX_TIER);
 }
 
 // ===================================================================== names
