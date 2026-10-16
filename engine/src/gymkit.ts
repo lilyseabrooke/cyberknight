@@ -1,15 +1,17 @@
 import type { Ctx, GymInfo, Hero, Id, Location, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, maybeInjure, npcsAt, remember } from './combat';
-import { spawnGroup } from './candidate';
 import { makeItem } from './content/items';
 import { FEATURES, VARIANTS, featuresIn, passPrice, situationAt, type SituationDef, type VariantDef } from './content/gyms';
-import { odds, skillLevel, synergy, train, type Part } from './skills';
+import { skillLevel, train } from './skills';
 import { SKILLS } from './content/skills';
 import { dayOf } from './clock';
 import { fameFrom, freshness } from './stage';
 import { tippable } from './bounty';
 import { isFairGame } from './people';
 import { everyoneAt } from './population';
+import { friendly, roomWhere, runCheckAs, sayAs, type Check, type Kit, type PlaceView, type Result } from './placekit';
+
+export { friendly, type Check, type Result };
 
 /**
  * Everything gym actions share: how to read the gym she is standing in, how to run a data-described check, and the
@@ -19,18 +21,9 @@ import { everyoneAt } from './population';
 
 // ===================================================================== reading a gym
 
-export interface GymView {
-  /** Where she is standing (the main floor or one of its rooms). */
-  loc: Location;
-  /** The gym itself. */
-  main: Location;
+export interface GymView extends PlaceView {
   info: GymInfo;
-  /** "floor", or the room id. */
-  room: string;
-  /** Features in this room. */
-  features: string[];
   sit?: { id: string; def: SituationDef };
-  people: Npc[];
   v: VariantDef;
   price: number;
 }
@@ -48,9 +41,6 @@ export function viewAt(w: World, at: Id = w.hero.locationId): GymView | undefine
   const sit = situationAt(w, main);
   return { loc, main, info, room, features: featuresIn(info, room), sit, people: npcsAt(w, loc.id), v, price: passPrice(info, sit?.def) };
 }
-
-/** Does this person actually work here, still on their feet and still friendly? */
-export const friendly = (n: Npc): boolean => n.alive && !n.hostile && n.affinity > -25;
 
 export type Who = 'owner' | 'trainer' | 'staff' | 'regular' | 'sparrer' | 'desk' | 'fair' | 'any' | 'none';
 export function find(v: GymView, who: Who | undefined, rng?: { pick<T>(xs: T[]): T }): Npc | undefined {
@@ -73,13 +63,7 @@ export function find(v: GymView, who: Who | undefined, rng?: { pick<T>(xs: T[]):
 }
 
 /** The room of this gym with this id, if it grew one. */
-export function roomOf(w: Pick<World, 'locations'>, main: Location, room: string): Location | undefined {
-  for (const e of main.exits) {
-    const l = w.locations[e.to];
-    if (l?.gymRoom?.room === room && l.gymRoom.main === main.id) return l;
-  }
-  return undefined;
-}
+export const roomOf = (w: Pick<World, 'locations'>, main: Location, room: string): Location | undefined => roomWhere(w, main, 'gymRoom', room);
 
 export const hasSituation = (v: GymView, tag: string): boolean => !!v.sit?.def.tags.includes(tag);
 
@@ -92,160 +76,30 @@ export function addSore(h: Hero, by: number): void {
 
 // ===================================================================== telling it
 
-const fmt = (s: string, tok: Record<string, string | number>): string =>
-  s
-    .replace(/\{(\w+)\}/g, (whole, k: string) => (tok[k] !== undefined ? String(tok[k]) : whole))
-    // "the owner" at the start of a sentence (when no one by name is there to be the owner).
-    .replace(/(^|[.!?]["']?\s+)the owner/g, (_m, pre: string) => `${pre}The owner`);
-
 /** One event for the whole gym layer: the text layer has a single entry that reads `text` and `thought`. */
 export function say(c: Ctx, id: string, outcome: 'good' | 'bad' | 'mixed', lines: readonly string[], thoughts: readonly string[] | undefined, tok: Record<string, string | number>, extra: Record<string, string | number | boolean> = {}): void {
-  const text = fmt(c.rng.pick([...lines]), tok);
-  const thought = thoughts?.length ? fmt(c.rng.pick([...thoughts]), tok) : '';
-  c.emit('gym', outcome, { variant: id, text, ...(thought ? { thought } : {}), ...extra });
+  sayAs('gym', c, id, outcome, lines, thoughts, tok, extra);
 }
 
 // ===================================================================== a data-described check
 
-export interface Result {
-  text: string[];
-  thought?: string[];
-  /** Cash she gets, rolled in this range (scaled by the situation's purse if `purse`). */
-  cash?: [number, number];
-  /** Where it comes from; absent means free money. Capped at what they have. */
-  from?: 'owner' | 'who';
-  purse?: boolean;
-  loseCash?: [number, number];
-  fame?: number;
-  train?: [string, number][];
-  xp?: number;
-  /** Positive heals, negative hurts (never kills). */
-  hp?: number;
-  sore?: number;
-  heat?: ['npd' | 'atlas' | 'gym' | 'turf', number];
-  warn?: [string, number];
-  affinity?: number;
-  item?: string;
-  buff?: { id: string; power: number; beats: number };
-  /** Set the cameras to this. */
-  cameras?: number;
-  /** Learn about a hidden bounty from the gossip. */
-  tip?: boolean;
-  /** A chance of an injury on top (the hit was hard). */
-  hurt?: number;
-  /** Fight `who` (she started it). */
-  fight?: boolean;
-  /** Fight temp thugs of this archetype instead. */
-  thugs?: [string, number];
-  /** Bump a counter in the world (lasting consequences without new fields). */
-  counter?: [string, number];
-  /** Free entry to this gym for this many days (a hacked pass, a way in nobody guards). */
-  passDays?: number;
-}
-
-export interface Check {
-  who?: Who;
-  parts: Part[];
-  base: number;
-  per: number;
-  lo?: number;
-  hi?: number;
-  /** Cash up front. */
-  pay?: number | [number, number];
-  /** Her body matters: soreness trims the odds. */
-  physical?: boolean;
-  /** Dark rooms help stealth. */
-  dark?: number;
-  win: Result;
-  lose: Result;
-}
-
-function applyResult(c: Ctx, v: GymView, r: Result, who: Npc | undefined, tok: Record<string, string | number>): void {
-  const { w, rng } = c;
-  const h = w.hero;
-  if (r.cash) {
-    let amt = rng.int(r.cash[0], r.cash[1]);
-    if (r.purse && v.sit?.def.purse) amt = Math.round(amt * v.sit.def.purse);
-    if (r.from) {
-      const src = r.from === 'owner' ? find(v, 'owner') ?? v.people.find((n) => n.tags.includes('owner')) : who;
-      if (src) {
-        amt = Math.min(amt, Math.max(0, Math.floor(src.cash)));
-        src.cash -= amt;
-      }
-    }
-    h.cash += amt;
-    tok.amount = amt;
-  }
-  if (r.loseCash) {
-    const amt = Math.min(h.cash, rng.int(r.loseCash[0], r.loseCash[1]));
-    h.cash -= amt;
-    tok.lost = amt;
-  }
-  if (r.fame) fameFrom(c, r.fame * (v.sit?.def.fame ?? 1), 'gym');
-  for (const [skill, xp] of r.train ?? []) if (skill in SKILLS) train(c, skill as keyof typeof SKILLS, xp);
-  if (r.xp) gainXp(c, r.xp);
-  if (r.hp) h.hp = Math.max(1, Math.min(h.maxHp, h.hp + r.hp));
-  if (r.sore) addSore(h, r.sore);
-  if (r.heat) addHeat(w, r.heat[0] === 'gym' ? v.main.faction ?? null : r.heat[0] === 'turf' ? v.main.territory ?? 'ganger' : r.heat[0], r.heat[1]);
-  if (r.warn) {
-    const m = (v.loc.wary ??= {});
-    m[r.warn[0]] = (m[r.warn[0]] ?? 0) + r.warn[1];
-  }
-  if (r.affinity && who) {
-    who.affinity += r.affinity;
-    if (r.affinity < -8) remember(who, 'was messed about by Blackbird at the gym');
-  }
-  if (r.item) {
-    const it = makeItem(r.item);
-    acquire(c, it);
-    tok.item = it.name;
-  }
-  if (r.buff) {
-    h.buffs = h.buffs.filter((b) => b.id !== r.buff!.id);
-    h.buffs.push({ id: r.buff.id, until: w.beat + r.buff.beats, power: r.buff.power });
-  }
-  if (r.cameras !== undefined) v.main.cameras = r.cameras;
-  if (r.passDays) w.counters[`gympass:${v.main.id}`] = Math.max(paidUntil(w, v.main), dayOf(w.clock) + r.passDays);
-  if (r.counter) w.counters[r.counter[0]] = (w.counters[r.counter[0]] ?? 0) + r.counter[1];
-  if (r.tip) {
-    const t = tippable(w, '');
-    const n = t.length ? rng.pick(t) : undefined;
-    if (n) (w.mind.bounties ??= {})[n.id] = 'tip';
-    tok.tip = n ? n.name : 'somebody not worth the paper';
-  }
-  if (r.hurt && rng.chance(r.hurt)) maybeInjure(c, h.maxHp * 0.2, 1);
-}
+const GYM_KIT: Kit<GymView> = {
+  event: 'gym',
+  name: 'gym',
+  fame: 'gym',
+  cause: 'a scene at the gym',
+  messed: 'was messed about by Blackbird at the gym',
+  find,
+  owner: (v) => v.people.find((n) => n.tags.includes('owner')),
+  trap: (v) => v.info.wild === 'trap_gym',
+  trapText: 'The rig was wired.',
+  extra: (c, v, r) => {
+    if (r.passDays) c.w.counters[`gympass:${v.main.id}`] = Math.max(paidUntil(c.w, v.main), dayOf(c.w.clock) + r.passDays);
+  },
+};
 
 /** Run a row described as data: pay, roll against her skills, apply a result, tell it, then any fight it starts. */
-export function runCheck(c: Ctx, v: GymView, id: string, k: Check): void {
-  const { w, rng } = c;
-  const h = w.hero;
-  const who = find(v, k.who, rng);
-  const tok: Record<string, string | number> = { gym: v.main.name, npc: who?.name ?? 'someone', place: v.loc.name, owner: find(v, 'owner')?.name ?? 'the owner' };
-  if (k.pay !== undefined) {
-    const p = typeof k.pay === 'number' ? k.pay : rng.int(k.pay[0], k.pay[1]);
-    if (h.cash < p) {
-      c.emit('gym', 'bad', { variant: `${id}.broke`, text: `Blackbird does not have the ${p}nd for it.` });
-      return;
-    }
-    h.cash -= p;
-    tok.pay = p;
-  }
-  let p = odds(k.base, k.per, synergy(h, k.parts), k.lo ?? 0.03, k.hi ?? 0.93);
-  if (k.physical) p -= soreOf(h) * 0.12;
-  if (k.dark && hasSituation(v, 'dark')) p += k.dark;
-  if (v.info.wild === 'trap_gym') p -= 0.1;
-  const win = rng.chance(Math.max(0.02, Math.min(0.97, p)));
-  const r = win ? k.win : k.lose;
-  applyResult(c, v, r, who, tok);
-  if (!win && v.info.wild === 'trap_gym') {
-    h.hp = Math.max(1, h.hp - 6);
-    tok.trap = 'The rig was wired.';
-  }
-  say(c, `${id}.${win ? 'win' : 'lose'}`, win ? 'good' : 'bad', r.text, r.thought, tok, { place: v.main.name, ...(who ? { npc: who.name } : {}) });
-  if (r.fight && who) fight(c, [who], { cause: 'a scene at the gym', assault: true });
-  else if (r.thugs) fight(c, spawnGroup(c, r.thugs[0], r.thugs[1]), { cause: 'a scene at the gym' });
-}
+export const runCheck = (c: Ctx, v: GymView, id: string, k: Check): void => runCheckAs(GYM_KIT, c, v, id, k);
 
 // ===================================================================== the day pass
 
