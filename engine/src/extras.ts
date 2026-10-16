@@ -9,6 +9,10 @@ import { spawnNpc } from './content/archetypes';
 import { fameFrom, tipScale } from './stage';
 import { addNpc, moveNpc } from './population';
 import { isFairGame } from './people';
+import { feed } from './rest';
+import { hungerOf } from './needs';
+import { hungerUrge } from './urges';
+import { FOOD } from './content/lodging';
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive && n.downUntil <= 1e9;
 const PIGEONS = ['Gerald', 'Beatrice', 'Sir Coos-a-Lot', 'Officer Feathers', 'Kevin'];
@@ -109,10 +113,10 @@ export function extraCandidates(w: World): Candidate[] {
   // ---- noodles
   const vendor = crowd.find((n) => n.archetype === 'noodler' || n.archetype === 'cook');
   if (vendor && h.cash >= 5) {
-    out.push({ key: 'buy_noodles', drives: { thirst: 0.2, curiosity: 0.15 }, bonus: 0.1, run: (c) => buyNoodles(c, vendor) });
+    out.push({ key: 'buy_noodles', drives: { thirst: 0.2, curiosity: 0.15 }, bonus: 0.1 + (noodles ? 0 : 0.6 * hungerUrge(h)), run: (c) => buyNoodles(c, vendor) });
   }
-  if (noodles && h.drunk >= 2) {
-    out.push({ key: 'eat_noodles', drives: {}, smart: 0.7, bonus: h.drunk * 0.15, run: eatNoodles });
+  if (noodles && (h.drunk >= 2 || hungerOf(h) <= 75)) {
+    out.push({ key: 'eat_noodles', drives: {}, smart: 0.7, bonus: h.drunk * 0.15 + 1.2 * hungerUrge(h), run: eatNoodles });
   }
 
   // ---- the tab
@@ -296,6 +300,7 @@ function eatNoodles(c: Ctx): void {
   const idx = h.inventory.findIndex((i) => i.id === 'noodles');
   if (idx >= 0) h.inventory.splice(idx, 1);
   h.drunk = Math.max(0, h.drunk - 1); // food sobers you up; it does not close wounds
+  feed(c.w, FOOD.noodles.gain);
   c.emit('eat_noodles', 'good', {});
 }
 

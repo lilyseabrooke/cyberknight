@@ -33,6 +33,10 @@ import {
   type GameEvent,
   type World,
   describeWeapon,
+  hungerOf,
+  sleepOf,
+  hungerTier,
+  sleepTier,
 } from '../engine/src';
 import Lab from './Lab';
 
@@ -95,6 +99,11 @@ interface Snapshot {
   implants: string[];
   goals: GoalView[];
   satiety: number;
+  /** Hunger and Sleep, 0..100 (full and rested at 100), and how bad each is. */
+  hunger: number;
+  sleep: number;
+  hungerTier: string;
+  sleepTier: string;
   /** Neodollars in her account, which outlives her. */
   account: number;
   /** What she has put in at drop points tonight, after their cut. */
@@ -118,7 +127,7 @@ const SPEEDS = [
 
 const HEAT_NAMES: Record<string, string> = { npd: 'Police', atlas: 'Atlas', halo: 'The Halo', club: 'Neon Pharaoh' };
 const heatName = (k: string) => HEAT_NAMES[k] ?? gangName(k);
-const DRAMA = new Set(['advice_ask', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout']);
+const DRAMA = new Set(['advice_ask', 'need', 'rest_incident', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout']);
 const MAX_LINES = 600;
 
 function snap(w: World): Snapshot {
@@ -157,6 +166,10 @@ function snap(w: World): Snapshot {
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
     goals: goalViews(w),
     satiety: h.satiety ?? 0,
+    hunger: hungerOf(h),
+    sleep: sleepOf(h),
+    hungerTier: hungerTier(hungerOf(h)),
+    sleepTier: sleepTier(sleepOf(h)),
     account: w.legacy.account,
     banked: w.stats.deposited,
     ask: w.mind.ask ? { id: w.mind.ask.id, question: w.mind.ask.question, options: w.mind.ask.options.map(({ id, label, hint }) => ({ id, label, hint })), left: Math.max(0, w.mind.ask.until - w.beat) } : null,
@@ -484,6 +497,8 @@ export default function NightViewer() {
           <aside className="panel" aria-label="Blackbird status">
             <Bar label="HP" value={status.hp} max={status.maxHp} kind="hp" />
             <Bar label={`LVL ${status.level}`} value={status.xp} max={status.xpNeed} kind="xp" />
+            <Bar label={status.hungerTier === 'fed' ? 'Hunger' : `Hunger · ${status.hungerTier}`} value={status.hunger} max={100} kind={`hunger ${status.hungerTier}`} />
+            <Bar label={status.sleepTier === 'rested' ? 'Sleep' : `Sleep · ${status.sleepTier}`} value={status.sleep} max={100} kind={`sleep ${status.sleepTier}`} />
             {status.goals.length > 0 && (
               <div className="goals">
                 <h3>On her mind</h3>

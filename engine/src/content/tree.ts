@@ -33,7 +33,27 @@ export type PerkId =
   /** Percent more healing out of med kits. */
   | 'heal'
   /** How much she thinks of the bank: raises the pull of a drop point and lowers what she'll bother depositing. */
-  | 'bank';
+  | 'bank'
+  /** Percent slower hunger. */
+  | 'hungerSlow'
+  /** Percent slower tiredness. */
+  | 'sleepSlow'
+  /** Percent faster sleep: the same rest in fewer than eight hours. */
+  | 'sleepFast'
+  /** Percent of the shortfall in a poor night's sleep that she makes up anyway. */
+  | 'restQuality'
+  /** Percent off what hunger takes out of her. */
+  | 'hungerSoft'
+  /** Percent off what tiredness takes out of her. */
+  | 'sleepSoft'
+  /** Percent more hunger out of every meal. */
+  | 'foodValue'
+  /** Percent chance a thief or an intruder wakes her (and finds her awake) instead of getting away with it. */
+  | 'lightSleeper'
+  /** Percent off a bed for the night. */
+  | 'lodging'
+  /** Percent more rest out of passing out. */
+  | 'faintRest';
 
 export type Fx =
   | { stat: StatId; n: number }
@@ -184,6 +204,20 @@ chain(chassis, 'plating', 'Plating', [], [
   { name: 'Helix Subdermal Plating', blurb: 'Corp tech under her skin. The warranty is an unmarked van.', cost: 3200, fx: [{ armor: 'corp_plate' }] },
 ]);
 
+chain(chassis, 'gut', 'Metabolism', [], [
+  { name: 'Efficient Gut', blurb: 'Gets every last calorie out of a mystery-meat noodle. Resents it.', cost: 80, max: 5, step: 1.5, fx: [{ perk: 'hungerSlow', n: 6 }] },
+  { name: 'Fat Reserve Graft', blurb: 'A small, discreet pouch of lipids, for later. Do not ask where.', cost: 380, max: 4, step: 1.6, fx: [{ perk: 'hungerSlow', n: 7 }] },
+  { name: 'Nutrient Recycler', blurb: 'Whatever goes in, goes further. Whatever comes out is also, technically, a meal.', cost: 700, max: 4, step: 1.6, fx: [{ perk: 'foodValue', n: 10 }] },
+  { name: 'Photosynthetic Skin', blurb: 'Neon counts. Neon absolutely counts.', cost: 2200, max: 2, step: 1.8, fx: [{ perk: 'hungerSlow', n: 10 }, { perk: 'foodValue', n: 10 }] },
+]);
+
+chain(chassis, 'rest', 'Rest', [], [
+  { name: 'Low-Power Mode', blurb: 'Eyes open, nobody home. Technically still on.', cost: 90, max: 5, step: 1.5, fx: [{ perk: 'sleepSlow', n: 6 }] },
+  { name: 'Orthopedic Spine', blurb: 'Memory foam between the vertebrae. She has slept on a pod floor once and will not discuss it.', cost: 340, max: 4, step: 1.6, fx: [{ perk: 'restQuality', n: 12 }] },
+  { name: 'Twilight Sleep Module', blurb: 'Eight hours of rest, compressed. The other hours are hers.', cost: 800, max: 4, step: 1.7, fx: [{ perk: 'sleepFast', n: 12 }] },
+  { name: 'Half-Brain Sleep', blurb: 'One hemisphere naps. The other keeps an ear on the door.', cost: 1600, max: 3, step: 1.7, fx: [{ perk: 'lightSleeper', n: 25 }, { perk: 'sleepSlow', n: 5 }] },
+]);
+
 shelf(chassis, 'grafts', 'Black-market chrome', ['frame.1'], [
   { name: 'Third Thumb', blurb: 'Better grip, better hacking. Handshakes are awkward.', cost: 150, fx: [{ implant: 'third_thumb' }] },
   { name: 'Neon Liver', blurb: 'Filters anything. Glows through her shirt.', cost: 200, fx: [{ implant: 'neon_liver' }] },
@@ -246,6 +280,12 @@ shelf(firmware, 'lean', 'Lean into it', ['mind.1'], [
   { name: 'Agent of Chaos', blurb: 'Knows exactly which button not to press.', cost: 60, max: 4, fx: [{ trait: 'mischief', n: 0.05 }] },
 ]);
 
+shelf(firmware, 'stoic', 'Discomfort management', ['mind.1'], [
+  { name: 'Hunger Is a Rumor', blurb: 'The stomach files a complaint. The firmware files it under "later".', cost: 150, max: 5, step: 1.5, fx: [{ perk: 'hungerSoft', n: 12 }] },
+  { name: 'Caffeine, Directly', blurb: 'A drip, behind the ear. Do not look at the label.', cost: 150, max: 5, step: 1.5, fx: [{ perk: 'sleepSoft', n: 12 }] },
+  { name: 'Graceful Collapse', blurb: 'When it finally hits, she goes down onto something soft. Mostly.', cost: 260, max: 4, step: 1.5, fx: [{ perk: 'faintRest', n: 25 }] },
+]);
+
 shelf(firmware, 'hero', 'Hero complex', ['mind.4', 'learning.2'], [
   { name: 'Hero Protocol', blurb: 'She is the hero. She has decided. It is going rather well.', cost: 7500, fx: [{ comp: 0.1 }, { perk: 'xp', n: 25 }, { grow: 'all', pct: 25 }] },
 ]);
@@ -272,6 +312,11 @@ chain(treasury, 'habit', 'Saving habit', [], [
   { name: 'Piggy Instinct', blurb: 'She spots a drop point and feels a faint, alien urge.', cost: 70, max: 4, fx: [{ perk: 'bank', n: 1 }] },
   { name: 'Paranoid Accountant', blurb: 'It\'s not safe in her pocket. It was never safe in her pocket.', cost: 280, max: 4, fx: [{ perk: 'bank', n: 1 }] },
   { name: 'Tithe Reflex', blurb: 'The moment she has a decent pile, her feet start toward a drop point.', cost: 800, max: 3, fx: [{ perk: 'bank', n: 2 }] },
+]);
+
+chain(treasury, 'beds', 'Lodging', [], [
+  { name: 'Frequent Sleeper Card', blurb: 'Nine nights, the tenth is a pillow mint.', cost: 90, max: 4, step: 1.6, fx: [{ perk: 'lodging', n: 8 }] },
+  { name: 'Corporate Housing Rate', blurb: 'The lab has a block booking. The lab has never once used it.', cost: 700, max: 3, step: 1.7, fx: [{ perk: 'lodging', n: 10 }] },
 ]);
 
 chain(treasury, 'estate', 'Estate', ['fees.1'], [
@@ -513,5 +558,15 @@ export function describeFx(fx: Fx, itemName: (id: string) => string, implantName
     case 'xp': return `+${fx.n}% XP`;
     case 'heal': return `med kits heal ${fx.n}% more`;
     case 'bank': return fx.n > 1 ? `much keener on drop points` : 'keener on drop points';
+    case 'hungerSlow': return `hunger ${fx.n}% slower`;
+    case 'sleepSlow': return `tiredness ${fx.n}% slower`;
+    case 'sleepFast': return `sleeps ${fx.n}% faster (fewer hours for the same rest)`;
+    case 'restQuality': return `makes up ${fx.n}% of what a poor bed costs her`;
+    case 'hungerSoft': return `hunger bites ${fx.n}% less`;
+    case 'sleepSoft': return `tiredness bites ${fx.n}% less`;
+    case 'foodValue': return `meals feed ${fx.n}% more`;
+    case 'lightSleeper': return `${fx.n}% chance a thief or intruder wakes her first`;
+    case 'lodging': return `${fx.n}% off a bed for the night`;
+    case 'faintRest': return `passing out restores ${fx.n}% more`;
   }
 }
