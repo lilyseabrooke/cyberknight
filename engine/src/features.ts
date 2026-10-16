@@ -12,6 +12,8 @@ import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './cand
 import { heavyFor } from './shutdown';
 import { fameFrom, tipScale } from './stage';
 import { moveNpc, renameNpc } from './population';
+import { feed } from './rest';
+import { FOOD } from './content/lodging';
 
 const present = (w: World, id: string): boolean => !!w.npcs[id]?.alive && w.npcs[id]!.locationId === w.hero.locationId;
 
@@ -178,6 +180,7 @@ function fridge(c: Ctx): void {
     c.emit('fridge', 'bad', { variant: 'poison' });
   } else {
     h.drunk = Math.max(0, h.drunk - 1);
+    feed(w, FOOD.snack.gain);
     c.emit('fridge', 'good', { variant: 'snack' });
   }
 }
@@ -292,6 +295,7 @@ function vending(c: Ctx): void {
   const h = w.hero;
   const roll = rng.next();
   if (roll < 0.4) {
+    feed(w, FOOD.snack.gain);
     c.emit('vending', 'good', { variant: 'snack' });
   } else if (roll < 0.6) {
     const cash = rng.int(10, 60);

@@ -30,6 +30,7 @@ export const ACTION_MINUTES: Record<string, number> = {
   odd_jobs: 90, odd_request: 30, security_shift: 120, bodyguard_gig: 120, tend_bar: 90, courier_run: 45, take_contract: 15,
   lay_low: 120, hide_flight: 45, get_patched: 30, use_med_pack: 10, patch_up: 20,
   burgle_home: 25, burgle_flat: 25, rob_paint_shop: 20, pickpocket: 10, scam_mark: 20, sell_fake_goods: 20, hack: 20, jack: 20,
+  eat_stall: 15, eat_bagel: 8, eat_plate: 25, scrounge: 20,
   raid_loot: 40, raid_ambush: 30, graffiti: 25, tail: 30, hunt_drone: 30, fence: 10, implant: 60,
   gym: 35, gymfight: 15, gymquick: 6,
   pawn: 30, pawnfight: 15, pawnquick: 6, pawndeal: 20,
@@ -95,5 +96,9 @@ export function offlineMinutes(realMs: number): number {
 export function catchUp(w: World, realMs: number): number {
   const minutes = offlineMinutes(realMs);
   elapse(w, minutes);
+  // She doesn't get hungry or tired while the game is closed.
+  // (Between runs there is no hero, only a world, and nothing to protect.)
+  const h = (w as Partial<World>).hero;
+  if (h?.needsAt !== undefined) h.needsAt += minutes;
   return minutes;
 }

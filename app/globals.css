@@ -72,6 +72,13 @@ dd.bad { color: var(--bad); }
 .fill.hp { background: #c2185b; }
 .fill.xp { background: #4527a0; }
 .fill.heat { background: #b36b00; }
+.fill.hunger { background: #2e7d32; }
+.fill.hunger.hungry, .fill.sleep.tired { filter: saturate(0.85); }
+.fill.hunger.famished { background: #9e9d24; }
+.fill.hunger.starving, .fill.hunger.wasting { background: #bf360c; }
+.fill.sleep { background: #1565c0; }
+.fill.sleep.exhausted { background: #6a4fb3; }
+.fill.sleep.spent { background: #8e24aa; }
 .barlabel, .barval { position: relative; z-index: 1; padding: 0 6px; line-height: 18px; }
 .barval { float: right; }
 .dev { font-size: 12px; color: var(--muted); }

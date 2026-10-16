@@ -8,6 +8,10 @@ import { kindle } from './romance';
 import { bondEvent } from './bonds';
 import { isFairGame } from './people';
 import { fameFrom, tipScale } from './stage';
+import { feed } from './rest';
+import { hungerOf } from './needs';
+import { hungerUrge } from './urges';
+import { FOOD } from './content/lodging';
 
 /**
  * Every skill formula in one place: baseline luck + a bonus per point of synergy, where synergy is the weighted
@@ -77,8 +81,8 @@ export function hobbyCandidates(w: World): Candidate[] {
     out.push({ key: 'cook', drives: { curiosity: 0.55, pride: 0.5, thirst: 0.1 }, risk: barred ? 1.8 : 0.3, run: cook });
   }
   const dish = owns('dish');
-  if (dish && h.hp < h.maxHp * 0.85) {
-    out.push({ key: 'eat_dish', drives: {}, smart: 0.8, bonus: (1 - h.hp / h.maxHp) * 1.2, run: eatDish });
+  if (dish && (h.hp < h.maxHp * 0.85 || hungerOf(h) <= 70)) {
+    out.push({ key: 'eat_dish', drives: {}, smart: 0.8, bonus: (1 - h.hp / h.maxHp) * 1.2 + 1.2 * hungerUrge(h), run: eatDish });
   }
   if (dish) {
     for (const n of crowd.filter((x) => isFairGame(x) && !x.hostile)) {
@@ -304,6 +308,7 @@ function eatDish(c: Ctx): void {
   if (i >= 0) h.inventory.splice(i, 1);
   h.buffs = h.buffs.filter((b) => b.id !== 'fed');
   h.buffs.push({ id: 'fed', until: c.w.beat + 25, power: 2 });
+  feed(c.w, FOOD.dish.gain);
   c.emit('eat_dish', 'good', {});
 }
 

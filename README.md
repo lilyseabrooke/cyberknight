@@ -23,7 +23,7 @@ npm run coverage                # which skills/stats/drives each kind of place h
 npm run analyze               # play lots of nights and report; --vs main compares with another version (docs/ANALYSIS.md)
 ```
 
-The loop: Blackbird goes out, banks money at drop points around Neo, dies, and is rebuilt in the lab (a separate screen), where whatever made it into her account buys upgrades from a large set of skill trees. The browser keeps the save between visits.
+The loop: Blackbird goes out, banks money at drop points around Neo, dies, and is rebuilt in the lab (a separate screen), where whatever made it into her account buys upgrades from a large set of skill trees. Along the way she has to eat and sleep: Hunger and Sleep run down with the in-game clock, she buys food and beds (or sleeps rough, and takes her chances), and the lab sells upgrades for both (`engine/src/needs.ts`, `engine/src/rest.ts`; see `docs/DESIGN.md`). The browser keeps the save between visits.
 
 Neo is built as she explores: the Rusty Halo district is hand-made, and everything past it is generated when she first gets there and kept in the save (`engine/src/mapgen.ts`). Some of what's out there is a dungeon: an Atlas outpost or a ganger hideout, with rooms, a garrison, traps and spoils at a difficulty of its own, which she raids on her own initiative and which fills up again a couple of runs after it's cleared (`engine/src/dungeons.ts`).
 

@@ -101,6 +101,18 @@ export interface Hero {
   satiety?: number;
   /** 0..1. How worked over her body is from training. Trims her in a fight and makes injuries likelier; a sauna or a physio helps. See gym.ts. */
   sore?: number;
+  /** 0..100, full to empty. Falls slowly with world time; eating refills it; at zero she starves. Absent (an older save) means full. See needs.ts. */
+  hunger?: number;
+  /** 0..100, rested to wrecked. Falls with world time while she is awake; sleeping refills it; at zero she passes out. Absent means rested. See needs.ts. */
+  sleep?: number;
+  /** The world minute her hunger and sleep were last brought up to date. */
+  needsAt?: number;
+  /** What hunger and tiredness are taking off her right now: power in a fight, and points off each stat (already deducted from the stat itself). See needs.ts. */
+  needsFx?: { power: number; muscle: number; reflex: number; hack: number; charm: number };
+  /** The tier each meter was last announced at, so a slide down the bar is remarked on once per step. */
+  needTier?: { hunger: string; sleep: string };
+  /** Stacks of lingering tiredness from poor beds: poor nights add them, good ones take them off, and they don't wear off with time. See needs.ts. */
+  sleepDebt?: number;
   muscle: number;
   reflex: number;
   hack: number;

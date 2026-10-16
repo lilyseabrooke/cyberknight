@@ -1472,6 +1472,176 @@ const T: Record<string, Entry> = {
     (d) => [`The job for ${d.npc} is spoiled for tonight. Blackbird shrugs it off and leaves it for another night. The pay is still on the table, which is something.`],
     ['A bad night for work. There will be others.', 'Not my fault. Systems fail. Things break. I was nearby.'],
   ),
+
+  // ---- sleep and hunger (rest.ts)
+  'sleep:pod': e(
+    (d) => [`Blackbird feeds ${d.cost}nd into ${d.name} and folds herself into a capsule the size of a filing drawer. The lid hums shut. ${d.hours} hours.`, `${cap(String(d.name))}: ${d.cost}nd, a drawer in a wall and a lid that seals with a sigh. Blackbird goes in feet first.`],
+    ['It is a coffin with Wi-Fi. I love it.', 'Claustrophobia is just a feeling. I do not have feelings before noon.'],
+  ),
+  'sleep:hostel': e(
+    (d) => [`A bunk in ${d.name}: ${d.cost}nd, a thin blanket and a dozen strangers breathing out of sync. Blackbird sleeps with one boot on and her wallet in her fist.`, `${cap(String(d.name))} sells Blackbird a bunk for ${d.cost}nd. The mattress has a history. She lies down on top of it.`],
+    ['If anyone touches my wallet I will wake up. Probably.', 'Roommates. Cozy. Suspicious. Cozy.'],
+  ),
+  'sleep:hotel': e(
+    (d) => [`${cap(String(d.name))} gives Blackbird a room, a door that locks itself and a bed with more pillows than she has opinions. ${d.cost}nd. She is out before the lights finish dimming.`, `${d.cost}nd buys Blackbird a room at ${d.name}: clean sheets, blackout glass, a lock that logs everyone who touches it. She does not touch the minibar. Much.`],
+    ['This is what winning feels like.', 'So this is what the corpos have been hiding from us.'],
+  ),
+  'sleep:street': e(
+    (d) => [`Blackbird picks a patch of ${d.place}, drags her jacket over her face and lies down on the pavement. The city goes on around her.`, `No bed she can afford, so ${d.place} will have to do. Blackbird lies down on the concrete with her hand on her pocket.`],
+    ['Nobody sleeps on the street on purpose. Which is why nobody will look.', 'Home sweet pavement.'],
+  ),
+  'sleep:rough': e(
+    (d) => [`Blackbird finds a corner of ${d.place} where nobody ought to look, curls around her gear and closes her eyes.`, `A quiet corner in ${d.place}, a wall to put her back to and a jacket for a pillow. Blackbird lets go of the night.`],
+    ['A professional picks the spot with the fewest witnesses. This is that spot. Probably.', 'Best bed in the city, and nobody else knows.'],
+  ),
+  'sleep:faint': e(
+    (d) => [`Blackbird's body makes the call without consulting her. She sits down in ${d.place} for a second. She does not get up.`, `Somewhere behind Blackbird's eyes, a fuse goes. She drops where she stands, in ${d.place}, and is gone.`],
+    ['I closed my eyes. For tactical reasons.', "I wasn't asleep. I was thinking, horizontally."],
+  ),
+
+  'wake:rested': e(
+    (d) => [Number(d.quality) >= 80 ? `Blackbird wakes after ${d.hours} hours feeling almost like a person. Sleep: ${d.sleep}.` : `Blackbird wakes after ${d.hours} hours, stiff, sore and not convinced that counted. Sleep: ${d.sleep}.`],
+    ['Slept like the dead. Not literally.', 'Who needs sleep? I clearly do.'],
+  ),
+  'wake:hunger': e(
+    (d) => [`Blackbird's stomach wakes her after ${d.hours} hours, loudly and with feeling. Sleep: ${d.sleep}.`],
+    ['Even my organs have opinions.', 'Breakfast. Now. Possibly of a person.'],
+  ),
+  'wake:woken': e(
+    (d) => [`Blackbird is awake. The night's rest was cut to ${d.hours} hours. Sleep: ${d.sleep}.`],
+    ['I was resting my eyes.', 'It is fine. I do not need the other half of the night.'],
+  ),
+  'wake:jail': e(
+    (d) => [`Blackbird is let out of a holding cell onto ${d.to}, ${d.hours} hours and ${d.fine}nd lighter. The bunk was a bench with ambitions. Sleep: ${d.sleep}.`],
+    ['Free bed. Expensive free bed.', 'I have slept in worse. I have not been charged for it.'],
+  ),
+  'wake:captured': e(
+    (d) => [`Atlas puts Blackbird down on ${d.to} like a parcel nobody signed for. ${d.hours} hours gone, ${d.fine}nd gone, and whatever they gave her to sleep still in her blood. Sleep: ${d.sleep}.`],
+    ['Never. Telling. Anyone.', 'They were very polite about it. That is the worst part.'],
+  ),
+
+  'eat:stall': e(
+    (d) => [`Blackbird buys something on a stick from ${d.cook} for ${d.cost}nd. It is hot, salty and structurally unsound. Hunger +${d.gain}.`, `${cap(String(d.cook))} hands Blackbird a paper bowl for ${d.cost}nd. She eats standing up, the way the street likes it. Hunger +${d.gain}.`],
+    ['Did not ask what it was. Did not need to.', 'Eight nd. Best meal I have had in at least a day.'],
+  ),
+  'eat:bagel': e(
+    (d) => [`Blackbird picks up a bagel at ${d.cook}, between the rifles. ${d.cost}nd. Hunger +${d.gain}.`],
+    ['Best bagel I have ever had near a rocket launcher.', 'The gunsmith does the bagels himself. I have never asked why.'],
+  ),
+  'eat:plate': e(
+    (d) => [`${cap(String(d.cook))} slides Blackbird a plate of something brown and warm for ${d.cost}nd. Hunger +${d.gain}.`],
+    ['Proper food. With a fork.', 'Warm. Brown. Mine.'],
+  ),
+  'eat:scraps': e(
+    (d) => [`Broke and hungry, Blackbird goes through the bins at ${d.place} and comes up with something that was probably food. Hunger +${d.gain}.`],
+    ['Dumpster diving is a lifestyle. Mine, tonight.', 'I have eaten worse. Not much worse.'],
+  ),
+  'eat:scraps_sick': e(
+    (d) => [`Blackbird eats something from a bin at ${d.place}. It fights back. She keeps about half of it down. Hunger +${d.gain}, and a very bad hour.`],
+    ['That was not food. That was a dare.', 'Note to self: the green bit was not seasoning.'],
+  ),
+
+  'rest_incident:robbed_bed': e(
+    (d) => [`Somebody's hand finds Blackbird's pockets in the dark at ${d.place}. She sleeps through all of it. ${d.lost}nd is gone by morning.`],
+    ['The wallet was right there. In my hand. I think I gave it to them.', 'A hostel. Of course.'],
+  ),
+  'rest_incident:robbed': e(
+    (d) => [`${cap(String(d.who))} sees a girl asleep on the ground and an unguarded pocket, and does the arithmetic. ${d.lost}nd leaves with them. Blackbird does not stir.`],
+    ['They took what they could carry. I respect the work ethic.', 'I would have given them the change. Probably.'],
+  ),
+  'rest_incident:kind': e(
+    (d) => [`${cap(String(d.who))} stops, looks at Blackbird, and lays a jacket over her. Then they walk on without a word.`, `${cap(String(d.who))} leaves a bottle of water by Blackbird's head and, quietly, goes.`],
+    ['The city is not entirely terrible. Do not tell anyone I said that.', 'A stranger gave me a jacket. I am going to cry about it later.'],
+  ),
+  'rest_incident:shaken': e(
+    (d) => [`${cap(String(d.who))} wakes Blackbird with a boot-toe and a speech about loitering. She is moved along.`],
+    ['I was not loitering. I was asleep. Different thing.', 'Rude.'],
+  ),
+  'rest_incident:thief_scared': e(
+    (d) => [`A hand slides toward Blackbird's pocket. She is awake before it arrives. ${cap(String(d.who))} discovers urgent business elsewhere.`],
+    ['One eye open. Always one eye open.', 'Nice try. I am a light sleeper.'],
+  ),
+  'rest_incident:caught_thief': e(
+    () => ["Blackbird wakes with a stranger's hand in her jacket. She does not take it well."],
+    ['Wrong pocket.', 'Come here.'],
+  ),
+  'rest_incident:reported': e(
+    (d) => [`${cap(String(d.who))} takes one look at the girl asleep on the ground and reaches for a phone. Sleeping rough is illegal in Neo, and the NPD take it very seriously.`],
+    ['Squealer.', 'I was not sleeping rough. I was sleeping outside. Legally distinct.'],
+  ),
+  'rest_incident:cop': e(
+    (d) => [`A boot nudges Blackbird's ribs. ${cap(String(d.who))}, ${d.role}, and a badge. "Sleeping rough is a crime, citizen."`],
+    ['Technically I am resting my eyes in a public place.', 'Of all the places for a cop to be at 4 a.m. Why.'],
+  ),
+  'rest_incident:arrested': e(
+    (d) => [`${cap(String(d.by))} puts Blackbird in the back of a van. Fine: ${d.fine}nd. The NPD have a policy on sleeping rough, and the policy is a cell.`],
+    ['Free bed. Expensive free bed.', 'You are welcome, taxpayers.'],
+  ),
+  'rest_incident:captured': e(
+    (d) => [`Blackbird wakes in zip-ties in the back of an Atlas van. They take ${d.fine}nd for "processing". Nobody says processing what.`],
+    ['That is a very small van for this many problems.'],
+  ),
+  'rest_incident:attacked_npd': e(
+    (d) => [`Boots. Blackbird wakes to ${d.count} NPD officers standing over her, and ${d.foe} has already swung. She is not at her best.`],
+    ['I am awake! I am so awake!', 'Bad time. Bad, bad time.'],
+  ),
+  'rest_incident:attacked_atlas': e(
+    (d) => [`A flash of white and a retrieval team standing on the shoulders of the night. ${cap(String(d.foe))} and company have found Blackbird asleep, and they are not here to talk.`],
+    ['Atlas. Of course. They never miss a nap.'],
+  ),
+  'rest_incident:attacked_gang': e(
+    (d) => [`Blackbird wakes to ${d.count} faces she does not like, and ${d.foe} already has a hand on her jacket.`],
+    ['This was not in the pamphlet for sleeping in a hideout.'],
+  ),
+  'rest_incident:faint': e(
+    (d) => [`Blackbird's knees stop taking instructions in ${d.place}. The floor comes up to meet her.`, `The world tips a few degrees in ${d.place}, and Blackbird goes with it.`],
+    ['I am fine. I am just looking at the floor, very closely.', 'Nobody saw that. It was a dramatic kneel.'],
+  ),
+  'rest_incident:dumped': e(
+    (d) => [`The staff at ${d.place} are not paid to let girls sleep on the floor. They carry Blackbird out and set her down at ${d.to}.`],
+    ['A poor review. One star. For the floor.'],
+  ),
+
+  'need:hunger_hungry': e(
+    (d) => [`Blackbird's stomach files a polite complaint. Hunger: ${d.level}.`, `Something in Blackbird's middle is making a noise like a drone with a grudge. Hunger: ${d.level}.`],
+    ['I have been meaning to eat. I have been meaning to for a while.', 'A snack is a strategic decision.'],
+  ),
+  'need:hunger_famished': e(
+    (d) => [`Blackbird's hands have begun to shake a little. She is famished. Hunger: ${d.level}. Everything she does is a bit harder.`],
+    ['Eat. Eat soon. Eat everything.', 'This is fine. This is the diet.'],
+  ),
+  'need:hunger_starving': e(
+    (d) => [`Blackbird is starving. Everything smells like food, including the things that are not food. Hunger: ${d.level}.`],
+    ['I could eat a dragon. A small one.', 'Is that a dumpster, or is that lunch.'],
+  ),
+  'need:hunger_wasting': e(
+    (d) => [`The edges of the world have gone soft. Blackbird is wasting away. Hunger: ${d.level}. She will not last much longer without a meal.`],
+    ['Not like this. Not by hunger. I have a reputation.', 'Okay. Okay. Food. Now.'],
+  ),
+  'need:sleep_tired': e(
+    (d) => [`Blackbird yawns, and then yawns at the yawn. Sleep: ${d.level}.`],
+    ['I am not tired. I am conserving energy.', 'Five more minutes. Of everything.'],
+  ),
+  'need:sleep_exhausted': e(
+    (d) => [`Her eyelids are filing a grievance. Sleep: ${d.level}. Blackbird is slower, and she knows it.`],
+    ['A bed would be a good idea. Somebody should have one.', 'Sleep is just a rumor spread by people with jobs.'],
+  ),
+  'need:sleep_spent': e(
+    (d) => [`Blackbird is running on spite. Sleep: ${d.level}. Any minute now, her body takes the decision out of her hands.`],
+    ['I am awake. I am extremely awake. Why is the floor so close.', 'Do not blink. Do not blink. Do not blink.'],
+  ),
+  'sleep_debt:up': e(
+    (d) => [`The bed did not do the job. Blackbird carries it with her: sleep debt ${d.stacks}. Only a good bed will clear it.`, `Something in Blackbird's neck has decided that last night was not sleep. Sleep debt ${d.stacks}, and it does not fade on its own.`],
+    ['I am fine. I am only a little bit made of gravel.', 'I will catch up on it later. Everyone says that.'],
+  ),
+  'sleep_debt:down': e(
+    (d) => [d.stacks ? `A proper bed helps. Blackbird sheds some of the weight she has been carrying. Sleep debt ${d.stacks}.` : 'A proper bed, finally. The last of the sleep debt goes out of Blackbird like a held breath.'],
+    ['Oh, THAT is what it is supposed to feel like.', 'Do not tell the pods I said this.'],
+  ),
+  'death:starved': e(
+    (d) => [`Blackbird is dead. Level ${d.level}. ${d.place}. Cause: starvation. She just kept putting it off.`, `Blackbird flatlines in ${d.place}, level ${d.level}. The report says "starvation", which is the worst thing it could say about a girl with money in her pocket.`],
+    ['I was going to eat. I had a plan.', "Apparently 'later' was a bad plan."],
+  ),
 };
 
 /** Thoughts that surface when a trait is turned up high (>= QUIRK_AT), keyed by event type. */

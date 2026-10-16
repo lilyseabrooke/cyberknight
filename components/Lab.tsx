@@ -11,6 +11,9 @@ import {
   describeFx,
   describePersonality,
   dropCut,
+  hungerRate,
+  sleepRate,
+  nightHours,
   makeHero,
   makeItem,
   missing,
@@ -182,6 +185,16 @@ export default function Lab({ universe, onChange, onSendOut }: { universe: Unive
             <dt>Bank habit</dt><dd>{perk(l, 'bank')}</dd>
             {perk(l, 'xp') > 0 && (<><dt>XP</dt><dd>+{perk(l, 'xp')}%</dd></>)}
             {perk(l, 'heal') > 0 && (<><dt>Med kits</dt><dd>+{perk(l, 'heal')}% healing</dd></>)}
+          </dl>
+          <h3>Body upkeep</h3>
+          <dl>
+            <dt>Hunger</dt><dd>{Math.round((hungerRate(l) / hungerRate({ upgrades: {} })) * 100)}% speed · empty in {Math.round(100 / hungerRate(l) / 60)}h</dd>
+            <dt>Tiredness</dt><dd>{Math.round((sleepRate(l) / sleepRate({ upgrades: {} })) * 100)}% speed · wants a bed every {Math.round(100 / sleepRate(l) / 60)}h</dd>
+            <dt>A night's sleep</dt><dd>{nightHours(l)}h{perk(l, 'restQuality') > 0 && <span className="muted"> · makes up {Math.min(100, perk(l, 'restQuality'))}% of a poor bed</span>}</dd>
+            {perk(l, 'foodValue') > 0 && (<><dt>Meals</dt><dd>+{perk(l, 'foodValue')}% food</dd></>)}
+            {perk(l, 'hungerSoft') + perk(l, 'sleepSoft') > 0 && (<><dt>Toughness</dt><dd>hunger bites {Math.min(80, perk(l, 'hungerSoft'))}% less · tiredness {Math.min(80, perk(l, 'sleepSoft'))}% less</dd></>)}
+            {perk(l, 'lodging') > 0 && (<><dt>Beds</dt><dd>{Math.min(60, perk(l, 'lodging'))}% off</dd></>)}
+            {perk(l, 'lightSleeper') > 0 && (<><dt>Light sleeper</dt><dd>{Math.min(100, perk(l, 'lightSleeper'))}% of thieves caught</dd></>)}
           </dl>
           <button className="btn primary" onClick={onSendOut}>▶ Send her out</button>
         </aside>

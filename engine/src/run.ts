@@ -29,6 +29,7 @@ import { tickHustles } from './hustles';
 import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
 import { satietyBias, tickSatiety } from './romance';
+import { needsBias, tickNeeds } from './rest';
 import { BASE_MIN_PER_BEAT, FIGHT_MINUTES, actionMinutes, crossedDawn, dayOf } from './clock';
 import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
@@ -51,6 +52,7 @@ export function score(w: World, cand: Candidate): number {
   s += goalBias(w, cand);
   s += satietyBias(w, cand);
   s += heatBias(w, cand);
+  s += needsBias(w, cand);
   s += haloShun(w, cand);
   s += passionBias(w, cand);
   s += (cand.smart ?? 0) * h.competence;
@@ -250,6 +252,8 @@ function upkeep(c: Ctx): void {
   if (w.beat % 5 === 0 && (w.heat.halo ?? 0) > 0) w.heat.halo!--;
   if (w.beat % 8 === 0 && h.drunk > 0) h.drunk--;
   tickSatiety(h);
+  tickNeeds(c);
+  if (w.over) return;
   // Shipments arrive; tempers cool. No timers on her, just the world carrying on.
   if (w.beat % 30 === 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2);
   if (w.beat % 90 === 0) restockShelf(c);

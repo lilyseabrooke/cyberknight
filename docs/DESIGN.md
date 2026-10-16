@@ -564,3 +564,40 @@ The first thing the player can do mid-night besides watch. At a fork in the road
 **State and replay.** The open question is `world.mind.ask` (plain JSON, saved with the night). The player's answer is `advise(world, optionId)` in `run.ts`: it takes no beat of its own, emits `advice_taken` and whatever the answer causes (`goal_new`…), and uses the world's dice, so a night with the answers logged by beat replays identically. Events: `advice_ask`, `advice_taken`, `advice_lapsed`.
 
 **UI.** `NightViewer` shows the question and its options in a card under the log, with a countdown. It counts beats, not seconds, so opening a question drops the speed to 1× and puts it back when the question is answered or times out (picking a speed meanwhile cancels the revert). *Next drama* stops at a question.
+
+## Hunger and Sleep (`needs.ts`, `rest.ts`, `content/lodging.ts`)
+
+Two meters on the hero, 0..100, that run down with the **world clock** (not beats, so a ninety-minute job or a night in a bed costs what it should):
+
+| | falls | when it's bad | at zero |
+|---|---|---|---|
+| **Hunger** | 100 → 0 in 60 hours awake (half speed asleep) | every tenth of the bar below 90% costs a little and the cost grows (`hungerSteps`/`hungerPenalty`: about 1 power at 70%, 3 at 40%, 7 near empty, plus muscle, reflex, hack and charm further down), so she is better off eating regularly and staying above 90; remarks at 70 / 45 / 20 / 8 (*hungry, famished, starving, wasting*). Nothing kills her but days of putting it off. | she starves: the night ends (`death:starved`) |
+| **Sleep** | 100 → 0 in 20 hours awake | steps at 40 / 22 / 10: *tired* (a remark: it's most of an ordinary day), then *exhausted, spent*. Tiredness hits reflex and hack first. | she passes out where she stands |
+
+A hero from an older save has neither field, which counts as full. Time the game spends closed (`catchUp`) doesn't count against her.
+
+**Eating** is cheap and everywhere: a stall on most streets (`eat_stall`, 8nd, +34), a plate at a bar with a barkeep (`eat_plate`, 16nd, +50), a bagel at Bullets & Bagels, the noodles and dishes she already carries, a snack from the vending machine or the fridge, and bins when she's broke (`scrounge`, free, a small chance of being ill). The lab's metabolism line makes a meal go further.
+
+**Sleeping** is a decision, and there are four kinds of bed. A night is eight hours unless something interrupts it (the lab's Twilight Sleep Module can cut it to as few as four), and *quality* no longer changes how much of the Sleep bar it refills (a full night fills it) but how much *sleep debt* it leaves or clears (below):
+
+| bed | cost | quality | risk |
+|---|---|---|---|
+| sleep pod | 16nd | 72% | none |
+| hostel bunk | 38nd | 88% | ~10% a night of being robbed in her sleep (40–70% of her cash) |
+| hotel room | 95nd | 100% | none |
+| a quiet corner (`sleep_rough`) | free | 50% | the comings and goings of the night, below |
+| the open street (`sleep_street`) | free | 40% | the same, much busier, plus thieves and patrols |
+
+Beds are along streets (hash of the world seed and the street, by district; Strand Street has all three). Passing out is a three-hour version of sleeping where she stands, refilling only about 22 of the bar, at 60% quality (staff in a shop or bar put her out on the street first; in a corp building or a dungeon she is found at once).
+
+**Sleeping out is simulated hour by hour.** Each hour the people who are there by their own schedules (`movement.ts` `placeAt`, so a long sleep sees the same crowd she would have) and a Poisson number of strangers (busier on a street than in a tunnel, busier by day) may notice her; the chance depends on the spot and her sneaking. What a person does is rolled from their temperament (`character.ts`): the kind cover her up, the honest and short-tempered call the NPD (*sleeping rough is illegal, and a cell is a bed*), the greedy and dishonest empty her pockets, cops arrest and security moves her along. Police and Atlas heat make it much worse: patrols find her, and with serious NPD heat or any real Atlas heat she is attacked in her sleep (a fight she starts at a disadvantage) or captured (cash stripped). Under a roof and out of sight they have to get lucky. An arrest costs a share of her cash and the rest of the night in a cell at 45% quality; a lodging night also cools heat and sobers her.
+
+**The AI** gets hungry and tired the way it gets hurt: `hungerUrge` and `sleepUrge` (`urges.ts`) climb steeply as the bars fall; they add to the candidates that fix them, pull her toward the nearest stall or bed with `needsUrge` (the same trick as the street doc), and make everything else a little less interesting (`needsBias`). The expensive, safe bed beats the pavement unless she's broke or the urge is overwhelming; she'd rather lie down in a hideout than on a thoroughfare, and more so the hotter she is.
+
+**The lab** adds three lines (Chassis: *Metabolism* and *Rest*; Firmware: *Discomfort management*; Treasury: *Lodging*): slower hunger, slower tiredness, faster sleep (fewer hours), more of a poor night's sleep made up, softer hunger and tiredness penalties, richer meals, cheaper beds, a light sleeper who catches thieves, and a better time when she passes out. All of them are `perk`s (see `content/tree.ts`); the lab screen shows the totals under *Body upkeep*.
+
+Tuning notes: with competence 0.4, simulated heroes sleep about a third of the time (8–9 hours a day), eat about one to two times a day, and don't starve; deaths are still overwhelmingly combat. To rebalance, the knobs are the constants at the top of `needs.ts` (rates and tier thresholds), `content/lodging.ts` (prices, quality, robbery odds, food), and the hazard rates in `rest.ts` (`traffic`, `authorities`).
+
+**Sleep debt.** Poor beds refill the bar like any other but leave lingering tiredness (`hero.sleepDebt`, stacks 0–10) that doesn't wear off with time. After each sleep, realised quality below 0.8 (a pod, the street, a corner, passing out) adds `(0.8 − q) × 8` stacks, scaled by how much of a night she got; above 0.8 (an average hostel and up) takes off `(q − 0.8) × 12`. Each stack costs a little power, reflex, hack and charm (`debtPenalty`), softened by the lab's tiredness upgrades, and *Orthopedic Spine* makes every bed count as better. It shows as *Sleep debt* in the status panel and in `sleep_debt` log lines.
+
+**Expensive tastes.** Beyond what she needs, she likes a nicer bed because she's human: `wantsBetter` adds a pull toward higher-quality beds, scaled by `luxuryTaste` (from vanity and wanting to impress people, -1..1). Vain, show-off girls feel it strongly and mind the price less; a very unfussy one feels none and just takes whatever she needs (the pod unless sleep debt says otherwise).
