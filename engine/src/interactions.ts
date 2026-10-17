@@ -1,3 +1,4 @@
+import { VIA } from './hexmap';
 import type { Ctx, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, hasInjury, heroPower, here, maybeInjure, remember } from './combat';
 import { makeItem } from './content/items';
@@ -244,6 +245,23 @@ export function gather(w: World): Candidate[] {
       bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + (dest.kind === 'lair' && dest.dungeon === dest.id ? 0.2 : 0) + urge.bonus + pull.bonus,
       smart: (toDragon && ready ? 2.4 : 0) + urge.smart + pull.smart,
       risk: dragonRisk * 1.4 + lurking + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest),
+      run: (c) => moveThrough(c, e),
+    });
+  }
+  // ------------------------------------------------------------------- across the hex grid
+  // Not doors: over the fence, along the ducts, through the building next door. On wheels she can only take the ways a vehicle can.
+  for (const e of loc.links ?? []) {
+    if (e.hidden || isShut(w, e.to) || !w.locations[e.to]) continue;
+    const mode = h.vehicle ? (h.vehicle.body === 'bike' ? 'bike' : 'car') : 'foot';
+    if (!Number.isFinite(VIA[e.via ?? 'open'][mode]) || (h.vehicle && e.via !== 'open' && e.via !== 'ramp')) continue;
+    const dest = w.locations[e.to]!;
+    const hard = e.via === 'wall' ? 0.6 : e.via === 'fence' || e.via === 'barricade' || e.via === 'duct' ? 0.35 : e.via === 'through' ? 0.2 : 0.1;
+    out.push({
+      key: `go:${e.to}`,
+      drives: { curiosity: 0.35, bravery: e.via && e.via !== 'open' ? 0.25 : 0 },
+      bonus: (dest.visits === 0 ? 0.3 : 0) + supplyUrge(w, e.to).bonus + needsUrge(w, e.to).bonus,
+      smart: supplyUrge(w, e.to).smart + needsUrge(w, e.to).smart,
+      risk: hard + entranceRisk(w, dest),
       run: (c) => moveThrough(c, e),
     });
   }

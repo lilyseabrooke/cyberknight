@@ -142,7 +142,8 @@ export function roadsFrom(w: World, from: Id, reach: number, body: Body = 'car')
   for (let hop = 1; hop <= reach; hop++) {
     const next: Id[] = [];
     for (const id of ring) {
-      for (const e of w.locations[id]?.exits ?? []) {
+      // (Plain cut-throughs between streets that touch on the hex grid are roads too.)
+      for (const e of [...(w.locations[id]?.exits ?? []), ...(w.locations[id]?.links ?? []).filter((x) => x.via === 'open')]) {
         const dest = w.locations[e.to];
         // A bike goes through the narrow ways a car can't: a tunnel is a road to it, though it never stops in one.
         const narrow = body === 'bike' && dest?.kind === 'tunnel';

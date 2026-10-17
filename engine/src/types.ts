@@ -390,7 +390,19 @@ export interface Exit {
   gate: null | 'bouncer' | 'locked' | 'guarded' | 'jump';
   /** Wrong-turn destination for ductwork, etc. */
   misroute?: Id;
+  /** Across the hex grid rather than through a door: what is in the way (see hexmap.ts). Absent on ordinary exits. */
+  via?: Via;
+  /** For `through` and `ramp`: the building the way goes through or over. */
+  over?: Id;
 }
+
+/**
+ * What it takes to cross between two places that touch on the hex grid. `open` is a plain cut-through. `fence` is vaulted on foot
+ * and smashed by a car; `wall` is climbed and nothing with wheels gets over it; `barricade` is broken down on foot and rammed by a
+ * vehicle; `duct` is crawled through; `through` runs straight through a building between two streets; `ramp` takes a vehicle up
+ * and over a building (on foot it is only stairs).
+ */
+export type Via = 'open' | 'fence' | 'wall' | 'barricade' | 'duct' | 'through' | 'ramp';
 
 /** What a home does to people who break in. Rolled from its security the first time anyone does. See hazards.ts. */
 export interface Hazards {
@@ -406,6 +418,10 @@ export interface Location {
   name: string;
   kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
   exits: Exit[];
+  /** Where it stands on the hex grid (outdoor places only): every cell it covers, and the cell it is anchored on. See hexmap.ts. */
+  hex?: { q: number; r: number; cells: [number, number][]; /** The way it runs, for streets: the direction it grew in. */ dir: number };
+  /** Ways onto the neighbours it touches on the grid that are not doors: over fences, through barricades, along ducts. Set apart from `exits` because they depend on what stands next to it. */
+  links?: Exit[];
   /** 0..10. Raises the chance of being spotted while sneaking. */
   security: number;
   crowded: boolean;

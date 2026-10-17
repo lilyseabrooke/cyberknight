@@ -450,3 +450,25 @@ A chase no longer ends because she got close. It ends when everyone chasing or r
 - If their vehicle blows up with her on it, she takes the outside blast; inside it, the inside one.
 
 Events: `chase_round` variants `board`, `strike`, `hijack_door`, `break_door`, `attack_driver`, `jump_off`; `chase_mount:foe_stands`.
+
+## The hex grid, shortcuts, and Calculate
+
+**The grid** (`hex.ts`, `hexmap.ts`). Every outdoor generated place (a street, and the buildings and spots on it) stands on one or more hexes (`Location.hex`), placed when it is sketched, beside the place it grew from. Places come in different sizes: a pedestrian way or a small street is one hex, an avenue two or three, a highway three or four; a shop is one hex, a club or a corporate lobby two or three, a tenement tower up to three. The hand-built district is placed by hand (`seedHexes`). Which hexes a place gets depends on what was built beside it first, so unlike the tree of ids it is part of the save, not a function of the seed: exploring in a different order gives a different layout (the tests that compare cities "however explored" ignore `hex` and `links`).
+
+**Links** (`Location.links`). The doors and streets of the old tree stay as `exits`. What the grid adds is `links`: ways across between places that touch, each with a `via` and a price (`VIA`, per body: foot, bike, car):
+
+| via | what it is | foot | bike | car |
+|---|---|---|---|---|
+| `open` | a cut-through between touching streets | free | free | free |
+| `fence` | chain-link | vault (athletics) | no | smashes through |
+| `wall` | sheer wall | climb (athletics, muscle) | no | no |
+| `barricade` | crates, wrecks, razor wire | break through (muscle, melee) | may crash | rams through, damaging the vehicle |
+| `duct` | between two touching buildings | crawl (sneak) | no | no |
+| `through` | straight through a building to the street on its far side | free, or sneak past the guards if it is restricted (a failure is heat) | no | no |
+| `ramp` | up and over a building (`over`) | stairs | jump (driving, speed) | jump |
+
+Open links count as roads for driving and routing. The hero can also walk the other links in ordinary play (`go:` candidates, `moveThrough` -> `crossLink`; on wheels only `open` and `ramp`).
+
+**Chases move through the grid.** A chase has a **route** (`shortcut.ts`): the fleeing side's plain road (no obstacles) to somewhere reasonably far away, in the fleeing side's own mode (a runner can use alleys, a car can't). The chase advances along it, a longer street taking longer; whoever is behind is put back on the route at the start of every round.
+
+**Cutting across.** Whoever is behind and not catching up can work out where the runner is going (a point two or three streets on) and take the quickest way there with obstacles allowed, for what they are (a car, a bike, or on foot; she can also get out of her vehicle if the way across is only open to a runner). The guess is right with probability `readingOf`: Calculate (a skill that feeds off the Hack stat) plus Hack. A wrong guess sends them to a street the runner does not use. If the cut gets there at about the same time as the runner or before, it is a cut-off: the runner is right in front of them (`locked`). If it is late, they have lost ground. The obstacles are resolved with real consequences: a car through a barricade is damaged, a bike can crash, a runner can fall off a wall or be seen cutting through a guarded building. The same applies to the other side: police in cruisers (or anybody chasing her) will guess where she is going and try to cut her off. Events: `chase_cut` (`cut_off`, `late`, `wrong`), and `chase_round:shortcut`.

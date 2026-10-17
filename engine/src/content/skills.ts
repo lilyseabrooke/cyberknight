@@ -30,6 +30,7 @@ export const SKILLS = {
   sneak: { label: 'sneaking', group: 'stealth', titles: ['steps lightly, sometimes', 'can hide behind a plant', 'ghosts past bored guards', 'a rumor in a dark coat'] },
   sleight: { label: 'sleight of hand', group: 'stealth', spill: { cards: 0.15 }, titles: ['can palm a coin', 'lifts a chip off a table', 'fingers faster than eyes', 'makes wallets quietly emigrate'] },
   lockpicking: { label: 'lockpicking', group: 'stealth', spill: { tinkering: 0.15 }, titles: ['can open a unlocked door', 'knows what a tension wrench is', 'hears tumblers whisper', 'bored by safes'] },
+  calculate: { label: 'calculating', group: 'craft', spill: { tinkering: 0.1, streetwise: 0.05 }, titles: ['can add up a bar tab', 'knows which way a runner will turn', 'reads a city as a graph', 'always already at the end of the road'] },
   tinkering: { label: 'tinkering', group: 'craft', spill: { lockpicking: 0.1 }, titles: ['can use a screwdriver safely', 'fixes a jukebox with a boot', 'rewires fuse boxes for fun', 'has a lab assistant, probably'] },
   hijack: { label: 'hijacking', group: 'stealth', spill: { driving: 0.3, lockpicking: 0.15, tinkering: 0.1 }, titles: ['has locked her keys in a car, from the outside', 'knows which wire is the red one', 'cars start for her, eventually', 'a parking lot is a buffet'] },
   // ---- social

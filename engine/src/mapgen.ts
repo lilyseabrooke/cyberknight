@@ -1,4 +1,5 @@
 import { Rng, hashString } from './rng';
+import { placeOnHex, seedHexes } from './hexmap';
 import { inheritInfluence, pickFaction } from './factions';
 import { ENTRANCE_BLURB, OUTPOST_CODE, hideoutName, outpostName, rollTier } from './content/dungeons';
 import { SPOTS, SPOT_AGAIN, SPOT_CHANCE, pickSpot, rollSpotTier, type SpotDef } from './content/spots';
@@ -175,6 +176,7 @@ const ANCHORS: { at: Id; roads: Road[] }[] = [
  * missing), which is how a save from before the map grew gets its edges.
  */
 export function seedFrontier(w: MapWorld): void {
+  seedHexes(w); // the hand-built district gets its place on the hex grid first, so what grows from it has somewhere to stand
   for (const a of ANCHORS) {
     const from = w.locations[a.at];
     if (!from || from.gen) continue;
@@ -562,6 +564,7 @@ function sketch(
 
   const label = (o.label ?? name).replace('{name}', name);
   parent.exits.push({ to: id, label, hidden: !!o.hidden, gate: o.gate ?? null });
+  placeOnHex(w, loc, parent, role, interior);
   return loc;
 }
 

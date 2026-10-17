@@ -149,11 +149,19 @@ describe('after they have gone', () => {
     expect(events.some((e) => e.type === 'give_chase' && e.data.variant === 'foot')).toBe(true);
     const start = events.find((e) => e.type === 'chase_start');
     expect(start?.data.body).toBe('foot');
-    const end = events.find((e) => e.type === 'chase_end');
-    expect(end?.data.variant).toBe('lost');
-    expect(s.foe.locationId).toBe('_away');
-    expect(s.w.getaways).toHaveLength(0);
     for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+    // (She can work out where they are going and cut across to it now and then, so it is most times, not every time.)
+    let lost = 0;
+    for (let k = 0; k < 10; k++) {
+      const t = afterwards(s.i + 3 + k * 11);
+      const ev = ctxOf(t.w, new Rng(`foot-lost-${k}`));
+      perform(ev.c, getawayCandidates(t.w)[0]!);
+      if (ev.events.find((e) => e.type === 'chase_end')?.data.variant === 'lost') {
+        lost++;
+        expect(t.w.getaways).toHaveLength(0);
+      }
+    }
+    expect(lost).toBeGreaterThanOrEqual(6);
     // The day her legs are faster than their car, the same question has a different answer: a slow car she can run down, most times.
     let caught = 0;
     for (let k = 0; k < 8; k++) {

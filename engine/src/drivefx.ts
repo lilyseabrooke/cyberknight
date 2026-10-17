@@ -91,7 +91,7 @@ export function routesFrom(w: World, from: Id, reach: number, body: Vehicle['bod
       if (cur === null) break;
       done.add(cur);
       const here = best.get(cur)!;
-      for (const e of w.locations[cur]?.exits ?? []) {
+      for (const e of [...(w.locations[cur]?.exits ?? []), ...(w.locations[cur]?.links ?? []).filter((x) => x.via === 'open')]) {
         const dest = w.locations[e.to];
         if (!dest || e.hidden || e.gate || done.has(e.to) || isShut(w, e.to)) continue;
         const narrow = body === 'bike' && dest.kind === 'tunnel';

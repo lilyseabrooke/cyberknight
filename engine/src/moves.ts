@@ -4,6 +4,7 @@ import { hasInjury, gainXp } from './combat';
 import { sneakBonus, tryTalkDown } from './extras';
 import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { moveNpc } from './population';
+import { cross } from './shortcut';
 
 /** Resolve walking through an exit, including bouncers, locks, guards and jumps. */
 export function moveThrough(c: Ctx, exit: Exit): void {
@@ -12,6 +13,12 @@ export function moveThrough(c: Ctx, exit: Exit): void {
   const dest = w.locations[exit.to]!;
   const dark = !!w.flags.blackout;
   let to = exit.to;
+
+  // Not a door: a way across the hex grid (a fence, a wall, a barricade, a duct, a building to run through).
+  if (exit.via) {
+    crossLink(c, exit);
+    return;
+  }
 
   if (exit.misroute && rng.chance(0.4)) {
     to = exit.misroute;
@@ -109,6 +116,26 @@ export function moveThrough(c: Ctx, exit: Exit): void {
       return;
     }
   }
+}
+
+/** Walk, vault, climb, crawl or break through to the neighbour. Most of the time she gets there. */
+function crossLink(c: Ctx, exit: Exit): void {
+  const { w } = c;
+  const h = w.hero;
+  const via = exit.via!;
+  if (via === 'open') {
+    arrive(c, exit.to, 'cutthrough');
+    return;
+  }
+  const mode = h.vehicle ? (h.vehicle.body === 'bike' ? 'bike' : 'car') : 'foot';
+  const r = cross(c, { mode, hero: true, car: h.vehicle ?? null, pace: h.vehicle?.pace ?? 4 }, { from: h.locationId, to: exit.to, via, ...(exit.over ? { over: exit.over } : {}), cost: 1 });
+  const failed = /(_failed|_stuck|_spotted|_crash)$/.test(r.told) && !r.told.startsWith('through');
+  if (failed) {
+    // Stuck on this side of it; the cost is what it cost her.
+    c.emit('go', 'bad', { variant: r.told, to: w.locations[exit.to]!.name, toId: exit.to, from: w.locations[h.locationId]!.name, first: false, hurt: r.hurt });
+    return;
+  }
+  arrive(c, exit.to, r.told, { hurt: r.hurt });
 }
 
 export { spawnGroup };

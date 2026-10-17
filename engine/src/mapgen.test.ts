@@ -68,8 +68,9 @@ describe('the city that grows', () => {
     const eb = b.locations[childId('street_main', 0)]!;
     expect(eb.exits).toEqual(ea.exits);
     for (const e of ea.exits) {
-      const { visits: _v, ...mine } = a.locations[e.to]!;
-      const { visits: _u, ...theirs } = b.locations[e.to]!;
+      // (Where a place stands on the hex grid, and what it touches there, depends on what was built beside it first.)
+      const { visits: _v, hex: _h, links: _l, ...mine } = a.locations[e.to]!;
+      const { visits: _u, hex: _i, links: _m, ...theirs } = b.locations[e.to]!;
       if (mine.gen?.parent === ea.id) expect(theirs).toEqual(mine);
     }
   });

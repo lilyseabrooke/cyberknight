@@ -14,6 +14,8 @@ import { KINDS, removeCompanion } from './companions';
 import { skillValue, train } from './skills';
 import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
+import { Rng } from './rng';
+import { behindOf, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 
 /**
  * A chase: a fight at speed. There is no board, only how far apart everybody is, what the road is like, and what each side
@@ -96,6 +98,17 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     tight = squeeze >= 0.45;
     setting = scene(cls, traffic);
   };
+
+  // Where the running side is going. Whoever is behind can work out where, and cut across to it (see shortcut.ts).
+  const modeOf = (v: { body?: Vehicle['body'] } | null | undefined): Mode => (v ? (v.body === 'bike' ? 'bike' : 'car') : 'foot');
+  const chaserMode = (f: Chaser): Mode => (f.car ? modeOf(f.car) : 'foot');
+  const first = o.foes.find((f) => f.alive && !wings(f));
+  let route: Route | null = null;
+  if (o.mode === 'pursued' || first) {
+    route = startRoute(w, new Rng(`route:${w.seed}:${w.beat}:${h.locationId}:${o.cause}`), h.locationId, o.mode === 'pursued' ? modeOf(last) : chaserMode(first!));
+  }
+  const heroCrosser = (car: Vehicle | null): Crosser => ({ mode: modeOf(car), hero: true, car, pace: car ? car.pace : heroSpeed(w) });
+  const foeCrosser = (f: Chaser): Crosser => ({ mode: chaserMode(f), hero: false, car: f.car ?? null, pace: f.pace, skill: 0.5 });
 
   // One line of the chase, told.
   const tell = (action: string, told: string[], hurt: number, round: number, car: Vehicle | null, foe: Chaser | undefined): void => {
@@ -260,7 +273,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     if (!res && o.foes.every((f) => !f.alive)) res = 'won';
     tell(action, told, hurt, round, null, t);
     // The road goes on under them.
-    if (!res && boarded && rng.chance(0.35)) {
+    if (!res && boarded && route && route.i < route.path.length - 1 && rng.chance(0.35)) {
+      route.i++;
+      relocate(w, route.path[route.i]!);
+      refresh();
+    } else if (!res && boarded && rng.chance(0.35)) {
       const adj = streetsFrom(w, h.locationId).filter((id) => roadClass(w.locations[id]!) !== 'alley');
       if (adj.length) {
         relocate(w, rng.pick(adj));
@@ -278,8 +295,13 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         result = 'won';
         break;
       }
+      // She is where the route says she is (a cut across it that went wrong has put her somewhere else for a moment).
+      if (route && !boarded && h.locationId !== route.path[route.i]!) {
+        relocate(w, route.path[route.i]!);
+        refresh();
+      }
       // The chase goes on down the road. A runner will go where a car cannot, and if she follows on wheels she has to get out.
-      if (!result) {
+      if (!result && !boarded) {
         const mine = mounted();
         const adj = streetsFrom(w, h.locationId);
         const alleys = adj.filter((id) => roadClass(w.locations[id]!) === 'alley');
@@ -289,9 +311,13 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         const runnerEscapes = o.mode === 'pursuer' && !!leadNow?.foot && carless && alleys.length > 0;
         const fleeing = o.mode === 'pursued' && !mine && o.foes.some((f) => f.alive && !!f.car && f.car.body !== 'bike') && alleys.length > 0;
         // (A runner ducks into an alley as soon as there is a car behind them; otherwise the chase only turns after the first round.)
-        if (rng.chance(runnerEscapes ? 0.6 : fleeing ? 0.5 : round > 1 ? 0.4 : 0)) {
-          const to = (runnerEscapes || fleeing) && rng.chance(0.75) ? rng.pick(alleys) : (driveable.length ? rng.pick(driveable) : adj.length ? rng.pick(adj) : null);
+        // On a route they go the way it goes, a longer street taking longer to get down.
+        const onward = route && route.i < route.path.length - 1 ? route.path[route.i + 1]! : null;
+        const turn = onward ? (round > 1 ? 0.9 / (here.hex?.cells.length ?? 1) : 0) : runnerEscapes ? 0.6 : fleeing ? 0.5 : round > 1 ? 0.4 : 0;
+        if (rng.chance(turn)) {
+          const to = onward ?? ((runnerEscapes || fleeing) && rng.chance(0.75) ? rng.pick(alleys) : (driveable.length ? rng.pick(driveable) : adj.length ? rng.pick(adj) : null));
           if (to) {
+            if (onward && route) route.i++;
             const from = h.locationId;
             const intoAlley = roadClass(w.locations[to]!) === 'alley';
             if (mine && carless && intoAlley) {
@@ -360,9 +386,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
           scores.bail = carRatio <= 0.25 || (hpRatio < 0.3 && carRatio < 0.5) || (bike && hpRatio < 0.4) ? 3 + 10 * (0.25 - Math.min(carRatio, 0.25)) : 0;
         }
       }
+      // Work out where they are going and cut across to it.
+      if (route && !boarded && o.mode === 'pursuer' && route.path.length - 1 - route.i >= 2 && band !== 'locked') scores.shortcut = (band === 'far' ? 7 : band === 'near' ? 5 : 2.5) + 0.2 * skillValue(h, 'calculate');
       if (car && carRatio <= 0.25) scores.bail = (scores.bail ?? 0) + 3 + h.competence * 4; // smoking: it is about to go
       const slack = (1 - h.competence) * 4;
-      const action = Object.keys(scores).map((k) => ({ k, s: scores[k]! + rng.next() * (1 + slack) })).sort((a, b) => b.s - a.s)[0]!.k;
+      let action = Object.keys(scores).map((k) => ({ k, s: scores[k]! + rng.next() * (1 + slack) })).sort((a, b) => b.s - a.s)[0]!.k;
       const told: string[] = [];
       let hurt = 0;
 
@@ -382,6 +410,47 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         else if (fit(h)) c.emit('chase_mount', 'mixed', { variant: why, car: car.name, body: car.body, place: here.name });
         else result = 'bailed';
       };
+
+      // A cut across: over a fence, through a barricade, up a ramp, through a building. It is the whole round.
+      if (action === 'shortcut' && route) {
+        const cut = cutAcross(c, { who: car ? [heroCrosser(car), heroCrosser(null)] : [heroCrosser(null)], from: h.locationId, route, accuracy: readingOf(w), behind: behindOf(lead.gap) });
+        if (cut.kind === 'none') action = 'floor_it';
+        else {
+          const from = here.name;
+          train(c, 'calculate', cut.kind === 'wrong' ? 1 : 2);
+          hurt += cut.hurt;
+          told.push(`cut:${cut.kind}`, ...cut.told);
+          // (Out of the car to do it on foot: the car stays where she left it.)
+          if (car && h.vehicle && cut.mode === 'foot') leaveBehind(c, car, 'parked');
+          else if (cut.thrown && car && h.vehicle) {
+            leaveBehind(c, car, 'stray');
+            c.emit('chase_mount', 'mixed', { variant: 'thrown', car: car.name, body: car.body, place: here.name });
+          }
+          relocate(w, cut.at);
+          refresh();
+          const ahead = route.path.length - 1;
+          if (cut.kind === 'cut_off') {
+            route.i = cut.idx;
+            lead.gap = Math.min(lead.gap, 0.4);
+          } else if (cut.kind === 'late') {
+            route.i = Math.min(ahead, cut.idx + 1);
+            for (const f of live) f.gap += 1 + Math.max(0, -cut.margin) * 1.5;
+          } else {
+            route.i = Math.min(ahead, route.i + Math.floor(cut.took));
+            for (const f of live) f.gap += 1.5 + 0.8 * cut.took;
+          }
+          c.emit('chase_cut', cut.kind === 'cut_off' ? 'good' : cut.hurt ? 'bad' : 'mixed', { variant: cut.kind, hero: true, mode: cut.mode, body: car?.body ?? 'foot', obstacles: cut.told.join(','), via: cut.told[0] ?? '', from, place: w.locations[cut.at]!.name, foe: lead.name, hurt: cut.hurt, read: Math.round(readingOf(w) * 100) });
+          if (cut.wrecked && car && h.vehicle && car.hp <= 0) {
+            wreckHeroCar(c, car);
+            if (dead(c) || !fit(h)) result = 'wrecked';
+            else c.emit('chase_mount', 'mixed', { variant: 'wrecked', car: car.name, body: car.body, place: here.name });
+          }
+          if (dead(c)) result = 'wrecked';
+          else if (!result && !fit(h)) result = 'bailed';
+          tell('shortcut', told, hurt, round, car, lead);
+          continue;
+        }
+      }
 
       // Onto their vehicle. She leaves her own wherever it is; if she misses she is left with a bruise and some ground to make up.
       if (action === 'board' && lead.car) {
@@ -495,6 +564,27 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             else owed.push(st.angry);
           }
           if (dead(c)) result = 'wrecked';
+        }
+      }
+
+      // They work out where she is going, and some of them cut across to it.
+      if (!result && o.mode === 'pursued' && route && !boarded) {
+        for (const f of o.foes) {
+          if (!f.alive || wings(f) || bandOf(f.gap) === 'locked' || !rng.chance(0.1 + (f.gap > 3 ? 0.1 : 0))) continue;
+          const cop = f.crew.some((n) => n.tags.includes('cop'));
+          const cut = cutAcross(c, { who: foeCrosser(f), from: h.locationId, route, accuracy: cop ? 0.45 : 0.35, behind: behindOf(f.gap) });
+          if (cut.kind === 'none') continue;
+          c.emit('chase_cut', cut.kind === 'cut_off' ? 'bad' : 'good', { variant: cut.kind, hero: false, mode: cut.mode, body: car?.body ?? 'foot', obstacles: cut.told.join(','), via: cut.told[0] ?? '', from: here.name, place: w.locations[cut.at]!.name, foe: f.name, hurt: 0, read: 0 });
+          told.push(`cut:${cut.kind}`);
+          if (cut.wrecked && f.car) wreckChaser(c, f, told);
+          if (cut.kind === 'cut_off' && f.alive) {
+            // They are waiting where she was going.
+            route.i = cut.idx;
+            relocate(w, cut.waypoint);
+            refresh();
+            f.gap = 0.4;
+          } else f.gap += 1.5 + 0.5 * Math.max(0, cut.took);
+          break;
         }
       }
 

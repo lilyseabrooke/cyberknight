@@ -24,6 +24,13 @@ function grown(worldSeed: string, rings = 2): World {
   return w;
 }
 
+/** A place without where it stands on the hex grid: that depends on what was built next to it first, which is the order things were found in. */
+const plain = (l: Location | undefined) => {
+  if (!l) return l;
+  const { hex: _h, links: _l, ...rest } = l;
+  return rest;
+};
+
 /** Links that aren't the tree: an exit between two generated places where neither is the other's parent. */
 const crossLinks = (w: World): [Location, Location][] => {
   const out: [Location, Location][] = [];
@@ -119,7 +126,7 @@ describe('loops in the map', () => {
     for (const id of [...ids].reverse()) expand(b, b.locations[id]!);
     for (const id of ids) {
       expect(b.locations[id]!.exits).toEqual(a.locations[id]!.exits);
-      for (const e of a.locations[id]!.exits) expect(b.locations[e.to]).toEqual(a.locations[e.to]);
+      for (const e of a.locations[id]!.exits) expect(plain(b.locations[e.to])).toEqual(plain(a.locations[e.to]));
     }
   });
 

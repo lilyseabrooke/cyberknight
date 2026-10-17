@@ -199,6 +199,24 @@ const T: Record<string, Entry> = {
   'chase_round:shoot:foot': e((d) => [String(d.events).includes('shot') ? `Blackbird stops, turns and puts shots into ${d.foe}, then runs again. Some of them find it.` : `Blackbird fires over her shoulder at ${d.foe} and hits a shutter.`], ['Never run with a loaded gun. I do it constantly.']),
   'chase_round:grab': e((d) => [String(d.events).includes('grab_failed') ? `Blackbird goes for a vehicle at the kerb and the vehicle goes for her instead: an alarm, a shout, a lost second.` : `A vehicle at the kerb, and no time to ask: Blackbird is on it and moving.`], ['Borrowed. Again.']),
   'chase_round:dismount': e((d) => [`${cap(String(d.scene))} is no place for ${d.car}. Blackbird bails out of it and goes on after ${d.foe} on foot.`]),
+  'chase_round:shortcut': e((d) => [`Blackbird stops following ${d.foe} and starts anticipating them.`, `The map in Blackbird's head has ${d.foe}'s route on it, and a quicker one of her own.`], ['Nobody runs in a straight line. They run to somewhere.']),
+  'chase_cut:cut_off': e((d) =>
+    d.hero
+      ? [`Blackbird works out where ${d.foe} is going: ${d.place}, and nowhere else. She ${cutVia(d, 'goes round by the back streets')} and is there first. ${d.foe} runs straight into her.`]
+      : [`${d.foe} works out where Blackbird is going and ${cutVia(d, 'takes the back streets')} to be waiting at ${d.place}. She runs straight into them.`],
+    ['Predictable. I am so predictable.', 'It was a good guess.'],
+  ),
+  'chase_cut:late': e((d) =>
+    d.hero
+      ? [`Blackbird guesses right: ${d.place}. She ${cutVia(d, 'goes round by the back streets')}, and arrives to find ${d.foe} has already gone past.`]
+      : [`${d.foe} guesses right and ${cutVia(d, 'goes round by the back streets')}, a moment too late. Blackbird is already past.`],
+    ['Close. So close.', 'The tail lights, again.'],
+  ),
+  'chase_cut:wrong': e((d) =>
+    d.hero
+      ? [`Blackbird is sure ${d.foe} is making for ${d.place}. She ${cutVia(d, 'goes round by the back streets')} and finds an empty road. They went somewhere else entirely.`]
+      : [`${d.foe} is sure Blackbird is making for ${d.place}, and ${cutVia(d, 'goes round by the back streets')}. She is not.`],
+    ['I was so sure.', 'A wrong guess is an expensive thing.']),
   'chase_mount:foe_stands': e((d) => [`${d.foe} looks at the road ahead, and at what is behind, and stops running. ${d.car ? `${d.car} slews to a halt at the kerb.` : 'They turn around.'}`, `Nowhere left to go, or no more wish to. ${d.foe} stops, and turns, and the chase is over.`], ['Good. I was getting tired of the back of their head.']),
   'chase_round:board': e((d) => [d.car === 'on foot' ? `${cap(String(d.scene))}. Blackbird gets a hand on ${d.foe}'s vehicle, then a foot, and then she is on it.` : `${d.car} comes level with ${d.foe} and Blackbird goes over the gap, off the one and onto the other. ${d.car} drifts away behind.`], ['Do not look down. Do not look down.', 'Nobody has ever done this on purpose.']),
   'chase_round:strike': e((d) => [String(d.events).includes('struck') ? `Blackbird is within reach of ${d.foe} and does not waste it. The blow lands.` : `Blackbird swings at ${d.foe} and the runner ducks. Barely.`], ['Close enough to hit. That is all I wanted.']),
@@ -274,6 +292,23 @@ const T: Record<string, Entry> = {
   'vehicle:back': e((d) => [`${d.car} is right where Blackbird left it, on ${d.place}. The door opens for her without any wire at all.`], ['My car. Mine. Do not touch.', 'Nobody has stolen it from me yet. Give it time.']),
   'vehicle:gone': e((d) => [d.kind === 'police' ? `The spot on ${d.place} where Blackbird left ${d.car} is empty. The NPD came for their own.` : d.kind === 'atlas' ? `${d.car} is gone from ${d.place}. Atlas recovered it, tracker first.` : `Where Blackbird left ${d.car} on ${d.place} there is a rectangle of cleaner street. A tow drone, a thief, or a very efficient scrapper.`], ['It was a good car. It was somebody else\'s first.', 'Easy come, easy go. Mostly go.']),
   'go:walk': e((d) => [`Blackbird heads for ${d.to}.`, `Off to ${d.to}.`, `Blackbird takes the long way to ${d.to}.`], ['Onward.', "Destiny's that way. Probably."]),
+  'go:cutthrough': e((d) => [`A gap between the buildings, and Blackbird is through it and into ${d.to}.`, `Blackbird cuts through to ${d.to}.`]),
+  'go:vault': e((d) => [`Blackbird takes the chain-link fence in one go and drops into ${d.to}.`, `One hand on the top rail, one over the wire, and Blackbird is in ${d.to}.`], ['Fences are suggestions.']),
+  'go:vault_failed': e((d) => [`Blackbird goes at the fence badly and comes off it badly. ${d.to} is still on the other side.${Number(d.hurt) ? ` It cost her ${d.hurt} HP.` : ''}`], ['Rungs. I should have used the rungs.']),
+  'go:smash_fence': e((d) => [`The fence loses an argument with the front of the vehicle, and Blackbird is in ${d.to}.`]),
+  'go:climb': e((d) => [`Blackbird goes up the wall on fingertips and ambition, and down the far side into ${d.to}.`], ["There's a joke about walls. I don't have time for it."]),
+  'go:climb_failed': e((d) => [`Blackbird gets halfway up the wall and then the wall gets rid of her.${Number(d.hurt) ? ` That is ${d.hurt} HP.` : ''} ${d.to} remains on the other side.`], ['Up is hard.']),
+  'go:breach': e((d) => [`Blackbird takes the barricade apart one piece at a time and steps through into ${d.to}.`], ['Somebody built this to keep people out. I am people.']),
+  'go:breach_failed': e((d) => [`The barricade is more barricade than Blackbird is shoulder.${Number(d.hurt) ? ` It costs her ${d.hurt} HP.` : ''}`]),
+  'go:ram_barricade': e((d) => [`The barricade goes everywhere at once, and Blackbird comes out the other side in ${d.to}.`], ['Insurance. Hah.']),
+  'go:barricade_crash': e((d) => [`Blackbird hits the barricade at speed and the barricade wins.${Number(d.hurt) ? ` That is ${d.hurt} HP.` : ''}`]),
+  'go:crawl': e((d) => [`A vent grille, a long dark crawl with a draught and a rat, and Blackbird drops out into ${d.to}.`], ['Dust. So much dust.']),
+  'go:crawl_stuck': e((d) => [`The duct narrows. Blackbird does not, and spends a while wedged in the dark before backing out the way she came.`]),
+  'go:through': e((d) => [`Blackbird goes straight through the building and out the other side into ${d.to}. Somebody calls after her. She is gone.`], ['A shortcut is just a road with fewer rules.']),
+  'go:through_spotted': e((d) => [`Blackbird cuts through where she has no business being, and is seen doing it. She is out the far side in ${d.to}, with company coming.`]),
+  'go:jump': e((d) => [`A ramp, a wall of speed and a gap where the roofs are, and Blackbird is airborne over the buildings and down in ${d.to}.`], ['Physics: optional.']),
+  'go:jump_failed': e((d) => [`Blackbird misjudges the ramp and the ramp lets her know it.${Number(d.hurt) ? ` That is ${d.hurt} HP.` : ''}`]),
+  'go:stairs': e((d) => [`Up the ramp, over the roof, down the other side: Blackbird is in ${d.to}.`]),
   'go:paid': e((d) => [`Forty neodollars to the bouncer, and the velvet rope opens. Blackbird is inside ${d.to}.`], ['Worth it. I think.']),
   'go:charmed': e(
     (d) => [`Blackbird talks her way into ${d.to}. The bouncer looks as surprised as anyone.`],
@@ -2059,6 +2094,33 @@ const QUIRK: Partial<Record<Trait, Record<string, string[]>>> = {
 
 /** How far above unremarkable a trait has to be before it colours her thoughts. */
 const QUIRK_AT = 0.7;
+
+
+/** What a cut across took, in a clause: she `climbs a wall`, they `put the vehicle through a fence`. */
+const CUT_VIA: Record<string, [string, string]> = {
+  vault: ['vaults a fence', 'vault a fence'],
+  vault_failed: ['goes at a fence and gets tangled in it', 'get tangled in a fence'],
+  smash_fence: ['puts the vehicle through a fence', 'put the vehicle through a fence'],
+  climb: ['goes up and over a wall', 'go up and over a wall'],
+  climb_failed: ['falls off a wall', 'fall off a wall'],
+  breach: ['shoulders through a barricade', 'shoulder through a barricade'],
+  breach_failed: ['gets stuck in a barricade', 'get stuck in a barricade'],
+  ram_barricade: ['goes through a barricade at speed', 'go through a barricade at speed'],
+  barricade_crash: ['hits a barricade and goes down', 'hit a barricade and go down'],
+  crawl: ['crawls through ductwork', 'crawl through ductwork'],
+  crawl_stuck: ['gets stuck in ductwork', 'get stuck in ductwork'],
+  through: ['runs straight through a building', 'run straight through a building'],
+  through_spotted: ['is seen cutting through a building', 'are seen cutting through a building'],
+  jump: ['launches off a ramp and over the roofs', 'launch off a ramp and over the roofs'],
+  jump_failed: ['misjudges a ramp', 'misjudge a ramp'],
+  stairs: ['takes the stairs', 'take the stairs'],
+};
+const cutVia = (d: EventData, plain: string): string => {
+  const codes = String(d.obstacles ?? '').split(',').filter((x) => CUT_VIA[x]);
+  if (!codes.length) return plain;
+  const list = codes.map((x) => CUT_VIA[x]![0]);
+  return list.length === 1 ? list[0]! : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]!}`;
+};
 
 const FALLBACK_KEYS = (e_: GameEvent): string[] => {
   const d = e_.data;
