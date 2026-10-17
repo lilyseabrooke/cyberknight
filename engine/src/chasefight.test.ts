@@ -99,3 +99,34 @@ describe('fighting during a chase', () => {
     expect(wrecked).toBeGreaterThan(0);
   });
 });
+
+describe('the vehicle she leaves behind with her party in it', () => {
+  it('follows her onto the enemy vehicle and ends up parked close by, with the party still hers', async () => {
+    const { newCompanion } = await import('./companions');
+    const { vehicleOf } = await import('./cars');
+    let followed = 0;
+    let boardedRuns = 0;
+    for (let i = 0; i < 300; i++) {
+      const w = world(`follow-${i}`);
+      const mine = vehicleOf({ ...MAKES.civilian[0]!, name: 'her test car' }, `mine-${i}`);
+      const comp = newCompanion('scrapper', 'Scrap');
+      w.hero.companions.push(comp);
+      mine.riders = [comp.id];
+      w.hero.vehicle = mine;
+      const { c, events } = ctxOf(w, new Rng(`follow-${i}`));
+      runChase(c, { mode: 'pursuer', cause: 'test', foes: [carFoe(w, `f${i}`, 0.3)] });
+      if (!events.some((e) => e.type === 'chase_round' && e.data.variant === 'board' && String(e.data.events).includes('board') && !String(e.data.events).includes('board_failed'))) continue;
+      boardedRuns++;
+      if (w.over) continue;
+      expect(w.hero.companions.some((a) => a.id === comp.id)).toBe(true);
+      const caught = events.find((e) => e.type === 'vehicle' && e.data.variant === 'catches_up');
+      if (caught) {
+        followed++;
+        expect(w.hero.parked?.some((p) => p.id === mine.id && p.at === w.hero.locationId)).toBe(true);
+        expect(hasTemplate(caught)).toBe(true);
+      }
+    }
+    expect(boardedRuns).toBeGreaterThan(0);
+    expect(followed).toBeGreaterThan(0);
+  });
+});

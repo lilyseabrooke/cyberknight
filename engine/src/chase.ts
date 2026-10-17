@@ -80,6 +80,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   let boarded: Chaser | null = null;
   let inside = false;
   let doors = 0;
+  // Her own vehicle, when she has left it for theirs with companions in it: it follows, and is close by when the chase ends.
+  let follower: Vehicle | null = null;
   // The road she is on decides how a chase goes, by what kind of street it is and how busy it is right now: a narrow street or a
   // crowded one squeezes everybody (pace counts for less, skill for more, and there are gaps to lose them in); an open, empty one is
   // a race. Not rolled: the same street at the same hour is the same chase.
@@ -455,7 +457,12 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       // Onto their vehicle. She leaves her own wherever it is; if she misses she is left with a bruise and some ground to make up.
       if (action === 'board' && lead.car) {
         if (rng.chance(boardP(lead))) {
-          if (car) leaveBehind(c, car, 'parked');
+          if (car) {
+            if (h.companions.some((a) => a.hp > 0 && car.riders.includes(a.id))) {
+              follower = car;
+              delete h.vehicle;
+            } else leaveBehind(c, car, 'parked');
+          }
           boarded = lead;
           inside = false;
           doors = 10 + lead.car.armor * 8;
@@ -691,6 +698,15 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     if (crowd.length && w.hero.hp > 0) {
       const after = runChase(c, { mode: 'pursued', cause: 'somebody she ran into', foes: crowd, maxRounds: 4 });
       if (after === 'caught' && !w.over) fight(c, crowd.flatMap((f) => f.crew).filter((n) => n.alive), { cause: 'somebody she ran into', joiners: false });
+    }
+  }
+  // The vehicle her companions were in has been following all the way: it pulls up beside her.
+  if (follower && !w.over) {
+    const f: Vehicle = follower;
+    if (f.hp > 0) {
+      const names = h.companions.filter((a) => f.riders.includes(a.id)).map((a) => a.name).join(' and ');
+      (h.parked ??= []).push(parkIt(f, h.locationId, w.clock + lifeOf(f, keyTo(h, f.id))));
+      c.emit('vehicle', 'good', { variant: 'catches_up', car: f.name, body: f.body, riders: names, place: w.locations[h.locationId]!.name });
     }
   }
   return result ?? 'lost';
