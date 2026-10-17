@@ -121,7 +121,7 @@ describe('the police response', () => {
         npdResponse(c);
         const amb = events.find((e) => e.type === 'ambush');
         if (amb) {
-          expect(amb.data.variant).toBe('npd');
+          expect(['npd', 'npd_chase']).toContain(amb.data.variant);
           seen.officer++;
           if (heat >= 8) seen.sergeant++;
         }

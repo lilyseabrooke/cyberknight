@@ -24,6 +24,7 @@ import { avengerTick, noticeTick } from './knowledge';
 import { ambientMind, goalBias, mindAfter, mindBefore, mindTick } from './goals';
 import { adviceTick, resolveAsk } from './advice';
 import { interest } from './mind';
+import { driveByRoll } from './driveby';
 import { haloShun, heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
@@ -298,6 +299,7 @@ function ambient(c: Ctx): void {
 
   // Police response: drones at low heat, officers at high. Lying low indoors keeps her out of reach.
   if (npdResponse(c)) return;
+  if (driveByRoll(c)) return;
   // On a highway nothing else turns up: no muggers, no raids, no neighbours.
   if (loc.road === 'highway') return;
   // Atlas retrieval team.

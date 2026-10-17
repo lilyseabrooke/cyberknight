@@ -426,3 +426,14 @@ this round, and that can change in the middle.
   ducks into an alley turns her car chase into a foot chase.
 - **Not built**: cars that decide to chase a runner by themselves (only she chooses), the people she bumps into being met again later in
   the same place, and a foot chase being broken off by walking into a building.
+
+## Attacked by a vehicle
+
+`engine/src/driveby.ts`. Two things can pull up on her: an **NPD patrol car** (from the ordinary police response when she is on foot on a street a car can come down, 45% of officer responses) and a **ganger drive-by** (gang territory, more likely the more heat that gang has on her; a little in the slum, tenement and industrial districts). Never indoors, in an alley or on a highway. Rolls use their own derived streams so a quiet beat changes nothing else.
+
+The attackers arrive in a vehicle (a chopper for a lone ganger), the driver carries its key, and a drive-by gets a free pass at her first. Then she chooses (`standsAndFights`, from their strength against hers, her health, competence, courage and recklessness):
+
+- **Stand**: the vehicle stops on the street as a stray (cover for them, and a way out for a loser with the key) and it is an ordinary fight.
+- **Run**: the normal chase engine, pursued, **on foot with them tailing her in the vehicle** (or in her own if she is driving). Police use the usual `pursuers`; the gang is one car with its crew. If she is caught, bails or they wreck, the surviving crew fight her; outrunning the police still costs 2 NPD heat.
+
+Events: `vehicle_attack` (`npd`/`gang`, `gang:bike`), `attack_choice` (`stand`/`run`).

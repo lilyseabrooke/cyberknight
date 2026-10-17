@@ -1,3 +1,4 @@
+import { patrolPullsUp } from './driveby';
 import { policeChase } from './chase';
 import type { Ctx, Id, Npc, World } from './types';
 import { addHeat, fight, here, remember } from './combat';
@@ -107,6 +108,8 @@ export function npdResponse(c: Ctx): boolean {
     policeChase(c, 'ambush', squad);
     return true;
   }
+  // On foot on a street, a patrol car may be what pulls up.
+  if (officers && patrolPullsUp(c, squad)) return true;
   c.emit('ambush', 'bad', { variant: officers ? 'npd' : 'npd_drone', count: squad.length, heat: npd });
   fight(c, squad, { cause: officers ? 'an NPD ambush' : 'an NPD drone sweep', joiners: false });
   return true;
