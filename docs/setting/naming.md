@@ -45,8 +45,9 @@
 
 - **Model numbers carry the joke.** BARK-100 (a pound-shop toy) to BARK-530 (not a fight she can win). Higher is
   worse. Follow the pattern `NAME-###` or `Name Mk. N`.
-- **Dragons:** Greek gods + Mark numbers (Apollo Mk. II, Artemis Mk. I, Hera Mk. V); named individuals get CAPS
-  callsigns (CINDERJAW). See [`world.md`](world.md).
+- **Dragons:** Greek gods + Mark numbers (Apollo Mk. II, Artemis Mk. I and II, Hera Mk. V, Hermes Mk. I and III, Demeter Mk. I-IV,
+  Ares Mk. II and IV); marks need not be contiguous. Individuals get CAPS callsigns (CINDERJAW, `HERMES-III "NEXT-DAY"`,
+  `DEMETER-### "TITHEMOTHER"`, `ARES-### "QUIET HOURS"`). See [`world.md`](world.md).
 - **Drones and robots:** a role-noun and a number or an unfortunate cheerfulness ("Sentinel-7", "Buddy").
 - **Weapons:** physical oddities for low tier ("Excalibur" (a tire iron), baseball bat named "Judgment"); crisp
   tech names for high tier (thermal katana, rail revolver, Helix pulse rifle). Named melee gets quotes and a joke.

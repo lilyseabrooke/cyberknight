@@ -1,6 +1,6 @@
 # Dragon batch 2: implementation plan
 
-Status: **plan only, nothing built.** Feel over balance: every number below is a first guess, to be tuned by feel (or not at all).
+Status: **built** (see "As built" at the end for where the plan changed). Feel over balance: every number below is a first guess, to be tuned by feel (or not at all).
 
 Adds nine archetypes in four new families, plus the one Artemis variant:
 
@@ -73,7 +73,7 @@ All are `dragon`, not `boss`, so they don't trigger the cordon logic in `combat.
 **Hermes Mk. III** (always delivering something valuable; can't be caught on foot):
 - Flight flagged `untouchable`. `dragonCandidates` replaces `engage_flight` with **`chase_flight`**: drives greed/pride/bravery, runs for a few minutes, trains `athletics`, and always ends with it already gone (`dragon_chase` event, bad/mixed). It never enters `fight()`.
 - Cargo is rolled when it spawns and shown on **gawk / film / chase** (a sealed Atlas payroll case, a cooler of organs on ice, four hundred doughnuts, a CEO's dry-cleaning). Greed is what makes the chase tempting; failure is the joke. Filming it earns bonus fame; spotting the cargo can set a small rumor flag.
-- One seam for the future: `canPursue(w, flight)` returns false for `swift` flights today (checks for a vehicle later). That is the only place that has to change when vehicles land.
+- **Speed, not a flag.** Every dragon has a `speed` (`dragonmodels.ts`, the fight board's tiles-per-round scale; Blackbird is 3-7 via `heroSpeed`). `swift` dragons won't hold still: `chase_flight` runs her at it for a few beats (`runsDown`: she must gain enough on it to close the head start). Mk. III is 12, so on foot she never does. When she gets faster or gets a vehicle, `heroSpeed` is the one thing that changes.
 - Goals: a hunter on a `dragon` goal (`goals.ts:390`) must not count this as huntable. `pursuit.ts:314-317` gives `engage_flight` a big bonus on a `take` verdict, so `untouchable` flights are excluded from that logic.
 
 ## Phase 2: Demeter (the bounty dragon)
@@ -109,18 +109,9 @@ Mk. II-IV are the same code with the stats and rates above.
 
 ## Phase 4: Ares (the gang buster)
 
-### Who counts as a suspect
+### Who it goes after
 
-`gangSuspicion(w, npc): number` (0..1), by distance in the social graph:
-
-| Link | Score |
-|---|---|
-| In a gang faction (`faction.kind === 'gang'` or tag `ganger`) | 1.0 |
-| One tie from a gang member (any `TieKind`) | 0.6 |
-| Two ties from a gang member | 0.35 |
-| Linked to someone who has "thought about" gangs: positive opinion of a gang faction, a gang-flavoured memory, a gang-related goal, or a crew/friend tie to such a person | 0.2 |
-
-The hero is scored by the same function, with a **floor of ~0.15** because everybody in Neo is within three links of someone thinking about gangs. Companions who are gangers, gangers she has killed or befriended, and gang-related goals raise it. This is the joke, and also the mechanism that lets Ares fight her without a special case.
+Everyone. It does not check. Each beat of a raid it picks a few of the people present at random (not gang members: whoever is there), names a gang at random and accuses them of belonging to it. Passers-by (ephemeral NPCs) die; people who matter are downed for a while. It rolls for her the same way, hidden or not, and an empty street makes it likelier to turn on her. (An earlier draft scored people by their social-graph distance from gangs; dropped. The joke is that it doesn't discriminate.)
 
 ### Where it goes
 
@@ -155,3 +146,12 @@ The hero is scored by the same function, with a **floor of ~0.15** because every
 ## Order of work
 
 P0 foundation, then P1 Hermes, P2 Demeter, P3 Artemis II, P4 Ares, P5 tests/docs. One commit per phase, `npm run typecheck && npm test` green before each commit.
+
+## As built
+
+- **Speed replaces `canPursue`.** `engine/src/dragonmodels.ts` holds the table: family, mark, speed, traits (`swift`, `relentless`, `tracks`, `screams`). `heroSpeed(w)` is her speed; `reachPerBeat`, `runsDown` and the fight board's retreat rule all read it. Speeds: Hermes I 4, Hermes III 12, Demeter 2-3, Artemis II 5, Ares II 4, Ares IV 10 (Artemis I, Hera and Apollo stay 3).
+- **Tracking is real movement.** A `tracks` dragon whose target has gone elsewhere moves along `routeTo` a hop at a time, at `speed / heroSpeed` hops per beat of world time, so a long lie-low (120 minutes) lets it cover any distance, and a faster hero would leave it behind.
+- **Fleeing.** The fight board blocks her retreat from a `relentless` dragon whose speed is above hers (`Sim.outpaced`). Hermes Mk. I is `skittish` and will bolt when beaten.
+- **Ares accuses everyone**, not just people near gangs.
+- **Not done, on purpose:** the Mk. II proxy in `pursuit.ts` (a dragon hunter still sizes things up against an Artemis Mk. I); Mk. IV breaching buildings; raids that aren't on screen; letting a sheltering hero see the raid from indoors.
+- **Tests:** `engine/src/dragons2.test.ts`. New spawn rolls draw from a stream derived from the seed and beat, so older seeds play as they did.

@@ -199,13 +199,21 @@ Kissing used to be a runaway loop (the desire to kiss grew without limit as affi
 
 ### The dragon family
 
-Cyberdragons are Atlas "protection" platforms, in three models that behave differently:
+Cyberdragons are Atlas "protection" platforms, in several models that behave differently:
 
 | Model | Behavior | Role in the sandbox |
 |---|---|---|
 | **Apollo Mk. II** (CINDERJAW) | Stationary boss on the Kowloon Overpass | The gate off the starting district: its lockdown cordon stays up until it dies, and then stays down for good (`legacy.gate`). Brutal; beatable with allies, gear, a good build and dragon intel. See [`PROGRESSION.md`](PROGRESSION.md). |
 | **Artemis Mk. I** | Roaming patrol flights of 1-3 over the outdoor districts | A competent Blackbird (power ~35+, healthy) beats a lone Artemis essentially every time. Packs of 2-3 are the real threat: they make her run or die. Kills drop wing plating/scales and give fame. |
 | **Hera Mk. V** | Rare once-per-night fly-through (~10-20% of nights) | Effectively unkillable: it kills any plausible Blackbird in a round or two, and even a level-45 hero dies 90%+ of the time. The point is how she reacts. |
+| **Hermes Mk. I** | Courier flyby of 1-2 (grade 8) | Weak, skittish. If it spots her first it fines her for not being home. |
+| **Hermes Mk. III** | Express courier (grade 30), always carrying something valuable | Speed 12, so she can chase it and never catch it; effectively unkillable until she is faster or has a vehicle. Never notices her. |
+| **Demeter Mk. I-IV** | Roams outdoors demanding a tithe (grades 14-50) | The "bounty" dragon. It is always winter: it announces the summer distribution and then collects. She can pay, haggle or refuse; refusing, or saying nothing for three beats, is a threat to public security and it shoots. Killing one pays out its purse. |
+| **Artemis Mk. II** | Hunts high Atlas heat (grade 22) | Notices her much more easily, hides less well, and follows her from place to place at its own speed. |
+| **Ares Mk. II** | Gang buster (grade 28) | Raids places with gang activity and accuses everyone present of being a ganger, whichever gang. It can turn on her too. A raid leaves the turf less gang. |
+| **Ares Mk. IV** | Gang buster (grade 48), after repeat raids on a place | Faster than she can run from. It screams 2-3 beats before it lands: the sign to get indoors and stay there, unless she means to take it. |
+
+**Speed is a stat** (`engine/src/dragonmodels.ts`), on the fight board's scale (tiles per round; Blackbird is 3-7, `heroSpeed`). It decides everything about keeping up: a tracking dragon makes up ground on her by its speed against hers over the time that passes; she can only run down a `swift` dragon if she is faster than it; and she can't flee a `relentless` one that is faster than she is. When vehicles and real hero speed land, `heroSpeed` is the only thing that has to change. See [`DRAGONS_PLAN.md`](DRAGONS_PLAN.md).
 
 A flight gives her a few beats to react: **engage**, **hide**, **gawk**, or **film it for fame**. Clueless heroes engage, gawk and film (and sometimes get noticed and flattened); competent ones weigh the power ratio against their current HP and hide. Scouts and the sonic-ear implant can warn her in time.
 

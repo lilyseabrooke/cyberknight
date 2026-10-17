@@ -62,7 +62,15 @@ victims of Atlas takeovers, or just their own brand of shady.
 
 Named after Greek gods, with a Mark number: **Apollo Mk. II** ("CINDERJAW", the stationary boss on the Kowloon
 Overpass), **Artemis Mk. I** (roaming patrol flights), **Hera Mk. V** (rare fly-through; the hardest thing in the early city and a late-mid threat later).
-Specifics are in `docs/DESIGN.md` ("The dragon family").
+Specifics are in `docs/DESIGN.md` ("The dragon family"). The second batch:
+
+- **Hermes** (couriers). Mk. I is a small flustered delivery dragon. Mk. III is the express model: always delivering something
+  valuable, and gone before anyone can look at it twice.
+- **Demeter** (bounty dragons, Mk. I-IV). "Harvest" platforms whose broadcast announces the summer distribution of goods to
+  the community, then collects the winter tithe instead. It is always winter, and it is always the citizen's fault.
+- **Artemis Mk. II** (hunter). An Artemis that has stopped patrolling and started taking an interest in one citizen.
+- **Ares** (gang busters, Mk. II and IV). Deployed to districts with gang activity; accuses everyone in range of belonging to
+  a gang, without checking which. Mk. IV announces itself with a scream, and the sign is: get inside.
 
 - **Naming.** New models take another Greek god (**Ares, Athena, Hermes, Poseidon, Hades, Demeter**…) plus a Mark.
   Individual dragons that matter get a CAPS callsign that is evocative and slightly too edgy (CINDERJAW).

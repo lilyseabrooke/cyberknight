@@ -34,7 +34,9 @@ Departures from the sketch, and why:
   175 (12%). `START_DEPTH` in `grade.ts` is the dial; `npm run district-size` counts.
 - **Dungeon `tier` stays** (the tables are indexed by it) but is rolled from the danger around the place, and a place's
   garrison is made at `danger +/- 4 per tier` away from what that danger would have rolled.
-- Dragons ignore the local grade: Apollo is grade 15, Artemis 12, Hera 60, wherever they are.
+- Dragons ignore the local grade: Apollo is grade 15, Artemis Mk. I 12, Hera 60, wherever they are. The second batch
+  (`docs/DRAGONS_PLAN.md`): Hermes Mk. I 8 and Mk. III 30, Demeter Mk. I-IV 14 / 24 / 36 / 50, Artemis Mk. II 22,
+  Ares Mk. II 28 and Mk. IV 48.
 
 ### Not done yet
 
