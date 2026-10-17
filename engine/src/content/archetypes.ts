@@ -10,7 +10,7 @@ export interface ArchetypeDef {
   level: [number, number];
   tags: string[];
   faction: string | null;
-  names: 'person' | 'robot' | 'monster' | 'kid' | 'artemis' | 'hera';
+  names: 'person' | 'robot' | 'monster' | 'kid' | 'artemis' | 'hera' | 'hermes' | 'nextday' | 'demeter' | 'ares';
   weapons: string[];
   armors?: string[];
   armorChance?: number;
@@ -336,6 +336,52 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'hera', weapons: [], loot: [], lootChance: 0, cash: [0, 0], hp: 8000, power: 900,
     desc: ['a Hera Mk. V: a city-scale Atlas pacification platform, with a presence like weather'],
   },
+  // The second batch (docs/DRAGONS_PLAN.md). How fast each goes is in dragonmodels.ts.
+  hermes: {
+    role: 'Hermes Mk. I cyberdragon', level: [8, 8], tags: ['robot', 'dragon', 'hermes', 'skittish'], faction: 'atlas',
+    names: 'hermes', weapons: [], loot: ['courier_scale', 'courier_plate'], lootChance: 0.8, cash: [20, 90], hp: 100, power: 18,
+    desc: ['a Hermes Mk. I courier dragon: small, quick, and carrying a clipboard it has no hands for'],
+  },
+  hermes3: {
+    role: 'Hermes Mk. III cyberdragon', level: [30, 30], tags: ['robot', 'dragon', 'hermes'], faction: 'atlas',
+    names: 'nextday', weapons: [], loot: ['courier_scale', 'courier_plate'], lootChance: 1, cash: [400, 1500], hp: 900, power: 120,
+    desc: ['a Hermes Mk. III express dragon: a thin white blade of a thing that is never where you are looking'],
+  },
+  demeter: {
+    role: 'Demeter Mk. I cyberdragon', level: [14, 14], tags: ['robot', 'dragon', 'demeter'], faction: 'atlas',
+    names: 'demeter', weapons: [], loot: ['tithe_ledger', 'harvest_plate'], lootChance: 0.8, cash: [150, 400], hp: 260, power: 50,
+    desc: ['a Demeter Mk. I bounty dragon: broad, slow, and hung with collection baskets'],
+  },
+  demeter2: {
+    role: 'Demeter Mk. II cyberdragon', level: [24, 24], tags: ['robot', 'dragon', 'demeter'], faction: 'atlas',
+    names: 'demeter', weapons: [], loot: ['tithe_ledger', 'harvest_plate'], lootChance: 0.8, cash: [400, 900], hp: 520, power: 92,
+    desc: ['a Demeter Mk. II bounty dragon, its baskets welded shut and its manners worse'],
+  },
+  demeter3: {
+    role: 'Demeter Mk. III cyberdragon', level: [36, 36], tags: ['robot', 'dragon', 'demeter'], faction: 'atlas',
+    names: 'demeter', weapons: [], loot: ['tithe_ledger', 'harvest_plate'], lootChance: 0.8, cash: [900, 2000], hp: 860, power: 165,
+    desc: ['a Demeter Mk. III bounty dragon, armored like a bank vault that learned to fly'],
+  },
+  demeter4: {
+    role: 'Demeter Mk. IV cyberdragon', level: [50, 50], tags: ['robot', 'dragon', 'demeter'], faction: 'atlas',
+    names: 'demeter', weapons: [], loot: ['tithe_ledger', 'harvest_plate'], lootChance: 0.8, cash: [2000, 5000], hp: 1350, power: 270,
+    desc: ['a Demeter Mk. IV bounty dragon: the last word in taxation, and the last word, generally'],
+  },
+  artemis2: {
+    role: 'Artemis Mk. II cyberdragon', level: [22, 22], tags: ['robot', 'dragon', 'artemis', 'hunter'], faction: 'atlas',
+    names: 'artemis', weapons: [], loot: ['hunter_optics', 'artemis_plate'], lootChance: 0.8, cash: [0, 0], hp: 460, power: 82,
+    desc: ['an Artemis Mk. II hunter dragon: an Artemis with the patience and the thermal optics to take an interest in one citizen'],
+  },
+  ares2: {
+    role: 'Ares Mk. II cyberdragon', level: [28, 28], tags: ['robot', 'dragon', 'ares'], faction: 'atlas',
+    names: 'ares', weapons: [], loot: ['ram_plate', 'dragon_scale'], lootChance: 0.8, cash: [0, 0], hp: 650, power: 115,
+    desc: ['an Ares Mk. II gang-buster dragon: a wedge of armor with a loudspeaker for a face'],
+  },
+  ares4: {
+    role: 'Ares Mk. IV cyberdragon', level: [48, 48], tags: ['robot', 'dragon', 'ares'], faction: 'atlas',
+    names: 'ares', weapons: [], loot: ['scream_core', 'ram_plate'], lootChance: 1, cash: [0, 0], hp: 1700, power: 320,
+    desc: ['an Ares Mk. IV gang-buster dragon, which comes in faster than its own sound'],
+  },
   // ---------------- Gyms (content/gyms.ts) ----------------
   gym_owner: {
     role: 'gym owner', level: [5, 6], tags: ['owner', 'strong', 'staff'], faction: null,
@@ -536,6 +582,10 @@ export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
   if (kind === 'monster') return 'CINDERJAW';
   if (kind === 'artemis') return `ARTEMIS-${rng.int(100, 999)}`;
   if (kind === 'hera') return 'HERA-V "MATRIARCH"';
+  if (kind === 'hermes') return `HERMES-${rng.int(100, 999)}`;
+  if (kind === 'nextday') return 'HERMES-III "NEXT-DAY"';
+  if (kind === 'demeter') return `DEMETER-${rng.int(100, 999)} "${rng.pick(['TITHEMOTHER', 'HARVEST HOME', 'THE LANDLADY', 'CORNUCOPIA'])}"`;
+  if (kind === 'ares') return `ARES-${rng.int(100, 999)} "${rng.pick(['QUIET HOURS', 'CURFEW', 'DUE PROCESS', 'LAST CALL'])}"`;
   return `${rng.pick(FIRST)} ${rng.pick(LAST)}`;
 }
 
@@ -564,7 +614,7 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
   const ref = Math.max(5, (def.level[0] + def.level[1]) / 2);
   const hp = opts.grade === undefined ? def.hp ?? 18 + level * 12 : def.hp ? Math.round(def.hp * Math.max(1, baseHp(level) / baseHp(ref))) : Math.round(baseHp(level));
   const name = opts.name ?? rollNpcName(rng, def.names);
-  const machine = def.names === 'robot' || def.names === 'monster' || def.names === 'artemis' || def.names === 'hera';
+  const machine = def.names !== 'person' && def.names !== 'kid';
   const person = rollPerson(id, name, { ...PEOPLE[archetype], machine }, { gender: opts.gender, age: opts.age });
   return {
     id,

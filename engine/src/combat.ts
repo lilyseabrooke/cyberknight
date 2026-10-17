@@ -19,6 +19,7 @@ import { spreadDeed } from './ties';
 import { settleContracts } from './contracts';
 import { ensureDungeon } from './dungeons';
 import { afterTakedown, downFor, isShut } from './shutdown';
+import { modelOf } from './dragonmodels';
 
 export { npcsAt };
 
@@ -433,6 +434,11 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
     if (scalps) {
       h.fame += 4 * scalps;
       w.counters.artemis_kills = (w.counters.artemis_kills ?? 0) + scalps;
+    }
+    // The rest of the family are worth more the higher the mark.
+    for (const f of foes) {
+      const m = modelOf(f.archetype);
+      if (m && !f.tags.includes('artemis') && f.tags.includes('dragon')) h.fame += 3 * m.mark;
     }
   }
   if (w.flight && foes.some((f) => w.flight!.ids.includes(f.id))) w.flight = null;

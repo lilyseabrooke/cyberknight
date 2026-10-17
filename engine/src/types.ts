@@ -601,12 +601,33 @@ export interface Damsel {
 
 /** A dragon flight overhead. She has a few beats to decide what to do about it. */
 export interface Flight {
-  kind: 'artemis' | 'hera';
+  /** The family: picks the text and the behaviour. The model within it (and its mark) is `model`. */
+  kind: 'artemis' | 'hera' | 'hermes' | 'demeter' | 'ares';
+  /** The archetype flying, e.g. `ares4`. Absent means the family's own first model (`artemis`, `hera`). See dragonmodels.ts. */
+  model?: string;
   ids: Id[];
   locationId: Id;
   until: number;
   hidden: boolean;
   noticed: boolean;
+  /** Where it is in its routine: a Demeter making its demand, an Ares screaming ahead of a raid or raiding. */
+  phase?: 'scream' | 'raid' | 'demand';
+  /** The beat a scream gives way to the dragon itself. */
+  arrives?: number;
+  /** What a Demeter is asking for. */
+  demand?: number;
+  /** How far it has got towards her, in hops, while it chases a hero who has moved on. */
+  reach?: number;
+  /** The beat it first turned up, so a dragon that keeps up with her can't do it forever. */
+  born?: number;
+  /** What a courier is carrying. */
+  cargo?: string;
+  /** The world minute it was last seen to, so a long wait (laying low) counts for the ground it covers. */
+  clock?: number;
+  /** She has chosen to wait out an Ares in the open. */
+  stand?: boolean;
+  /** She got indoors ahead of an Ares. */
+  sheltered?: boolean;
 }
 
 /** A run that ended in her death, and who was there. The world remembers; so do the people who saw or heard. */

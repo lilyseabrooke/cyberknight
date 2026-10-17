@@ -31,6 +31,36 @@ const act = (a: unknown): string => ACTS[String(a)] ?? String(a);
 const lc = (s: unknown): string => String(s).charAt(0).toLowerCase() + String(s).slice(1);
 /** Start a sentence with whatever it is. */
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+const roman = (n: unknown): string => ['', 'I', 'II', 'III', 'IV', 'V'][Number(n)] ?? String(n);
+
+/** The second batch of dragons in a fight (docs/DRAGONS_PLAN.md): how they open it, how it goes, keyed by archetype. */
+type Say = (d: EventData) => string[];
+const DEMETERS = ['demeter', 'demeter2', 'demeter3', 'demeter4'];
+const forAll = <F>(keys: string[], say: F): Record<string, F> => Object.fromEntries(keys.map((k) => [k, say]));
+const DRAGON_OPEN: Record<string, Say> = {
+  hermes: (d) => [`${d.foes} lands badly, drops its clipboard, and puts up what it believes to be its guard.`],
+  hermes3: (d) => [`${d.foes} is, unbelievably, standing still. It looks at Blackbird the way you look at a very slow customer.`],
+  ...forAll(DEMETERS, (d) => [`${d.foe} unfolds its baskets and lowers a gun barrel through the weave. "PUBLIC SECURITY INCIDENT," it announces. "THIS IS FOR THE HARVEST."`]),
+  artemis2: (d) => [`${d.foes} comes down in a tight, practiced spiral and settles on a rooftop with a clear line to Blackbird. It has been waiting a while. It says so.`],
+  ares2: (d) => [`${d.foe} hits the street front-first, loudspeaker blaring. "YOU ARE UNDER ARREST. YOU ARE ALSO UNDER THE DRAGON."`],
+  ares4: (d) => [`${d.foes} does not so much arrive as stop being elsewhere. The air in the street leans away from it. "BLACKBIRD. YOU ARE IDENTIFIED. YOU ARE ACCUSED. YOU ARE OUTSIDE."`],
+};
+const DRAGON_WIN: Record<string, (d: EventData, spoils: string) => string[]> = {
+  hermes: (d, sp) => [`The Hermes comes down in ${d.rounds} rounds, scattering undeliverable parcels across the road. Nobody is home to sign for any of them.${sp}`],
+  hermes3: (d, sp) => [`Impossibly, the Hermes Mk. III is on the ground in ${d.rounds} rounds, white plating folded like paper. Blackbird looks at what it was carrying for some time.${sp}`],
+  ...forAll(DEMETERS, (d, sp) => [`The Demeter comes down in ${d.rounds} rounds, baskets bursting. Every coin it ever collected goes rolling down the gutter, and the whole street suddenly has somewhere to be.${sp}`, `${d.rounds} rounds, and the harvest is over. The jingle plays on for a few seconds more, and then it, too, is paid in full.${sp}`]),
+  artemis2: (d, sp) => [`The Artemis Mk. II comes down in ${d.rounds} rounds, still tracking her to the end. Its optics are looking right at her when they go out.${sp}`],
+  ares2: (d, sp) => [`The Ares Mk. II goes down in ${d.rounds} rounds with its loudspeaker stuck on "CITIZEN" in a loop. Nobody on the block has ever been so glad to hear a word.${sp}`],
+  ares4: (d, sp) => [`Against every expectation, including the dragon's, the Ares Mk. IV hits the street in ${d.rounds} rounds. The scream winds down like a siren in a tunnel. For a moment the whole district listens to nothing.${sp}`],
+};
+const DRAGON_DEAD: Record<string, Say> = {
+  hermes: (d) => [`The Hermes takes Blackbird down in round ${d.rounds}, then, after a pause, tries to get her to sign for it.`],
+  hermes3: (d) => [`Round ${d.rounds}. The Hermes Mk. III files a complaint about the delay.`],
+  ...forAll(DEMETERS, (d) => [`The Demeter closes its baskets on Blackbird in round ${d.rounds}. It enters her under "non-contributor" and moves on to the next street.`, `Round ${d.rounds}. "THE HARVEST IS IN," the Demeter announces, and it very much is.`]),
+  artemis2: (d) => [`The Artemis Mk. II finishes Blackbird in round ${d.rounds}, without hurry, the way you finish a task you've been assigned for a while.`],
+  ares2: (d) => [`Round ${d.rounds}. The Ares Mk. II reads Blackbird her rights over what is left of her, and then, with a kind of grim thoroughness, her gang affiliations.`],
+  ares4: (d) => [`Round ${d.rounds}. The Ares Mk. IV leaves a pale mark on the pavement and an announcement that the district has been secured. All the shutters stay down.`],
+};
 
 /** How a thing she's found out about someone reaches her. `core` is the news, written about `d.npc`. */
 function learnLine(d: EventData, core: string): string {
@@ -504,7 +534,7 @@ const T: Record<string, Entry> = {
   'fight_round:down': e((d) => [`Round ${d.round}. ${d.down} ${Number(d.downCount) > 1 ? 'are' : 'is'} done.${Number(d.taken) > 0 ? ` Blackbird is out ${d.taken}. (HP ${d.hpPct}%)` : ''}${Number(d.left) > 0 ? ` ${d.left} left.` : ''}`, `Round ${d.round}: ${d.down} ${Number(d.downCount) > 1 ? 'go' : 'goes'} down.${Number(d.left) > 0 ? ` ${d.left} to go.` : ''}`]),
   fight_start: e(
     (d) =>
-      d.dragon === 'hera'
+      DRAGON_OPEN[String(d.dragon)] ? DRAGON_OPEN[String(d.dragon)]!(d) : d.dragon === 'hera'
         ? ['Hera Mk. V turns. It takes a while, because it is the size of a district. Every light on its underbelly settles on Blackbird.']
         : d.dragon === 'artemis'
           ? [Number(d.count) === 1 ? `${d.foes} drops from the sky in a controlled fall, wings snapping open a few feet above the street. Blackbird levels her ${d.weapon}.` : `${d.count} Artemis Mk. I dragons peel off in formation and drop on Blackbird: ${d.foes}. They have clearly done this before.`]
@@ -517,6 +547,8 @@ const T: Record<string, Entry> = {
   ),
   'fight_end:win': e(
     (d) => {
+      const win = DRAGON_WIN[String(d.dragon)];
+      if (win) return win(d, [Number(d.cash) > 0 ? `${d.cash} neodollars` : '', d.loot ? String(d.loot) : ''].filter(Boolean).map((x, i, a) => (i === 0 ? ` Salvage: ${x}` : x)).join(' and ') + (Number(d.cash) > 0 || d.loot ? '.' : ''));
       if (d.dragon === 'artemis') {
         const spoils = [Number(d.cash) > 0 ? `${d.cash} neodollars` : '', d.loot ? String(d.loot) : ''].filter(Boolean).join(' and ');
         return [
@@ -548,7 +580,7 @@ const T: Record<string, Entry> = {
   ),
   'fight_end:dead': e(
     (d) =>
-      d.dragon === 'hera'
+      DRAGON_DEAD[String(d.dragon)] ? DRAGON_DEAD[String(d.dragon)]!(d) : d.dragon === 'hera'
         ? ['Hera Mk. V does not so much attack Blackbird as happen to her. There is a flash, and then there is a smoking silhouette, and then there is a dragon continuing on its way.', 'The Hera does not break stride. Blackbird is a shadow on the pavement, and then not even that.']
         : d.dragon === 'artemis'
           ? [`The Artemis pack takes Blackbird apart in round ${d.rounds}, working in tidy formation. One of them is, somehow, still polite about it.`, `Round ${d.rounds}. ${d.killer || 'The Artemis'} lands on what's left of the cover and checks the street for further complaints.`]
@@ -820,7 +852,11 @@ const T: Record<string, Entry> = {
   // ====================================================== the dragon family
   'dragon_flight:artemis': e(
     (d) => {
-      const lead = Number(d.count) === 1
+      const lead = Number(d.mark) === 2
+        ? Number(d.count) === 1
+          ? `An Artemis Mk. II slides in over ${d.place} flying slow circles, optics tilted down. It isn't patrolling. It is looking for someone in particular.`
+          : `Two Artemis Mk. II dragons take up stations over ${d.place} and begin, methodically, to quarter the district. They are not here for the district.`
+        : Number(d.count) === 1
         ? `An Artemis Mk. I banks low over ${d.place}, red scanner sweeping the district. One patrol dragon, built for speed. Alone, for now.`
         : Number(d.count) === 2
           ? `Two Artemis Mk. I dragons slide in over ${d.place} wingtip to wingtip, searchlights crossing like scissors.`
@@ -841,15 +877,95 @@ const T: Record<string, Entry> = {
     (d) => [d.hidden ? 'The Hera Mk. V passes overhead and the street breathes again. Blackbird stays in the doorway for an extra full minute, just to be sure.' : d.left ? 'Behind Blackbird, the Hera Mk. V drifts on across the skyline and out of sight. She does not look back. She is walking faster than she was.' : 'The Hera Mk. V drifts on, without once looking down. Blackbird does not know whether to be relieved or insulted.'],
     (d) => (d.hidden || d.left ? ['I was never worried. My hands were shaking for other reasons.', "That's the day I learned what fear looks like in the sky."] : ['It did not even notice me. Honestly, I should be thankful.']),
   ),
-  'dragon_notice:artemis': e((d) => [Number(d.count) === 1 ? 'The Artemis tilts, one wing dipping, scanner locking onto Blackbird with a soft electronic chirp. "PRELIMINARY CITATION ISSUED."' : 'A scanner locks onto Blackbird. Then another. The Artemis pack tilts as one. "CITIZEN: YOU ARE BEING EXAMINED."'], ['They noticed me. That is the first thing that has gone right all day.']),
+  'dragon_notice:artemis': e((d) => [Number(d.mark) === 2 ? 'The Artemis Mk. II stops circling. Every optic it owns swings and settles on Blackbird. "SUBJECT LOCATED. WE WERE JUST ABOUT TO LOOK FOR YOU."' : Number(d.count) === 1 ? 'The Artemis tilts, one wing dipping, scanner locking onto Blackbird with a soft electronic chirp. "PRELIMINARY CITATION ISSUED."' : 'A scanner locks onto Blackbird. Then another. The Artemis pack tilts as one. "CITIZEN: YOU ARE BEING EXAMINED."'], ['They noticed me. That is the first thing that has gone right all day.']),
   'dragon_notice:hera': e(() => ['A single huge eye in the Hera Mk. V\'s underbelly opens, and turns, very slowly, and finds her. A voice the size of a building says: "CITIZEN."'], ['Oh no. Oh, a very specific no.']),
   'dragon_engage:artemis': e((d) => [Number(d.count) === 1 ? 'Blackbird steps into the middle of the street, plants her feet, and tells the Artemis it\'s time for the best day of its life.' : 'Blackbird steps into the street and points at the Artemis pack. "Which of you wants to go first?" They do not need to choose.'], ['Dragon slayer. DRAGON. SLAYER.']),
   'dragon_engage:hera': e(() => ['Blackbird steps into the middle of the street, plants her feet, and points her weapon at a Hera Mk. V. It is not an even match. It is not, technically, a match.'], ["I've killed bigger. Probably. I've forgotten when."]),
-  'dragon_hide:ok': e((d) => [d.kind === 'hera' ? 'Blackbird flattens herself into a doorway, behind a bin, under a tarp. The Hera passes over the top of her like a tide.' : 'Blackbird ducks behind a dumpster and holds her breath. The Artemis patrol glides over, scanner sweeping, and does not stop.'], ['Cover! Excellent cover. I am a cover professional.']),
-  'dragon_hide:fail': e((d) => [d.kind === 'hera' ? 'Blackbird dives behind a bin. The bin is small, and Blackbird, as it turns out, is not.' : 'Blackbird dives behind a dumpster. A scanner pings. A knee is sticking out.'], ['I was fully hidden. They are just very good at their jobs.']),
+  'dragon_hide:ok': e((d) => [d.kind === 'demeter' ? 'Blackbird ducks into a doorway and keeps her wallet shut. The Demeter drifts by, baskets swinging, collecting from nobody.' : d.kind === 'ares' ? 'Blackbird drops flat behind a rain barrel as the Ares sweeps overhead, loudspeaker working the street.' : d.kind === 'hermes' ? 'Blackbird pulls her hood down and becomes an address that does not exist. The Hermes goes on looking.' : d.kind === 'hera' ? 'Blackbird flattens herself into a doorway, behind a bin, under a tarp. The Hera passes over the top of her like a tide.' : 'Blackbird ducks behind a dumpster and holds her breath. The Artemis patrol glides over, scanner sweeping, and does not stop.'], ['Cover! Excellent cover. I am a cover professional.']),
+  'dragon_hide:fail': e((d) => [d.kind === 'demeter' ? 'Blackbird ducks into a doorway. A basket swings round and taps her, gently, on the shoulder.' : d.kind === 'ares' ? 'Blackbird drops behind a rain barrel. The Ares swings its loudspeaker straight at the barrel.' : d.kind === 'hermes' ? 'Blackbird ducks behind a bin. The Hermes has a very good manifest and it lists the bin.' : d.kind === 'hera' ? 'Blackbird dives behind a bin. The bin is small, and Blackbird, as it turns out, is not.' : 'Blackbird dives behind a dumpster. A scanner pings. A knee is sticking out.'], ['I was fully hidden. They are just very good at their jobs.']),
   'dragon_gawk:artemis': e(() => ['Blackbird just stands there, mouth open, watching an Artemis patrol draw an arc across the city. Its wings leave faint afterimages.'], ['Beautiful. Terrifying. Beautiful again.']),
   'dragon_gawk:hera': e(() => ['Blackbird stands in the middle of the street, head tilted back, looking up at a Hera Mk. V. It fills the entire sky. She takes a step back, and another, without taking her eyes off it.'], ['I feel very small. This is a new feeling.']),
   'dragon_film:artemis': e((d) => [`Blackbird holds up her phone and films the Artemis patrol as it passes. The clip is posted before they are out of sight. Fame: ${Math.floor(Number(d.fame))}.`], ['This is going to do numbers.']),
+  'dragon_flight:hermes': e(
+    (d) => {
+      const lead = Number(d.mark) === 3
+        ? `${d.place} goes briefly very white. A Hermes Mk. III crosses it at a speed that makes the street's shadows jump, a cradle under its belly holding ${d.cargo}.`
+        : Number(d.count) === 1
+          ? `A Hermes Mk. I courier skims in over ${d.place}, a clipboard strapped to its chest and no hands to hold it. It is looking for an address.`
+          : `Two Hermes Mk. I couriers swing in over ${d.place}, comparing manifests in clipped radio chirps.`;
+      return [d.warned ? `${lead} Blackbird was warned in time, and has already stepped out of sight.` : lead];
+    },
+    (d) => (Number(d.mark) === 3 ? ['What is it carrying? Never mind. What is it CARRYING?', 'That is the fastest thing I have ever seen.'] : ['Small. Quick. Probably has a package.']),
+  ),
+  'dragon_flight:demeter': e(
+    (d) => {
+      const lead = `A Demeter Mk. ${roman(d.mark)} drifts over ${d.place}, baskets swinging, a speaker on its chest playing a harvest-festival jingle. "SUMMER DISTRIBUTION IS NOW ARRIVING IN YOUR DISTRICT."`;
+      return [d.warned ? `${lead} Blackbird was warned in time, and is already behind a door.` : lead];
+    },
+    ['Summer distribution. In a district. Sure.', 'I have not seen one single thing distributed.'],
+  ),
+  'dragon_flight:ares': e(
+    (d) => {
+      const lead = d.screams
+        ? `A sound arrives over ${d.place} before anything else does: a long, flat, rising scream from somewhere above the rooftops, and then a second, closer. Every shutter on the street starts coming down. An Ares Mk. IV is inbound. If Blackbird means to be indoors, now is when.`
+        : `An Ares Mk. II settles over ${d.place}, a wedge of armor with a loudspeaker for a face. "CITIZENS: A GANG-RELATED INCIDENT HAS BEEN REPORTED. YOU ARE ALL PART OF IT."`;
+      return [d.warned ? `${lead} Blackbird was warned in time and is out of its line of sight.` : lead];
+    },
+    (d) => (d.screams ? ['That is the sound of a bad idea arriving.', 'Okay. Inside. Inside is a good place to be.'] : ['Everyone? EVERYONE? That is a lot of gang.']),
+  ),
+  'dragon_pass:hermes': e(
+    (d) => [d.hidden ? 'The Hermes circles twice, finds no one to sign, and goes on its way. Blackbird comes out of her doorway looking like she has never been so good at anything.' : 'The Hermes gives up on the address and zips off with its clipboard clutched to its chest.'],
+    ['Delivery failed. Mine, too, probably.'],
+  ),
+  'dragon_pass:demeter': e(
+    (d) => [d.hidden ? 'The Demeter drifts past, baskets swinging, and does not look down. "NEXT YEAR\'S HARVEST IS SECURE," it tells nobody.' : 'The Demeter lifts off and moves on to the next street, baskets heavier than before. The jingle fades.'],
+    ['It will be back. It is always back.'],
+  ),
+  'dragon_pass:ares': e(
+    (d) => [d.left ? 'Behind her, the screaming stops. The Ares moves on to another district and, one by one, the shutters begin to go back up.' : d.hidden ? 'The Ares finishes its sweep and lifts away, reading a closing statement to an empty street. Blackbird stays under cover a long, long minute.' : 'The Ares finishes its sweep and lifts away, reading a closing statement to a street that has just been through something. "PEACE HAS BEEN RESTORED."'],
+    ['Peace. Right.'],
+  ),
+  'dragon_notice:hermes': e(() => ['The Hermes banks, scanner chirping. "PARCEL FOR... YOU? NO. NO, SORRY. YOU WERE NOT IN."'], ['I was right here!']),
+  'dragon_notice:demeter': e((d) => [`The Demeter's baskets stop swinging. A speaker clears its throat. "CITIZEN: YOU HAVE BEEN IDENTIFIED AS A CONTRIBUTOR. THIS IS A ${Number(d.mark) >= 3 ? 'SERIOUS ' : ''}OPPORTUNITY."`], ['That sounds like a bill.']),
+  'dragon_notice:ares': e(() => ['The Ares swings its whole head round, loudspeaker first. "THAT ONE. YES. YOU."'], ['Why do I always get picked.']),
+  'dragon_engage:hermes': e(() => ['Blackbird steps into the street and waves the Hermes down like a taxi. It lands, offended.'], ['A courier. I could do a courier.']),
+  'dragon_engage:demeter': e(() => ['Blackbird walks straight at the Demeter and tells it to come and get it.'], ['Collect this.']),
+  'dragon_engage:ares': e(() => ['Blackbird steps out into the road in front of the Ares and offers it a better accusation.'], ['Come on. Say it.']),
+  'dragon_gawk:hermes': e(
+    (d) => [Number(d.mark) === 3 ? `Blackbird watches a Hermes Mk. III cross the sky in a single clean line. Clamped under its belly: ${d.cargo}. She cannot stop thinking about it.` : 'Blackbird watches a Hermes courier hunt for a house number, circle twice, and begin again.'],
+    (d) => (Number(d.mark) === 3 ? ['Whatever is in that cradle, I want it.', 'Think of what that is worth.'] : ['An honest day of work. In the sky.']),
+  ),
+  'dragon_gawk:demeter': e((d) => [`Blackbird watches a Demeter Mk. ${roman(d.mark)} work the street, baskets swinging, the festival jingle playing over the sound of a lot of people quietly not making eye contact.`], ['Everyone is very busy all of a sudden.']),
+  'dragon_gawk:ares': e((d) => [`Blackbird watches an Ares Mk. ${roman(d.mark)} wheel over the street, loudspeaker running through accusations in alphabetical order.`], ['Alphabetical. Somebody put work into that.']),
+  'dragon_film:hermes': e((d) => [Number(d.mark) === 3 ? `Blackbird gets a quarter-second of a Hermes Mk. III on her phone: a white streak, and under it, very clearly, ${d.cargo}. Fame: ${Math.floor(Number(d.fame))}.` : `Blackbird films a Hermes courier circling a rooftop looking for a door. Fame: ${Math.floor(Number(d.fame))}.`], ['Frame by frame, that is a heist waiting to happen.']),
+  'dragon_film:demeter': e((d) => [`Blackbird films a Demeter Mk. ${roman(d.mark)} working the street. The jingle is on the audio, which makes it worse. Fame: ${Math.floor(Number(d.fame))}.`], ['Content. And a little bit of evidence.']),
+  'dragon_film:ares': e((d) => [`Blackbird films an Ares Mk. ${roman(d.mark)} through a window. The clip goes up with the caption "DO NOT GO OUTSIDE." Fame: ${Math.floor(Number(d.fame))}.`], ['This is going to do numbers. Behind a locked door.']),
+  'dragon_follow:artemis': e((d) => [Number(d.count) === 1 ? 'The Artemis Mk. II comes in over the rooftops behind Blackbird, exactly where she is. It never lost her. "WE HAVE NOT FINISHED."' : 'The Artemis Mk. II pair come in over the rooftops, one from each side, exactly where she is. They never lost her. "WE HAVE NOT FINISHED."'], ['How? HOW? I changed streets!']),
+  'dragon_follow': e(() => ['The dragon finds Blackbird again.'], ['Of course it did.']),
+  'dragon_chase:caught': e((d) => [`Blackbird sprints after the Hermes Mk. III and, against everything physics has to say about it, closes on it. It turns, offended, ${d.cargo} and all.`], ['I. Am. Faster. Than. A. Dragon.']),
+  'dragon_chase:lost': e((d) => [`Blackbird runs after the Hermes Mk. III for four streets. By the end it is a white dot over the river. She stops, hands on knees. It was carrying ${d.cargo}.`, `Blackbird gives the Hermes Mk. III everything she has, and it does not even seem to notice. By the second block it is somewhere else entirely. ${cap(String(d.cargo))}, gone.`], ['If I had a bike. If I had ANYTHING with wheels.', 'One day I am going to catch that thing.']),
+  courier_fine: e((d) => [`The Hermes tuts, prints a slip, and fines Blackbird ${d.fine} neodollars for failing to be home to receive a package that was not hers.`], ['A fine. For a parcel. That is not mine.']),
+  'tithe_demand': e(
+    (d) => [`The Demeter lowers itself to rooftop height. "SUMMER DISTRIBUTION HAS BEEN POSTPONED, DUE TO INSUFFICIENT PRODUCTIVITY. YOURS. THE WINTER TITHE IS ${$(d.amount)} NEODOLLARS."${Number(d.owed) > 0 ? ` It adds that this includes ${$(d.owed)} in arrears.` : ''} A basket swings open toward her.`],
+    ['Insufficient productivity. Me. Sure.', 'That is a lot of money for a Tuesday.'],
+  ),
+  'tithe_pay:full': e((d) => [`Blackbird pays the Demeter ${$(d.amount)} neodollars into its basket. "YOUR CONTRIBUTION HAS BEEN NOTED," it says, "AND IT HAS BEEN NOTED THAT IT WAS LATE."`], ['Public safety. It sure costs a lot.']),
+  'tithe_pay:short': e((d) => [`Blackbird turns out her pockets: ${$(d.amount)} neodollars, all of it. "THE REMAINING ${$(d.owed)} WILL BE CARRIED FORWARD," says the Demeter. "INTEREST APPLIES TO YOUR DISAPPOINTING PERFORMANCE."`], ['Carried forward. That has a sound to it.']),
+  'tithe_pay:broke': e((d) => [`Blackbird has nothing. The Demeter studies her for a moment. "NON-CONTRIBUTOR," it says, and a small, specific shock goes through her (${d.hit} damage). "THE ${$(d.owed)} WILL BE CARRIED FORWARD."`], ['I would give it something if I had it.']),
+  'tithe_haggle:win': e((d) => [`"Look," Blackbird says, "it has been a hard winter." The Demeter considers this and agrees. "THE TITHE IS REVISED TO ${$(d.amount)}. WINTER IS HARD. IT IS ALSO YOUR FAULT."`], ['I am a negotiator. A fine and noble negotiator.']),
+  'tithe_haggle:fail': e(() => ['Blackbird tries a smile and a number. The Demeter plays the number back at her, slowly. "THAT," it says, "IS A THREAT TO PUBLIC SECURITY."'], ['It did not like my number.']),
+  'tithe_refuse:refuse': e(() => ['"No," Blackbird says. The Demeter\'s baskets close with a clang. "REFUSAL IS A THREAT TO PUBLIC SECURITY," it announces, pleased to have the paperwork in order. A barrel swings toward her.'], ['Not one coin! Not one!']),
+  'tithe_refuse:silence': e(() => ['Blackbird says nothing, which she believes is a position. "SILENCE IS NON-COMPLIANCE," says the Demeter, and the barrel comes round.'], ['I was thinking! Thinking is not a crime!']),
+  'tithe_refuse:haggle': e(() => ['The Demeter\'s baskets close with a clang. Haggling, it explains, is how it all begins.'], ['I only asked.']),
+  tithe_evade: e((d) => [`Blackbird walks away from the Demeter mid-sentence. It fires a single parting round into her back (${d.hit} damage). "YOUR ARREARS HAVE BEEN UPDATED," it calls after her, pleasantly. They stand at ${$(d.owed)}.`], ['Out of sight, out of debt. Right? Ow.']),
+  ares_arrive: e((d) => [`The scream stops. Something very large lands where it was coming from. An Ares Mk. ${roman(d.mark)}. "THIS DISTRICT HAS BEEN IDENTIFIED AS GANG-ADJACENT. REMAIN WHERE YOU ARE."${d.standing ? ' Blackbird, who has been standing in the road for some time, remains where she is.' : ''}`], ['It is here. It is HERE.']),
+  'ares_accuse:victim': e((d) => [`"${String(d.npc).toUpperCase()}: MEMBER OF THE ${String(d.gang).toUpperCase()}." ${d.npc} protests that the name means nothing to them. The Ares ${d.fate === 'dead' ? 'does not hear this, and that is the end of that' : 'takes this as a confession, and that is the end of the evening'}.`], ['That poor guy just came out for noodles.']),
+  'ares_accuse:hero': e((d) => [`"CITIZEN: YOU ARE A KNOWN ASSOCIATE OF THE ${String(d.gang).toUpperCase()}." Blackbird says she has never met them. "CONSORTING WITH THEM IS NO DEFENSE," says the Ares.`], ['I have not met them! I have not even HEARD of them!']),
+  'ares_shelter:door': e((d) => [`Blackbird goes through the nearest door at a dead run, ${d.place}, and the shutter slams down behind her. Outside, the scream drops into something lower and more personal.`], ['Inside. Staying inside. Excellent plan.']),
+  'ares_shelter:cover': e(() => ['There is no door close enough. Blackbird flattens herself into the angle of a loading bay as the scream comes down.'], ['Please be invisible. Please be invisible.']),
+  ares_stand: e(() => ['Blackbird plants her feet in the middle of the street while every shutter on the block slams down around her. Somewhere above the rooftops, the scream gets louder.'], ['Come on, then. I dare you.']),
+  ares_all_clear: e(() => ['The screaming stops. After a while the shutters begin to go back up. Somewhere in the next room, someone turns the radio back on.'], ['That was a lot of nothing happening to me. I love it.']),
+
   'dragon_film:hera': e((d) => [`Blackbird zooms in on a Hera Mk. V and films the whole sky. The clip is the most-watched thing in Neo for the next ten minutes. Fame: ${Math.floor(Number(d.fame))}. A very large eye turns.`], ['Content. Pure content. Worth it.']),
 
   // ====================================================== layered skills, hobbies, and things to throw

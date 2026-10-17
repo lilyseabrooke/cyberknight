@@ -394,6 +394,7 @@ describe('in the real loop', () => {
   function someNight(kind: QuestKind, wantKind: FactKind) {
     for (let seed = 0; seed < 14; seed++) {
       const w = createWorld({ seed: `loop-${kind}-${seed}`, competence: 0.5 });
+      w.flags.quiet_skies = true; // this follows a job through a night, and a job only gets done on a night nothing else interrupts
       mighty(w);
       w.hero.level = 10;
       let giver: Npc | undefined;

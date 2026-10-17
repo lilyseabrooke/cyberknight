@@ -1,0 +1,76 @@
+import type { Flight, World } from './types';
+
+/**
+ * The dragons that fly: which family each belongs to, how fast it goes, and what sets it apart. Hera and Artemis are here
+ * too; CINDERJAW isn't, because he doesn't go anywhere. The numbers on the fight board (hp, power) are on the archetypes.
+ *
+ * Speed is one number on the scale the fight board uses: tiles a round. The city runs on it too, as a ratio to the hero's
+ * (see `reachPerBeat`). That is the whole of "can she keep up with it, or get away": nothing else decides it, so when she
+ * gets faster (or gets a vehicle), `heroSpeed` is the only thing that has to learn.
+ */
+
+export type DragonFamily = Flight['kind'];
+export type DragonTrait =
+  /** Won't hold still to be fought: it has to be run down first. */
+  | 'swift'
+  /** The fight board won't let her flee it while it's faster than she is. */
+  | 'relentless'
+  /** Follows her from place to place at its own speed. */
+  | 'tracks'
+  /** Announces itself before it arrives. */
+  | 'screams';
+
+export interface DragonModel {
+  family: DragonFamily;
+  mark: number;
+  speed: number;
+  traits: DragonTrait[];
+}
+
+const m = (family: DragonFamily, mark: number, speed: number, ...traits: DragonTrait[]): DragonModel => ({ family, mark, speed, traits });
+
+/** On the fight board an ordinary person goes 3 and Blackbird 3-7, so these read against her. */
+export const DRAGON_MODELS: Record<string, DragonModel> = {
+  artemis: m('artemis', 1, 3),
+  hera: m('hera', 5, 3),
+  hermes: m('hermes', 1, 4),
+  hermes3: m('hermes', 3, 12, 'swift'),
+  demeter: m('demeter', 1, 2),
+  demeter2: m('demeter', 2, 2),
+  demeter3: m('demeter', 3, 2),
+  demeter4: m('demeter', 4, 3),
+  artemis2: m('artemis', 2, 5, 'tracks'),
+  ares2: m('ares', 2, 4),
+  ares4: m('ares', 4, 10, 'relentless', 'screams'),
+};
+
+/** What the board assumes for a dragon it has no entry for (CINDERJAW). */
+export const DEFAULT_DRAGON_SPEED = 3;
+
+export const modelOf = (archetype: string | undefined): DragonModel | undefined => (archetype ? DRAGON_MODELS[archetype] : undefined);
+export const flightModel = (f: Pick<Flight, 'kind' | 'model'>): DragonModel => DRAGON_MODELS[f.model ?? f.kind]!;
+export const dragonSpeed = (archetype: string): number => DRAGON_MODELS[archetype]?.speed ?? DEFAULT_DRAGON_SPEED;
+export const hasTrait = (archetype: string | undefined, t: DragonTrait): boolean => !!modelOf(archetype)?.traits.includes(t);
+
+/**
+ * How fast she gets around, on the same scale. Her legs, for now: the fight board adds her footwork on top for the round
+ * itself. This is the seam for vehicles and anything else that makes her quicker.
+ */
+export function heroSpeed(w: World): number {
+  const h = w.hero;
+  return Math.max(1, Math.min(7, 3 + (h.reflex >= 6 ? 1 : 0) + (h.implants.includes('hydraulic_calves') ? 1 : 0) - (h.injuries.includes('broken_leg') ? 1 : 0)));
+}
+
+/** How far ahead of her a dragon starts when she sets off after it, in tiles. */
+export const HEAD_START = 8;
+/** How many beats she can keep a chase up. */
+export const CHASE_BEATS = 4;
+
+/** Does she close the gap? She gains on it by the difference in speed each beat, or loses ground if it is the faster. */
+export function runsDown(w: World, speed: number): boolean {
+  const gain = heroSpeed(w) - speed;
+  return gain > 0 && gain * CHASE_BEATS >= HEAD_START;
+}
+
+/** Hops a dragon makes up on her in one beat, as she goes about her business: its speed against hers. */
+export const reachPerBeat = (w: World, speed: number): number => speed / heroSpeed(w);

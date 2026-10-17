@@ -222,6 +222,8 @@ export function gather(w: World): Candidate[] {
     const dest = w.locations[e.to]!;
     const toDragon = e.to === 'overpass';
     const dragonRisk = toDragon && alive(dragon) ? clamp(dragonPower / heroPower(w) - 0.6, 0, 4) : 0;
+    // An Ares still working a place is a reason to be somewhere else.
+    const lurking = w.flight?.kind === 'ares' && w.flight.phase && w.flight.locationId === e.to ? (w.flight.model === 'ares4' ? 4 : 2.5) : 0;
     const supply = supplyUrge(w, e.to);
     const need = needsUrge(w, e.to);
     const urge = { bonus: supply.bonus + need.bonus, smart: supply.smart + need.smart };
@@ -231,7 +233,7 @@ export function gather(w: World): Candidate[] {
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },
       bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + (dest.kind === 'lair' && dest.dungeon === dest.id ? 0.2 : 0) + urge.bonus + pull.bonus,
       smart: (toDragon && ready ? 2.4 : 0) + urge.smart + pull.smart,
-      risk: dragonRisk * 1.4 + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest),
+      risk: dragonRisk * 1.4 + lurking + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest),
       run: (c) => moveThrough(c, e),
     });
   }

@@ -38,6 +38,11 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   challenge_dragon: { fame: 0.8, justice: 0.8, thrill: 0.6 },
   engage_flight: { fame: 0.6, justice: 0.6, thrill: 0.6 },
   film_flight: { fame: 1.0, vanity: 0.5 },
+  chase_flight: { greed: 0.8, thrill: 0.6, vanity: 0.3 },
+  refuse_tithe: { temper: 0.8, courage: 0.6, greed: 0.4 },
+  haggle_tithe: { greed: 0.6, sociable: 0.4 },
+  stand_ground: { courage: 0.8, thrill: 0.8, reckless: 0.6 },
+  shelter_scream: { thrill: -0.4, reckless: -0.6 },
   armwrestle: { vanity: 0.6, temper: 0.4 },
   // vice
   order_drink: { drink: 2.2 },

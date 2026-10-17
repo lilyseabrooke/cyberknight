@@ -7,6 +7,7 @@ import { skillLevel, skillValue, train } from './skills';
 import { dist, hasLos, idx, inCover, makeGrid, nearestFree, passable, pathTo, posOf, reach, same, terrainAt, type Grid, type Pos, type Reach } from './grid';
 import { techniquesFor, type Technique } from './techniques';
 import { artsOf } from './lab';
+import { dragonSpeed, hasTrait, heroSpeed } from './dragonmodels';
 import type { ArtBranch } from './content/doctrine';
 import * as D from './doctrine';
 
@@ -179,9 +180,11 @@ export function foeProfile(n: Npc): FoeProfile {
   if (t.includes('dragon')) {
     flying = true;
     reach = [1, t.includes('boss') ? 7 : 6];
+    speed = dragonSpeed(n.archetype);
   }
   const big = t.includes('boss') || t.includes('dragon');
-  const canFlee = !t.some((x) => ['robot', 'dragon', 'boss', 'cop', 'security'].includes(x));
+  // A courier dragon with half its plating gone would sooner lose the delivery than the dragon.
+  const canFlee = t.includes('skittish') || !t.some((x) => ['robot', 'dragon', 'boss', 'cop', 'security'].includes(x));
   return { reach, speed, flying, hit: t.includes('hera') ? 1 : 0.8, caution: big ? 1 : t.includes('cop') || t.includes('security') ? 3 : 4.5, canFlee };
 }
 
@@ -289,7 +292,7 @@ export class Sim {
 
   private heroUnit(): Unit {
     const h = this.w.hero;
-    const speed = clamp(3 + (h.reflex >= 6 ? 1 : 0) + (h.implants.includes('hydraulic_calves') ? 1 : 0) - (this.hooks.hasInjury(this.w, 'broken_leg') ? 1 : 0) + Math.floor(D.art(this, 'footwork') / 2), 1, 7);
+    const speed = clamp(heroSpeed(this.w) + Math.floor(D.art(this, 'footwork') / 2), 1, 7);
     return this.blank({ id: 'hero', name: 'Blackbird', team: 'hero', kind: 'hero', ref: h, speed, hit: 0.94, reach: weaponReach(this.wield), caution: 4, canFlee: true, alert: true });
   }
 
@@ -977,10 +980,15 @@ export class Sim {
     // No point running from a fight she's about to finish.
     const finishing = this.standingFoes().every((f) => f.ref.hp <= this.heroExpected(f, this.wield, 1) * 1.25);
     if (finishing) this.hero.fleeing = false;
-    if (!finishing && !this.hero.fleeing && this.round >= 2 && h.hp / h.maxHp < this.fleeAt && this.c.rng.chance(0.55 + h.reflex * 0.03 + skillValue(h, 'athletics') * 0.02 + D.art(this, 'escape_artist') / 100) && this.exitMap(this.hero).has(idx(this.grid, this.hero))) {
+    if (!finishing && !this.hero.fleeing && !this.outpaced() && this.round >= 2 && h.hp / h.maxHp < this.fleeAt &&this.c.rng.chance(0.55 + h.reflex * 0.03 + skillValue(h, 'athletics') * 0.02 + D.art(this, 'escape_artist') / 100) && this.exitMap(this.hero).has(idx(this.grid, this.hero))) {
       this.hero.fleeing = true;
       this.note('tactic', 'mixed', { variant: 'retreat', hpPct: Math.round((h.hp / h.maxHp) * 100) }, 3, 'retreat');
     }
+  }
+
+  /** Something that stays on her heels: a relentless dragon that is faster than she is can't be run from. */
+  private outpaced(): boolean {
+    return this.standingFoes().some((f) => !!f.npc && hasTrait(f.npc.archetype, 'relentless') && f.speed > this.hero.speed);
   }
 
   private foeMorale(u: Unit): void {
