@@ -261,7 +261,7 @@ describe('chases', () => {
       for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
       expect(events.some((e) => e.type === 'chase_end')).toBe(true);
       if (result === 'wrecked' || result === 'bailed') expect(w.hero.vehicle).toBeUndefined();
-      if (result === 'wrecked') expect(w.flags['wreck:street_main'] ?? w.flags[`wreck:${w.hero.locationId}`]).toBe(true);
+      if (result === 'wrecked') expect(Object.keys(w.flags).some((k) => k.startsWith('wreck:'))).toBe(true);
     }
     expect(Object.keys(results).length).toBeGreaterThanOrEqual(2);
   });

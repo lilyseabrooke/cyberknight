@@ -4,7 +4,8 @@ import { relocate } from './combat';
 import { expand, liftCordon } from './mapgen';
 import { gather } from './interactions';
 import { ALL_MAKES, MAKES, SPEED_BOOST, makesOf, vehicleOf } from './cars';
-import { ROAD, parkedVehicle, roadClass, roadsFrom, type RoadClass } from './roads';
+import { ROAD, parkedVehicle, roadClass, roadsFrom, scene, trafficAt, trafficWord, type RoadClass } from './roads';
+import { policeChase } from './chase';
 import { DEFAULT_SPEED, chooseSpeed, daringOf, driveAlong, hopChance, routeChance, routeMinutes, routesFrom, rushOf } from './drivefx';
 import { always } from './testkit';
 import type { Ctx, Id, Location, Vehicle } from './types';
@@ -149,25 +150,27 @@ describe('where a car can go', () => {
   });
 
   it('gives two ways when there are two, and the careful one dodges the hard street', () => {
+    // On a bike the quick way is down the alley and the careful way is the two streets round.
     const w = createWorld({ seed: 'two', competence: 0.5 });
     const base = w.locations.street_main!;
     const mk = (id: string, name: string, to: Id): Location => ({ ...base, id, name, exits: [{ to, label: 'back', hidden: false, gate: null }], gen: undefined, crowded: false, cameras: 0 });
-    const walk = mk('W', 'Brass Walk', 'street_main');
+    const alley = mk('W', 'Brass Alley', 'street_main');
     const s1 = mk('S1', 'Tin Street', 'street_main');
     const s2 = mk('S2', 'Rust Street', 'S1');
-    const s3 = mk('S3', 'Cinder Street', 'S2');
     const goal = mk('G', 'Goal Avenue', 'W');
-    goal.exits.push({ to: 'S3', label: 'x', hidden: false, gate: null });
-    walk.exits.push({ to: 'G', label: 'on', hidden: false, gate: null });
+    goal.exits.push({ to: 'S2', label: 'x', hidden: false, gate: null });
+    alley.exits.push({ to: 'G', label: 'on', hidden: false, gate: null });
     s1.exits.push({ to: 'S2', label: 'on', hidden: false, gate: null });
-    s2.exits.push({ to: 'S3', label: 'on', hidden: false, gate: null });
-    s3.exits.push({ to: 'G', label: 'on', hidden: false, gate: null });
-    for (const l of [walk, s1, s2, s3, goal]) w.locations[l.id] = l;
-    base.exits.push({ to: 'W', label: 'walk', hidden: false, gate: null }, { to: 'S1', label: 'street', hidden: false, gate: null });
-    const r = routesFrom(w, 'street_main', 6, 'car').find((x) => x.id === 'G')!;
+    s2.exits.push({ to: 'G', label: 'on', hidden: false, gate: null });
+    for (const l of [alley, s1, s2, goal]) w.locations[l.id] = l;
+    base.exits.push({ to: 'W', label: 'alley', hidden: false, gate: null }, { to: 'S1', label: 'street', hidden: false, gate: null });
+    const r = routesFrom(w, 'street_main', 6, 'bike').find((x) => x.id === 'G')!;
     expect(r.fast.path).toEqual(['W', 'G']);
-    expect(r.safe.path).toEqual(['S1', 'S2', 'S3', 'G']);
-    expect(routeChance(w, car(), r.safe.path.slice(0, 3), 0.7)).toBeLessThan(routeChance(w, car(), ['W'], 0.7) * 3);
+    expect(r.safe.path).toEqual(['S1', 'S2', 'G']);
+    // A car can't take the alley at all, so it has only the one way.
+    const car1 = routesFrom(w, 'street_main', 6, 'car').find((x) => x.id === 'G')!;
+    expect(car1.fast.path).toEqual(['S1', 'S2', 'G']);
+    expect(car1.safe.path).toEqual(['S1', 'S2', 'G']);
   });
 
   it('takes longer at a lower speed and in a slower car', () => {
@@ -225,7 +228,8 @@ describe('when it goes wrong', () => {
         expect(out.over).toBe(true);
       }
       if (events.some((e) => e.type === 'accident' && e.data.variant === 'thrown') && w.hero.vehicle === undefined && w.strays?.[w.hero.locationId]) strayBike++;
-      if (!w.over && events.some((e) => e.type === 'accident' && e.data.variant === 'chase')) expect(events.some((e) => e.type === 'chase_start')).toBe(true);
+      // (If somebody called it in and she was still in one piece, the police came.)
+      if (!w.over && events.some((e) => e.type === 'accident' && e.data.variant === 'chase') && !events.some((e) => e.type === 'accident' && e.data.variant === 'wreck')) expect(events.some((e) => e.type === 'chase_start')).toBe(true);
       expect(out.done).toBeLessThanOrEqual(ids.length);
     }
     for (const k of ['scrape', 'collision', 'chase', 'thrown', 'wreck']) expect(seen.has(k), k).toBe(true);
@@ -299,5 +303,138 @@ describe('the highway', () => {
       }
     }
     expect(found).not.toBeNull();
+  });
+});
+
+describe('how busy a street is', () => {
+  const at = (hour: number, weather: World['situation']['weather'] = 'neon_fog') => ({ clock: hour * 60, situation: { weather } as World['situation'] });
+  const street = (district: string, name = 'Brass Street', crowded = false) => ({ name, gen: { district } as never, crowded }) as Pick<Location, 'name' | 'road' | 'gen' | 'crowded'>;
+
+  it('follows the district and the hour: nightlife after dark, corporate at the commute, markets by day', () => {
+    const night = street('nightlife');
+    expect(trafficAt(at(1), night)).toBeGreaterThan(trafficAt(at(12), night) + 0.3);
+    const corp = street('corporate');
+    expect(trafficAt(at(8), corp)).toBeGreaterThan(trafficAt(at(3), corp) + 0.4);
+    expect(trafficAt(at(17.5), corp)).toBeGreaterThan(trafficAt(at(11), corp));
+    const market = street('market');
+    expect(trafficAt(at(13), market)).toBeGreaterThan(trafficAt(at(3), market) + 0.3);
+    const ind = street('industrial');
+    expect(trafficAt(at(6), ind)).toBeGreaterThan(trafficAt(at(2), ind));
+    // The slums are never very busy.
+    for (let h = 0; h < 24; h++) expect(trafficAt(at(h), street('slum'))).toBeLessThan(0.55);
+  });
+
+  it('is not rolled, stays in 0 to 1, and is lower in acid rain', () => {
+    const s = street('nightlife');
+    for (let h = 0; h < 24; h += 0.5) {
+      const t = trafficAt(at(h), s);
+      expect(t).toBe(trafficAt(at(h), s));
+      expect(t).toBeGreaterThanOrEqual(0);
+      expect(t).toBeLessThanOrEqual(1);
+    }
+    expect(trafficAt(at(1, 'acid_rain'), s)).toBeLessThan(trafficAt(at(1), s));
+    expect(trafficAt({ ...at(1), clock: 1 * 60 + 24 * 60 * 5 }, s)).toBeCloseTo(trafficAt(at(1), s), 10); // the same hour, another day
+  });
+
+  it('depends on the kind of street as well: a pedestrian way fills with people, an alley hardly at all', () => {
+    const ped = trafficAt(at(1), street('nightlife', 'Velvet Walk'));
+    const st = trafficAt(at(1), street('nightlife', 'Velvet Street'));
+    const alley = trafficAt(at(1), street('nightlife', 'Velvet Alley'));
+    expect(ped).toBeGreaterThanOrEqual(st);
+    expect(alley).toBeLessThan(st);
+    expect(trafficAt(at(1), street('nightlife', 'Velvet Street', true))).toBeGreaterThan(st);
+    expect(trafficWord(0.05)).toBe('empty');
+    expect(trafficWord(0.3)).toBe('quiet');
+    expect(trafficWord(0.5)).toBe('busy');
+    expect(trafficWord(0.9)).toBe('packed');
+    expect(scene('pedestrian', 0.05)).toBe('an empty pedestrian way');
+    expect(scene('highway', 0.9)).toBe('a packed highway');
+  });
+
+  it('changes the odds as much as the road does: an empty pedestrian way can be a safer drive than a packed highway', () => {
+    const w = createWorld({ seed: 'busy', competence: 0.5 });
+    const c = car();
+    for (const k of CLASSES) expect(hopChance(w, c, k, 0.6, 0.9)).toBeGreaterThan(hopChance(w, c, k, 0.6, 0.05));
+    expect(hopChance(w, c, 'highway', 0.6, 0.95)).toBeGreaterThan(hopChance(w, c, 'highway', 0.6, 0.05) * 10);
+    expect(hopChance(w, c, 'pedestrian', 0.4, 0.05)).toBeLessThan(hopChance(w, c, 'highway', 0.4, 0.95));
+    // ...but not at speed, where the narrow street still wins.
+    expect(hopChance(w, c, 'pedestrian', 1, 0.05)).toBeGreaterThan(hopChance(w, c, 'highway', 1, 0.95));
+  });
+
+  it('slows a drive down, and she weighs it when she picks a speed and a way', () => {
+    const quiet = createWorld({ seed: 'tq', competence: 0.5 });
+    const loud = createWorld({ seed: 'tl', competence: 0.5 });
+    const mk = (w: World, hour: number) => {
+      w.clock = hour * 60;
+      const ids = strip(w, ['A Street', 'B Street', 'C Street']);
+      for (const id of ids) w.locations[id]!.gen = { district: 'nightlife' } as never;
+      return ids;
+    };
+    const a = mk(quiet, 12);
+    const b = mk(loud, 1);
+    expect(routeMinutes(loud, car(), b, 0.6)).toBeGreaterThan(routeMinutes(quiet, car(), a, 0.6));
+    expect(routeChance(loud, car(), b, 0.6)).toBeGreaterThan(routeChance(quiet, car(), a, 0.6));
+    expect(chooseSpeed(loud, b)).toBeLessThan(chooseSpeed(quiet, a));
+  });
+});
+
+describe('chases use the road and how busy it is, together', () => {
+  const chaseOn = (seed: string, name: string, hour: number, district = 'nightlife') => {
+    const w = createWorld({ seed, competence: 0.6 });
+    w.clock = hour * 60;
+    const [id] = strip(w, [name]);
+    w.locations[id!]!.gen = { district } as never;
+    w.hero.locationId = id!;
+    w.hero.level = 6;
+    w.hero.maxHp = w.hero.hp = 155;
+    w.heat.npd = 5;
+    w.hero.vehicle = vehicleOf(MAKES.civilian[0]!, `c-${seed}`);
+    return w;
+  };
+
+  it('tells what the road is: the same street is empty at noon and packed after midnight', () => {
+    const first = (hour: number): GameEvent => {
+      const w = chaseOn(`road-${hour}`, 'Velvet Walk', hour);
+      const { c, events } = ctxOf(w, new Rng('r'));
+      policeChase(c, 'ambush');
+      return events.find((e) => e.type === 'chase_round')!;
+    };
+    const day = first(12);
+    const night = first(1);
+    expect(day.data.road).toBe('pedestrian');
+    expect(night.data.road).toBe('pedestrian');
+    expect(['empty', 'quiet']).toContain(day.data.traffic);
+    expect(['busy', 'packed']).toContain(night.data.traffic);
+    expect(String(night.data.scene)).toContain('pedestrian way');
+    expect(hasTemplate(night)).toBe(true);
+  });
+
+  it('a crowded narrow street wrecks more chases than an empty one', () => {
+    const crashes = (hour: number): number => {
+      let n = 0;
+      for (let i = 0; i < 120; i++) {
+        const w = chaseOn(`crash-${hour}-${i}`, 'Velvet Walk', hour);
+        const { c, events } = ctxOf(w, new Rng(`crash-${hour}-${i}`));
+        policeChase(c, 'ambush');
+        n += events.filter((e) => e.type === 'accident').length;
+        for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+      }
+      return n;
+    };
+    expect(crashes(1)).toBeGreaterThan(crashes(12));
+  });
+
+  it('can be lost in a tight, busy street and is a race on an open one', () => {
+    const lost = (name: string, hour: number): number => {
+      let n = 0;
+      for (let i = 0; i < 100; i++) {
+        const w = chaseOn(`lose-${name}-${hour}-${i}`, name, hour, 'market');
+        const { c, events } = ctxOf(w, new Rng(`lose-${i}`));
+        policeChase(c, 'ambush');
+        if (events.some((e) => e.type === 'chase_round' && e.data.variant === 'lose_them')) n++;
+      }
+      return n;
+    };
+    expect(lost('Brass Walk', 13)).toBeGreaterThan(lost('Highway', 4));
   });
 });

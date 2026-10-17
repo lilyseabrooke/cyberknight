@@ -4,7 +4,7 @@ import { addHeat, maybeInjure, npcsAt, relocate } from './combat';
 import { clamp } from './candidate';
 import { dead, policeChase, wreckHeroCar } from './chase';
 import { heatUrge } from './laylow';
-import { ROAD, roadClass, type RoadClass } from './roads';
+import { ROAD, roadClass, scene, trafficAt, trafficWord, type RoadClass } from './roads';
 import { isShut } from './shutdown';
 import { skillValue, train } from './skills';
 
@@ -19,15 +19,18 @@ import { skillValue, train } from './skills';
  */
 
 /** The ordinary pace: about 55 to 65 percent of the top speed. */
-export const DEFAULT_SPEED = 0.58;
+export const DEFAULT_SPEED = 0.6;
 
 /** The odds of an accident on one street. `s` is how much of the car's top speed she is using, 0 to 1. */
-export function hopChance(w: World, car: Pick<Vehicle, 'body' | 'hp' | 'maxHp'>, cls: RoadClass, s: number): number {
+export function hopChance(w: World, car: Pick<Vehicle, 'body' | 'hp' | 'maxHp'>, cls: RoadClass, s: number, traffic = 0.5): number {
   const r = ROAD[cls];
   const bike = car.body === 'bike';
   // Going faster matters a great deal, and nearly nothing on a highway. A bike is less sensitive to it, and to hard streets.
   const speed = 0.3 + r.speedSens * (bike ? 1.5 : 3) * Math.pow(s, 4);
-  let p = r.base * (bike ? 0.6 : 1) * speed;
+  // And how much is in the way: an empty street gives almost nothing to hit, a packed one a great deal, and a highway more than any
+  // (everything on it is going fast). So an empty pedestrian way can be a safer road than a packed highway.
+  const busy = 0.1 + r.trafficK * Math.pow(traffic, 1.5);
+  let p = r.base * (bike ? 0.6 : 1) * speed * busy;
   if (bike && r.hard >= 0.6) p *= 0.75;
   const h = w.hero;
   p /= 1 + 0.12 * skillValue(h, 'driving'); // practice
@@ -40,7 +43,10 @@ export function hopChance(w: World, car: Pick<Vehicle, 'body' | 'hp' | 'maxHp'>,
 /** The odds of at least one accident down the whole of a route. */
 export function routeChance(w: World, car: Vehicle, path: Id[], s: number): number {
   let ok = 1;
-  for (const id of path) ok *= 1 - hopChance(w, car, roadClass(w.locations[id]!), s);
+  for (const id of path) {
+    const loc = w.locations[id]!;
+    ok *= 1 - hopChance(w, car, roadClass(loc), s, trafficAt(w, loc));
+  }
   return 1 - ok;
 }
 
@@ -48,7 +54,10 @@ export function routeChance(w: World, car: Vehicle, path: Id[], s: number): numb
 export function routeMinutes(w: World, car: Vehicle, path: Id[], s: number): number {
   const rate = Math.max(0.3, s) * (paceOf(car) / 10);
   let m = 0;
-  for (const id of path) m += ROAD[roadClass(w.locations[id]!)].minutes / rate;
+  for (const id of path) {
+    const loc = w.locations[id]!;
+    m += (ROAD[roadClass(loc)].minutes / rate) * (0.85 + 0.6 * trafficAt(w, loc)); // a busy street is a slow one
+  }
   return Math.max(1, Math.ceil(m));
 }
 
@@ -73,7 +82,7 @@ export interface Routes {
  * one). Two Dijkstra runs: one on time, one on how hard each street is.
  */
 export function routesFrom(w: World, from: Id, reach: number, body: Vehicle['body'] = 'car'): Routes[] {
-  const run = (cost: (cls: RoadClass) => number): Map<Id, Route> => {
+  const run = (cost: (cls: RoadClass, traffic: number) => number): Map<Id, Route> => {
     const best = new Map<Id, { w: number; effort: number; path: Id[] }>([[from, { w: 0, effort: 0, path: [] }]]);
     const done = new Set<Id>();
     for (;;) {
@@ -91,7 +100,7 @@ export function routesFrom(w: World, from: Id, reach: number, body: Vehicle['bod
         if (cls === 'alley' && body !== 'bike') continue; // no road for a car at all
         const effort = here.effort + ROAD[cls].effort;
         if (effort > reach) continue;
-        const wt = here.w + cost(cls);
+        const wt = here.w + cost(cls, trafficAt(w, dest));
         const known = best.get(e.to);
         if (!known || wt < known.w) best.set(e.to, { w: wt, effort, path: [...here.path, e.to] });
       }
@@ -100,8 +109,8 @@ export function routesFrom(w: World, from: Id, reach: number, body: Vehicle['bod
     for (const [id, v] of best) if (id !== from && w.locations[id]?.kind === 'street' && v.path.length >= 1) out.set(id, { path: v.path, effort: v.effort });
     return out;
   };
-  const fast = run((c) => ROAD[c].minutes);
-  const safe = run((c) => 0.2 * ROAD[c].minutes + 2 * Math.pow(ROAD[c].hard, 1.5) * (body === 'bike' ? 0.6 : 1) + 0.05);
+  const fast = run((c, t) => ROAD[c].minutes * (0.85 + 0.6 * t));
+  const safe = run((c, t) => 0.2 * ROAD[c].minutes + 2 * Math.pow(Math.min(1, ROAD[c].hard + 0.3 * t), 1.5) * (body === 'bike' ? 0.6 : 1) + 0.05);
   const out: Routes[] = [];
   for (const [id, f] of fast) {
     const s = safe.get(id) ?? f;
@@ -132,8 +141,9 @@ export function chooseSpeed(w: World, path: Id[]): number {
   const h = w.hero;
   const classes = path.map((id) => roadClass(w.locations[id]!));
   const hard = classes.reduce((a, c) => a + ROAD[c].hard, 0) / Math.max(1, classes.length);
+  const busy = path.reduce((a, id) => a + trafficAt(w, w.locations[id]!), 0) / Math.max(1, path.length);
   const open = classes.filter((c) => c === 'highway').length / Math.max(1, classes.length);
-  const s = DEFAULT_SPEED + 0.28 * rushOf(w) + 0.14 * daringOf(w) + 0.1 * open - 0.14 * hard * (0.5 + h.competence) + 0.03 * Math.min(1, skillValue(h, 'driving') / 10);
+  const s = DEFAULT_SPEED + 0.28 * rushOf(w) + 0.14 * daringOf(w) + 0.1 * open - 0.14 * hard * (0.5 + h.competence) - 0.06 * busy * (0.5 + h.competence) + 0.03 * Math.min(1, skillValue(h, 'driving') / 10);
   return clamp(s, 0.4, 1);
 }
 
@@ -150,7 +160,7 @@ function seenOn(w: World, loc: Location): boolean {
  * Something goes wrong on this street. A scrape, a proper crash, somebody calling it in and the police on her tail, being thrown
  * from the car or off the bike, or the end of it. The faster she was going the worse it is. Returns whether the drive is over.
  */
-function accident(c: Ctx, car: Vehicle, loc: Location, cls: RoadClass, s: number): boolean {
+export function accident(c: Ctx, car: Vehicle, loc: Location, cls: RoadClass, s: number, inChase = false): { over: boolean; kind: Accident } {
   const { w, rng } = c;
   const h = w.hero;
   const bike = car.body === 'bike';
@@ -159,12 +169,14 @@ function accident(c: Ctx, car: Vehicle, loc: Location, cls: RoadClass, s: number
   const weights: [Accident, number][] = [
     ['scrape', 55 * (1 - 0.6 * s)],
     ['collision', 28 + 10 * hard],
-    ['chase', seen ? 10 + (loc.crowded ? 8 : 0) : 1],
+    // (Nobody calls it in when the police are already on her tail.)
+    ['chase', inChase ? 0 : seen ? 10 + (loc.crowded ? 8 : 0) : 1],
     ['thrown', (3 + 16 * s * s) * (bike ? 2.5 : 1)],
     ['wreck', (0.4 + 10 * Math.pow(s, 3)) * (bike ? 0.6 : 1) * (cls === 'highway' ? 1.5 : 1)],
   ];
   const kind = rng.weighted(weights, (x) => x[1])[0];
-  const data = { car: car.name, body: car.body, road: cls, place: loc.name, speed: Math.round(s * 100) };
+  const t = trafficAt(w, loc);
+  const data = { car: car.name, body: car.body, road: cls, place: loc.name, speed: Math.round(s * 100), traffic: trafficWord(t), scene: scene(cls, t) };
   train(c, 'driving', 1); // you learn from it, hard
 
   if (kind === 'wreck') {
@@ -188,7 +200,7 @@ function accident(c: Ctx, car: Vehicle, loc: Location, cls: RoadClass, s: number
       // Left where it fell, hers to come back for.
       delete h.vehicle;
       if (!w.strays?.[loc.id]) (w.strays ??= {})[loc.id] = { ...car, riders: [] };
-      return true;
+      return { over: true, kind };
     }
   } else if (kind === 'chase') {
     hitCar(car, car.maxHp * (0.1 + 0.1 * s), 'ram');
@@ -196,7 +208,7 @@ function accident(c: Ctx, car: Vehicle, loc: Location, cls: RoadClass, s: number
     heat(c, 'npd', 2);
     if (car.hp > 0 && !dead(c)) {
       policeChase(c, 'crash');
-      return true;
+      return { over: true, kind };
     }
   }
   // Whatever it was, a car with nothing left is the end of it.
@@ -204,9 +216,9 @@ function accident(c: Ctx, car: Vehicle, loc: Location, cls: RoadClass, s: number
     c.emit('accident', 'bad', { variant: 'wreck', ...data });
     const taken = wreckHeroCar(c, car);
     if (dead(c)) c.emit('death', 'bad', { killer: 'a burning car', place: loc.name, cause: 'a crash', level: h.level, taken });
-    return true;
+    return { over: true, kind: 'wreck' };
   }
-  return dead(c);
+  return { over: dead(c), kind };
 }
 
 function heat(c: Ctx, faction: string, gain: number): void {
@@ -234,7 +246,7 @@ export function driveAlong(c: Ctx, path: Id[], s: number): { done: number; over:
     done++;
     const loc = w.locations[id]!;
     if (loc.kind !== 'street') continue;
-    if (rng.chance(hopChance(w, car, roadClass(loc), s)) && accident(c, car, loc, roadClass(loc), s)) return { done, over: true };
+    if (rng.chance(hopChance(w, car, roadClass(loc), s, trafficAt(w, loc))) && accident(c, car, loc, roadClass(loc), s).over) return { done, over: true };
   }
   return { done, over: false };
 }

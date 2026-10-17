@@ -257,7 +257,7 @@ describe('a bike in a chase', () => {
         expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
         if (e.type === 'chase_round') actions.add(String(e.data.variant));
       }
-      if (result === 'bailed' && w.strays?.street_main?.body === 'bike') strays++;
+      if (result === 'bailed' && Object.values(w.strays ?? {}).some((v) => v.body === 'bike')) strays++;
       if (result === 'bailed' || result === 'wrecked') expect(w.hero.vehicle).toBeUndefined();
     }
     expect(actions.has('lane_split')).toBe(true);

@@ -153,7 +153,7 @@ const T: Record<string, Entry> = {
   'car_hit:scuffed:bike': e((d) => [d.mine ? `${d.car} takes a hit and a mirror goes spinning away down the road.` : `${d.car} loses a mirror and a little pride.`]),
   'car_hit:battered:bike': e((d) => [d.mine ? `${d.car} is bent now: a fork out of true, a handlebar that wants to go left.` : `${d.car} is badly bent.`], ['It is handling like a shopping trolley.']),
   'car_hit:smoking:bike': e((d) => [d.mine ? `${d.car} is trailing smoke and smells like a bad decision. Something is going to let go very soon.` : `${d.car} is smoking; its rider thinks about it.`], ['Off. Off. Get off.']),
-  'chase_round:floor_it:bike': e((d) => [`Blackbird opens ${d.car} up. ${d.band === 'far' ? 'The gap widens' : `They are ${d.band}`}, and the engine screams${Number(d.hurt) ? ' like it is complaining' : ''}.`]),
+  'chase_round:floor_it:bike': e((d) => [`${cap(String(d.scene))}. Blackbird opens ${d.car} up. ${d.band === 'far' ? 'The gap widens' : `They are ${d.band}`}, and the engine screams${Number(d.hurt) ? ' like it is complaining' : ''}.`]),
   'chase_round:swerve:bike': e((d) => [`Blackbird throws the bike one way and her weight the other. Whatever was coming her way hits the road.`]),
   'chase_round:lane_split': e((d) => [`Between a van and a wall with a hand's width either side, Blackbird goes through the middle of the traffic like it was a door. ${d.foe} cannot follow, and has to find another gap.`], ['Cars have to stay in their lanes. I have a lane the width of a handlebar.']),
   'chase_round:ram:bike': e((d) => [`Blackbird puts ${d.car} into ${d.foe} on purpose. This is a bad idea, in the way that a very small thing hitting a very large thing is a bad idea.`], ['Ow.']),
@@ -163,7 +163,7 @@ const T: Record<string, Entry> = {
   'chase_end:wrecked:bike': e((d) => [`${d.car} is gone, and Blackbird has been thrown a very long way from it.`], ['I am so sorry about that bike.']),
   'tactic:ride_by': e((d) => [`Blackbird comes through at speed and hits ${d.foe} on the way past with ${d.weapon}${Number(d.dmg) ? ` for ${d.dmg}` : ', and misses'}. By the time anyone turns round she is gone.`, `A ride-by: in, ${d.foe}, out.`], ['Hit and run. Mostly run.', 'Never stand still.']),
   'accident:scrape': e(
-    (d) => [`${ROADS[String(d.road)] ?? 'The road'} takes a bite out of ${d.car} at ${d.speed}% of everything it has: a wall, a bin, a very surprised parked car. Paint and pride, nothing worse.`, `${d.car} meets a corner it was not expecting${Number(d.speed) > 80 ? ', flat out' : ''}. A long scrape, a lot of noise, and a wing mirror in a gutter.`],
+    (d) => [`${cap(String(d.scene))} takes a bite out of ${d.car} at ${d.speed}% of everything it has: a wall, a bin, a very surprised parked car. Paint and pride, nothing worse.`, `${d.car} meets a corner it was not expecting${Number(d.speed) > 80 ? ', flat out' : ''}. A long scrape, a lot of noise, and a wing mirror in a gutter.`],
     ['That was not my fault. That was the road.', 'Ease off. Ease off. Ease off.'],
   ),
   'accident:collision': e(
@@ -207,7 +207,7 @@ const T: Record<string, Entry> = {
     (d) => [d.mode === 'pursuer' ? `Blackbird goes after ${d.foes} in ${d.car}, ${d.wings ? 'tracking it through the gaps between the buildings' : 'on the same road'}.` : `${d.foes} fall in behind ${d.car}. It is a chase.`],
     ['Floor it.'],
   ),
-  'chase_round:floor_it': e((d) => [`${d.stretch === 'open' ? 'Open road' : d.stretch === 'bridge' ? 'A bridge' : d.stretch === 'tight' ? 'Tight streets' : 'Traffic'}. Blackbird puts ${d.car} flat to the boards. ${d.band === 'far' ? 'The gap opens' : `They are ${d.band}`}${Number(d.hurt) ? `, but ${d.car} complains about it (${d.state})` : ''}.`]),
+  'chase_round:floor_it': e((d) => [`${cap(String(d.scene))}. Blackbird puts ${d.car} flat to the boards. ${d.band === 'far' ? 'The gap opens' : `They are ${d.band}`}${Number(d.hurt) ? `, but ${d.car} complains about it (${d.state})` : ''}.`]),
   'chase_round:swerve': e((d) => [`Blackbird throws ${d.car} left, then right. Whatever was coming her way hits something else.`]),
   'chase_round:lose_them': e((d) => [`A gap between two stalls, a left through somebody's yard, a right into an alley with a chicken in it. ${String(d.events).includes('lost') ? 'Behind her, the sirens go the wrong way.' : 'They are still back there.'}`]),
   'chase_round:shoot': e((d) => [String(d.events).includes('shot') ? `Blackbird leans out of ${d.car} and puts shots into ${d.foe}. Some of them even find it.` : `Blackbird leans out and fires at ${d.foe}, and hits a wall. A good wall.`], ['Aim at the big thing. It is the big thing.']),

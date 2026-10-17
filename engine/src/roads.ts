@@ -1,4 +1,5 @@
 import { Rng } from './rng';
+import { minuteOfDay } from './clock';
 import { isShut } from './shutdown';
 import { npcsAt } from './population';
 import { carKey, makesOf, vehicleOf, type Body } from './cars';
@@ -25,13 +26,66 @@ export function roadClass(loc: Pick<Location, 'name' | 'road' | 'gen'>): RoadCla
 }
 
 /** Per class: how hard it is (0 easy to 1 hopeless), minutes a car takes to cross it flat out, how much of a drive's reach it uses up, how much going faster matters on it, and the odds of a mishap at an ordinary pace. */
-export const ROAD: Record<RoadClass, { hard: number; minutes: number; effort: number; speedSens: number; base: number }> = {
-  highway: { hard: 0.1, minutes: 0.25, effort: 0.5, speedSens: 0.15, base: 0.004 },
-  street: { hard: 0.35, minutes: 0.5, effort: 1, speedSens: 1, base: 0.015 },
-  small: { hard: 0.6, minutes: 0.8, effort: 1, speedSens: 1.2, base: 0.04 },
-  pedestrian: { hard: 0.85, minutes: 1.0, effort: 1.5, speedSens: 1.4, base: 0.1 },
-  alley: { hard: 1, minutes: 0.8, effort: 1, speedSens: 1.5, base: 0.15 },
+export const ROAD: Record<RoadClass, { hard: number; minutes: number; effort: number; speedSens: number; base: number; trafficK: number }> = {
+  highway: { hard: 0.1, minutes: 0.25, effort: 0.5, speedSens: 0.15, base: 0.006, trafficK: 5 },
+  street: { hard: 0.35, minutes: 0.5, effort: 1, speedSens: 1, base: 0.024, trafficK: 1.5 },
+  small: { hard: 0.6, minutes: 0.8, effort: 1, speedSens: 1.2, base: 0.065, trafficK: 1.2 },
+  pedestrian: { hard: 0.85, minutes: 1.0, effort: 1.5, speedSens: 1.4, base: 0.16, trafficK: 1.5 },
+  alley: { hard: 1, minutes: 0.8, effort: 1, speedSens: 1.5, base: 0.24, trafficK: 0.6 },
 };
+
+// =============================================================== how busy
+
+/** How much of the day each district's streets are full, as bumps on the 24-hour clock: [hour, width in hours, height]. */
+const RHYTHM: Record<District, { floor: number; scale: number; bumps: [number, number, number][] }> = {
+  market: { floor: 0.25, scale: 1, bumps: [[13, 5, 0.75]] },
+  nightlife: { floor: 0.15, scale: 1, bumps: [[0.5, 4, 0.85]] },
+  tenement: { floor: 0.3, scale: 0.9, bumps: [[18.5, 3, 0.6], [7.5, 2, 0.45]] },
+  industrial: { floor: 0.3, scale: 0.8, bumps: [[6, 2, 0.6], [18, 2, 0.6], [12, 5, 0.25]] },
+  corporate: { floor: 0.15, scale: 1, bumps: [[8, 1.5, 0.85], [17.5, 1.5, 0.85], [13, 3, 0.25]] },
+  slum: { floor: 0.2, scale: 0.6, bumps: [[22, 4, 0.4]] },
+};
+
+/** Hours between two times of day, round the clock. */
+const gap = (a: number, b: number): number => {
+  const d = Math.abs(a - b) % 24;
+  return Math.min(d, 24 - d);
+};
+
+/** What the road is like for traffic: a pedestrian way fills with people, an alley with almost nobody. */
+const CLASS_TRAFFIC: Record<RoadClass, number> = { highway: 0.9, street: 1, small: 0.8, pedestrian: 1.1, alley: 0.5 };
+
+/**
+ * How busy a street is, 0 (empty) to 1 (packed), by its district and the time of day: nightlife fills up after dark, corporate streets at the
+ * commute, markets by day. The kind of street scales it (a pedestrian way fills with people, an alley hardly at all), and so do the
+ * weather and whether the street is a crowded one. Not rolled: the same street at the same time is as busy as it was.
+ */
+export function trafficAt(w: Pick<World, 'clock' | 'situation'>, loc: Pick<Location, 'name' | 'road' | 'gen' | 'crowded'>, clock = w.clock): number {
+  const r = RHYTHM[loc.gen?.district ?? 'tenement'];
+  const hour = minuteOfDay(clock) / 60;
+  let t = r.floor;
+  for (const [at, width, height] of r.bumps) t += height * Math.exp(-Math.pow(gap(hour, at) / width, 2));
+  t *= r.scale * CLASS_TRAFFIC[roadClass(loc)];
+  if (loc.crowded) t += 0.1;
+  if (w.situation.weather === 'acid_rain') t *= 0.8;
+  return clamp01(t);
+}
+
+const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
+
+/** How a level of traffic reads. */
+export const trafficWord = (t: number): 'empty' | 'quiet' | 'busy' | 'packed' => (t < 0.2 ? 'empty' : t < 0.4 ? 'quiet' : t < 0.65 ? 'busy' : 'packed');
+
+const CLASS_WORD: Record<RoadClass, string> = { highway: 'highway', street: 'street', small: 'little street', pedestrian: 'pedestrian way', alley: 'alley' };
+
+/** "an empty pedestrian way", "a packed highway": what she is driving down, for the telling. */
+export function scene(cls: RoadClass, t: number): string {
+  const word = trafficWord(t);
+  return `${word === 'empty' ? 'an' : 'a'} ${word} ${CLASS_WORD[cls]}`;
+}
+
+/** How much a street squeezes her: the narrowness of the road and how much is on it. 0 is all the room in the world; 1 is none. */
+export const squeezeOf = (cls: RoadClass, t: number): number => clamp01(0.5 * ROAD[cls].hard + 0.7 * t);
 
 export const isHighway = (loc: Pick<Location, 'road'> | undefined): boolean => loc?.road === 'highway';
 

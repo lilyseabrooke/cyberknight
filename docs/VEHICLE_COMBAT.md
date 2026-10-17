@@ -352,5 +352,20 @@ How hard a street is to drive, how fast she goes, what goes wrong, and which way
   a highway most of the time, and lets off by off-ramps. It has no buildings (no clinic, spot, gym or pawn shop), no people, no parked
   cars, and no events but the police: on one she can walk on or drive, nothing else. It is cheap to reach along (half a street's worth of
   reach) and its accident odds are tiny even at speed.
+- **Traffic** (`trafficAt` in `roads.ts`): how busy a street is, 0 (empty) to 1 (packed), a function of the district, the time of day, the
+  kind of street, whether it is a crowded one, and acid rain (which empties it). Not rolled: the same street at the same hour is as busy
+  as it was. Each district has a rhythm: nightlife fills after dark, corporate streets at the morning and evening commute, markets by day,
+  industrial streets at the shift changes, tenements in the evening, and the slums are never very busy. A pedestrian way fills with people
+  more than a street does; an alley hardly at all. Traffic multiplies the accident odds (`0.1 + trafficK * traffic^1.5`, with a large
+  `trafficK` for highways: everything on them is going fast), so **an empty pedestrian way can be a safer drive than a packed highway at an
+  ordinary pace**, though not flat out. It also slows a drive (`0.85 + 0.6 * traffic` on each street), pulls her speed down a little, and
+  feeds both route costs (the quick way and the careful way).
+- **Chases** use the road class and the traffic together. `squeezeOf(class, traffic)` is how much the street squeezes everybody: half the
+  road's difficulty plus 0.7 times its traffic. Squeeze takes pace away (a pace edge counts for `0.6 + 0.7 * (1 - squeeze)`) and gives skill
+  and a bike's small size more (`skill * 0.2 * squeeze`, plus `1.2 * squeeze` on a bike). From a squeeze of 0.45 up there are gaps to lose
+  them in (`lose_them`, and a bike's `lane_split`); below 0.3 the foes shoot a little straighter. Every round also has a chance of a crash
+  of its own (the same `accident` as an ordinary drive, without a bystander calling the police: they already are), likelier flat out and on
+  a narrow or packed street. A chase moves: now and then it turns into the next street along, and the road changes with it. The old random
+  `Stretch` (open, traffic, tight, bridge) is gone; the telling names the road instead ("a packed pedestrian way").
 - **Not built**: weather other than acid rain, speed choices as separate candidates (she picks speed herself), a way to pick the highway on
-  foot, and the chase engine using road class (a chase still has its own `Stretch`).
+  foot, and a chase leaving a highway for a street on purpose (it turns into a random neighbour).

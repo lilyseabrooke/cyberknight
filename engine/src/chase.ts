@@ -4,7 +4,8 @@ import { fight, heroPower, kill, maybeInjure, relocate } from './combat';
 import { spawnGroup, clamp } from './candidate';
 import { heroSpeed } from './dragonmodels';
 import { nested } from './events';
-import { roadsFrom } from './roads';
+import { roadClass, roadsFrom, scene, squeezeOf, trafficAt, trafficWord } from './roads';
+import { accident, hopChance } from './drivefx';
 import { KINDS, removeCompanion } from './companions';
 import { skillValue, train } from './skills';
 import { hasImplantFlag } from './skills';
@@ -17,7 +18,6 @@ import { hasImplantFlag } from './skills';
  */
 
 export type Band = 'far' | 'near' | 'close' | 'locked';
-export type Stretch = 'open' | 'traffic' | 'tight' | 'bridge';
 export type ChaseResult = 'caught' | 'escaped' | 'lost' | 'wrecked' | 'bailed' | 'won';
 
 export const bandOf = (gap: number): Band => (gap <= 0.5 ? 'locked' : gap <= 2.5 ? 'close' : gap <= 6 ? 'near' : 'far');
@@ -42,7 +42,6 @@ export interface ChaseOpts {
   maxRounds?: number;
 }
 
-const STRETCHES: Stretch[] = ['open', 'open', 'traffic', 'tight', 'bridge'];
 const ESCAPE_GAP = 14;
 
 const power = (ch: Chaser): number => ch.crew.reduce((a, n) => a + n.power, 0);
@@ -58,6 +57,24 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   const car = h.vehicle ? normalize(h.vehicle) : null;
   if (!car) return o.mode === 'pursuer' ? 'lost' : 'caught';
   let rounds = 0;
+  // The road she is on decides how a chase goes, by what kind of street it is and how busy it is right now: a narrow street or a
+  // crowded one squeezes everybody (pace counts for less, skill for more, and there are gaps to lose them in); an open, empty one is
+  // a race. Not rolled: the same street at the same hour is the same chase.
+  // And a chase moves: now and then it turns into the next street along, and the road is whatever that one is.
+  let here = w.locations[h.locationId]!;
+  let cls = roadClass(here);
+  let traffic = trafficAt(w, here);
+  let squeeze = squeezeOf(cls, traffic);
+  let tight = squeeze >= 0.45;
+  let setting = scene(cls, traffic);
+  const refresh = (): void => {
+    here = w.locations[h.locationId]!;
+    cls = roadClass(here);
+    traffic = trafficAt(w, here);
+    squeeze = squeezeOf(cls, traffic);
+    tight = squeeze >= 0.45;
+    setting = scene(cls, traffic);
+  };
 
   nested(c, 'chase_start', 'mixed', { cause: o.cause, mode: o.mode, car: car.name, foes: o.foes.map((f) => f.name).join(', '), count: o.foes.length, place, wings: o.foes.some(wings) }, () => {
     for (let round = 1; round <= maxRounds && !result; round++) {
@@ -67,7 +84,6 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         result = 'won';
         break;
       }
-      const stretch = rng.pick(STRETCHES);
       const skill = skillValue(h, 'driving') * 0.5 + h.reflex * 0.3;
       const hero = heroSpeed(w);
       const nearest = () => live.reduce((a, f) => (f.gap < a.gap ? f : a));
@@ -77,7 +93,6 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       const hpRatio = h.hp / h.maxHp;
       const carRatio = car.hp / car.maxHp;
       const bike = car.body === 'bike';
-      const squeeze = stretch === 'tight' || stretch === 'traffic';
 
       // What she does this round.
       const scores: Record<string, number> = o.mode === 'pursuer'
@@ -86,8 +101,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             floor_it: 3 + (band === 'close' || band === 'locked' ? 3 : 0),
             swerve: 1.5 + (band !== 'far' ? 2 : 0),
             // A bike fits where a car does not: it can stay out of reach without ending the chase.
-            ...(bike ? { lane_split: squeeze && band !== 'far' ? 5.5 : 0 } : {}),
-            lose_them: squeeze && lead.gap >= 3 ? 6.5 : 0,
+            ...(bike ? { lane_split: tight && band !== 'far' ? 5.5 : 0 } : {}),
+            lose_them: tight && lead.gap >= 3 ? 6.5 : 0,
             shoot: armedBack && (band === 'near' || band === 'close') ? 4 : 0,
             // A bike against anything bigger gets the worst of a ram.
             ram: (band === 'close' || band === 'locked') && lead.car ? (bike && lead.car.body !== 'bike' ? 0.2 : 3 + car.armor * 0.4) : 0,
@@ -101,8 +116,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
 
       // The road moves everybody: the faster closes on the slower, skill matters when it is tight, and speed when it is open.
       for (const f of live) {
-        const edge = ((f.pace - hero) * 0.5) * (stretch === 'open' ? 1.3 : stretch === 'bridge' ? 1 : 0.6);
-        const sk = squeeze ? skill * 0.12 + (bike ? 1 : 0) : 0;
+        const edge = ((f.pace - hero) * 0.5) * (0.6 + 0.7 * (1 - squeeze));
+        const sk = skill * 0.2 * squeeze + (bike ? 1.2 * squeeze : 0);
         const drift = o.mode === 'pursuer' ? edge - sk : -edge + sk;
         f.gap = Math.max(0, f.gap + drift + (rng.next() - 0.5) * 1.5);
       }
@@ -137,7 +152,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         hurt += mine.taken;
         train(c, 'driving', 1);
         told.push('ram');
-      } else if (action === 'lose_them' && rng.chance(clamp(0.4 + skill * 0.05 - (stretch === 'tight' ? 0 : 0.1) + (bike ? 0.15 : 0), 0.15, 0.9))) {
+      } else if (action === 'lose_them' && rng.chance(clamp(0.28 + skill * 0.05 - (squeeze < 0.7 ? 0.1 : 0) + (bike ? 0.12 : 0) - 0.05 * (live.length - 1), 0.1, 0.85))) {
         result = 'escaped';
         told.push('lost');
       } else if (action === 'bail') {
@@ -145,11 +160,21 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         told.push('bail');
       }
 
+      // The road itself: flat out down a narrow or a crowded street is how a chase ends in a wall.
+      if (!result) {
+        const pace = action === 'floor_it' ? 1 : action === 'swerve' || action === 'lane_split' ? 0.8 : 0.7;
+        if (rng.chance(hopChance(w, car, cls, pace, traffic) * 0.5)) {
+          const crash = accident(c, car, here, cls, pace, true);
+          told.push(`crash:${crash.kind}`);
+          if (crash.over) result = !h.vehicle && car.hp > 0 ? 'bailed' : 'wrecked';
+        }
+      }
+
       // What they do to her.
       if (!result) {
         for (const f of o.foes.filter((x) => x.alive)) {
           const b = bandOf(f.gap);
-          const hit = (action === 'swerve' || action === 'lane_split' ? 0.3 : 0.55) + (stretch === 'open' ? 0.05 : 0);
+          const hit = (action === 'swerve' || action === 'lane_split' ? 0.3 : 0.55) + (squeeze < 0.3 ? 0.05 : 0);
           if (wings(f) && b === 'locked') {
             // At the door.
             const p = clamp(0.3 + power(f) * 0.002 - car.armor * 0.06, 0.1, 0.7);
@@ -197,7 +222,9 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         variant: action,
         body: car.body,
         round,
-        stretch,
+        scene: setting,
+        road: cls,
+        traffic: trafficWord(traffic),
         band: bandOf(nearest().gap),
         gap: Math.round(nearest().gap),
         car: car.name,
@@ -206,6 +233,14 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         foe: o.foes.filter((f) => f.alive)[0]?.name ?? 'them',
         events: told.join(','),
       });
+      // The chase goes on down the road.
+      if (!result && round < maxRounds && rng.chance(0.4)) {
+        const next = roadsFrom(w, h.locationId, 1, car.body);
+        if (next.length) {
+          relocate(w, rng.pick(next).id);
+          refresh();
+        }
+      }
       if (car.hp / car.maxHp <= 0.25 && car.hp > 0 && round < maxRounds && !result) c.emit('car_hit', 'bad', { variant: 'smoking', car: car.name, body: car.body, mine: true });
     }
     if (!result) result = o.mode === 'pursuer' ? 'lost' : o.foes.some((f) => f.alive && f.gap < 3) ? 'caught' : 'escaped';
@@ -249,8 +284,8 @@ function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle, rounds:
   w.clock += rounds;
   let taken = 0;
   if (result === 'wrecked') {
-    // Up it goes, with her in it, and everyone with her.
-    taken = wreckHeroCar(c, car);
+    // Up it goes, with her in it, and everyone with her. (If a crash has already done it, it is done.)
+    taken = !h.vehicle && car.hp <= 0 ? 0 : wreckHeroCar(c, car);
     if (dead(c)) {
       c.emit('chase_end', 'bad', { variant: result, mode: o.mode, taken, car: car.name, rounds });
       c.emit('death', 'bad', { killer: 'a burning car', place: w.locations[loc]!.name, cause: o.cause, level: h.level });
@@ -258,10 +293,13 @@ function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle, rounds:
     }
   } else if (result === 'bailed') {
     // Out of the car at speed, and the car is lost to whoever was after her.
-    const fall = Math.round(heroSpeed(w) * (car.body === 'bike' ? 0.7 : 1.2));
+    // (If a crash threw her, the fall has been taken and the vehicle left.)
+    const fall = h.vehicle ? Math.round(heroSpeed(w) * (car.body === 'bike' ? 0.7 : 1.2)) : 0;
     taken = fall;
-    h.hp -= fall;
-    maybeInjure(c, fall);
+    if (fall) {
+      h.hp -= fall;
+      maybeInjure(c, fall);
+    }
     delete h.vehicle;
     // A bike goes down where she left it, and is hers to come back for.
     if (car.body === 'bike' && car.hp > 0 && !w.strays?.[loc]) (w.strays ??= {})[loc] = { ...car, riders: [] };
