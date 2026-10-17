@@ -1,4 +1,5 @@
-import type { Flight, Id, World } from './types';
+import type { DragonTemper, Flight, Id, World } from './types';
+import type { Rng } from './rng';
 
 /**
  * The dragons that fly: which family each belongs to, how fast it goes, and what sets it apart. Hera and Artemis are here
@@ -88,3 +89,30 @@ export function dropFlights(w: World, ids: Id[]): void {
   w.flights = (w.flights ?? []).filter((f) => !f.ids.some((i) => ids.includes(i)));
   if (w.flight && w.flight.ids.some((i) => ids.includes(i))) w.flight = null;
 }
+
+// ===================================================================== personality
+
+export const TEMPER_KEYS = ['curiosity', 'aggression', 'territoriality', 'patience', 'alertness'] as const;
+
+/** What a family is like on average. Each dragon is a variation. */
+export const FAMILY_TEMPER: Record<DragonFamily, DragonTemper> = {
+  artemis: { curiosity: 0.5, aggression: 0.5, territoriality: 0.3, patience: 0.3, alertness: 0.8 },
+  hera: { curiosity: 0.4, aggression: 0.7, territoriality: 0.2, patience: 0.5, alertness: 0.5 },
+  hermes: { curiosity: 0.5, aggression: 0.1, territoriality: 0.1, patience: 0.2, alertness: 0.4 },
+  demeter: { curiosity: 0.4, aggression: 0.3, territoriality: 0.5, patience: 0.8, alertness: 0.6 },
+  ares: { curiosity: 0.3, aggression: 0.85, territoriality: 0.4, patience: 0.3, alertness: 0.5 },
+};
+
+/** A dragon's own temper: its family's, each dial moved by up to about a third either way. */
+export function rollTemper(rng: Rng, family: DragonFamily): DragonTemper {
+  const base = FAMILY_TEMPER[family];
+  const out = { ...base };
+  for (const k of TEMPER_KEYS) out[k] = Math.max(0, Math.min(1, Math.round((base[k] + (rng.int(-1000, 1000) / 1000) * 0.35) * 100) / 100));
+  return out;
+}
+
+/** The temper a flight goes by: its own, or its family's if it was made without one. */
+export const temperOf = (f: Pick<Flight, 'kind' | 'temper'>): DragonTemper => f.temper ?? FAMILY_TEMPER[f.kind];
+
+/** Past this, a dragon takes a spot and holds it. */
+export const TERRITORIAL = 0.6;

@@ -177,6 +177,12 @@ function wakeTheWorld(u: Universe): void {
   reopenDue(u); // places whose owner is dead open again, once enough nights have gone by
   for (const id of Object.keys(u.npcs)) if (id.startsWith(HIRED)) removeNpc(u, id); // the night's temps go home
   for (const n of Object.values(u.npcs)) {
+    // Whoever was dying when the night ended did not make it through it.
+    if (n.alive && n.dying) {
+      delete n.dying;
+      n.alive = false;
+      n.hp = 0;
+    }
     if (!n.alive) continue;
     n.hp = n.maxHp;
     n.hostile = false;
@@ -247,6 +253,7 @@ export function beginRun(u: Universe, opts: BeginOptions = {}): World {
     damsel: null,
     flight: null,
     flights: restoreDragons(u),
+    dying: [],
     recent: [],
     brawlUntil: 0,
     blackoutUntil: 0,

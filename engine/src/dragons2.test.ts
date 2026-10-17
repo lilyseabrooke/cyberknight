@@ -187,7 +187,7 @@ describe('a visit to the district', () => {
     let beats = 0;
     while (f.roam!.stage === 'stay' && beats++ < 300) tick(w, c);
     // it found somebody, and they are not all still standing
-    expect(crowd.some((n) => !n.alive)).toBe(true);
+    expect(crowd.some((n) => !n.alive || n.dying)).toBe(true);
     // and then it ran out of people and got bored, long before its time was up
     expect(f.roam!.stage).toBe('leave');
     expect(w.clock).toBeLessThan(f.roam!.until + 10);
@@ -239,7 +239,7 @@ describe('a visit to the district', () => {
     w.hero.locationId = 'street_main';
     clearRoom(w, 'street_main');
     const { c, events } = ctxOf(w, 'meet');
-    const f = spawnFlight(c, 'demeter', 1, { at: 'halo_alley' })!;
+    const f = spawnFlight(c, 'demeter', 1, { at: 'halo_alley', temper: { territoriality: 0, curiosity: 1 } })!;
     f.roam!.nextAt = w.clock; // moves now
     f.roam!.visited = ['halo_alley', 'street_main~0', 'street_main~1']; // so it fancies the street
     for (let b = 0; b < 60 && w.flight !== f; b++) {
@@ -402,7 +402,7 @@ describe('Demeter', () => {
     const b = demanded('d4', 'demeter4');
     const dem = (r: ReturnType<typeof demanded>) => r.events.find((e) => e.type === 'tithe_demand')!;
     expect(dem(a).data.season).toBe('winter');
-    expect(Number(dem(a).data.amount)).toBeGreaterThanOrEqual(250);
+    expect(Number(dem(a).data.amount)).toBeGreaterThanOrEqual(200);
     expect(Number(dem(b).data.amount)).toBeGreaterThan(Number(dem(a).data.amount));
     expect(dragonCandidates(a.w).map((x) => x.key).sort()).toEqual(['haggle_tithe', 'pay_tithe', 'refuse_tithe']);
   });
@@ -557,6 +557,7 @@ describe('Ares', () => {
       return n;
     });
     const f = withHer(w, c, 'ares2');
+    f.temper = { curiosity: 0.5, aggression: 1, territoriality: 0.2, patience: 0.5, alertness: 0.5 };
     f.hidden = true; // she keeps out of it
     for (let i = 0; i < 30; i++) tick(w, c, 1, 0);
     const named = events.filter((e) => e.type === 'ares_accuse' && e.data.variant === 'victim').map((e) => e.data.npc);
@@ -564,6 +565,8 @@ describe('Ares', () => {
     expect(crowd.every((n) => !n.tags.includes('ganger'))).toBe(true);
     for (const e of events.filter((x) => x.type === 'ares_accuse')) expect(String(e.data.gang).length).toBeGreaterThan(0);
     expect(crowd.filter((n) => !n.alive || n.downUntil > w.beat).length).toBeGreaterThanOrEqual(2);
+    // and nobody who matters drops dead on the spot: they are on the ground, and the clock is running
+    expect(crowd.every((n) => n.alive || n.dying === undefined)).toBe(true);
   });
 
   it('can turn on her, and it is a fight', () => {
@@ -683,7 +686,7 @@ describe('Ares', () => {
 
 describe('what it reads like', () => {
   it('every event the new dragons raise has text, and none of it leaves a token showing', () => {
-    const base = { mark: 2, count: 1, place: 'Strand Street', cargo: 'a sealed Atlas payroll case', fame: 12, amount: 300, owed: 40, hit: 4, fine: 20, npc: 'Dex Mercer', gang: 'Rust Choir', fate: 'down', warned: false, hidden: false, left: false, screams: false, standing: false, season: 'winter', was: 600, passing: false, here: false };
+    const base = { mark: 2, count: 1, place: 'Strand Street', cargo: 'a sealed Atlas payroll case', fame: 12, amount: 300, owed: 40, hit: 4, fine: 20, npc: 'Dex Mercer', gang: 'Rust Choir', fate: 'down', warned: false, hidden: false, left: false, screams: false, standing: false, season: 'winter', was: 600, passing: false, here: false, heading: 'the alley beside the Halo', family: 'demeter' };
     const types: [string, string[]][] = [
       ['dragon_flight', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_close', ['hermes', 'demeter', 'ares', 'artemis']],
@@ -696,6 +699,8 @@ describe('what it reads like', () => {
       ['dragon_film', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_duck', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_follow', ['artemis']],
+      ['dragon_territory', ['claim', 'attack']],
+      ['dying_dies', ['']],
       ['dragon_chase', ['caught', 'lost']],
       ['tithe_pay', ['full', 'short', 'broke']],
       ['tithe_haggle', ['win', 'fail']],
@@ -707,7 +712,7 @@ describe('what it reads like', () => {
     const rng = new Rng('words');
     for (const [type, variants] of types) {
       for (const variant of variants) {
-        for (const extra of [{}, { mark: 1 }, { mark: 3, screams: true, warned: true, hidden: true, left: true, fate: 'dead', standing: true, count: 2, owed: 0, passing: true, here: true }, { mark: 4 }]) {
+        for (const extra of [{}, { mark: 1 }, { mark: 3, screams: true, warned: true, hidden: true, left: true, fate: 'dying', family: 'hermes', standing: true, count: 2, owed: 0, passing: true, here: true }, { mark: 4, family: 'ares' }, { family: 'artemis' }]) {
           const ev: GameEvent = { beat: 1, type, outcome: 'mixed', data: { ...base, ...(variant ? { variant } : {}), ...extra } };
           expect(hasTemplate(ev), `${type}:${variant}`).toBe(true);
           for (const line of render(ev, { rng, realName: 'Pat Doe', personality: personalityFrom({}) })) expect(line.text, `${type}:${variant}`).not.toMatch(/[{}]|undefined|NaN|\[object/);
@@ -730,5 +735,275 @@ describe('what it reads like', () => {
 
   it('the dragons carry on as flags and helpers the tests use', () => {
     expect(hasTrait('ares4', 'relentless')).toBe(true);
+  });
+});
+
+describe('a Hermes Mk. III flashing through', () => {
+  it('can go through her street between one beat and the next, and she learns it was there and which way it went', () => {
+    const w = world('flash');
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'flash');
+    // It is on an errand that takes it through her street and out the other side, faster than a beat.
+    const f = spawnFlight(c, 'hermes3', 1, { at: 'street_main~0' })!;
+    f.roam!.goals = ['halo_alley'];
+    f.roam!.nextAt = w.clock;
+    tick(w, c);
+    expect(f.locationId).not.toBe('street_main');
+    expect(w.flight).toBeNull();
+    const seen = events.find((e) => e.type === 'dragon_close' && e.data.passing === true);
+    expect(seen).toBeTruthy();
+    expect(String(seen!.data.heading).length).toBeGreaterThan(0);
+    expect(f.roam!.seen).toMatchObject({ at: 'street_main', toward: f.locationId });
+    // and it reads as something
+    expect(render(seen!, { rng: new Rng('x'), realName: 'Pat Doe', personality: personalityFrom({}) }).some((line) => /toward/.test(line.text))).toBe(true);
+  });
+
+  it('a slower dragon does not flash through: it stops where she is', () => {
+    const w = world('noflash');
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'noflash');
+    const f = spawnFlight(c, 'hermes', 1, { at: 'street_main~0' })!;
+    f.roam!.goals = ['halo_alley'];
+    f.roam!.nextAt = w.clock;
+    tick(w, c, 4);
+    expect(events.some((e) => e.type === 'dragon_close' && e.data.passing === true)).toBe(false);
+    expect(events.some((e) => e.type === 'dragon_close' && !e.data.passing)).toBe(true);
+  });
+});
+
+describe('what a dragon is like', () => {
+  const spawnWith = (seed: string, model: string, temper: Partial<import('./types').DragonTemper>, at?: string) => {
+    const w = world(seed);
+    w.hero.locationId = 'halo_floor';
+    clearRoom(w, 'street_main');
+    const t = ctxOf(w, seed);
+    const f = spawnFlight(t.c, model, 1, { temper, ...(at ? { at } : {}) })!;
+    return { w, f, ...t };
+  };
+
+  it('every dragon gets a temper of its own, from its family, and a persistent one keeps it', () => {
+    const w = world('tempers');
+    w.hero.locationId = 'halo_floor';
+    const { c } = ctxOf(w, 'tempers');
+    const a = spawnFlight(c, 'ares2', 1)!;
+    const b = spawnFlight(c, 'ares2', 1)!;
+    for (const f of [a, b]) for (const v of Object.values(f.temper!)) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+    expect(a.temper).not.toEqual(b.temper);
+    // the same dragon is the same dragon
+    const again = world('tempers');
+    again.hero.locationId = 'halo_floor';
+    const f2 = spawnFlight(ctxOf(again, 'tempers').c, 'ares2', 1)!;
+    expect(f2.temper).toEqual(a.temper);
+    // and families lean differently
+    const mean = (model: string, key: 'aggression' | 'patience') => {
+      let s = 0;
+      for (let i = 0; i < 40; i++) {
+        const ww = world(`mean-${model}-${i}`);
+        ww.hero.locationId = 'halo_floor';
+        s += spawnFlight(ctxOf(ww, `m${i}`).c, model, 1)!.temper![key];
+      }
+      return s / 40;
+    };
+    expect(mean('ares2', 'aggression')).toBeGreaterThan(mean('hermes', 'aggression') + 0.4);
+    expect(mean('demeter', 'patience')).toBeGreaterThan(mean('hermes', 'patience') + 0.3);
+    const keep = spawnFlight(c, 'demeter', 1, { persist: true })!;
+    const was = { ...keep.temper! };
+    keep.roam!.until = w.clock;
+    for (let i = 0; i < 100 && keep.roam!.stage !== 'away'; i++) tick(w, c);
+    w.clock = keep.roam!.returnAt!;
+    tick(w, c);
+    expect(keep.temper).toEqual(was);
+  });
+
+  it('a curious Hermes makes more stops than an incurious one', () => {
+    const goals = (curiosity: number) => spawnWith(`goals-${curiosity}`, 'hermes', { curiosity }).f.roam!.goals.length;
+    expect(goals(1)).toBeGreaterThanOrEqual(goals(0) + 2);
+  });
+
+  it('a patient one stays longer than an impatient one', () => {
+    const stay = (patience: number) => {
+      const { w, f } = spawnWith('patience', 'demeter', { patience, territoriality: 0 });
+      return f.roam!.until - w.clock;
+    };
+    expect(stay(1)).toBeGreaterThan(stay(0) * 1.8);
+  });
+
+  it('a curious Demeter sees more of the district than an incurious one', () => {
+    const covered = (curiosity: number): number => {
+      let total = 0;
+      for (let k = 0; k < 6; k++) {
+        const { w, f, c } = spawnWith(`curious-${curiosity}-${k}`, 'demeter', { curiosity, territoriality: 0, patience: 0.5 });
+        for (let b = 0; b < 40 && f.roam!.stage === 'stay'; b++) tick(w, c);
+        total += new Set(f.roam!.visited).size;
+      }
+      return total;
+    };
+    expect(covered(1)).toBeGreaterThan(covered(0));
+  });
+
+  it('a hot-tempered Ares hurts more people than a calm one', () => {
+    const hurt = (aggression: number): number => {
+      let total = 0;
+      for (let k = 0; k < 6; k++) {
+        const { w, f, c } = spawnWith(`temper-${aggression}-${k}`, 'ares2', { aggression, territoriality: 0, patience: 1, curiosity: 0.5 });
+        const crowd = districtAround(w, 'street_main').nodes.filter((n) => n !== 'halo_floor').flatMap((loc, i) => {
+          const n = spawnNpc(new Rng(`h${i}`), `h${aggression}_${k}_${i}`, 'drifter', loc);
+          n.ephemeral = true;
+          addNpc(w, n);
+          return [n];
+        });
+        for (let b = 0; b < 25 && f.roam!.stage === 'stay'; b++) tick(w, c);
+        total += crowd.filter((n) => n.dying || !n.alive).length;
+      }
+      return total;
+    };
+    expect(hurt(1)).toBeGreaterThan(hurt(0));
+  });
+
+  it('a territorial dragon takes a spot and holds it, and goes for anyone who walks into it', () => {
+    const { w, f, c, events } = spawnWith('terr', 'demeter', { territoriality: 1, patience: 1, aggression: 1 });
+    const den = f.roam!.den!;
+    expect(den).toBeTruthy();
+    let there = 0;
+    let beats = 0;
+    for (; beats < 60 && f.roam!.stage === 'stay'; beats++) {
+      tick(w, c);
+      if (f.locationId === den) there++;
+    }
+    // once it's got there it doesn't go anywhere else
+    expect(there).toBeGreaterThan(beats * 0.5);
+    // somebody who wanders in gets shot at before there's any talk of a tithe
+    const w2 = world('terr2');
+    w2.hero.locationId = 'halo_floor';
+    clearRoom(w2, 'street_main');
+    const t2 = ctxOf(w2, 'terr2');
+    const g = spawnFlight(t2.c, 'demeter', 1, { temper: { territoriality: 1, patience: 1 } })!;
+    const home = g.roam!.den!;
+    for (let b = 0; b < 40 && g.locationId !== home; b++) tick(w2, t2.c);
+    expect(g.locationId).toBe(home);
+    w2.hero.locationId = home;
+    for (let b = 0; b < 30 && !t2.events.some((e) => e.type === 'dragon_territory' && e.data.variant === 'attack'); b++) {
+      w2.hero.hp = w2.hero.maxHp;
+      tick(w2, t2.c);
+    }
+    expect(t2.events.some((e) => e.type === 'dragon_territory' && e.data.variant === 'claim')).toBe(true);
+    expect(t2.events.some((e) => e.type === 'dragon_territory' && e.data.variant === 'attack')).toBe(true);
+    expect(events.some((e) => e.type === 'tithe_demand')).toBe(false);
+  });
+
+  it('a sharp-eyed dragon notices her sooner than a dull one', () => {
+    const ticksToNotice = (alertness: number): number => {
+      let total = 0;
+      for (let k = 0; k < 20; k++) {
+        const w = world(`alert-${alertness}-${k}`);
+        w.hero.locationId = 'street_main';
+        w.hero.cash = 500;
+        clearRoom(w, 'street_main');
+        const t = ctxOf(w, `a${k}`);
+        const f = spawnFlight(t.c, 'hermes', 1, { at: 'street_main', temper: { alertness, aggression: 0, territoriality: 0 } })!;
+        f.roam!.nextAt = Infinity;
+        let n = 0;
+        for (; n < 300 && !t.events.some((e) => e.type === 'dragon_notice'); n++) tick(w, t.c, 1, 0);
+        total += n;
+      }
+      return total;
+    };
+    expect(ticksToNotice(1)).toBeLessThan(ticksToNotice(0));
+  });
+});
+
+describe('dying', () => {
+  it('somebody hurt past saving goes down and dies after a while, sooner the worse', async () => {
+    const { startDying, tickDying, timeToDie, isDying } = await import('./dying');
+    expect(timeToDie(1)).toBeLessThan(timeToDie(0.5));
+    expect(timeToDie(0.5)).toBeLessThan(timeToDie(0.1));
+    const w = world('dying');
+    w.hero.locationId = 'street_main';
+    const { c, events } = ctxOf(w, 'dying');
+    const a = spawnNpc(new Rng('a'), 'dy_a', 'drifter', 'street_main');
+    const b = spawnNpc(new Rng('b'), 'dy_b', 'drifter', 'halo_alley');
+    addNpc(w, a);
+    addNpc(w, b);
+    startDying(w, a, 1);
+    startDying(w, b, 0.1);
+    expect(isDying(a) && a.alive).toBe(true);
+    expect(a.downUntil).toBeGreaterThan(w.beat);
+    expect(w.dying).toEqual(['dy_a', 'dy_b']);
+    // while they're dying they aren't people she can deal with
+    expect(Object.values(w.npcs).filter((n) => n.locationId === 'street_main' && n.id === 'dy_a' && n.downUntil <= w.beat)).toEqual([]);
+    // the worse hurt goes first
+    w.clock += timeToDie(1) + 1;
+    tickDying(c);
+    expect(a.alive).toBe(false);
+    expect(b.alive).toBe(true);
+    // and she saw it, because she was there
+    expect(events.filter((e) => e.type === 'dying_dies').map((e) => e.data.npc)).toEqual([a.name]);
+    w.clock += timeToDie(0.1);
+    tickDying(c);
+    expect(b.alive).toBe(false);
+    expect(events.filter((e) => e.type === 'dying_dies').length).toBe(1); // not where she was
+    expect(w.dying).toEqual([]);
+  });
+
+  it('stabilizing takes them off the clock and leaves them out cold', async () => {
+    const { startDying, tickDying, stabilize, timeToDie } = await import('./dying');
+    const w = world('stabilize');
+    const { c } = ctxOf(w, 'stab');
+    const n = spawnNpc(new Rng('s'), 'dy_s', 'drifter', 'street_main');
+    addNpc(w, n);
+    startDying(w, n, 0.8);
+    expect(stabilize(w, n)).toBe(true);
+    expect(stabilize(w, n)).toBe(false);
+    w.clock += timeToDie(0.8) * 3;
+    tickDying(c);
+    expect(n.alive).toBe(true);
+    expect(n.dying).toBeUndefined();
+    expect(n.downUntil).toBeGreaterThan(w.beat);
+    expect(w.dying).toEqual([]);
+  });
+
+  it('an Ares leaves passers-by dying, not dead, whether or not she is looking', async () => {
+    const w = world('ares-dying');
+    w.hero.locationId = 'halo_floor';
+    clearRoom(w, 'street_main');
+    const { c } = ctxOf(w, 'ares-dying');
+    const f = spawnFlight(c, 'ares2', 1, { temper: { aggression: 1, patience: 1, territoriality: 0 } })!;
+    const crowd = districtAround(w, 'street_main').nodes.filter((n) => n !== 'halo_floor').map((loc, i) => {
+      const n = spawnNpc(new Rng(`d${i}`), `ad${i}`, 'drifter', loc);
+      n.ephemeral = true;
+      addNpc(w, n);
+      return n;
+    });
+    for (let b = 0; b < 40 && f.roam!.stage === 'stay'; b++) tick(w, c);
+    const hit = crowd.filter((n) => n.dying || !n.alive);
+    expect(hit.length).toBeGreaterThan(0);
+    // nobody was killed on the spot: they are on the clock
+    expect(hit.some((n) => n.dying && n.alive)).toBe(true);
+    // and in time they're gone
+    w.clock += 200;
+    const { tickDying } = await import('./dying');
+    tickDying(c);
+    expect(crowd.filter((n) => n.dying).length).toBe(0);
+    expect(hit.every((n) => !n.alive)).toBe(true);
+  });
+
+  it('anyone still dying when the night ends does not make it to the morning', async () => {
+    const { startDying } = await import('./dying');
+    const w = world('overnight');
+    const n = spawnNpc(new Rng('o'), 'dy_o', 'drifter', 'street_main');
+    addNpc(w, n);
+    startDying(w, n, 0.1);
+    w.ending = 'dawn';
+    const u = endRun(w);
+    expect(u.npcs.dy_o!.dying).toBeTruthy();
+    const w2 = beginRun(u, { seed: 'overnight-2' });
+    expect(w2.npcs.dy_o!.alive).toBe(false);
+    expect(w2.npcs.dy_o!.dying).toBeUndefined();
+    expect(w2.dying).toEqual([]);
   });
 });

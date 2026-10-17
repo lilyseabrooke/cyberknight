@@ -31,6 +31,8 @@ const act = (a: unknown): string => ACTS[String(a)] ?? String(a);
 const lc = (s: unknown): string => String(s).charAt(0).toLowerCase() + String(s).slice(1);
 /** Start a sentence with whatever it is. */
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+/** Which way something that just went through went. */
+const heads = (d: EventData): string => (d.heading ? ` It went toward ${d.heading}.` : '');
 const roman = (n: unknown): string => ['', 'I', 'II', 'III', 'IV', 'V'][Number(n)] ?? String(n);
 
 /** The second batch of dragons in a fight (docs/DRAGONS_PLAN.md): how they open it, how it goes, keyed by archetype. */
@@ -915,22 +917,33 @@ const T: Record<string, Entry> = {
   ),
   // ---- a dragon about the district: it comes into the street, is heard from the next one over, takes off
   'dragon_close:hermes': e(
-    (d) => [d.passing ? (Number(d.mark) === 3 ? `Something white goes over ${d.place} so fast the sound arrives after it. A Hermes Mk. III. Whatever it was carrying, it was gone before anyone could see.` : `A Hermes courier skims over ${d.place}, reads a few door numbers, and is gone.`) : Number(d.mark) === 3 ? `A Hermes Mk. III drops into ${d.place}, cargo cradle swinging, ${d.cargo} clamped underneath. It does not stay.` : `A Hermes courier drops into ${d.place}, clipboard flapping, looking for a door number.`],
+    (d) => [d.passing ? (Number(d.mark) === 3 ? `Something white goes over ${d.place} so fast the sound arrives after it. A Hermes Mk. III. Whatever it was carrying, it was gone before anyone could see.${heads(d)}` : `A Hermes courier skims over ${d.place}, reads a few door numbers, and is gone.${heads(d)}`) : Number(d.mark) === 3 ? `A Hermes Mk. III drops into ${d.place}, cargo cradle swinging, ${d.cargo} clamped underneath. It does not stay.` : `A Hermes courier drops into ${d.place}, clipboard flapping, looking for a door number.`],
     (d) => (Number(d.mark) === 3 ? ['It is RIGHT THERE.', 'Think of the money.'] : ['A courier. Not in a hurry, for once.']),
   ),
   'dragon_close:demeter': e(
-    (d) => [d.passing ? `The jingle of a Demeter Mk. ${roman(d.mark)} swells over ${d.place} and recedes.` : `A Demeter Mk. ${roman(d.mark)} turns into ${d.place} at a deliberate walking pace, baskets swinging, a speaker playing its harvest jingle. It is looking at everyone, one at a time.${d.hidden ? ' Blackbird has already stepped out of sight.' : ''}`],
+    (d) => [d.passing ? `The jingle of a Demeter Mk. ${roman(d.mark)} swells over ${d.place} and recedes.${heads(d)}` : `A Demeter Mk. ${roman(d.mark)} turns into ${d.place} at a deliberate walking pace, baskets swinging, a speaker playing its harvest jingle. It is looking at everyone, one at a time.${d.hidden ? ' Blackbird has already stepped out of sight.' : ''}`],
     ['Everyone is suddenly very interested in their shoes.', 'Methodical. I hate methodical.'],
   ),
   'dragon_close:ares': e(
-    (d) => [d.passing ? `An Ares Mk. ${roman(d.mark)} tears across ${d.place} in a shower of sparks, loudspeaker still reading out its list, and is gone.` : `An Ares Mk. ${roman(d.mark)} crashes into ${d.place}, taking a lamp post with it. "EVERYONE HERE IS A SUSPECT," it announces. "THIS IS A COURTESY."${d.hidden ? ' Blackbird has already found a shadow.' : ''}`],
+    (d) => [d.passing ? `An Ares Mk. ${roman(d.mark)} tears across ${d.place} in a shower of sparks, loudspeaker still reading out its list, and is gone.${heads(d)}` : `An Ares Mk. ${roman(d.mark)} crashes into ${d.place}, taking a lamp post with it. "EVERYONE HERE IS A SUSPECT," it announces. "THIS IS A COURTESY."${d.hidden ? ' Blackbird has already found a shadow.' : ''}`],
     ['Reckless. That one is reckless.', 'It does not even look where it is going.'],
   ),
   'dragon_close:artemis': e(
-    (d) => [d.passing ? `An Artemis cuts across ${d.place} on a diagonal, scanner flickering, and is on to the next street.` : Number(d.mark) === 2 ? `An Artemis Mk. II drops into ${d.place} and does not take its optics off Blackbird.${d.hidden ? ' She had already got under cover.' : ''}` : `An Artemis sweeps into ${d.place}, red scanner raking the street from end to end.${d.hidden ? ' Blackbird had got out of sight in time.' : ''}`],
+    (d) => [d.passing ? `An Artemis cuts across ${d.place} on a diagonal, scanner flickering, and is on to the next street.${heads(d)}` : Number(d.mark) === 2 ? `An Artemis Mk. II drops into ${d.place} and does not take its optics off Blackbird.${d.hidden ? ' She had already got under cover.' : ''}` : `An Artemis sweeps into ${d.place}, red scanner raking the street from end to end.${d.hidden ? ' Blackbird had got out of sight in time.' : ''}`],
     (d) => (Number(d.mark) === 2 ? ['It is not looking at the street. It is looking at me.'] : ['A sweep. Stay still.']),
   ),
   'dragon_close': e((d) => [`A dragon comes into ${d.place}.`], ['Here we go.']),
+  // ---- a dragon that has made a place its own
+  'dragon_territory:claim': e(
+    (d) => [d.family === 'demeter' ? `The Demeter sits down heavily in the middle of ${d.place}, baskets fanned. This is its street now, and it is watching the doors.` : d.family === 'ares' ? `The Ares plants itself in ${d.place} and keeps its loudspeaker trained on the junction. It has claimed the place.` : d.family === 'hermes' ? `The Hermes settles on a lamp post over ${d.place} and will not be moved. It has decided this is its street.` : `The Artemis comes to rest over ${d.place} and folds its wings. It has picked this place, and it is watching who comes in.`],
+    ['It has made this place its own. Great. I am in its place.'],
+  ),
+  'dragon_territory:attack': e(
+    (d) => [d.family === 'demeter' ? 'The Demeter does not bother to ask. "THIS STREET IS UNDER MY PROTECTION," it announces, and the barrel swings round.' : d.family === 'ares' ? 'The Ares has no list for this one. It just opens up on whoever walked into its street.' : `The ${d.family === 'hermes' ? 'Hermes' : 'Artemis'} will not have anyone on its street. It opens up without a word.`],
+    ['It does not even want to talk!', 'Should not have walked in.'],
+  ),
+  'dragon_territory': e(() => ['The dragon has made this place its own.'], ['Not good.']),
+  dying_dies: e((d) => [`${d.npc} stops moving. Nobody got there in time.`], ['That did not have to happen.']),
   'dragon_near:hermes': e(() => ['A thin whine passes over the next street along, somebody\'s package getting delivered at speed.'], ['Courier. Somewhere close.']),
   'dragon_near:demeter': e(() => ['From the next street over comes a tinny harvest-festival jingle, and under it, very quietly, the sound of people deciding not to have any money.'], ['That jingle. It is the next street over.', 'Time to be inside.']),
   'dragon_near:ares': e(() => ['Somewhere close, a loudspeaker begins to read out a list of names, and something very heavy lands on something that does not take it well.'], ['Ares. Next street. Let it keep going.']),
@@ -988,7 +1001,7 @@ const T: Record<string, Entry> = {
   'tithe_refuse:haggle': e(() => ['The Demeter\'s baskets close with a clang. Haggling, it explains, is how it all begins.'], ['I only asked.']),
   tithe_evade: e((d) => [`Blackbird walks away from the Demeter mid-sentence. It fires a single parting round into her back (${d.hit} damage). "YOUR ARREARS HAVE BEEN UPDATED," it calls after her, pleasantly. They stand at ${$(d.owed)}.`], ['Out of sight, out of debt. Right? Ow.']),
   ares_arrive: e((d) => [`The scream stops. Something very large lands where it was coming from. An Ares Mk. ${roman(d.mark)}. "THIS DISTRICT HAS BEEN IDENTIFIED AS GANG-ADJACENT. REMAIN WHERE YOU ARE."${d.standing ? ' Blackbird, who has been standing in the road for some time, remains where she is.' : ''}`], ['It is here. It is HERE.']),
-  'ares_accuse:victim': e((d) => [`"${String(d.npc).toUpperCase()}: MEMBER OF THE ${String(d.gang).toUpperCase()}." ${d.npc} protests that the name means nothing to them. The Ares ${d.fate === 'dead' ? 'does not hear this, and that is the end of that' : 'takes this as a confession, and that is the end of the evening'}.`], ['That poor guy just came out for noodles.']),
+  'ares_accuse:victim': e((d) => [`"${String(d.npc).toUpperCase()}: MEMBER OF THE ${String(d.gang).toUpperCase()}." ${d.npc} protests that the name means nothing to them. The Ares ${d.fate === 'dying' || d.fate === 'dead' ? 'does not hear this, and that is the end of that: they are on the ground and not getting up' : 'takes this as a confession, and that is the end of the evening'}.`], ['That poor guy just came out for noodles.']),
   'ares_accuse:hero': e((d) => [`"CITIZEN: YOU ARE A KNOWN ASSOCIATE OF THE ${String(d.gang).toUpperCase()}." Blackbird says she has never met them. "CONSORTING WITH THEM IS NO DEFENSE," says the Ares.`], ['I have not met them! I have not even HEARD of them!']),
   'ares_shelter:door': e((d) => [`Blackbird goes through the nearest door at a dead run, ${d.place}, and the shutter slams down behind her. Outside, the scream drops into something lower and more personal.`], ['Inside. Staying inside. Excellent plan.']),
   'ares_shelter:cover': e(() => ['There is no door close enough. Blackbird flattens herself into the angle of a loading bay as the scream comes down.'], ['Please be invisible. Please be invisible.']),

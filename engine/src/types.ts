@@ -271,6 +271,8 @@ export interface Npc {
   flags: string[];
   /** Knocked out until this beat (non-lethal fights). */
   downUntil: number;
+  /** Hurt past saving unless somebody does something: they die when the world clock reaches `dieAt`. See dying.ts. */
+  dying?: { dieAt: number; severity: number };
   /** An outstanding NPD bounty. Hitting someone who has one doesn't bring the police down on her. See bounty.ts. */
   bounty?: { amount: number; hidden: boolean };
   /** Where they live and work. Absent for people who never go anywhere. */
@@ -634,6 +636,26 @@ export interface Flight {
   roam?: Roam;
   /** Kept from one night to the next, and never forgotten for being far away: it leaves the district and comes back later. See dragons.ts. */
   persist?: boolean;
+  /** What this one is like, so two of a kind needn't behave alike. Absent means the family's average. See `DragonTemper`. */
+  temper?: DragonTemper;
+}
+
+/**
+ * A dragon's personality: five dials, each 0..1 with 0.5 about average for dragons in general (a family has its own
+ * leanings, and each dragon is its own variation on them). See dragonmodels.ts for how they're rolled and dragons.ts for
+ * what each does.
+ */
+export interface DragonTemper {
+  /** How much of the district it wants to see: goes to streets it hasn't been to, makes more stops. */
+  curiosity: number;
+  /** How readily it hurts people for no reason. */
+  aggression: number;
+  /** How much it would sooner pick a spot and hold it, attacking whoever comes near. */
+  territoriality: number;
+  /** How long it stays, and how long it'll go on without something to do. */
+  patience: number;
+  /** How quick it is to notice her. */
+  alertness: number;
 }
 
 /**
@@ -666,6 +688,13 @@ export interface Roam {
   tended?: number;
   /** Where she was when it was last tended, to tell who moved when they part. */
   heroAt?: Id;
+  /** A territorial one's chosen spot. */
+  den?: Id;
+  /** A fast one went through where she is during the beat, and (once it leaves) where it went next. */
+  passed?: boolean;
+  flash?: Id;
+  /** The last time she saw it flash through, and which way it went: what she knows about it. */
+  seen?: { at: Id; toward: Id; beat: number };
 }
 
 /** A run that ended in her death, and who was there. The world remembers; so do the people who saw or heard. */
@@ -759,6 +788,8 @@ export interface World {
   flight: Flight | null;
   /** Every dragon in the world right now: the ones roaming a district, and any hanging over her. */
   flights: Flight[];
+  /** Who is dying right now (see `Npc.dying`), so the clock only has to look at them. */
+  dying: Id[];
   /** Recently chosen action keys, used to discourage loops. */
   recent: string[];
   brawlUntil: number;

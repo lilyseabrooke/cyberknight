@@ -37,7 +37,9 @@ export const levelRisk = (w: World, n: Npc): number => clamp((n.level - w.hero.l
 export function spawnGroup(c: Ctx, archetype: string, count: number, faction?: string): Npc[] {
   const out: Npc[] = [];
   for (let i = 0; i < count; i++) {
-    const id = `tmp_${c.w.beat}_${archetype}_${i}`;
+    let id = `tmp_${c.w.beat}_${archetype}_${i}`;
+    // (Two groups of the same kind in one beat must not be the same people.)
+    for (let k = 1; c.w.npcs[id]; k++) id = `tmp_${c.w.beat}_${archetype}_${i}_${k}`;
     const here = c.w.locations[c.w.hero.locationId];
     const n = spawnNpc(c.rng, id, archetype, c.w.hero.locationId, { faction, ...(here?.gen ? { grade: dangerOf(here) } : {}) });
     addNpc(c.w, n);

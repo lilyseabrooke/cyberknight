@@ -10,6 +10,7 @@ import { DRIVES } from './personality';
 import { riskScale, temperatureScale, traitBias } from './traits';
 import { ambientExtras, scoutSaves, tryTalkDown } from './extras';
 import { ambientDragons } from './dragons';
+import { tickDying } from './dying';
 import { ambientGraffiti } from './graffiti';
 import { hasImplantFlag, skillLevel } from './skills';
 import { expireBuffs, restockShelf } from './supply';
@@ -185,6 +186,7 @@ export function step(w: World): GameEvent[] {
   if (!w.over) dungeonAmbient(c);
   if (!w.over) ambientExtras(c);
   if (!w.over) ambientDragons(c);
+  if (!w.over) tickDying(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambient(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientMind(c);

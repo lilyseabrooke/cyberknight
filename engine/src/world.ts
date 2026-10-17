@@ -372,6 +372,7 @@ export function createWorld(opts: RunOptions): World {
     damsel: null,
     flight: null,
     flights: [],
+    dying: [],
     recent: [],
     brawlUntil: 0,
     blackoutUntil: 0,

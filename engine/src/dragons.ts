@@ -1,4 +1,4 @@
-import type { Ctx, Flight, Id, Location, Npc, Roam, World } from './types';
+import type { Ctx, DragonTemper, Flight, Id, Location, Npc, Roam, World } from './types';
 import { addHeat, fight, heroPower, npcsAt, relocate, remember } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
 import { scoutSaves, sneakBonus } from './extras';
@@ -12,7 +12,8 @@ import { influenceOf } from './factions';
 import { isShut } from './shutdown';
 import { GANGS, spawnNpc } from './content/archetypes';
 import { dangerOf } from './grade';
-import { DRAGON_MODELS, dropFlights, flightModel, hasTrait, hopMinutes, reachPerBeat, runsDown, type DragonModel } from './dragonmodels';
+import { DRAGON_MODELS, TERRITORIAL, dropFlights, flightModel, hasTrait, hopMinutes, reachPerBeat, rollTemper, runsDown, temperOf, type DragonModel } from './dragonmodels';
+import { startDying } from './dying';
 
 /**
  * The dragons that aren't Apollo. Each flies into a district, goes through the pattern of its kind, takes off, and is
@@ -30,8 +31,9 @@ const flightFoes = (w: World): Npc[] => (w.flight?.ids ?? []).map((id) => w.npcs
 
 /** Hops from her at which a dragon that has taken off stops mattering. */
 const DESPAWN_AT = 6;
-/** Minutes an Ares goes without hurting anybody before it gets bored and leaves. */
+/** Minutes an Ares goes without hurting anybody before it gets bored and leaves (a patient one waits longer). */
 const BORED = 40;
+const boredAfter = (f: Flight): number => BORED * (0.5 + temperOf(f).patience);
 
 /** Running the dragons: move the ones about, let her meet them, and now and then bring in another. */
 export function ambientDragons(c: Ctx): void {
@@ -64,7 +66,8 @@ export function ambientDragons(c: Ctx): void {
   }
   // The newer models draw from a stream of their own, so the luck of everything above (and after) is the same as ever.
   // `quiet_skies`, above, keeps every one of them home, for a test that follows a night to see something else.
-  if (!w.over) spawnNewModels({ ...c, rng: new Rng(`${w.seed}:dragons:${w.beat}`) }, loc, live);
+  const now = w.flights.filter((f) => f.roam?.stage !== 'leave' && f.roam?.stage !== 'away');
+  if (!w.over) spawnNewModels({ ...c, rng: new Rng(`${w.seed}:dragons:${w.beat}`) }, loc, now);
   syncFlight(w);
 }
 
@@ -201,14 +204,24 @@ function spawnNewModels(c: Ctx, loc: Location, live: Flight[]): void {
 /** Set a dragon to its visit: where it is, and what it means to do. */
 function beginVisit(c: Ctx, f: Flight, m: DragonModel, district: Id[], entry: Id): Roam {
   const { w, rng } = c;
+  const tp = temperOf(f);
   const long = rng.int(0, 1000) / 1000;
-  const until = w.clock + (m.pattern === 'prowl' ? 160 + Math.round(long * 100) : m.pattern === 'rampage' ? 130 + Math.round(long * 110) : m.pattern === 'deliver' ? 90 : m.traits.includes('tracks') ? 50 : 40);
+  const stay = m.pattern === 'prowl' ? 160 + Math.round(long * 100) : m.pattern === 'rampage' ? 130 + Math.round(long * 110) : m.pattern === 'deliver' ? 90 : m.traits.includes('tracks') ? 50 : 40;
+  // A patient one stays longer, and one that has taken a spot stays to hold it.
+  const territorial = tp.territoriality >= TERRITORIAL && !m.traits.includes('tracks');
+  const until = w.clock + Math.round(stay * (0.6 + 0.8 * tp.patience) + (territorial ? 60 * tp.territoriality : 0));
   const goals: Id[] = [];
   if (m.pattern === 'deliver') {
+    // A curious one makes more stops.
     const pool = district.filter((d) => d !== entry);
-    for (let n = rng.int(3, 5); n > 0 && pool.length; n--) goals.push(...pool.splice(rng.int(0, pool.length - 1), 1));
+    for (let n = rng.int(2, 3) + Math.round(tp.curiosity * 3); n > 0 && pool.length; n--) goals.push(...pool.splice(rng.int(0, pool.length - 1), 1));
   }
   const r: Roam = { stage: 'stay', district, entry, nextAt: w.clock + 2, until, visited: [entry], goals, lastHit: w.clock, raided: [], away: 0, tended: w.clock, heroAt: w.hero.locationId };
+  if (territorial) {
+    // It picks a place where people are, and that is its place now.
+    const spots = district.filter((d) => d !== entry);
+    if (spots.length) r.den = rng.weighted(spots, (d) => 1 + npcsAt(w, d).filter((n) => !n.tags.includes('dragon')).length);
+  }
   f.roam = r;
   return r;
 }
@@ -218,6 +231,8 @@ export interface SpawnOpts {
   at?: Id;
   /** Never forgotten: see `Flight.persist`. */
   persist?: boolean;
+  /** Dials to set rather than roll. */
+  temper?: Partial<DragonTemper>;
 }
 
 /** A dragon flies in. Returns it, or null if there was no open ground to fly it to. */
@@ -255,6 +270,7 @@ export function spawnFlight(c: Ctx, model: string, count: number, opts: SpawnOpt
   for (const d of dragons) moveNpc(w, d, entry);
   const f: Flight = { kind: m.family, model, ids: dragons.map((d) => d.id), locationId: entry, until: w.beat + 100000, hidden: false, noticed: false, born: w.beat, clock: w.clock };
   if (opts.persist) f.persist = true;
+  f.temper = { ...rollTemper(new Rng(`temper:${w.worldSeed}:${f.ids[0]}`), m.family), ...opts.temper };
   if (m.family === 'hermes' && m.traits.includes('swift')) f.cargo = rng.pick(CARGO);
   if (m.traits.includes('screams')) {
     f.phase = 'scream';
@@ -290,6 +306,12 @@ function spawnPersistent(c: Ctx, model: string, count: number, at: Id): Npc[] {
 // ===================================================================== a flight, beat by beat
 
 function noticeChance(w: World, f: Flight): number {
+  // Sharp-eyed ones notice sooner (a flight made without a temper of its own is average).
+  const k = f.temper ? 0.6 + 0.8 * f.temper.alertness : 1;
+  return baseNotice(w, f) * k;
+}
+
+function baseNotice(w: World, f: Flight): number {
   const sneak = sneakBonus(w);
   switch (f.model ?? f.kind) {
     case 'hermes3': return 0;
@@ -327,6 +349,13 @@ function encounter(c: Ctx, f: Flight, m: DragonModel): void {
     case 'scream':
       return;
     default: {
+      // A territorial one doesn't wait to be asked: whoever is in its place, it goes for.
+      if (f.roam?.den === f.locationId && !f.hidden && !f.noticed && rng.chance(0.2 + 0.5 * temperOf(f).territoriality)) {
+        f.noticed = true;
+        c.emit('dragon_territory', 'bad', { variant: 'attack', family: f.kind, mark: m.mark, place: w.locations[f.locationId]!.name });
+        engage(c);
+        return;
+      }
       const p = noticeChance(w, f);
       if (!f.hidden && !f.noticed && p > 0 && rng.chance(p)) spotted(c);
     }
@@ -373,6 +402,12 @@ function tendRoamer(c: Ctx, f: Flight): void {
   }
 
   if (f.phase !== 'demand') advance(c, f, m);
+  // A fast one can go through where she is between one beat and the next. She doesn't get to do anything about it, but she knows.
+  if (r.flash) {
+    if (f.locationId !== h.locationId) passing(c, f, m, r.flash);
+    r.flash = undefined;
+    r.passed = false;
+  }
   if (!w.flights.includes(f) || r.stage !== 'stay') return;
 
   const here = f.locationId === h.locationId;
@@ -398,13 +433,21 @@ function advance(c: Ctx, f: Flight, m: DragonModel): void {
       return;
     }
     if (step.to !== f.locationId) {
+      const from = f.locationId;
       placeFlight(w, f, step.to);
       r.nextAt += hopMinutes(m.speed);
       arrived(c, f, m, w.locations[step.to]!);
-      // It has found her. However long she was out of reach of the clock, that is where the beat ends.
       if (step.to === w.hero.locationId) {
-        r.nextAt = Math.max(r.nextAt, w.clock) + step.dwell;
-        return;
+        if (!m.traits.includes('swift')) {
+          // It has found her. However long she was out of reach of the clock, that is where the beat ends.
+          r.nextAt = Math.max(r.nextAt, w.clock) + step.dwell;
+          return;
+        }
+        // A fast one is through before she can do anything about it.
+        r.passed = true;
+      } else if (from === w.hero.locationId && r.passed) {
+        r.flash = step.to;
+        r.passed = false;
       }
     }
     r.nextAt += step.dwell;
@@ -419,22 +462,35 @@ function nextStep(c: Ctx, f: Flight, m: DragonModel): Step {
   const h = w.hero;
   const r = f.roam!;
   const here = f.locationId;
+  const tp = temperOf(f);
   if (r.nextAt >= r.until) return 'leave';
+  // Crashes about, and gets bored if nobody gives it anything to hit.
+  if (m.pattern === 'rampage' && w.clock - r.lastHit >= boredAfter(f)) return 'leave';
+  // A territorial one takes its spot (after its errands, if it has any) and holds it against anyone who comes near.
+  if (r.den && (m.pattern !== 'deliver' || !r.goals.length)) {
+    if (here !== r.den) {
+      const to = hopToward(w, r, here, r.den);
+      if (to) return { to, dwell: 0 };
+    } else {
+      defend(c, f, m);
+      return { to: here, dwell: rng.int(10, 20) };
+    }
+  }
   switch (m.pattern) {
     case 'prowl': {
-      // Slow and thorough, going where the people are and to the places it has not been.
+      // Slow and thorough, going where the people are and to the places it has not been (a curious one most of all).
       const opts = neighbours(w, r, here);
-      if (!opts.length) return { to: here, dwell: rng.int(6, 12) };
-      const to = rng.weighted(opts, (o) => 1 + 0.6 * npcsAt(w, o).filter((n) => !n.tags.includes('dragon')).length + (r.visited.includes(o) ? 0 : 2));
-      return { to, dwell: rng.int(8, 16) };
+      const slow = 0.6 + 0.8 * tp.patience;
+      if (!opts.length) return { to: here, dwell: Math.round(rng.int(6, 12) * slow) };
+      const to = rng.weighted(opts, (o) => 1 + 0.6 * npcsAt(w, o).filter((n) => !n.tags.includes('dragon')).length + (r.visited.includes(o) ? 0 : 1 + 4 * tp.curiosity));
+      return { to, dwell: Math.round(rng.int(8, 16) * slow) };
     }
     case 'rampage': {
-      // Crashes about at random, and gets bored if nobody gives it anything to hit.
-      if (w.clock - r.lastHit >= BORED) return 'leave';
       let to: Id | null = f.stand && r.district.includes(h.locationId) ? hopToward(w, r, here, h.locationId) : null;
       if (!to) {
         const opts = neighbours(w, r, here);
-        to = opts.length ? rng.pick(opts) : here;
+        const fresh = opts.filter((o) => !r.visited.includes(o));
+        to = !opts.length ? here : fresh.length && rng.chance(0.15 + 0.75 * tp.curiosity) ? rng.pick(fresh) : rng.pick(opts);
       }
       return { to, dwell: rng.int(2, 4) };
     }
@@ -488,14 +544,30 @@ function arrived(c: Ctx, f: Flight, m: DragonModel, loc: Location): void {
   if (!r.visited.includes(loc.id)) r.visited.push(loc.id);
   if (loc.id === w.hero.locationId) return; // she is here: it deals with her, and them, in front of her
   const crowd = npcsAt(w, loc.id).filter((n) => !n.tags.includes('dragon'));
+  const tp = temperOf(f);
   if (m.family === 'ares') {
-    const hits = crowd.length ? c.rng.int(1, m.mark >= 4 ? 3 : 2) : 0;
-    for (const n of pickSome(c, crowd, hits)) hurt(c, n);
+    // A hot-tempered one hits nearly every time it lands among people; a calm one sometimes lets them be.
+    const hits = crowd.length && c.rng.chance(0.35 + 0.65 * tp.aggression) ? c.rng.int(1, m.mark >= 4 ? 3 : 2) : 0;
+    for (const n of pickSome(c, crowd, hits)) hurt(c, n, 'was accused of gang membership by an Ares dragon');
     if (hits) noteRaid(c, f, loc);
-  } else if (m.family === 'demeter') {
+  } else {
     // The prowl takes its share from anyone it finds.
-    for (const n of crowd) n.cash = Math.floor(n.cash * 0.7);
+    if (m.family === 'demeter') for (const n of crowd) n.cash = Math.floor(n.cash * (0.85 - 0.5 * tp.aggression));
+    // And any of them that is that way inclined hurts someone for no reason at all.
+    if (tp.aggression > 0.6 && crowd.length && c.rng.chance((tp.aggression - 0.5) * 0.6)) hurt(c, c.rng.pick(crowd), 'was shot by a dragon for no reason');
   }
+}
+
+/** A dragon sitting on its spot goes for anyone who is there. */
+function defend(c: Ctx, f: Flight, m: DragonModel): void {
+  const { w, rng } = c;
+  const tp = temperOf(f);
+  const loc = w.locations[f.locationId]!;
+  if (loc.id === w.hero.locationId) return; // she is dealt with in front of her
+  const hit = npcsAt(w, loc.id).filter((n) => !n.tags.includes('dragon') && rng.chance(tp.territoriality * (0.3 + 0.5 * tp.aggression)));
+  for (const n of hit) hurt(c, n, 'was shot for trespassing by a dragon');
+  if (hit.length && m.family === 'ares') noteRaid(c, f, loc);
+  if (hit.length) f.roam!.lastHit = w.clock;
 }
 
 function pickSome(c: Ctx, from: Npc[], k: number): Npc[] {
@@ -505,14 +577,13 @@ function pickSome(c: Ctx, from: Npc[], k: number): Npc[] {
   return out;
 }
 
-/** Passers-by are gone for good; people who matter wake up later with a headache and a record. */
-function hurt(c: Ctx, n: Npc): 'dead' | 'down' {
-  const { w } = c;
-  remember(n, 'was accused of gang membership by an Ares dragon');
+/** Passers-by are hurt past saving, and die in a while (see dying.ts); people who matter wake up later with a headache and a record. */
+function hurt(c: Ctx, n: Npc, how: string): 'dying' | 'down' {
+  const { w, rng } = c;
+  remember(n, how);
   if (n.ephemeral) {
-    n.alive = false;
-    n.hp = 0;
-    return 'dead';
+    startDying(w, n, rng.int(15, 100) / 100);
+    return 'dying';
   }
   n.downUntil = w.beat + 30;
   return 'down';
@@ -534,6 +605,7 @@ function meet(c: Ctx, f: Flight, m: DragonModel): void {
   const h = w.hero;
   f.hidden = false;
   f.noticed = false;
+  f.roam!.passed = false;
   if (f.phase === 'scream') return;
   if (f.coverIn === h.locationId) {
     f.hidden = true;
@@ -544,6 +616,7 @@ function meet(c: Ctx, f: Flight, m: DragonModel): void {
     if (warned && !(hunting && dragonReadiness(w, hunting) >= 0.5)) f.hidden = true;
   }
   c.emit('dragon_close', 'mixed', { variant: f.kind, mark: m.mark, count: f.ids.length, place: w.locations[h.locationId]!.name, hidden: f.hidden, cargo: f.cargo ?? '' });
+  if (f.roam!.den === h.locationId && !f.hidden) c.emit('dragon_territory', 'bad', { variant: 'claim', family: f.kind, mark: m.mark, place: w.locations[h.locationId]!.name });
 }
 
 /** It, or she, has moved on. */
@@ -555,6 +628,16 @@ function parted(c: Ctx, f: Flight, m: DragonModel): void {
   f.noticed = false;
   f.coverIn = undefined;
   if (f.phase === 'demand') f.phase = undefined;
+}
+
+/** It went through where she is, and was gone. She sees which way. */
+function passing(c: Ctx, f: Flight, m: DragonModel, toward: Id): void {
+  const { w } = c;
+  const at = w.hero.locationId;
+  const loc = w.locations[at]!;
+  const heading = loc.exits.find((e) => e.to === toward)?.label ?? w.locations[toward]?.name ?? 'the rooftops';
+  f.roam!.seen = { at, toward, beat: w.beat };
+  c.emit('dragon_close', 'mixed', { variant: f.kind, mark: m.mark, count: f.ids.length, place: loc.name, passing: true, heading, cargo: f.cargo ?? '' });
 }
 
 /** A sound of it from the next street over. */
@@ -656,8 +739,12 @@ function spotted(c: Ctx): void {
   f.noticed = true;
   c.emit('dragon_notice', 'bad', { variant: f.kind, mark: m.mark, count: f.ids.length });
   if (f.kind === 'demeter') beginDemand(c);
-  else if (f.kind === 'hermes') courierFine(c);
-  else engage(c);
+  else if (f.kind === 'hermes') {
+    // Couriers are mostly not violent. Mostly.
+    const tp = temperOf(f);
+    if (tp.aggression > 0.7 && c.rng.chance(tp.aggression - 0.5)) engage(c);
+    else courierFine(c);
+  } else engage(c);
 }
 
 const CAUSE: Record<string, string> = {
@@ -703,7 +790,7 @@ function beginDemand(c: Ctx): void {
   const f = w.flight!;
   const m = flightModel(f);
   const owed = w.counters.tithe_debt ?? 0;
-  const amount = Math.round(Math.max(TITHE_FLOOR[m.mark] ?? 40, w.hero.cash * (TITHE_RATE[m.mark] ?? 0.25)) + owed);
+  const amount = Math.round(Math.max(TITHE_FLOOR[m.mark] ?? 40, w.hero.cash * (TITHE_RATE[m.mark] ?? 0.25)) * (0.85 + 0.3 * temperOf(f).aggression) + owed);
   f.phase = 'demand';
   f.demand = amount;
   f.until = w.beat + 3;
@@ -789,15 +876,16 @@ function raidBeat(c: Ctx, f: Flight, m: DragonModel): void {
   const { w, rng } = c;
   const h = w.hero;
   const crowd = npcsAt(w, f.locationId).filter((n) => !f.ids.includes(n.id) && !n.tags.includes('dragon') && !h.companions.some((a) => a.npcId === n.id));
-  const hits = Math.min(crowd.length, rng.int(1, m.mark >= 4 ? 3 : 2));
+  const tp = temperOf(f);
+  const hits = Math.min(crowd.length, rng.chance(0.4 + 0.6 * tp.aggression) ? rng.int(1, m.mark >= 4 ? 3 : 2) : 0);
   const gangs = Object.values(GANGS);
   for (const n of pickSome(c, crowd, hits)) {
-    const fate = hurt(c, n);
+    const fate = hurt(c, n, 'was accused of gang membership by an Ares dragon');
     c.emit('ares_accuse', 'mixed', { variant: 'victim', npc: n.name, gang: rng.pick(gangs), fate, mark: m.mark });
   }
   if (hits) noteRaid(c, f, w.locations[f.locationId]!);
   if (f.hidden) return;
-  const p = (m.mark >= 4 ? 0.55 : 0.35) + (hits ? 0 : 0.3) - sneakBonus(w) * 0.5;
+  const p = ((m.mark >= 4 ? 0.55 : 0.35) * ((0.5 + tp.aggression) / 1.35)) + (hits ? 0 : 0.3) - sneakBonus(w) * 0.5;
   if (rng.chance(clamp(p, 0.05, 0.9))) accuseHero(c, f);
 }
 
