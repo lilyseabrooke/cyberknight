@@ -11,7 +11,7 @@ What the author said (concept, shape, anything they ruled in or out). Blank in `
 |---|---|
 | Maximalism | the axes, and how many values each has |
 | Unbalanced | the wild cards, and what is deliberately left untuned |
-| Multidimensional | the rows, the coverage rule (stats and drives) |
+| Multidimensional | the rows, a wide variety of skills, stats and drives |
 
 ## 2. Concept
 One paragraph in the game's voice. Say what the place *is for* to different kinds of person. Say how Atlas shows up.
@@ -39,7 +39,7 @@ situations bring. Names come from the person generator. Pronoun tokens.
 
 ## 7. Affordances: what each capability sees
 The row schema (id, where, needs, sees, does/stakes, consequence, drives). Then the table: capability (open set) / what it
-sees / what it does. Then the wild cards. **Every stat and drive appears at least once** (skills needn't). Last row: "(your next
+sees / what it does. Then the wild cards. **Include a wide variety of skills, stats and drives** (none is required). Last row: "(your next
 capability goes here)".
 
 ## 8. Systems

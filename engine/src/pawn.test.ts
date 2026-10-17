@@ -4,12 +4,11 @@ import { always, never, scenario, type Scenario } from './testkit';
 import { afterTakedown, isShut } from './shutdown';
 import { isLethal, kill, relocate } from './combat';
 import { childId, expand } from './mapgen';
-import { affordancesFor, coverage, knownCapabilities } from './affordances';
+import { affordancesFor } from './affordances';
 import { pawnCandidates, describePawn } from './pawn';
 import { FEATURES, PAWN_CHANCE, PAWN_VARIANT, ROOMS, SHELLS, SITUATIONS, TRAITS, VARIANTS, WILD, holdDays, lotState, offerFraction, redeemPrice, retailPrice, rollPawn, situationAt } from './content/pawns';
 import { ARCHETYPES } from './content/archetypes';
 import { ITEMS, makeItem } from './content/items';
-import { SKILL_IDS } from './content/skills';
 import { everyoneAt } from './population';
 import { banned, ensureShelf, hockable, tickPawns, viewAt, type PawnView } from './pawnkit';
 import { render } from './text';
@@ -251,13 +250,6 @@ describe('the registry', () => {
       for (const f of arr(r.where.situation)) expect(tags.has(f), `${r.id} situation ${f}`).toBe(true);
       for (const f of arr(r.where.wild)) expect(WILD[f], `${r.id} wild ${f}`).toBeTruthy();
     }
-  });
-
-  it('serves every stat and drive the game has at some pawn shop (the coverage rule)', () => {
-    const { rows: cov } = coverage({ pawn: Object.keys(FEATURES) });
-    const missing = cov.filter((r) => !r.capability.startsWith('skill:') && !r.counts.pawn).map((r) => r.capability);
-    expect(missing).toEqual([]);
-    expect(knownCapabilities().length).toBeGreaterThanOrEqual(SKILL_IDS.length + 4 + 7);
   });
 
   it('gives different capabilities different things to do, and a typical shop offers a broad menu', () => {

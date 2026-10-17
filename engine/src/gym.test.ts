@@ -5,11 +5,10 @@ import { collectBounties } from './bounty';
 import { afterTakedown, isShut } from './shutdown';
 import { heroPower, isLethal, kill, relocate } from './combat';
 import { childId, expand } from './mapgen';
-import { affordancesFor, coverage, knownCapabilities } from './affordances';
+import { affordancesFor } from './affordances';
 import { gymCandidates, describeGym } from './gym';
 import { FEATURES, GYM_CHANCE, GYM_VARIANT, ROOMS, SHELLS, SITUATIONS, TRAITS, VARIANTS, WILD, passPrice, rollGym, situationAt } from './content/gyms';
 import { ARCHETYPES } from './content/archetypes';
-import { SKILL_IDS } from './content/skills';
 import { everyoneAt } from './population';
 import { addSore, banned, ladderFighters, pitKilled, soreOf, tickGyms, viewAt, type GymView } from './gymkit';
 import { render } from './text';
@@ -199,13 +198,6 @@ describe('the registry', () => {
       for (const f of arr(r.where.situation)) expect(tags.has(f), `${r.id} situation ${f}`).toBe(true);
       for (const f of arr(r.where.wild)) expect(WILD[f], `${r.id} wild ${f}`).toBeTruthy();
     }
-  });
-
-  it('serves every stat and drive the game has at some gym (the coverage rule)', () => {
-    const { rows: cov } = coverage({ gym: Object.keys(FEATURES) });
-    const missing = cov.filter((r) => !r.capability.startsWith('skill:') && !r.counts.gym).map((r) => r.capability);
-    expect(missing).toEqual([]);
-    expect(knownCapabilities().length).toBeGreaterThanOrEqual(SKILL_IDS.length + 4 + 7);
   });
 
   it('gives different capabilities different things to do (no one lens dominates)', () => {

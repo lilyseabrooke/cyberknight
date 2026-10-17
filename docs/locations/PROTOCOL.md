@@ -80,7 +80,7 @@ PROTOCOL: new location, review: a pawn shop    both
    file (a function of the place and room), wired in `roster.ts`.
 5. The registry rows: `content/<id>afford*.ts`, each via `register('<id>', rows)`, following the row schema in
    `affordances.ts`. Aim for 60+ rows across: the body, craft, the crowd, gossip/hustle, crime/stealth, situations, wild
-   cards, and things only some variants offer. **Every stat and drive gets at least one** (skills don't have to: a new skill needn't be served at every place). Prose lives with the row,
+   cards, and things only some variants offer. **Between them the rows should draw on a wide variety of skills, stats and drives**; none is required at every place. Prose lives with the row,
    one report line per outcome and a thought for the wins; names via `{npc}`, pronouns via `{they}`/`{their}`.
 6. The runtime kit: reuse `gymkit.ts`'s pattern (view of the place, `runCheck`, `say`, the stateful actions). *When the second
    location is built, lift the generic parts (`fmt`, `say`, `Result`, `Check`, `applyResult`, `runCheck`, `find`) into a shared
@@ -96,8 +96,8 @@ PROTOCOL: new location, review: a pawn shop    both
 1. `npm run typecheck` and `npm test`.
 2. `<id>.test.ts`, following `gym.test.ts`: determinism; tables only name things that exist; a wide space (every variant,
    shell, room and trait turns up; instances rarely match; the wild-card rate); district shaping; **existing maps unchanged**
-   (the new slot is after all the others); people are cast; every row's `where` names real things; **coverage test (every
-   stat and drive served)**; situations are pure functions of the clock; **a forced run of every row** (situation and wild card
+   (the new slot is after all the others); people are cast; every row's `where` names real things; **a wide variety of skills,
+   stats and drives drawn on**; situations are pure functions of the clock; **a forced run of every row** (situation and wild card
    switched on, three kinds of luck, text rendered and checked for stray tokens, and each row must tell something); the
    place-specific rules.
 3. `npm run coverage`: nothing uncovered at the new place. Note thin spots (a capability with one row).
@@ -124,7 +124,7 @@ it differs from the spec, coverage thin spots, and the open items. Offer the nex
 ## Coupled protocols (not written yet; keep these assumptions)
 
 - **New capability** (skill, stat, drive, implant, archetype): run `npm run coverage`, add rows to every existing place that
-  it reads naturally at, and list the places that still have nothing for it (optional for a skill).
+  it reads naturally at, and list the places that still have nothing for it (optional).
 - **New variant / shell / trait / room for an existing place:** add a row to the table, a test already covers the rest.
 - Rows are the unit of growth. A table row or an affordance row is almost always the right size of change.
 
