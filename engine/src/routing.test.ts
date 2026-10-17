@@ -227,7 +227,7 @@ describe('when it goes wrong', () => {
         expect(w.hero.vehicle).toBeUndefined();
         expect(out.over).toBe(true);
       }
-      if (events.some((e) => e.type === 'accident' && e.data.variant === 'thrown') && w.hero.vehicle === undefined && w.strays?.[w.hero.locationId]) strayBike++;
+      if (events.some((e) => e.type === 'accident' && e.data.variant === 'thrown') && w.hero.vehicle === undefined && (w.hero.parked ?? []).some((p) => p.at === w.hero.locationId)) strayBike++;
       // (If somebody called it in and she was still in one piece, the police came.)
       if (!w.over && events.some((e) => e.type === 'accident' && e.data.variant === 'chase') && !events.some((e) => e.type === 'accident' && e.data.variant === 'wreck')) expect(events.some((e) => e.type === 'chase_start')).toBe(true);
       expect(out.done).toBeLessThanOrEqual(ids.length);

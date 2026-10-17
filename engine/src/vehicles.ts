@@ -114,13 +114,13 @@ export function vehicleCandidates(w: World): Candidate[] {
 // =============================================================== resolvers
 
 /** The car is hers now: gone from the street, in her hands. */
-function takeCar(w: World, loc: Location, car: Vehicle): void {
+export function takeCar(w: World, loc: Location, car: Vehicle): void {
   w.flags[`stolen:${loc.id}`] = true;
   if (w.strays?.[loc.id]) delete w.strays[loc.id];
   w.hero.vehicle = normalize({ ...car, riders: [] });
 }
 
-function hijack(c: Ctx, loc: Location, car: Vehicle): void {
+export function hijack(c: Ctx, loc: Location, car: Vehicle, inChase = false): void {
   const { w, rng } = c;
   const h = w.hero;
   const hard = (car.kind === 'civilian' ? 0 : 0.1) - (car.body === 'bike' ? 0.1 : 0); // no door to beat on a bike
@@ -154,11 +154,51 @@ function hijack(c: Ctx, loc: Location, car: Vehicle): void {
     addHeat(w, faction, gain);
     c.emit('heat_up', 'bad', { variant: faction, gain, level: w.heat[faction] ?? 0, source: 'hijack', calls: 0 });
   }
-  if (ok) {
+  // (In the middle of a chase there is no time to sort out who sits where, and the police are already after her.)
+  if (ok && !inChase) {
     boardParty(c, h.vehicle!, loc);
     // Stealing a cruiser in front of the people it belongs to: they don't let it go.
     if (car.kind === 'police' && seen && rng.chance(0.5)) policeChase(c, 'hijack');
   }
+}
+
+// =============================================================== grabbing one on the run
+
+/** A vehicle she could get hold of where she stands: one of hers parked here, one she has the key to, or one that is just there. */
+export interface Ride {
+  car: Vehicle;
+  how: 'own' | 'key' | 'hijack';
+  parked?: ParkedVehicle;
+}
+
+export function vehicleHere(w: World, loc: Location): Ride | null {
+  if (loc.kind !== 'street') return null;
+  const mine = ownedHere(w, loc);
+  if (mine) return { car: mine, how: 'own', parked: mine };
+  const car = parkedVehicle(w, loc);
+  if (!car) return null;
+  return { car, how: keyTo(w.hero, car.id) ? 'key' : 'hijack' };
+}
+
+/** She gets onto it, in the middle of a chase: no questions for her own, no lock for a key, and a quick hijack for the rest. */
+export function grabVehicle(c: Ctx, loc: Location, ride: Ride): boolean {
+  const { w } = c;
+  const h = w.hero;
+  const car = ride.car;
+  if (ride.how === 'own' && ride.parked) {
+    const { at: _at, until: _until, ...own } = ride.parked;
+    h.vehicle = normalize({ ...own, riders: [] });
+    h.parked = (h.parked ?? []).filter((p) => p !== ride.parked);
+    c.emit('chase_mount', 'good', { variant: 'remount', car: car.name, body: car.body, place: loc.name });
+    return true;
+  }
+  if (ride.how === 'key') {
+    takeCar(w, loc, car);
+    c.emit('chase_mount', 'good', { variant: 'key', car: car.name, kind: car.kind, body: car.body, place: loc.name });
+    return true;
+  }
+  hijack(c, loc, car, true);
+  return !!h.vehicle;
 }
 
 // =============================================================== riders

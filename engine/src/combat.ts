@@ -6,7 +6,7 @@ import { basePower, fightTraining, hpPerLevel, levelCost } from './grade';
 import { perk } from './lab';
 import { assignKeys, roadsFrom } from './roads';
 import { policeChase } from './chase';
-import { registerGetaways } from './getaway';
+import { registerGetaways, wantedDead } from './getaway';
 import { keyTo, lifeOf, parkIt } from './cars';
 import { addAmmo, wielded } from './arms';
 import { fxOf, rating } from './weapons';
@@ -319,7 +319,8 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   }
   tellRounds(c, res.log, res.roundLog);
   // Anybody who got away in a car is gone down the road, and she may go after them.
-  if (res.getaways.length) registerGetaways(c, loc, res.getaways);
+  const ran = foes.filter((f) => f.alive && res.fled.has(f.id) && !res.getaways.some((g) => g.npc === f) && wantedDead(w, f));
+  if (res.getaways.length || ran.length) registerGetaways(c, loc, res.getaways, ran);
 
   const gone = (f: Npc) => res.fled.has(f.id);
   const standing = () => foes.filter((f) => f.alive && !res.down.has(f.id) && !gone(f));

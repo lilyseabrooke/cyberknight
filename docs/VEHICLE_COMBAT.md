@@ -388,3 +388,41 @@ How hard a street is to drive, how fast she goes, what goes wrong, and which way
     car's. **This is the seam her own speed plugs into**: today her legs never beat a car, so it is a lost chase every time; the day she
     gets faster the same call starts to catch some.
   - Lost: they are away for a while and have opinions (the ordinary rules for somebody who ran).
+
+## Chasing and fleeing on foot
+
+The chase engine (`chase.ts`) is one framework for every mount. She can be in a car, on a bike or on her own feet; so can each thing she is
+chasing or fleeing (a chaser has a `car`, is `foot`, or has wings). Nothing in it asks "is this a vehicle chase?": it asks what each side is on
+this round, and that can change in the middle.
+
+- **Pace** is one scale. On foot she runs at `heroSpeed(w)`, which with no vehicle is `legSpeed` (3 to 5; **the one place her own speed plugs
+  in**: an implant, a buff or training that raises it changes every foot chase and the `runsDown` check). A person on foot runs at the fight
+  board's speed for them (3, usually). Her skill is athletics instead of driving. A frightened runner pushes as hard as she does (a burst each
+  round), so a foot chase between equals is close and she does not always win it.
+- **Actions** on foot: `floor_it` (sprint), `swerve` (jink), `lose_them` (duck into a crowd or a doorway; easier on foot), `shoot`, and
+  `grab` (take a vehicle at the kerb). No ram, no lane-split, no bail.
+- **What goes wrong** (`footfx.ts`): the same idea as an accident while driving, with the same road class and traffic, and athletics for skill.
+  On the small streets, the pedestrian ways and the alleys it is **people**: she runs into someone and loses a step; they may be angry enough
+  to come after her (in a chase where she is fleeing they join it on foot; in one where she is the pursuer they are waiting when it ends);
+  knock over a police officer or an Atlas agent and it is heat (and they are angry). On the big roads (a street, a highway) it is **cars**:
+  one hits her (damage, an injury roll), and she has to stay on her feet (athletics, reflex, how fast she was running and how busy the
+  road is) or lose ground. A highway is much worse to run on than a street.
+- **Foes on foot**: they can't touch a car she is in, only throw things at it. A cruiser that catches her on foot can hit her, which is
+  damage and a check to stay up; failing it puts them on her.
+- **Changing mount, in the middle of a chase**:
+  - *Thrown or bailed from a vehicle*: the vehicle is left where it fell (hers, parked, if it is in one piece; a wreck for good if it is
+    not) and **if she is in shape (above 30% and no broken leg) the chase goes on, with her on foot**. A wrecked vehicle that she survives
+    the same.
+  - *Grabbing a vehicle*: on foot, with a vehicle on the street (one of hers, one she has the key to, or any parked one, which is a quick
+    hijack), `grab` takes it, at the cost of a step, and the chase goes on in it.
+  - *Getting out*: a runner who goes into an **alley** (no road for a car) forces her out of a car. She leaves it parked (hers, with the usual
+    life) and follows on foot. She can also choose to get out (`dismount`) when the one she is after is on foot in a crowded or narrow street,
+    where a car is more trouble than help. Cars chasing her into an alley can't follow either: the crew get out and come on foot, and leave
+    the car on the street.
+  - A chase **moves**: it turns into the next street along now and then, and a runner heads for an alley when there is one and a car behind
+    them.
+- **Where they start**: any chase. A foe who got away on foot (when she most wants them: a kill goal, a hunt, a flatline job) is something she can
+  go after now (`getaway` with no car), on wheels or on her feet; a bike accident leaves her in the road and the chase on; a runner who
+  ducks into an alley turns her car chase into a foot chase.
+- **Not built**: cars that decide to chase a runner by themselves (only she chooses), the people she bumps into being met again later in
+  the same place, and a foot chase being broken off by walking into a building.

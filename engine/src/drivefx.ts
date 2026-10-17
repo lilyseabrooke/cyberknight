@@ -1,5 +1,5 @@
 import type { Ctx, Id, Location, Vehicle, World } from './types';
-import { condition, hitCar, paceOf } from './cars';
+import { condition, hitCar, keyTo, lifeOf, paceOf, parkIt } from './cars';
 import { addHeat, maybeInjure, npcsAt, relocate } from './combat';
 import { clamp } from './candidate';
 import { dead, policeChase, wreckHeroCar } from './chase';
@@ -199,7 +199,7 @@ export function accident(c: Ctx, car: Vehicle, loc: Location, cls: RoadClass, s:
     if (car.hp > 0) {
       // Left where it fell, hers to come back for.
       delete h.vehicle;
-      if (!w.strays?.[loc.id]) (w.strays ??= {})[loc.id] = { ...car, riders: [] };
+      (h.parked ??= []).push(parkIt(car, loc.id, w.clock + lifeOf(car, keyTo(h, car.id))));
       return { over: true, kind };
     }
   } else if (kind === 'chase') {

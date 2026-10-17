@@ -179,13 +179,42 @@ const T: Record<string, Entry> = {
   'foe_flees:drove': e((d) => [`${d.foe} breaks away, gets into ${d.car} and is gone before anybody can do anything about it.`, `${d.foe} (${d.role}) has the key in {their:foe} hand and the engine running before Blackbird has turned round.`], ['They had a key. Of course they had a key.', 'Cars. Cars are cheating.']),
   'getaway': e((d) => [`${d.car} takes the corner at the end of ${d.place} on two wheels and is gone, with ${d.foe} behind the wheel.`, `Taillights, and the sound of ${d.car} getting smaller. ${d.foe} has got away.`], ['I can still see the taillights. For about four more seconds.', 'Not yet, then.']),
   'getaway:bike': e((d) => [`${d.foe} kicks ${d.car} into life and is gone down ${d.place} before the engine has finished catching.`, `A bark of two-stroke, and ${d.foe} is a sound and then not even that.`], ['A bike. They always have a bike.']),
-  'give_chase:start': e((d) => [`Blackbird takes ${d.hers} after ${d.foe}, who is in ${d.car} and already a street ahead.`], ['Hold on to something.']),
+  'give_chase:start': e((d) => [d.running ? `Blackbird puts ${d.hers} after ${d.foe}, who is on foot and has a head start and an idea of the alleys.` : `Blackbird takes ${d.hers} after ${d.foe}, who is in ${d.car} and already a street ahead.`], ['Hold on to something.']),
   'give_chase:start:bike': e((d) => [`Blackbird swings onto ${d.hers} and goes after ${d.foe} in ${d.car}.`], ['Get them.']),
-  'give_chase:foot': e((d) => [`Blackbird runs after ${d.car}, which has ${d.foe} in it and has no intention of waiting.`, `Blackbird gives chase on foot. ${d.car} is a car.`], ['I regret nothing. I will be out of breath in a moment.']),
+  'give_chase:foot': e((d) => [d.running ? `Blackbird goes after ${d.foe} on foot. ${d.foe} is already moving.` : `Blackbird runs after ${d.car}, which has ${d.foe} in it and has no intention of waiting.`, d.running ? `A foot chase, then. ${d.foe} runs, and Blackbird runs after.` : `Blackbird gives chase on foot. ${d.car} is a car.`], ['I regret nothing. I will be out of breath in a moment.']),
   'give_chase:foot_lost': e((d) => [`Blackbird runs until the taillights of ${d.car} are a rumour, and then a little longer, and then stops with her hands on her knees. ${d.foe} is gone.`], ['Legs. They were always going to be the problem.', 'I need a faster everything.']),
   'give_chase:foot_caught': e((d) => [`Somehow, impossibly, Blackbird is level with ${d.car} and has a hand on the door.`], ['I do not know how I did that. Nobody does.']),
   'give_chase:lost': e((d) => [`${d.foe} gets clean away. The road goes on without either of them.`], ['I will find them. I know where they live. Probably.']),
   'give_chase:cornered': e((d) => [`There is nowhere left for ${d.foe} to go.`], ['End of the road.']),
+  'getaway:foot': e((d) => [`${d.foe} bolts down ${d.place} and round the corner, and is gone into the streets.`, `${d.foe} (${d.role}) runs. Blackbird can still hear the feet for a moment.`], ['Running. It always comes to running.']),
+  'chase_start:foot': e((d) => [d.mode === 'pursuer' ? `Blackbird sets off after ${d.foes}, on foot, on ${d.place}.` : `${d.foes} come after Blackbird, and she runs.`], ['Run.']),
+  'chase_round:floor_it:foot': e((d) => [`${cap(String(d.scene))}. Blackbird puts her head down and sprints. ${d.band === 'far' ? 'The gap opens' : `They are ${d.band}`}${Number(d.hurt) ? ', but it costs her' : ''}.`]),
+  'chase_round:swerve:foot': e((d) => [`Blackbird jinks left, then right, through whatever is in the way. Whatever was coming her way misses.`]),
+  'chase_round:lose_them:foot': e((d) => [`A doorway, a stall, a laundry line and a hole in a fence. ${String(d.events).includes('lost') ? 'Blackbird comes out the other side alone.' : 'They are still back there.'}`], ['The city is bigger than they are.']),
+  'chase_round:shoot:foot': e((d) => [String(d.events).includes('shot') ? `Blackbird stops, turns and puts shots into ${d.foe}, then runs again. Some of them find it.` : `Blackbird fires over her shoulder at ${d.foe} and hits a shutter.`], ['Never run with a loaded gun. I do it constantly.']),
+  'chase_round:grab': e((d) => [String(d.events).includes('grab_failed') ? `Blackbird goes for a vehicle at the kerb and the vehicle goes for her instead: an alarm, a shout, a lost second.` : `A vehicle at the kerb, and no time to ask: Blackbird is on it and moving.`], ['Borrowed. Again.']),
+  'chase_round:dismount': e((d) => [`${cap(String(d.scene))} is no place for ${d.car}. Blackbird bails out of it and goes on after ${d.foe} on foot.`]),
+  'chase_mount:thrown': e((d) => [`${d.car} goes out from under Blackbird and leaves her in the road. She picks herself up and keeps going, on foot.`, `Down and skidding, and then up: ${d.car} is a wreck behind her and she is running.`], ['Not done yet.']),
+  'chase_mount:bail': e((d) => [`Blackbird kicks free of ${d.car} and hits the road running.`]),
+  'chase_mount:door': e((d) => [`The door of ${d.car} is torn off its hinges. Blackbird rolls out the other side and runs.`]),
+  'chase_mount:wrecked': e((d) => [`${d.car} goes up behind her, and Blackbird, blackened and ringing, is still on her feet. She goes on on foot.`], ['I am so, so hard to kill.']),
+  'chase_mount:dismount': e((d) => [`Blackbird leaves ${d.car} at the kerb and goes on after ${d.foe} on foot.`]),
+  'chase_mount:dismount_alley': e((d) => [`${d.foe} goes into ${d.place}, which is an alley, which is no road for ${d.car}. Blackbird is out of it and after them on foot.`, `An alley. Of course. Blackbird leaves ${d.car} and follows ${d.foe} in on foot.`], ['They always go where the car cannot.']),
+  'chase_mount:foe_out': e((d) => [`${d.foe} dumps ${d.car} at the mouth of the alley and comes after Blackbird on foot.`], ['Fine. I like a foot chase.']),
+  'chase_mount:remount': e((d) => [`${d.car} is right there, and it is hers. Blackbird is on it before the next breath.`]),
+  'chase_mount:key': e((d) => [`The key in her pocket opens ${d.car} without a fuss. Blackbird is in and moving.`]),
+  'accident:bump:foot': e(
+    (d) => [d.law && d.hurt ? `Blackbird goes straight into ${d.who}, ${d.role}, and puts them on the ground. This will be remembered.` : d.angry ? `Blackbird goes into ${d.who} at full tilt in ${d.scene}. ${d.who} says something very short and starts to run too.` : `Blackbird clips ${d.who} in ${d.scene} and keeps going. A very rude word follows her.`],
+    ['Excuse me. EXCUSE ME.', 'People. Everywhere. People.'],
+  ),
+  'accident:struck:foot': e((d) => [`Blackbird steps off the kerb in ${d.scene} and a car clips her. (Down ${d.dmg}.) She stays on her feet, just.`], ['Look both ways. I did not look either way.']),
+  'accident:struck_down:foot': e((d) => [`A car hits Blackbird in ${d.scene} and she goes down across the bonnet, and then the road. (Down ${d.dmg}.) The chase gets away from her while she gets up.`], ['That is going to be a bruise with a number plate in it.']),
+  'chase_end:escaped:foot': e((d) => [d.mode === 'pursued' ? `Blackbird runs until the shouting stops. She is alone on a street she has never seen.` : `They are gone round a corner and she is gone round another.`], ['Leg day.']),
+  'chase_end:lost:foot': e((d) => [`${d.foe} is round a corner, and then round the next, and then not anywhere. Blackbird stops with her hands on her knees.`], ['They had better legs. Or more reason.']),
+  'chase_end:caught:foot': e((d) => [d.mode === 'pursuer' ? `Blackbird gets a hand on ${d.foe}, who has run out of street.` : `A hand lands on Blackbird's collar. She has run out of street.`], ['End of the line.']),
+  'chase_end:wrecked:foot': e((d) => [`That is the end of Blackbird's run.`], ['It was a good run.']),
+  'chase_end:bailed:foot': e((d) => [`Blackbird goes down and does not get up fast enough.`], ['Get up. Get up. Get up.']),
+  'chase_end:won:foot': e((d) => [`There is nobody left to run from.`], ['That is how it is done.']),
   'vehicle:riders': e(
     (d) => [d.left ? `Blackbird counts seats. ${d.riders ? `${d.riders} pile${String(d.riders).includes(' and ') ? '' : 's'} in` : 'Nobody fits'}; ${d.left} will have to find another way.` : `${d.riders} climb${String(d.riders).includes(' and ') ? '' : 's'} into ${d.car} with Blackbird. Every seat has an opinion.`],
     ['A full car is a loud car.', 'Seatbelts are mandatory. Nobody has told the seatbelts.'],
@@ -2023,7 +2052,7 @@ const FALLBACK_KEYS = (e_: GameEvent): string[] => {
   const d = e_.data;
   const keys: string[] = [];
   // A bike has its own lines where it differs from a car: `type:variant:bike`, else `type:bike`.
-  if (d.body === 'bike') keys.push(...(d.variant !== undefined ? [`${e_.type}:${d.variant}:bike`] : []), `${e_.type}:bike`);
+  if (d.body === 'bike' || d.body === 'foot') keys.push(...(d.variant !== undefined ? [`${e_.type}:${d.variant}:${d.body}`] : []), `${e_.type}:${d.body}`);
   if (d.variant !== undefined) keys.push(`${e_.type}:${d.variant}`);
   if (d.injury !== undefined) keys.push(`${e_.type}:${d.injury}`);
   if (d.kind !== undefined) keys.push(`${e_.type}:${d.kind}`);

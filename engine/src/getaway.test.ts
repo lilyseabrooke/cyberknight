@@ -145,20 +145,30 @@ describe('after they have gone', () => {
     const s = afterwards();
     const { c, events } = ctxOf(s.w, new Rng('foot'));
     perform(c, getawayCandidates(s.w)[0]!);
+    // The same chase as in a car, on her own legs: she starts it, and a car is a lot faster than a person.
     expect(events.some((e) => e.type === 'give_chase' && e.data.variant === 'foot')).toBe(true);
-    expect(events.some((e) => e.type === 'give_chase' && e.data.variant === 'foot_lost')).toBe(true);
+    const start = events.find((e) => e.type === 'chase_start');
+    expect(start?.data.body).toBe('foot');
+    const end = events.find((e) => e.type === 'chase_end');
+    expect(end?.data.variant).toBe('lost');
     expect(s.foe.locationId).toBe('_away');
     expect(s.w.getaways).toHaveLength(0);
     for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
-    // The day her legs are faster than their car, the same question has a different answer: a slow car she can run down.
-    const t = afterwards(s.i + 1);
-    t.w.getaways![0]!.vehicle = { ...t.w.getaways![0]!.vehicle, pace: 1, hp: t.w.getaways![0]!.vehicle.hp };
-    const ev2 = ctxOf(t.w, new Rng('foot2'));
-    perform(ev2.c, getawayCandidates(t.w)[0]!);
-    expect(ev2.events.some((e) => e.type === 'give_chase' && e.data.variant === 'foot_caught')).toBe(true);
-    expect(ev2.events.some((e) => e.type === 'give_chase' && e.data.variant === 'cornered')).toBe(true);
-    expect(ev2.events.some((e) => e.type === 'fight_start')).toBe(true);
-    expect(t.foe.flags).not.toContain('cornered');
+    // The day her legs are faster than their car, the same question has a different answer: a slow car she can run down, most times.
+    let caught = 0;
+    for (let k = 0; k < 8; k++) {
+      const t = afterwards(s.i + 1 + k * 15);
+      t.w.getaways![0]!.vehicle = { ...t.w.getaways![0]!.vehicle!, pace: 1 };
+      const ev2 = ctxOf(t.w, new Rng(`foot2-${k}`));
+      perform(ev2.c, getawayCandidates(t.w)[0]!);
+      if (ev2.events.find((e) => e.type === 'chase_end')?.data.variant === 'caught') {
+        caught++;
+        expect(ev2.events.some((e) => e.type === 'give_chase' && e.data.variant === 'cornered')).toBe(true);
+        expect(ev2.events.some((e) => e.type === 'fight_start')).toBe(true);
+        expect(t.foe.flags).not.toContain('cornered');
+      }
+    }
+    expect(caught).toBeGreaterThanOrEqual(4);
   });
 
   it('in a car, she chases them: sometimes she catches them, sometimes she does not', () => {

@@ -257,7 +257,8 @@ describe('a bike in a chase', () => {
         expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
         if (e.type === 'chase_round') actions.add(String(e.data.variant));
       }
-      if (result === 'bailed' && Object.values(w.strays ?? {}).some((v) => v.body === 'bike')) strays++;
+      // (Thrown off, she may be in shape to go on on foot, so the chase need not end; the bike is left lying where it fell either way.)
+      if (events.some((e) => e.type === 'chase_mount' && ['thrown', 'bail', 'door'].includes(String(e.data.variant))) && (w.hero.parked ?? []).some((v) => v.body === 'bike')) strays++;
       if (result === 'bailed' || result === 'wrecked') expect(w.hero.vehicle).toBeUndefined();
     }
     expect(actions.has('lane_split')).toBe(true);
