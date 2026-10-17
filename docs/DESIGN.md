@@ -203,7 +203,7 @@ Cyberdragons are Atlas "protection" platforms, in three models that behave diffe
 
 | Model | Behavior | Role in the sandbox |
 |---|---|---|
-| **Apollo Mk. II** (CINDERJAW) | Stationary boss on the Kowloon Overpass | The current win condition. Brutal; beatable with allies, gear, a good build and dragon intel. |
+| **Apollo Mk. II** (CINDERJAW) | Stationary boss on the Kowloon Overpass | The gate off the starting district: its lockdown cordon stays up until it dies, and then stays down for good (`legacy.gate`). Brutal; beatable with allies, gear, a good build and dragon intel. See [`PROGRESSION.md`](PROGRESSION.md). |
 | **Artemis Mk. I** | Roaming patrol flights of 1-3 over the outdoor districts | A competent Blackbird (power ~35+, healthy) beats a lone Artemis essentially every time. Packs of 2-3 are the real threat: they make her run or die. Kills drop wing plating/scales and give fame. |
 | **Hera Mk. V** | Rare once-per-night fly-through (~10-20% of nights) | Effectively unkillable: it kills any plausible Blackbird in a round or two, and even a level-45 hero dies 90%+ of the time. The point is how she reacts. |
 

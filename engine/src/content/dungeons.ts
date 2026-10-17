@@ -1,6 +1,7 @@
 import type { Rng } from '../rng';
 import type { CacheKind, District, DungeonKind, Hazards } from '../types';
 import { BARKS } from './hazards';
+import { tierOfDanger } from '../grade';
 
 /**
  * What dungeons are made of. Two kinds, both a building on a street with rooms of its own behind the door:
@@ -18,12 +19,12 @@ export const MAX_TIER = 5;
 
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
 
-/** How hard a new place is. Nearer the hand-built district is easier; the dice, and the district, move it a notch either way. */
-export function rollTier(rng: Rng, kind: DungeonKind, depth: number, district: District): number {
-  let t = 1 + (depth - 1) * 0.42 + (rng.next() - 0.5) * 2.3;
-  if (kind === 'outpost' && district === 'corporate') t += 0.5;
-  if (kind === 'hideout' && (district === 'slum' || district === 'tenement')) t -= 0.2;
-  return clamp(Math.round(t), 1, MAX_TIER);
+/** How hard a new place is: the tier of the danger around it, with the dice and the district moving it a notch either way. */
+export function rollTier(rng: Rng, kind: DungeonKind, danger: number, district: District): number {
+  let d = danger + (rng.next() - 0.5) * 8;
+  if (kind === 'outpost' && district === 'corporate') d += 4;
+  if (kind === 'hideout' && (district === 'slum' || district === 'tenement')) d -= 2;
+  return clamp(tierOfDanger(d), 1, MAX_TIER);
 }
 
 // ===================================================================== names
@@ -186,25 +187,13 @@ export function slotCount(rng: Rng, slot: GarrisonSlot, tier: number): number {
 // ===================================================================== how tough the garrison is
 
 /**
- * Scale a freshly spawned garrison member to the tier of the place. Machines get harder to break and hit harder; people
- * get more experience (and so more health and more punch). Tier 1 is what the archetype says it is.
+ * The grade a place's garrison is made at: the danger around it, nudged up or down when the place itself is a tier
+ * harder or easier than its surroundings (a fortress in a quiet quarter, a rabble in a bad one).
  */
-export function scaleForTier(n: { hp: number; maxHp: number; power: number; level: number; tags: string[]; cash: number }, tier: number): void {
-  const up = tier - 1;
-  if (!up) return;
-  if (n.tags.includes('robot')) {
-    const m = 1 + 0.3 * up;
-    n.hp = n.maxHp = Math.round(n.maxHp * m);
-    n.power = Math.round(n.power * m);
-    n.level += up;
-    return;
-  }
-  const lv = Math.round(up * (n.tags.includes('commander') ? 1.4 : n.tags.includes('strong') ? 1.1 : 0.9));
-  n.level += lv;
-  n.hp = n.maxHp = n.maxHp + lv * 12;
-  n.power += lv * 2;
-  n.cash = Math.round(n.cash * (1 + 0.3 * up));
-}
+export const dungeonGrade = (danger: number, tier: number): number => Math.max(1, danger + 4 * (tier - tierOfDanger(danger)));
+
+/** The grade the tier table's menace numbers were measured at, by tier. Estimates scale from here. */
+export const TIER_REF_GRADE = [0, 3, 4, 5, 6, 7];
 
 /**
  * What a typical room of a place of this tier is worth in a fight (see `menace` in dungeons.ts), for deciding whether to

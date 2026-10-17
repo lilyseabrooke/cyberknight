@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { beginRun, endRun, newUniverse } from './universe';
 import { deserialize, makeSave, serialize } from './store';
 import { relocate } from './combat';
-import { expand, seedFrontier, childId } from './mapgen';
+import { expand, seedFrontier, childId, dangerOf, liftCordon, sealCordon, START_DEPTH } from './mapgen';
 import { everyoneAt, verifyIndex } from './population';
 import { routeTo } from './plans';
 import { createWorld } from './world';
@@ -113,6 +113,7 @@ describe('the city that grows', () => {
 
   it('never runs out of road: every street goes somewhere further', () => {
     const w = createWorld({ seed: 'roads' });
+    w.legacy.gate = 'open'; // with the cordon up the road ends at START_DEPTH; see the cordon tests below
     let at = childId('street_main', 0);
     for (let i = 0; i < 15; i++) {
       relocate(w, at);
@@ -189,4 +190,108 @@ describe('the city that grows', () => {
       expect(verifyIndex(world)).toEqual([]);
     }
   }, 30_000); // she lasts longer than she used to, and four whole nights take a while
+});
+
+describe('the starting district and its cordon', () => {
+  const walkOut = (w: World, steps = 400): void => {
+    const queue = [childId('street_main', 0), childId('street_main', 1), childId('club_backlot', 0), childId('halo_alley', 0)];
+    const seen = new Set<Id>();
+    while (queue.length && seen.size < steps) {
+      const id = queue.shift()!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      relocate(w, id);
+      for (const e of w.locations[id]!.exits) if (w.locations[e.to]?.gen) queue.push(e.to);
+    }
+  };
+  const depthOf = (w: World): number => Math.max(...Object.values(w.locations).map((l) => l.gen?.depth ?? 0));
+
+  it('has no road past its edge while CINDERJAW lives, however far she walks', () => {
+    const w = createWorld({ seed: 'sealed' });
+    walkOut(w);
+    expect(depthOf(w)).toBe(START_DEPTH);
+    const edge = Object.values(w.locations).filter((l) => l.gen?.cordon);
+    expect(edge.length).toBeGreaterThan(0);
+    for (const l of edge) {
+      expect(l.gen!.role).toBe('street');
+      expect(l.blurb).toMatch(/cordon/);
+      expect(l.exits.some((e) => w.locations[e.to]?.gen?.role === 'street' && w.locations[e.to]!.gen!.parent === l.id)).toBe(false);
+    }
+  });
+
+  it('opens onto the rest of Neo, at a higher danger, once the gate is open', () => {
+    const w = createWorld({ seed: 'lift' });
+    walkOut(w, 150);
+    const edge = Object.values(w.locations).filter((l) => l.gen?.cordon);
+    liftCordon(w);
+    expect(w.legacy.gate).toBe('open');
+    for (const l of edge) {
+      expect(l.gen!.cordon).toBe(false);
+      expect(l.exits.some((e) => w.locations[e.to]?.gen?.role === 'street' && w.locations[e.to]!.gen!.parent === l.id)).toBe(true);
+    }
+    walkOut(w, 250);
+    expect(depthOf(w)).toBeGreaterThan(START_DEPTH);
+    const beyond = Object.values(w.locations).filter((l) => l.gen?.role === 'street' && l.gen.depth === START_DEPTH + 1);
+    expect(beyond.length).toBeGreaterThan(0);
+    const mean = beyond.reduce((a, l) => a + dangerOf(l), 0) / beyond.length;
+    expect(mean).toBeGreaterThan(10);
+  });
+
+  it('a world made with the gate open never has a cordon', () => {
+    const w = createWorld({ seed: 'open' });
+    w.legacy.gate = 'open';
+    walkOut(w, 150);
+    expect(depthOf(w)).toBeGreaterThan(START_DEPTH);
+    expect(Object.values(w.locations).some((l) => l.gen?.cordon)).toBe(false);
+  });
+
+  it('puts the cordon on a map grown without one, and gives the roads back when it lifts', () => {
+    const w = createWorld({ seed: 'retro' });
+    w.legacy.gate = 'open';
+    walkOut(w, 250);
+    const reachable = (): Set<Id> => {
+      const seen = new Set<Id>(['street_main']);
+      const queue: Id[] = ['street_main'];
+      while (queue.length) for (const e of w.locations[queue.shift()!]!.exits) if (!seen.has(e.to)) (seen.add(e.to), queue.push(e.to));
+      return seen;
+    };
+    const deep = Object.values(w.locations).filter((l) => l.gen && l.gen.depth > START_DEPTH).map((l) => l.id);
+    expect(deep.length).toBeGreaterThan(0);
+    delete w.legacy.gate;
+    sealCordon(w);
+    const now = reachable();
+    expect(deep.filter((id) => now.has(id))).toEqual([]);
+    liftCordon(w);
+    const later = reachable();
+    expect(deep.filter((id) => !later.has(id)).length).toBeLessThan(deep.length / 2);
+  });
+
+  it('gives every street a danger that rises from the heart and is steady between neighbours', () => {
+    const w = createWorld({ seed: 'danger' });
+    w.legacy.gate = 'open';
+    walkOut(w, 400);
+    const streets = Object.values(w.locations).filter((l) => l.gen?.role === 'street');
+    let hops = 0;
+    let small = 0;
+    for (const l of streets) {
+      expect(l.gen!.danger).toBeDefined();
+      const parent = w.locations[l.gen!.parent]!;
+      if (!parent.gen) continue;
+      hops++;
+      if (Math.abs(l.gen!.danger! - parent.gen.danger!) <= 8) small++;
+    }
+    expect(small / hops).toBeGreaterThan(0.75); // smooth, with the odd cliff
+    const at = (d: number) => streets.filter((l) => l.gen!.depth === d).map((l) => l.gen!.danger!);
+    const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    expect(avg(at(START_DEPTH))).toBeGreaterThan(avg(at(1)));
+  });
+
+  it('puts rooms and lots at the danger of their street', () => {
+    const w = createWorld({ seed: 'lots' });
+    walkOut(w, 80);
+    for (const l of Object.values(w.locations)) {
+      if (!l.gen || l.gen.role === 'street' || l.gen.role === 'tunnel') continue;
+      expect(l.gen.danger, l.id).toBe(dangerOf(w.locations[l.gen.parent]));
+    }
+  });
 });

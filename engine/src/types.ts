@@ -502,6 +502,12 @@ export interface GenInfo {
   /** Steps of street from the hand-built district. */
   depth: number;
   district: District;
+  /** How dangerous it is, on the grade scale (grade.ts). Streets walk it from their parent; everything on a street shares it. Absent on maps made before danger existed. */
+  danger?: number;
+  /** An outermost street of the starting district: nothing runs on past it until the gate is open (mapgen.ts `liftCordon`). */
+  cordon?: boolean;
+  /** Roads that already ran on past a cordon when the cordon was added to an older save, held back until it comes down. */
+  sealed?: Exit[];
   /** Its own neighbours have been made. */
   expanded: boolean;
   /** For things that run on (corporate floors, tunnels): how far in this is, and how far it goes. */
@@ -623,6 +629,8 @@ export interface Legacy {
   realName: string;
   /** Neodollars in her account: what she's put in at drop points, plus what she carried home. Spent in the lab. */
   account: number;
+  /** The starting district's lockdown: `'open'` once CINDERJAW is dead. It carries over between runs. */
+  gate?: 'open';
   /** Lab upgrades she has, by node id, with the number of ranks bought. See content/tree.ts. */
   upgrades: Record<string, number>;
   /** Neodollars spent in the lab, ever. */

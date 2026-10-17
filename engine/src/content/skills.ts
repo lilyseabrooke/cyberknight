@@ -51,7 +51,18 @@ export const SKILLS = {
 
 export type SkillId = keyof typeof SKILLS;
 export const SKILL_IDS = Object.keys(SKILLS) as SkillId[];
-export const LEVEL_MILESTONES = [1, 3, 5, 8] as const;
+/** Levels that make the log. The first four have a title per skill; the rest share one list. */
+export const LEVEL_MILESTONES = [1, 3, 5, 8, 12, 18, 25, 35, 50, 65, 80, 100] as const;
+export const GENERIC_TITLES = [
+  'known for it across the district',
+  'the person other people mention',
+  'quietly the best in the building',
+  'a name that comes with a reputation',
+  'a living standard to be measured against',
+  'the kind of good that gets studied',
+  'so good it has stopped being a skill',
+  'a legend, and mostly unbothered by it',
+] as const;
 
 /** Stats usable as factors alongside skills. */
 export type StatId = 'muscle' | 'reflex' | 'hack' | 'charm';

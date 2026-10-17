@@ -113,9 +113,10 @@ describe('the table of spots', () => {
 
 describe('streets grow them', () => {
   /** Expand a lot of the city and see what turns up. */
-  const city = (seed: string, rounds = 5) => {
+  const city = (seed: string, rounds = 9) => {
     const sc = scenario({ seed, at: 'street_main' });
     const w = sc.w;
+    w.legacy.gate = 'open'; // the cordon would stop the city growing at the starting district's edge
     for (let r = 0; r < rounds; r++) {
       for (const l of Object.values(w.locations)) if (l.gen?.role === 'street' && !l.gen.expanded) expand(w, l);
     }

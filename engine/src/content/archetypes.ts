@@ -3,6 +3,7 @@ import type { Gender, Item, Npc } from '../types';
 import { makeAmmoBox, makeItem } from './items';
 import { rating, variantOf } from '../weapons';
 import { rollPerson, type PersonSpec } from '../people';
+import { baseHp, basePower } from '../grade';
 
 export interface ArchetypeDef {
   role: string;
@@ -321,17 +322,17 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     desc: ['an NPD sergeant with the thousand-yard stare of a man who bills overtime'],
   },
   apollo: {
-    role: 'Apollo Mk. II cyberdragon', level: [10, 10], tags: ['robot', 'dragon', 'boss', 'apollo'], faction: 'atlas',
+    role: 'Apollo Mk. II cyberdragon', level: [15, 15], tags: ['robot', 'dragon', 'boss', 'apollo'], faction: 'atlas',
     names: 'monster', weapons: [], loot: ['helix_sample'], lootChance: 1, cash: [0, 0], hp: 1100, power: 105,
     desc: ['CINDERJAW, an Apollo Mk. II Atlas Protection Platform: forty tons of wings, plasma and customer-service branding'],
   },
   artemis: {
-    role: 'Artemis Mk. I cyberdragon', level: [6, 6], tags: ['robot', 'dragon', 'artemis'], faction: 'atlas',
+    role: 'Artemis Mk. I cyberdragon', level: [12, 12], tags: ['robot', 'dragon', 'artemis'], faction: 'atlas',
     names: 'artemis', weapons: [], loot: ['dragon_scale', 'artemis_plate'], lootChance: 0.8, cash: [0, 0], hp: 210, power: 38,
     desc: ['an Artemis Mk. I patrol dragon: fast, lean, built to hunt in packs and bill by the hour'],
   },
   hera: {
-    role: 'Hera Mk. V cyberdragon', level: [40, 40], tags: ['robot', 'dragon', 'hera'], faction: 'atlas',
+    role: 'Hera Mk. V cyberdragon', level: [60, 60], tags: ['robot', 'dragon', 'hera'], faction: 'atlas',
     names: 'hera', weapons: [], loot: [], lootChance: 0, cash: [0, 0], hp: 8000, power: 900,
     desc: ['a Hera Mk. V: a city-scale Atlas pacification platform, with a presence like weather'],
   },
@@ -538,23 +539,30 @@ export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
   return `${rng.pick(FIRST)} ${rng.pick(LAST)}`;
 }
 
-export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string; gender?: Gender; age?: number } = {}): Npc {
+export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string; gender?: Gender; age?: number; grade?: number } = {}): Npc {
   const def = ARCHETYPES[archetype];
   if (!def) throw new Error(`unknown archetype ${archetype}`);
-  const level = rng.int(def.level[0], def.level[1]);
+  const rolled = rng.int(def.level[0], def.level[1]);
+  // (The dragons are landmarks on the grade scale, not locals: they are the same wherever they fly.)
+  if (def.tags.includes('dragon')) opts = { ...opts, grade: undefined };
+  // Given a local grade (how dangerous the place is, see grade.ts), the archetype's level says where it stands among its
+  // neighbours: a barkeep is a notch above a drifter wherever they are, and the gap widens as the grades climb.
+  const level = opts.grade === undefined ? rolled : Math.max(1, Math.round(opts.grade + (rolled - 3) * (1 + opts.grade / 40)));
   const loadout: Item[] = [];
   let weaponPower = 0;
   if (def.weapons.length) {
     const wpn = variantOf(rng, makeItem(rng.pick(def.weapons)));
     loadout.push(wpn);
-    weaponPower = Math.round(rating(wpn));
+    weaponPower = Math.round(rating(wpn) * (opts.grade === undefined ? 1 : 1 + level / 25));
   }
   // Shooters carry spare rounds, which is how she ends up with any.
   const gun = loadout[0];
   if (gun?.ammoType && rng.chance(0.65)) loadout.push(makeAmmoBox(gun.ammoType, (gun.perRound ?? 1) * rng.int(3, 7)));
   if (def.armors && rng.chance(def.armorChance ?? 0)) loadout.push(makeItem(rng.pick(def.armors)));
   if (def.loot.length && rng.chance(def.lootChance)) loadout.push(makeItem(rng.pick(def.loot)));
-  const hp = def.hp ?? 18 + level * 12;
+  // Fixed-stat things (dogs, turrets, bots) are scaled from the grade they were written for.
+  const ref = Math.max(5, (def.level[0] + def.level[1]) / 2);
+  const hp = opts.grade === undefined ? def.hp ?? 18 + level * 12 : def.hp ? Math.round(def.hp * Math.max(1, baseHp(level) / baseHp(ref))) : Math.round(baseHp(level));
   const name = opts.name ?? rollNpcName(rng, def.names);
   const machine = def.names === 'robot' || def.names === 'monster' || def.names === 'artemis' || def.names === 'hera';
   const person = rollPerson(id, name, { ...PEOPLE[archetype], machine }, { gender: opts.gender, age: opts.age });
@@ -569,7 +577,7 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
     hp,
     maxHp: hp,
     level,
-    power: def.power ?? level * 2 + weaponPower,
+    power: opts.grade === undefined ? def.power ?? level * 2 + weaponPower : def.power ? Math.round(def.power * Math.max(1, basePower(level) / basePower(ref))) : Math.round(basePower(level)) + weaponPower,
     tags: [...def.tags],
     faction: opts.faction ?? def.faction,
     affinity: def.startAffinity ?? 0,

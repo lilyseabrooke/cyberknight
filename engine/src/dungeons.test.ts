@@ -29,8 +29,8 @@ function site(kind: 'outpost' | 'hideout', tier: number, o: { competence?: numbe
 /** A hero who can take anything the tables hold. */
 function mighty(w: World): void {
   const h = w.hero;
-  h.level = 14;
-  h.maxHp = h.hp = 400;
+  h.level = 40;
+  h.maxHp = h.hp = 1200;
   h.muscle = 9;
   h.weapon = genWeapon(new Rng('mighty'), { tier: 6.5, cls: 'blade' });
   h.armor = null;

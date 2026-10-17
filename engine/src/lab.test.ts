@@ -18,6 +18,7 @@ import { hasTemplate, render } from './text';
 import { makeHero } from './world';
 import { personalityFrom } from './personality';
 import { Rng } from './rng';
+import { hpPerLevel } from './grade';
 import type { Ctx, GameEvent, Legacy, World } from './types';
 
 const legacy = (account = 0, upgrades: Record<string, number> = {}): Legacy => ({
@@ -173,7 +174,7 @@ describe('the body that walks out', () => {
     const h = fresh();
     applyUpgrades(h, legacy(0, { 'rebuild.1': 2 }));
     expect(h.level).toBe(3);
-    expect(h.maxHp).toBe(90 + 24);
+    expect(h.maxHp).toBe(90 + hpPerLevel(2) + hpPerLevel(3));
     expect(h.muscle + h.reflex + h.hack + h.charm).toBe(3 + 3 + 2 + 3 + 2);
   });
 

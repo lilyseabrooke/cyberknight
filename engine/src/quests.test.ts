@@ -395,7 +395,7 @@ describe('in the real loop', () => {
     for (let seed = 0; seed < 14; seed++) {
       const w = createWorld({ seed: `loop-${kind}-${seed}`, competence: 0.5 });
       mighty(w);
-      w.hero.level = 6;
+      w.hero.level = 10;
       let giver: Npc | undefined;
       for (let i = 0; !giver; i++) {
         const n = anyone(w, `lg${i}`, wantKind);
@@ -406,7 +406,7 @@ describe('in the real loop', () => {
       for (const o of Object.values(w.npcs)) if (o.id !== giver.id) o.facts = [];
       const events: GameEvent[] = [];
       perform(makeCtx(w, always(), events), gather(w).find((x) => x.key === `ask_quest:${giver!.id}`)!);
-      for (let beat = 0; beat < 300 && !w.over && giver.quest!.state !== 'done'; beat++) events.push(...step(w));
+      for (let beat = 0; beat < 600 && !w.over && giver.quest!.state !== 'done'; beat++) events.push(...step(w));
       if (giver.quest!.state === 'done') return { w, giver, events };
     }
     return null;

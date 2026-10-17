@@ -4,7 +4,16 @@ import { ENTRANCE_BLURB, OUTPOST_CODE, hideoutName, outpostName, rollTier } from
 import { SPOTS, SPOT_AGAIN, SPOT_CHANCE, pickSpot, rollSpotTier, type SpotDef } from './content/spots';
 import { CONDITIONS, GYM_CHANCE, ROOMS, rollGym, roomTitle } from './content/gyms';
 import { PAWN_CHANCE, ROOMS as PAWN_ROOMS, rollPawn, roomTitle as pawnRoomTitle } from './content/pawns';
-import type { District, Exit, GenRole, Id, Location, World } from './types';
+import { DISTRICT_DANGER, START_DEPTH, dangerOf, meanDanger, stepDanger } from './grade';
+import type { District, Exit, GenRole, Id, Legacy, Location, World } from './types';
+
+/** What the map generator needs from a world. (`legacy` is optional so a bare test map works: no gate, so it is sealed.) */
+type MapWorld = Pick<World, 'worldSeed' | 'locations' | 'factions'> & { legacy?: Pick<Legacy, 'gate'> };
+
+export { START_DEPTH, dangerOf };
+
+/** Has CINDERJAW been put down, so the cordon is open? */
+export const gateOpen = (w: { legacy?: Pick<Legacy, 'gate'> }): boolean => w.legacy?.gate === 'open';
 
 /**
  * Neo builds itself around Blackbird. The hand-built Rusty Halo district is the seed; everything
@@ -157,7 +166,7 @@ const ANCHORS: { at: Id; roads: Road[] }[] = [
  * Open the hand-built district onto the rest of the city. Safe to call again (it only adds what's
  * missing), which is how a save from before the map grew gets its edges.
  */
-export function seedFrontier(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>): void {
+export function seedFrontier(w: MapWorld): void {
   for (const a of ANCHORS) {
     const from = w.locations[a.at];
     if (!from || from.gen) continue;
@@ -171,13 +180,59 @@ export function seedFrontier(w: Pick<World, 'worldSeed' | 'locations' | 'faction
   }
 }
 
+// ===================================================================== the cordon
+
+/**
+ * The lockdown comes down: every cordon street gets its roads onward (or gets back the ones an older save had already
+ * grown). Safe to call again. Called when CINDERJAW dies.
+ */
+export function liftCordon(w: MapWorld & { legacy: Legacy }): void {
+  w.legacy.gate = 'open';
+  for (const loc of Object.values(w.locations)) {
+    const g = loc.gen;
+    if (!g?.cordon && !g?.sealed) continue;
+    const street = g.role === 'street' && g.cordon;
+    g.cordon = false;
+    if (g.sealed?.length) {
+      for (const e of g.sealed) if (!loc.exits.some((x) => x.to === e.to)) loc.exits.push(e);
+      delete g.sealed;
+      continue;
+    }
+    if (!street) continue;
+    const rng = new Rng(`cordon:${w.worldSeed}:${loc.id}`);
+    let slot = firstFreeSlot(loc);
+    for (let i = rng.chance(0.5) ? 2 : 1; i > 0; i--) {
+      const next = rng.chance(0.7) ? g.district : pick(rng, NEXT_TO[g.district]);
+      sketch(w, loc, slot++, 'street', next, g.depth + 1, { label: `{name}, ${pick(rng, STREET_TAIL)}` });
+    }
+  }
+}
+
+/**
+ * Put the cordon on a map that was grown without one: whatever ran on past the edge of the starting district (a road, a
+ * tunnel's ladder) is held back until the gate is open. Idempotent.
+ */
+export function sealCordon(w: MapWorld): void {
+  if (gateOpen(w)) return;
+  for (const loc of Object.values(w.locations)) {
+    const g = loc.gen;
+    if (!g || g.depth > START_DEPTH) continue;
+    const past = loc.exits.filter((e) => (w.locations[e.to]?.gen?.depth ?? 0) > START_DEPTH);
+    if (past.length) {
+      g.sealed = [...(g.sealed ?? []), ...past];
+      loc.exits = loc.exits.filter((e) => !past.includes(e));
+    }
+    if (g.role === 'street' && g.depth === START_DEPTH && (past.length || g.expanded)) g.cordon = true;
+  }
+}
+
 // ===================================================================== growing
 
 /**
  * Make the neighbours of a place she has just reached. Idempotent: a place that has been
  * expanded does nothing. Hand-built places have nothing to grow (their edges were seeded).
  */
-export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, loc: Location): void {
+export function expand(w: MapWorld, loc: Location): void {
   const g = loc.gen;
   if (!g || g.expanded) return;
   g.expanded = true;
@@ -189,7 +244,14 @@ export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, l
     case 'street': {
       const here = g.district;
       // Streets run on. Always at least one way further out, sometimes two.
-      const onward = rng.chance(0.5) ? 2 : 1;
+      const wanted = rng.chance(g.depth <= START_DEPTH ? 0.15 : 0.5) ? 2 : 1; // the starting district runs long and narrow, the city beyond it branches
+      // The outermost streets of the starting district are the lockdown cordon: nothing runs on past them until it comes down.
+      const cordon = g.depth >= START_DEPTH && !gateOpen(w);
+      const onward = cordon ? 0 : wanted;
+      if (cordon) {
+        g.cordon = true;
+        loc.blurb = `${loc.blurb ?? ''} The street ends at an Atlas lockdown cordon: barriers, drones, and a sign saying the district is closed until further notice. Nobody has been through in weeks.`.trim();
+      }
       const lots = rng.int(2, 4);
       const taken: Lot[] = [];
       const fronts: Location[] = [];
@@ -296,7 +358,8 @@ export function expand(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, l
       g.max = max;
       g.rank = rank;
       if (rank < max) add('tunnel', g.district, g.depth, { rank: rank + 1, max });
-      else add('street', rng.chance(0.5) ? g.district : pick(rng, NEXT_TO[g.district]), g.depth + 1, { label: '{name}, up a ladder into daylight (such as it is)' });
+      else if (g.depth < START_DEPTH || gateOpen(w)) add('street', rng.chance(0.5) ? g.district : pick(rng, NEXT_TO[g.district]), g.depth + 1, { label: '{name}, up a ladder into daylight (such as it is)' });
+      // (At the cordon a tunnel's far end is bricked up: it would come out on the wrong side.)
       break;
     }
     default:
@@ -355,7 +418,7 @@ const clampSec = (n: number): number => Math.max(0, Math.min(9, Math.round(n)));
 
 /** Make the place on the far side of an exit: its description, and the door back. */
 function sketch(
-  w: Pick<World, 'worldSeed' | 'locations' | 'factions'>,
+  w: MapWorld,
   parent: Location,
   slot: number,
   role: GenRole,
@@ -368,6 +431,11 @@ function sketch(
   if (existing) return existing;
   const rng = stream(w, id);
   const street = role === 'street';
+  // While the cordon holds, no road gets past the end of the starting district (a tunnel's ladder, a job's trail).
+  if (street && !gateOpen(w)) depth = Math.min(depth, START_DEPTH);
+  // How dangerous: a street walks from its parent's danger toward what its depth should be; everything else shares its street's.
+  const parentDanger = dangerOf(parent);
+  const danger = street ? stepDanger(parentDanger, meanDanger(depth, START_DEPTH), DISTRICT_DANGER[district] ?? 0, new Rng(`danger:${w.worldSeed}:${id}`)) : parentDanger;
   const interior = role === 'unit' || role === 'backroom' || role === 'cellar' || role === 'vip' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom' || (role === 'corp' && o.rank !== undefined) || (role === 'tunnel' && o.rank !== undefined);
   const entrance = role === 'outpost' || role === 'hideout' || role === 'spot';
   const spot: SpotDef | undefined = role === 'spot' ? SPOTS[o.spot ?? '']! : undefined;
@@ -377,7 +445,7 @@ function sketch(
   const rolled = role === 'gym' ? rollGym(new Rng(`gym:${w.worldSeed}:${id}`), district, depth) : undefined;
   // And so is a pawn shop.
   const rolledPawn = role === 'pawn' ? rollPawn(new Rng(`pawn:${w.worldSeed}:${id}`), district, depth) : undefined;
-  const tier = spot ? o.tier ?? rollSpotTier(drng!, spot, depth) : entrance ? o.tier ?? rollTier(drng!, role as 'outpost' | 'hideout', depth, district) : undefined;
+  const tier = spot ? o.tier ?? rollSpotTier(drng!, spot, danger) : entrance ? o.tier ?? rollTier(drng!, role as 'outpost' | 'hideout', danger, district) : undefined;
   // (An entrance is named once it's known whose it is, below.)
   let name = o.name ?? rolled?.name ?? rolledPawn?.name ?? (entrance ? '' : nameFor(rng, role, district, parent, o.rank));
   const deep = Math.min(2, Math.floor(depth / 4));
@@ -459,7 +527,7 @@ function sketch(
     influence,
     populated: false,
     blurb: o.blurb ?? pick(rng, blurbs).replace('{name}', name.charAt(0).toUpperCase() + name.slice(1)),
-    gen: { role, parent: parent.id, slot, depth, district, expanded: false, ...(o.rank !== undefined ? { rank: o.rank } : {}), ...(o.max !== undefined ? { max: o.max } : {}), ...(tier !== undefined ? { tier } : {}), ...(spot ? { spot: spot.key } : {}) },
+    gen: { role, parent: parent.id, slot, depth, district, danger, expanded: false, ...(o.rank !== undefined ? { rank: o.rank } : {}), ...(o.max !== undefined ? { max: o.max } : {}), ...(tier !== undefined ? { tier } : {}), ...(spot ? { spot: spot.key } : {}) },
   };
   if (faction) loc.faction = faction;
   if (rolled) {
@@ -482,13 +550,13 @@ function sketch(
 }
 
 /** An outpost or a hideout on a street that already exists. (Streets grow them on their own; this is for putting one somewhere on purpose.) */
-export function addDungeon(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, street: Location, kind: 'outpost' | 'hideout', slot: number, tier?: number): Location {
+export function addDungeon(w: MapWorld, street: Location, kind: 'outpost' | 'hideout', slot: number, tier?: number): Location {
   expand(w, street);
   return sketch(w, street, slot, kind, street.gen?.district ?? 'industrial', street.gen?.depth ?? 1, { tier });
 }
 
 /** A spot on a street that already exists. (Streets grow them on their own; this is for putting one somewhere on purpose.) */
-export function addSpot(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, street: Location, key: string, slot: number, tier?: number): Location {
+export function addSpot(w: MapWorld, street: Location, key: string, slot: number, tier?: number): Location {
   expand(w, street);
   return sketch(w, street, slot, 'spot', street.gen?.district ?? 'industrial', street.gen?.depth ?? 1, { tier, spot: key });
 }
@@ -512,7 +580,7 @@ export interface SiteSpec {
  * with `giver` written on it so the building knows what it is for. Idempotent: asking again returns what is already there.
  */
 export function addQuestSite(
-  w: Pick<World, 'worldSeed' | 'locations' | 'factions'>,
+  w: MapWorld,
   from: Location,
   key: string,
   length: number,
@@ -543,7 +611,7 @@ function spotName(def: SpotDef, rng: Rng, crew: string | undefined): string {
 
 /** A room inside a dungeon, off `parent`. Dungeons say what it's called, how well it's guarded and what it looks like. */
 export function addChamber(
-  w: Pick<World, 'worldSeed' | 'locations' | 'factions'>,
+  w: MapWorld,
   parent: Location,
   slot: number,
   o: { name: string; security: number; blurb: string; label: string; dungeon: Id },
@@ -622,7 +690,7 @@ const DWELLING: Record<Dwelling, { label: string; security: [number, number]; bl
  * has one, else a new one) and their own door inside it. Ids come from the owner, not the order things were found
  * in, so the same person lives in the same place in every run of the same save.
  */
-export function addDwelling(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, street: Location, owner: { id: Id; name: string }, size: Dwelling): Location {
+export function addDwelling(w: MapWorld, street: Location, owner: { id: Id; name: string }, size: Dwelling): Location {
   expand(w, street);
   const district: District = street.gen?.district ?? 'tenement';
   const depth = street.gen?.depth ?? 1;
@@ -634,7 +702,7 @@ export function addDwelling(w: Pick<World, 'worldSeed' | 'locations' | 'factions
 }
 
 /** A door in an apartment block: somebody's home, made to order. `key` seeds how it looks and how well it's locked. */
-export function addUnit(w: Pick<World, 'worldSeed' | 'locations' | 'factions'>, block: Location, slot: number, size: Dwelling, name: string, label: string, key: string): Location {
+export function addUnit(w: MapWorld, block: Location, slot: number, size: Dwelling, name: string, label: string, key: string): Location {
   const district: District = block.gen?.district ?? 'tenement';
   const depth = block.gen?.depth ?? 1;
   const d = DWELLING[size];
