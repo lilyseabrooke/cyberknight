@@ -68,8 +68,8 @@ describe('guard dogs, by model number', () => {
   it('a BARK-100 is easy and a BARK-530 is not a fight she can win', () => {
     expect(wins(100, 1)).toBe(12);
     expect(wins(100, 2)).toBeGreaterThanOrEqual(10);
-    expect(wins(530, 1)).toBeLessThanOrEqual(1);
-    expect(wins(530, 2)).toBe(0);
+    expect(wins(530, 1)).toBeLessThanOrEqual(5); // she can blind and jam a robot dog now
+    expect(wins(530, 2)).toBeLessThanOrEqual(2);
   });
 
   it('the models in between get steadily worse', () => {

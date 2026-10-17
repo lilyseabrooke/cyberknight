@@ -10,6 +10,8 @@ import { fameFrom, tipScale } from './stage';
 import { addNpc, moveNpc } from './population';
 import { isFairGame } from './people';
 import { feed } from './rest';
+import { blackout, overrideChance } from './override';
+import { workingCameras } from './witness';
 import { hungerOf } from './needs';
 import { hungerUrge } from './urges';
 import { FOOD } from './content/lodging';
@@ -128,6 +130,11 @@ export function extraCandidates(w: World): Candidate[] {
   // ---- billboard
   if (feat('billboard')) {
     out.push({ key: 'billboard', drives: { pride: 0.8, curiosity: 0.6, greed: 0.1 }, risk: 0.4, intent: {}, run: hackBillboard });
+  }
+
+  // ---- cameras
+  if (workingCameras(w, h.locationId) > 0) {
+    out.push({ key: 'camera_blackout', drives: { curiosity: 0.35, pride: 0.2 }, smart: 0.3, risk: 0.2, intent: {}, run: (c) => void blackout(c) });
   }
 
   // ---- implants from the doc
@@ -316,7 +323,8 @@ function settleTab(c: Ctx, bartender: Npc): void {
 function hackBillboard(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.int * 0.06 + skillLevel(h, 'tinkering') * 0.03, 0.1, 0.85);
+  // A billboard is infrastructure, so this is an Override. With the cameras down, nobody sees who.
+  const p = overrideChance(w, 0.3) + (workingCameras(w, h.locationId) ? 0 : 0.05);
   if (rng.chance(p)) {
     // Each hijack is less of a story, and Atlas gets angrier about it.
     const hacks = w.counters.billboard_hacks ?? 0;

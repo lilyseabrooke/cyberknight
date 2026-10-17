@@ -13,7 +13,6 @@ import { artsOf } from './lab';
 import { dragonSpeed, hasTrait, legSpeed } from './dragonmodels';
 import type { ArtBranch } from './content/doctrine';
 import * as D from './doctrine';
-import { workingCameras } from './witness';
 
 /**
  * A fight, played out on a small grid. Nobody watches it: the player gets a report of the interesting bits and the result.
@@ -255,7 +254,7 @@ export class Sim {
   readonly down = new Set<string>();
   readonly fled = new Set<string>();
   readonly arrived: Npc[] = [];
-  readonly stats = { ammoSpent: 0, backfires: 0, crits: 0, ambushes: 0, hacks: 0, overrides: 0, scares: 0, shoves: 0, threw: 0, overwatch: 0, leaps: 0, flurries: 0, assists: 0 };
+  readonly stats = { ammoSpent: 0, backfires: 0, crits: 0, ambushes: 0, hacks: 0, scares: 0, shoves: 0, threw: 0, overwatch: 0, leaps: 0, flurries: 0, assists: 0 };
   /** Her combat routines (see `doctrine.ts`), and the branch of the weapon in her hand. */
   readonly arts: Record<string, number>;
   branch: ArtBranch | null;
@@ -825,7 +824,7 @@ export class Sim {
     }
   }
 
-  /** Optic Reset, a Hack: a burst down the optic nerve that leaves somebody with chrome in their head blind for a few rounds. */
+  /** Optic Reset, a Hack: a burst down the optic feed that leaves anything with chrome for eyes blind for a few rounds. */
   opticChance(t: Unit): number {
     const h = this.w.hero;
     return clamp(0.4 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.02 - ((t.npc?.level ?? 1) - h.level) * 0.04, 0.1, 0.92);
@@ -837,21 +836,6 @@ export class Sim {
     this.stats.hacks++;
     train(this.c, 'tinkering', 1);
     this.note('tactic', 'good', { variant: 'optic_reset', foe: t.name }, 3, `optic:${t.id}`);
-  }
-
-  /** Blackout, an Override: drops a camera she can see for a while, so what happens next is nobody's footage. */
-  camerasUp(): number {
-    return workingCameras(this.w, this.w.hero.locationId);
-  }
-
-  doBlackout(): void {
-    const loc = this.w.locations[this.w.hero.locationId]!;
-    if (!this.c.rng.chance(clamp(0.45 + this.w.hero.int * 0.08, 0.1, 0.95))) return;
-    const down = loc.camsDown && this.w.beat < loc.camsDown.until ? loc.camsDown.n : 0;
-    loc.camsDown = { n: down + 1, until: this.w.beat + 12 };
-    this.stats.overrides++;
-    train(this.c, 'tinkering', 1);
-    this.note('tactic', 'good', { variant: 'blackout', place: loc.name, left: this.camerasUp() }, 3, 'blackout');
   }
 
   scareChance(t: Unit): number {
