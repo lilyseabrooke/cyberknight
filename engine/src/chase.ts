@@ -1,5 +1,5 @@
 import type { Ctx, Npc, Vehicle } from './types';
-import { ALL_MAKES, MAKES, SPILL, blastInside, carKey, hitCar, normalize, stateOf, vehicleOf } from './cars';
+import { ALL_MAKES, MAKES, SPILL, blastInside, carKey, hitCar, makesOf, normalize, stateOf, vehicleOf } from './cars';
 import { fight, heroPower, kill, maybeInjure, relocate } from './combat';
 import { spawnGroup, clamp } from './candidate';
 import { heroSpeed } from './dragonmodels';
@@ -27,7 +27,7 @@ export interface Chaser {
   /** The people in it (or the dragon itself). */
   crew: Npc[];
   /** A car, if it is in one. A dragon has wings instead. */
-  car?: { id: string; kind: Vehicle['kind']; name: string; hp: number; maxHp: number; armor: number };
+  car?: { id: string; body?: Vehicle['body']; kind: Vehicle['kind']; name: string; hp: number; maxHp: number; armor: number };
   pace: number;
   /** Tiles between it and her. */
   gap: number;
@@ -76,6 +76,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       const armedBack = h.weapon.tags.includes('gun') || h.companions.some((a) => a.hp > 0 && KINDS[a.kind]?.assist.dmg && car.riders.includes(a.id));
       const hpRatio = h.hp / h.maxHp;
       const carRatio = car.hp / car.maxHp;
+      const bike = car.body === 'bike';
+      const squeeze = stretch === 'tight' || stretch === 'traffic';
 
       // What she does this round.
       const scores: Record<string, number> = o.mode === 'pursuer'
@@ -83,10 +85,13 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         : {
             floor_it: 3 + (band === 'close' || band === 'locked' ? 3 : 0),
             swerve: 1.5 + (band !== 'far' ? 2 : 0),
-            lose_them: (stretch === 'tight' || stretch === 'traffic') && lead.gap >= 3 ? 6.5 : 0,
+            // A bike fits where a car does not: it can stay out of reach without ending the chase.
+            ...(bike ? { lane_split: squeeze && band !== 'far' ? 5.5 : 0 } : {}),
+            lose_them: squeeze && lead.gap >= 3 ? 6.5 : 0,
             shoot: armedBack && (band === 'near' || band === 'close') ? 4 : 0,
-            ram: (band === 'close' || band === 'locked') && lead.car ? 3 + car.armor * 0.4 : 0,
-            bail: carRatio <= 0.25 || (hpRatio < 0.3 && carRatio < 0.5) ? 3 + 10 * (0.25 - Math.min(carRatio, 0.25)) : 0,
+            // A bike against anything bigger gets the worst of a ram.
+            ram: (band === 'close' || band === 'locked') && lead.car ? (bike && lead.car.body !== 'bike' ? 0.2 : 3 + car.armor * 0.4) : 0,
+            bail: carRatio <= 0.25 || (hpRatio < 0.3 && carRatio < 0.5) || (bike && hpRatio < 0.4) ? 3 + 10 * (0.25 - Math.min(carRatio, 0.25)) : 0,
           };
       if (carRatio <= 0.25) scores.bail = (scores.bail ?? 0) + 3 + h.competence * 4; // smoking: it is about to go
       const slack = (1 - h.competence) * 4;
@@ -97,7 +102,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       // The road moves everybody: the faster closes on the slower, skill matters when it is tight, and speed when it is open.
       for (const f of live) {
         const edge = ((f.pace - hero) * 0.5) * (stretch === 'open' ? 1.3 : stretch === 'bridge' ? 1 : 0.6);
-        const sk = stretch === 'tight' || stretch === 'traffic' ? skill * 0.12 : 0;
+        const sk = squeeze ? skill * 0.12 + (bike ? 1 : 0) : 0;
         const drift = o.mode === 'pursuer' ? edge - sk : -edge + sk;
         f.gap = Math.max(0, f.gap + drift + (rng.next() - 0.5) * 1.5);
       }
@@ -109,7 +114,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       }
 
       // What she does to them.
-      if (action === 'shoot') {
+      if (action === 'lane_split') {
+        const t = nearest();
+        t.gap += 1.5 + skill * 0.2;
+        told.push('split');
+      } else if (action === 'shoot') {
         const t = nearest();
         const dmg = Math.round((heroPower(w) * 0.3 + riderShots(h, car)) * (0.6 + rng.next() * 0.8));
         if (rng.chance(0.6 - (t.gap > 3 ? 0.1 : 0))) {
@@ -121,14 +130,14 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         const t = nearest();
         const rel = (hero + t.pace) * 0.9 + car.armor;
         if (t.car) {
-          const hit = hitCar(t.car, rel * 0.9, 'ram');
+          const hit = hitCar(t.car, rel * (bike && t.car.body !== 'bike' ? 0.3 : 0.9), 'ram');
           if (hit.wrecked) wreckChaser(c, t, told);
         }
-        const mine = hitCar(car, rel * 0.5, 'ram');
+        const mine = hitCar(car, rel * (bike ? 1.2 : 0.5), 'ram');
         hurt += mine.taken;
         train(c, 'driving', 1);
         told.push('ram');
-      } else if (action === 'lose_them' && rng.chance(clamp(0.4 + skill * 0.05 - (stretch === 'tight' ? 0 : 0.1), 0.15, 0.9))) {
+      } else if (action === 'lose_them' && rng.chance(clamp(0.4 + skill * 0.05 - (stretch === 'tight' ? 0 : 0.1) + (bike ? 0.15 : 0), 0.15, 0.9))) {
         result = 'escaped';
         told.push('lost');
       } else if (action === 'bail') {
@@ -140,7 +149,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       if (!result) {
         for (const f of o.foes.filter((x) => x.alive)) {
           const b = bandOf(f.gap);
-          const hit = (action === 'swerve' ? 0.3 : 0.55) + (stretch === 'open' ? 0.05 : 0);
+          const hit = (action === 'swerve' || action === 'lane_split' ? 0.3 : 0.55) + (stretch === 'open' ? 0.05 : 0);
           if (wings(f) && b === 'locked') {
             // At the door.
             const p = clamp(0.3 + power(f) * 0.002 - car.armor * 0.06, 0.1, 0.7);
@@ -153,9 +162,10 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
           } else if (b === 'near' || b === 'close' || b === 'locked') {
             if (rng.chance(hit)) {
               const dmg = Math.round(power(f) * (wings(f) ? 0.3 : 0.5) * (0.6 + rng.next() * 0.8));
-              const r = hitCar(car, dmg, 'gun');
+              // In a car the car takes it and a share gets through; on a bike it is split between her and the bike.
+              const r = hitCar(car, bike ? dmg * 0.5 : dmg, 'gun');
               hurt += r.taken;
-              h.hp -= Math.round(r.taken * SPILL);
+              h.hp -= Math.round(bike ? dmg * 0.5 : r.taken * SPILL);
               told.push(`hit:${f.name}`);
             }
           }
@@ -167,6 +177,12 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
               if (x.wrecked) wreckChaser(c, f, told);
             }
             told.push('rammed');
+            // A car that hits a bike can throw her off it.
+            if (bike && f.car?.body !== 'bike' && rng.chance(0.35)) {
+              result = 'bailed';
+              told.push('thrown');
+              break;
+            }
           }
         }
       }
@@ -179,6 +195,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
 
       c.emit('chase_round', hurt > 0 ? 'bad' : action === 'floor_it' || action === 'lose_them' ? 'good' : 'mixed', {
         variant: action,
+        body: car.body,
         round,
         stretch,
         band: bandOf(nearest().gap),
@@ -189,7 +206,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         foe: o.foes.filter((f) => f.alive)[0]?.name ?? 'them',
         events: told.join(','),
       });
-      if (car.hp / car.maxHp <= 0.25 && car.hp > 0 && round < maxRounds && !result) c.emit('car_hit', 'bad', { variant: 'smoking', car: car.name, mine: true });
+      if (car.hp / car.maxHp <= 0.25 && car.hp > 0 && round < maxRounds && !result) c.emit('car_hit', 'bad', { variant: 'smoking', car: car.name, body: car.body, mine: true });
     }
     if (!result) result = o.mode === 'pursuer' ? 'lost' : o.foes.some((f) => f.alive && f.gap < 3) ? 'caught' : 'escaped';
     if (result === 'wrecked' || car.hp <= 0) result = 'wrecked';
@@ -220,7 +237,7 @@ function wreckChaser(c: Ctx, t: Chaser, told: string[]): void {
   t.alive = false;
   if (t.car) t.car.hp = 0;
   told.push(`wreck:${t.name}`);
-  c.emit('car_wreck', 'good', { car: t.car?.name ?? t.name, kind: t.car?.kind ?? 'police', inside: t.crew.map((n) => n.name).join(' and '), hero: false, count: t.crew.length, mine: false });
+  c.emit('car_wreck', 'good', { car: t.car?.name ?? t.name, kind: t.car?.kind ?? 'police', body: t.car?.body ?? 'car', inside: t.crew.map((n) => n.name).join(' and '), hero: false, count: t.crew.length, mine: false });
   for (const n of t.crew) if (n.alive) kill(c, c.w, n, 'a car going up');
 }
 
@@ -233,16 +250,17 @@ function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle, rounds:
   let taken = 0;
   if (result === 'wrecked') {
     // Up it goes, with her in it, and everyone with her.
-    const blast = blastInside(car);
+    // (A bike throws her as well: a fall on top of the bang.)
+    const blast = blastInside(car) + (car.body === 'bike' ? Math.round(car.pace * 0.8) : 0);
     taken = blast;
     h.hp -= blast;
-    maybeInjure(c, blast, 1);
+    maybeInjure(c, blast, car.body === 'bike' ? 0.5 : 1);
     const riders = h.companions.filter((a) => car.riders.includes(a.id));
     for (const a of riders) a.hp = 0;
     delete h.vehicle;
     w.flags[`wreck:${loc}`] = true;
     w.flags[`stolen:${loc}`] = true;
-    c.emit('car_wreck', 'bad', { car: car.name, kind: car.kind, inside: ['Blackbird', ...riders.map((a) => a.name)].join(' and '), hero: true, count: 1 + riders.length, mine: true });
+    c.emit('car_wreck', 'bad', { car: car.name, kind: car.kind, body: car.body, inside: ['Blackbird', ...riders.map((a) => a.name)].join(' and '), hero: true, count: 1 + riders.length, mine: true });
     if (car.kind === 'police') w.heat.npd = Math.min(10, (w.heat.npd ?? 0) + 2);
     else if (car.kind === 'atlas') w.heat.atlas = Math.min(10, (w.heat.atlas ?? 0) + 2);
     if (h.hp <= 0 && !(hasImplantFlag(h, 'defib') && !w.flags.defib_used)) {
@@ -254,11 +272,13 @@ function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle, rounds:
     }
   } else if (result === 'bailed') {
     // Out of the car at speed, and the car is lost to whoever was after her.
-    const fall = Math.round(heroSpeed(w) * 1.2);
+    const fall = Math.round(heroSpeed(w) * (car.body === 'bike' ? 0.7 : 1.2));
     taken = fall;
     h.hp -= fall;
     maybeInjure(c, fall);
     delete h.vehicle;
+    // A bike goes down where she left it, and is hers to come back for.
+    if (car.body === 'bike' && car.hp > 0 && !w.strays?.[loc]) (w.strays ??= {})[loc] = { ...car, riders: [] };
     train(c, 'athletics', 2);
   } else if (result === 'escaped') {
     // Out of sight: a few streets on.
@@ -274,24 +294,34 @@ function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle, rounds:
     if (left?.car && mk && !w.strays?.[loc] && !w.flags[`stolen:${loc}`]) (w.strays ??= {})[loc] = { ...vehicleOf(mk, left.car.id), hp: left.car.hp };
   }
   for (const a of [...h.companions]) if (a.hp <= 0) removeCompanion(c, a, 'lost');
-  c.emit('chase_end', result === 'escaped' || result === 'won' ? 'good' : result === 'lost' ? 'mixed' : 'bad', { variant: result, mode: o.mode, taken, car: car.name, rounds, foe: o.foes[0]?.name ?? 'them', state: stateOf(car) });
+  c.emit('chase_end', result === 'escaped' || result === 'won' ? 'good' : result === 'lost' ? 'mixed' : 'bad', { variant: result, mode: o.mode, taken, car: car.name, body: car.body, rounds, foe: o.foes[0]?.name ?? 'them', state: stateOf(car) });
 }
 
 // =============================================================== the police
 
 /** Cops in cruisers, two to a car, as chasers. */
-export function cruisers(cops: Npc[]): Chaser[] {
+export function pursuers(cops: Npc[], rng?: { chance(p: number): boolean }): Chaser[] {
   const out: Chaser[] = [];
-  for (let i = 0; i < cops.length; i += 2) {
-    const crew = cops.slice(i, i + 2);
-    const mk = MAKES.police[i % 2 === 0 ? 0 : 1]!;
+  let i = 0;
+  let k = 0;
+  while (i < cops.length) {
+    // One in three comes alone, on a bike: the one that can keep up.
+    const alone = !!rng && rng.chance(0.3);
+    const crew = cops.slice(i, i + (alone ? 1 : 2));
+    i += crew.length;
+    const bike = alone || crew.length === 1 && cops.length % 2 === 1 && i >= cops.length && !!rng && rng.chance(0.5);
+    const mk = bike ? makesOf('police', 'bike')[0]! : MAKES.police[k % 2]!;
+    k++;
     const id = `chase:${crew[0]!.id}`;
     // Whoever is driving has the key to it.
     crew[0]!.loadout.push(carKey({ id, name: mk.name }, crew[0]!.tags.includes('ganger')));
-    out.push({ name: `an NPD cruiser (${crew.map((n) => n.name).join(' and ')})`, crew, car: { id, kind: 'police', name: mk.name, hp: mk.maxHp, maxHp: mk.maxHp, armor: mk.armor }, pace: mk.pace, gap: 3 + i, alive: true });
+    out.push({ name: `${bike ? 'an NPD patrol cycle' : 'an NPD cruiser'} (${crew.map((n) => n.name).join(' and ')})`, crew, car: { id, body: mk.body ?? 'car', kind: 'police', name: mk.name, hp: mk.maxHp, maxHp: mk.maxHp, armor: mk.armor }, pace: mk.pace, gap: 3 + out.length, alive: true });
   }
   return out;
 }
+
+/** Two officers to a car. (The old name.) */
+export const cruisers = (cops: Npc[]): Chaser[] => pursuers(cops);
 
 /**
  * The police come after her in cars. If they catch her it ends in the street, with the cops; if she gets away the heat drops;
@@ -303,7 +333,7 @@ export function policeChase(c: Ctx, why: 'hijack' | 'ambush' | 'drive_off', cops
   if (!h.vehicle || h.vehicle.hp <= 0) return null;
   const npd = w.heat.npd ?? 0;
   const squad = cops ?? spawnGroup(c, 'npd_officer', npd >= 6 ? 4 : 2);
-  const foes = cruisers(squad.filter((n) => n.alive));
+  const foes = pursuers(squad.filter((n) => n.alive), c.rng);
   if (!foes.length) return null;
   c.emit('ambush', 'bad', { variant: 'npd_chase', count: squad.length, heat: npd, why });
   const result = runChase(c, { mode: 'pursued', cause: 'an NPD pursuit', foes });

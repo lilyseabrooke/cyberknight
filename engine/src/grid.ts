@@ -37,6 +37,8 @@ export interface BoardObject {
   /** The real car, when it is hers (driven or parked), so damage and destruction persist. */
   ref?: Vehicle | ParkedVehicle;
   kind: Vehicle['kind'];
+  /** A car is a box she sits in; a bike one cell she rides, with no door and nothing to hide in. */
+  body: Vehicle['body'];
   mine: boolean;
   team: 'hero' | 'foe' | 'neutral';
   /** Shut doors make a car a place to hide; forced ones are open for the rest of the fight. */

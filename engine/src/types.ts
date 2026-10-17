@@ -94,6 +94,8 @@ export interface Companion {
 export interface Vehicle {
   /** Which car this is. A key opens the car with this id. */
   id: string;
+  /** A car is a box she sits in; a bike is something she sits on, with nothing between her and the street. */
+  body: 'car' | 'bike';
   /** Whose it was, and so who comes looking: a civilian's, the NPD's, Atlas's. */
   kind: 'civilian' | 'police' | 'atlas';
   name: string;

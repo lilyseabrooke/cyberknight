@@ -72,7 +72,7 @@ function attack(s: Sim, u: Unit): Technique {
 // ------------------------------------------------------------------ hero techniques
 
 function throwing(s: Sim): Technique[] {
-  if (s.threw || !s.throwOk) return [];
+  if (s.threw || !s.throwOk || s.carOf(s.hero)?.body === 'bike') return [];
   const h = s.w.hero;
   const items = h.inventory.filter((i) => i.tags.includes('throwable'));
   if (!items.length) return [];
@@ -242,7 +242,7 @@ function overwatch(s: Sim): Technique[] {
 /** Climb into her own car from beside it: the best cover there is while the doors hold. */
 function getIn(s: Sim): Technique[] {
   const mine = s.ownCar();
-  if (!mine || s.hero.aboard || mine.doors !== 'shut' || mine.car.hp / mine.car.maxHp <= 0.25) return [];
+  if (!mine || mine.body === 'bike' || s.hero.aboard || mine.doors !== 'shut' || mine.car.hp / mine.car.maxHp <= 0.25) return [];
   return [
     {
       id: 'get_in',
@@ -259,6 +259,52 @@ function getIn(s: Sim): Technique[] {
       },
       run(s2) {
         s2.board(s2.ownCar()!);
+      },
+    },
+  ];
+}
+
+/** Swing a leg over her own bike from beside it. The speed is worth having whenever the other side isn't already on top of her. */
+function mount(s: Sim): Technique[] {
+  const mine = s.ownCar();
+  if (!mine || mine.body !== 'bike' || s.hero.aboard || mine.car.hp <= 0) return [];
+  return [
+    {
+      id: 'mount',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value(s2, me, from) {
+        if (!s2.carBeside(from)) return null;
+        const foes = s2.enemiesOf(me);
+        const far = foes.filter((e) => dist(e, from) > 2).length / Math.max(1, foes.length);
+        return 1.5 + 3 * far;
+      },
+      run(s2) {
+        s2.board(s2.ownCar()!);
+      },
+    },
+  ];
+}
+
+/** On the bike: a run of three tiles or more, and a hit at the end of it. */
+function rideBy(s: Sim): Technique[] {
+  const o = s.carOf(s.hero);
+  if (!o || o.body !== 'bike' || o.wrecked) return [];
+  const weapon = s.wield;
+  return [
+    {
+      id: 'ride_by',
+      targets: 'enemy',
+      range: s.hero.reach,
+      los: s.hero.reach[1] > 1,
+      value(s2, me, from, t) {
+        if (dist(me, from) < 3) return null;
+        const p = Math.min(0.99, s2.heroHitChance(t!, from, weapon) + 0.1);
+        return strikeValue(p, s2.heroExpected(t!, weapon, 1.25), t!.ref.hp) + 2.5;
+      },
+      run(s2, _me, t) {
+        s2.rideBy(t!);
       },
     },
   ];
@@ -375,7 +421,7 @@ function allyAttack(u: Unit): Technique {
 // ------------------------------------------------------------------ the registry
 
 export function techniquesFor(s: Sim, u: Unit): Technique[] {
-  if (u.kind === 'hero') return [attack(s, u), ...throwing(s), ...ambush(s), ...flurry(s), ...shove(s), ...hack(s, u), ...intimidate(s), ...overwatch(s), ...getIn(s), ...driveOff(s), ...runDown(s), ...doctrineTechniques(s), leave()];
+  if (u.kind === 'hero') return [attack(s, u), ...throwing(s), ...ambush(s), ...flurry(s), ...shove(s), ...hack(s, u), ...intimidate(s), ...overwatch(s), ...getIn(s), ...mount(s), ...rideBy(s), ...driveOff(s), ...runDown(s), ...doctrineTechniques(s), leave()];
   if (u.kind === 'ally') return [allyAttack(u), ...hack(s, u)];
   return [attack(s, u), forceDoor(), leave()];
 }

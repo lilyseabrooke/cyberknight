@@ -20,7 +20,15 @@ export interface Make {
   /** Everyone aboard, counting Blackbird. */
   seats: number;
   mounted?: Vehicle['mounted'];
+  /** Default 'car'. */
+  body?: Body;
 }
+
+export type Body = Vehicle['body'];
+
+/** A bike: quick, thin, one or two to a seat, nothing to hide behind. */
+const b = (kind: Make['kind'], name: string, o: Partial<Make> = {}): Make =>
+  m(kind, name, { body: 'bike', speed: kind === 'police' ? 1.6 : kind === 'atlas' ? 1.7 : 1.4, pace: 11, maxHp: 30, armor: 0, seats: 2, ...(kind === 'police' ? { mounted: 'ram' as const } : {}), ...o });
 
 const m = (kind: Make['kind'], name: string, o: Partial<Make> = {}): Make => ({
   name,
@@ -44,25 +52,36 @@ export const MAKES: Record<Vehicle['kind'], Make[]> = {
     m('civilian', 'a salvaged taxi with the meter still running', { seats: 6, maxHp: 70 }),
     m('civilian', 'a sun-faded coupe with a dragon sticker on the bumper', { pace: 10, maxHp: 50 }),
     m('civilian', 'a church-group minibus held together with prayer and zip ties', { seats: 8, maxHp: 90, pace: 6, speed: 0.9 }),
+    // (bikes come after the cars, so the cars keep their places in the list)
+    b('civilian', 'a rattling delivery scooter', { pace: 9, maxHp: 20 }),
+    b('civilian', 'a battered commuter bike'),
+    b('civilian', 'a street-tuned crotch-rocket with a neon spoiler', { pace: 13, maxHp: 25, seats: 1 }),
+    b('civilian', 'a ganger\'s chopper with a skull on the tank', { pace: 12, maxHp: 40, armor: 1 }),
   ],
   police: [
     m('police', 'an NPD patrol cruiser, lights dark'),
     m('police', 'an NPD interceptor with the engine ticking', { pace: 12 }),
     m('police', 'an unmarked NPD sedan that fools nobody', { armor: 2, maxHp: 120 }),
     m('police', 'an NPD riot van with a cage in the back', { seats: 8, armor: 5, maxHp: 200, pace: 8, speed: 1.2 }),
+    b('police', 'an NPD patrol cycle', { pace: 13, maxHp: 40, armor: 1, seats: 1 }),
   ],
   atlas: [
     m('atlas', 'an Atlas security SUV, white and humming', { mounted: 'gun' }),
     m('atlas', 'an Atlas executive hover-limo with the seat still warm', { seats: 6, armor: 4, maxHp: 150 }),
     m('atlas', 'an Atlas fleet van, barcode on every panel', { seats: 8, armor: 3, maxHp: 160, pace: 8 }),
+    b('atlas', 'an Atlas courier bike, white and humming', { pace: 14, maxHp: 35, armor: 1, seats: 1 }),
   ],
 };
 
 export const ALL_MAKES: Make[] = [...MAKES.civilian, ...MAKES.police, ...MAKES.atlas];
 
+/** The makes of this kind and body. */
+export const makesOf = (kind: Vehicle['kind'], body: Body): Make[] => MAKES[kind].filter((x) => (x.body ?? 'car') === body);
+
 /** A new car off the lot (or off the kerb). */
 export const vehicleOf = (mk: Make, id?: string): Vehicle => ({
   id: id ?? `make:${mk.name}`,
+  body: mk.body ?? 'car',
   kind: mk.kind,
   name: mk.name,
   speed: mk.speed,
@@ -77,10 +96,11 @@ export const vehicleOf = (mk: Make, id?: string): Vehicle => ({
 
 /** A car from an older save (or a test) with some of this missing: fill it in from its make, or its kind. */
 export function normalize(v: Vehicle): Vehicle {
-  if (v.id !== undefined && v.maxHp !== undefined && v.hp !== undefined && v.riders && v.seats !== undefined) return v;
+  if (v.id !== undefined && v.body !== undefined && v.maxHp !== undefined && v.hp !== undefined && v.riders && v.seats !== undefined) return v;
   const mk = ALL_MAKES.find((x) => x.name === v.name) ?? m(v.kind, v.name);
   const fresh = vehicleOf(mk);
   v.id ??= fresh.id;
+  v.body ??= fresh.body;
   v.pace ??= fresh.pace;
   v.maxHp ??= fresh.maxHp;
   v.hp ??= v.maxHp;
@@ -111,8 +131,13 @@ export const CAR_BLAST = 100;
 export const CAR_BLAST_PER_ARMOR = 25;
 export const CAR_BLAST_OUTSIDE = 40;
 export const CAR_BLAST_OUTSIDE_PER_ARMOR = 10;
-export const blastInside = (v: Pick<Vehicle, 'armor'>): number => CAR_BLAST + CAR_BLAST_PER_ARMOR * v.armor;
-export const blastOutside = (v: Pick<Vehicle, 'armor'>): number => CAR_BLAST_OUTSIDE + CAR_BLAST_OUTSIDE_PER_ARMOR * v.armor;
+/** A bike going up is a smaller bang: it is a tank of fuel under one person, not a box round four. */
+export const BIKE_BLAST = 35;
+export const BIKE_BLAST_PER_ARMOR = 10;
+export const BIKE_BLAST_OUTSIDE = 15;
+type Blasty = Pick<Vehicle, 'armor'> & { body?: Body };
+export const blastInside = (v: Blasty): number => (v.body === 'bike' ? BIKE_BLAST + BIKE_BLAST_PER_ARMOR * v.armor : CAR_BLAST + CAR_BLAST_PER_ARMOR * v.armor);
+export const blastOutside = (v: Blasty): number => (v.body === 'bike' ? BIKE_BLAST_OUTSIDE : CAR_BLAST_OUTSIDE + CAR_BLAST_OUTSIDE_PER_ARMOR * v.armor);
 
 /** A share of gunfire that gets past the car to whoever is sitting in it. */
 export const SPILL = 0.3;
@@ -155,9 +180,11 @@ export const keyTo = (h: Pick<Hero, 'inventory'>, carId: string): Item | undefin
  * How long a car she leaves on a street stays hers. With its key a civilian car lasts three times as long: nobody is hunting for
  * it and it is not hot. A police or Atlas car is hunted whatever she carries, and a gang's car is somebody's to take back.
  */
-export function lifeOf(v: Pick<Vehicle, 'id' | 'kind'>, key: Item | undefined): number {
-  const base = CAR_LIFE_MIN[v.kind];
+export function lifeOf(v: Pick<Vehicle, 'id' | 'kind'> & { body?: Body }, key: Item | undefined): number {
+  const base = CAR_LIFE_MIN[v.kind] * (v.body === 'bike' ? BIKE_LIFE : 1);
   return key && v.kind === 'civilian' && !key.ownerGang ? base * KEY_LIFE : base;
 }
 
 export const KEY_LIFE = 3;
+/** Bikes walk off. */
+export const BIKE_LIFE = 0.75;

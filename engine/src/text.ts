@@ -127,6 +127,39 @@ const T: Record<string, Entry> = {
     (d) => [d.kind === 'police' ? `The key from the officer's pocket turns in ${d.car} like it was made for it, which it was. Blackbird is behind the wheel of an NPD car with nobody to say otherwise.` : d.kind === 'atlas' ? `The key opens ${d.car} with a polite chirp. Blackbird gets in. The seat adjusts itself to her, which is unnerving.` : `The key slides into ${d.car} and turns. No wire, no alarm, no hurry. Blackbird gets in and shuts the door behind her like she owns it. She does now.`],
     ['Keys. Underrated.', 'Look at that. A door that opens when I ask.'],
   ),
+  'hijack:ok:bike': e(
+    (d) => [
+      d.kind === 'police' ? `Blackbird swings a leg over ${d.car} and has it running before anyone remembers it is theirs.` : d.kind === 'atlas' ? `${d.car} wakes with a polite chirp and a tracker light. Blackbird is on it and gone before the chirp ends.` : `Blackbird bridges the ignition on ${d.car} with her thumbnail and a prayer. It coughs, catches, and is hers.`,
+      d.seen ? 'Somebody saw. Somebody always sees.' : 'Nobody was looking. The street holds its breath, then lets it out.',
+    ],
+    ['No doors. No locks worth the name. Freedom.', 'Bikes are practically a suggestion.'],
+  ),
+  'hijack:fail:bike': e((d) => [`${d.car} shrieks the moment Blackbird touches the bars. Heads turn. She walks away from it, quickly, with her hands where people can see them.`], ['A bike with a good alarm is a rare and personal insult.']),
+  'vehicle:keyed:bike': e((d) => [`The key turns, ${d.car} coughs awake, and Blackbird swings a leg over it like she has done it a thousand times. Nobody sees a thing, because there is nothing to see.`], ['Keys. I will never take them for granted again. (I will, but not tonight.)']),
+  'vehicle:back:bike': e((d) => [`${d.car} is where Blackbird left it, on ${d.place}, with a pigeon on the seat. She shoos the pigeon.`], ['Mine. Do not touch.']),
+  'vehicle:left:bike': e((d) => [`Blackbird kicks the stand down on ${d.car} outside ${d.place}. It is still hers. For now.`], ['Parked. Illegally. With a flourish.']),
+  'vehicle:gone:bike': e((d) => [`Where Blackbird left ${d.car} on ${d.place} there is a stand-shaped scratch on the pavement and a smell of petrol. It walked.`], ['Bikes: they leave.']),
+  'vehicle:riders:bike': e((d) => [d.left ? `There is room for one behind her, and ${d.riders || 'nobody'} takes it. ${d.left} will have to find another way.` : `${d.riders} climb${String(d.riders).includes(' and ') ? '' : 's'} on behind. Blackbird tells them where to put their hands.`], ['Hold on.']),
+  'drive:along:bike': e((d) => [`Blackbird takes ${d.car} down ${d.hops} streets with the wind in her teeth, and stops at ${d.to}.`, `${d.hops} streets go by in a smear. ${d.to}.`], ['Faster than walking. Louder than anything.']),
+  'drive:across:bike': e((d) => [`Blackbird threads ${d.car} out of ${d.from}, through whatever gaps there are, and across the district line. ${d.to}, ${d.hops} streets later, with bugs in her teeth.`, `The neon changes colour and Blackbird does not slow down. ${d.to}.`], ['I could do this all night. I am doing this all night.']),
+  'car_drive_off:bike': e((d) => [`Blackbird is on ${d.car} before anybody can stop her, and the fight is a noise in the mirror.`], ['Two wheels. No regrets.']),
+  'car_run_down:bike': e((d) => [`${d.foe} looks up in time to see the headlamp of ${d.car}, and not in time to do anything about it.`], ['Move.']),
+  'car_wreck:bike': e(
+    (d) => [d.hero ? `${d.car} goes out from under Blackbird in a ball of fire and a lot of sparks. She hits the road rolling. The bike keeps going without her, then stops, then burns.` : d.count ? `${d.car} goes up with ${d.inside} on it. The road is on fire for a moment.` : `${d.car} goes up with a crump and a smell of petrol. Nobody was on it.`],
+    ['Bikes: faster than cars, and so, so much less forgiving.'],
+  ),
+  'car_hit:scuffed:bike': e((d) => [d.mine ? `${d.car} takes a hit and a mirror goes spinning away down the road.` : `${d.car} loses a mirror and a little pride.`]),
+  'car_hit:battered:bike': e((d) => [d.mine ? `${d.car} is bent now: a fork out of true, a handlebar that wants to go left.` : `${d.car} is badly bent.`], ['It is handling like a shopping trolley.']),
+  'car_hit:smoking:bike': e((d) => [d.mine ? `${d.car} is trailing smoke and smells like a bad decision. Something is going to let go very soon.` : `${d.car} is smoking; its rider thinks about it.`], ['Off. Off. Get off.']),
+  'chase_round:floor_it:bike': e((d) => [`Blackbird opens ${d.car} up. ${d.band === 'far' ? 'The gap widens' : `They are ${d.band}`}, and the engine screams${Number(d.hurt) ? ' like it is complaining' : ''}.`]),
+  'chase_round:swerve:bike': e((d) => [`Blackbird throws the bike one way and her weight the other. Whatever was coming her way hits the road.`]),
+  'chase_round:lane_split': e((d) => [`Between a van and a wall with a hand's width either side, Blackbird goes through the middle of the traffic like it was a door. ${d.foe} cannot follow, and has to find another gap.`], ['Cars have to stay in their lanes. I have a lane the width of a handlebar.']),
+  'chase_round:ram:bike': e((d) => [`Blackbird puts ${d.car} into ${d.foe} on purpose. This is a bad idea, in the way that a very small thing hitting a very large thing is a bad idea.`], ['Ow.']),
+  'chase_round:bail:bike': e((d) => [`Blackbird kicks off the bike and is rolling before it has stopped moving.`]),
+  'chase_round:shoot:bike': e((d) => [String(d.events).includes('shot') ? `One hand on the bars, one on the gun: Blackbird puts shots into ${d.foe} from the saddle. Some of them even find it.` : `Blackbird fires over her shoulder at ${d.foe} and hits something that was not ${d.foe}.`], ['Do not try this at home. Do not try this anywhere.']),
+  'chase_end:bailed:bike': e((d) => [`Blackbird comes off in a skid and a lot of road. ${d.car} goes on for a while without her, then lies down. (Down ${d.taken}.)`], ['Get up. Get up. Get up.']),
+  'chase_end:wrecked:bike': e((d) => [`${d.car} is gone, and Blackbird has been thrown a very long way from it.`], ['I am so sorry about that bike.']),
+  'tactic:ride_by': e((d) => [`Blackbird comes through at speed and hits ${d.foe} on the way past with ${d.weapon}${Number(d.dmg) ? ` for ${d.dmg}` : ', and misses'}. By the time anyone turns round she is gone.`, `A ride-by: in, ${d.foe}, out.`], ['Hit and run. Mostly run.', 'Never stand still.']),
   'vehicle:riders': e(
     (d) => [d.left ? `Blackbird counts seats. ${d.riders ? `${d.riders} pile${String(d.riders).includes(' and ') ? '' : 's'} in` : 'Nobody fits'}; ${d.left} will have to find another way.` : `${d.riders} climb${String(d.riders).includes(' and ') ? '' : 's'} into ${d.car} with Blackbird. Every seat has an opinion.`],
     ['A full car is a loud car.', 'Seatbelts are mandatory. Nobody has told the seatbelts.'],
@@ -1963,6 +1996,8 @@ const QUIRK_AT = 0.7;
 const FALLBACK_KEYS = (e_: GameEvent): string[] => {
   const d = e_.data;
   const keys: string[] = [];
+  // A bike has its own lines where it differs from a car: `type:variant:bike`, else `type:bike`.
+  if (d.body === 'bike') keys.push(...(d.variant !== undefined ? [`${e_.type}:${d.variant}:bike`] : []), `${e_.type}:bike`);
   if (d.variant !== undefined) keys.push(`${e_.type}:${d.variant}`);
   if (d.injury !== undefined) keys.push(`${e_.type}:${d.injury}`);
   if (d.kind !== undefined) keys.push(`${e_.type}:${d.kind}`);

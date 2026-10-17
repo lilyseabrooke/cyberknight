@@ -45,7 +45,7 @@ export function vehicleCandidates(w: World): Candidate[] {
           const { at: _at, until: _until, ...car } = mine;
           w.hero.vehicle = normalize({ ...car, riders: [] });
           w.hero.parked = w.hero.parked!.filter((p) => p !== mine);
-          c.emit('vehicle', 'good', { variant: 'back', car: mine.name, place: loc.name });
+          c.emit('vehicle', 'good', { variant: 'back', car: mine.name, body: mine.body ?? 'car', place: loc.name });
           boardParty(c, w.hero.vehicle, loc);
         },
       });
@@ -58,7 +58,7 @@ export function vehicleCandidates(w: World): Candidate[] {
         key: `usekey:${loc.id}`, drives: { curiosity: 0.4, greed: 0.3 }, bonus: 1.0,
         run: (c) => {
           takeCar(c.w, loc, car);
-          c.emit('vehicle', 'good', { variant: 'keyed', car: car.name, kind: car.kind, place: loc.name });
+          c.emit('vehicle', 'good', { variant: 'keyed', car: car.name, kind: car.kind, body: car.body, place: loc.name });
           train(c, 'driving', 1);
           boardParty(c, c.w.hero.vehicle!, loc);
         },
@@ -77,7 +77,7 @@ export function vehicleCandidates(w: World): Candidate[] {
 
   const car = normalize(h.vehicle);
   const here = loc.gen?.district;
-  for (const r of roadsFrom(w, loc.id, reachOf(w, car))) {
+  for (const r of roadsFrom(w, loc.id, reachOf(w, car), car.body)) {
     if (r.hops < 2) continue; // one street is just a walk
     const dest = w.locations[r.id]!;
     const crossing = !!dest.gen?.district && dest.gen.district !== here;
@@ -102,7 +102,7 @@ function takeCar(w: World, loc: Location, car: Vehicle): void {
 function hijack(c: Ctx, loc: Location, car: Vehicle): void {
   const { w, rng } = c;
   const h = w.hero;
-  const hard = car.kind === 'civilian' ? 0 : 0.1;
+  const hard = (car.kind === 'civilian' ? 0 : 0.1) - (car.body === 'bike' ? 0.1 : 0); // no door to beat on a bike
   const p = clamp(0.3 + h.reflex * 0.015 + 0.05 * synergy(h, ['hijack', ['stat:reflex', 0.5], ['lockpicking', 0.3]]) - hard - h.drunk * 0.03, 0.08, 0.9);
   train(c, 'hijack', 2);
   const ok = rng.chance(p);
@@ -122,7 +122,7 @@ function hijack(c: Ctx, loc: Location, car: Vehicle): void {
     takeCar(w, loc, car);
     train(c, 'driving', 1);
   }
-  c.emit('hijack', ok ? (seen ? 'mixed' : 'good') : 'bad', { variant: ok ? 'ok' : 'fail', car: car.name, kind: car.kind, seen, witnesses: people.length, place: loc.name });
+  c.emit('hijack', ok ? (seen ? 'mixed' : 'good') : 'bad', { variant: ok ? 'ok' : 'fail', car: car.name, kind: car.kind, body: car.body, seen, witnesses: people.length, place: loc.name });
 
   // Whose business it is. The police's own car is theirs whoever saw; Atlas's is Atlas's. Anyone's car is the police's if she was seen.
   const heat: [string, number][] = [];
@@ -142,7 +142,7 @@ function hijack(c: Ctx, loc: Location, car: Vehicle): void {
 
 // =============================================================== riders
 
-const seatsOf = (comp: Companion): number => KINDS[comp.kind]?.seats ?? 1;
+const seatsOf = (comp: Companion, body: Vehicle['body'] = 'car'): number => (body === 'bike' && KINDS[comp.kind]?.flies ? 0 : KINDS[comp.kind]?.seats ?? 1);
 
 /** What a companion is worth in the car: guns, a guard, a jammer; healthy, and loyal. */
 function riderScore(comp: Companion): number {
@@ -163,14 +163,14 @@ export function boardParty(c: Ctx, car: Vehicle, street: Location): void {
   const aboard: Companion[] = [];
   const left: Companion[] = [];
   for (const comp of [...h.companions].filter((a) => a.hp > 0).sort((a, b) => riderScore(b) - riderScore(a))) {
-    if (used + seatsOf(comp) <= room) {
-      used += seatsOf(comp);
+    if (used + seatsOf(comp, car.body) <= room) {
+      used += seatsOf(comp, car.body);
       aboard.push(comp);
     } else left.push(comp);
   }
   car.riders = aboard.map((a) => a.id);
   if (!aboard.length && !left.length) return;
-  c.emit('vehicle', left.length ? 'mixed' : 'good', { variant: 'riders', car: car.name, riders: aboard.map((a) => a.name).join(' and '), left: left.map((a) => a.name).join(' and '), count: aboard.length, place: street.name });
+  c.emit('vehicle', left.length ? 'mixed' : 'good', { variant: 'riders', car: car.name, body: car.body, riders: aboard.map((a) => a.name).join(' and '), left: left.map((a) => a.name).join(' and '), count: aboard.length, place: street.name });
   for (const comp of left) {
     // Loyal ones, and ones with nowhere to go, wait. The rest go home.
     const stays = !comp.npcId && !comp.home ? true : rng.chance(0.15 + 0.7 * (comp.loyalty / 100));
@@ -188,11 +188,20 @@ function drive(c: Ctx, path: Id[]): void {
   const from = w.locations[h.locationId]!;
   const car = h.vehicle!;
   // Each street she passes through is arrived at properly, so the city grows ahead of her and the road keeps going.
-  for (const id of path) relocate(w, id);
+  for (const id of path) {
+    // (A bike goes through a tunnel without leaving itself behind in it.)
+    const through = car.body === 'bike' && w.locations[id]?.kind === 'tunnel';
+    relocate(w, id);
+    if (through && !h.vehicle) {
+      h.parked = (h.parked ?? []).filter((p) => p.id !== car.id);
+      h.vehicle = car;
+    }
+  }
   const last = w.locations[h.locationId]!;
   c.emit('drive', 'good', {
     variant: from.gen?.district && last.gen?.district && from.gen.district !== last.gen.district ? 'across' : 'along',
     car: car.name,
+    body: car.body,
     from: from.name,
     to: last.name,
     toId: last.id,
@@ -201,5 +210,5 @@ function drive(c: Ctx, path: Id[]): void {
     ...(last.visits === 1 && last.blurb ? { blurb: last.blurb } : {}),
   });
   train(c, 'driving', 1);
-  w.clock += driveMinutes(path.length);
+  w.clock += driveMinutes(path.length, car.body);
 }

@@ -74,12 +74,12 @@ export function arrive(c: Ctx, to: string, variant: string, extra: Record<string
     ...(dest.visits === 1 && dest.blurb ? { blurb: dest.blurb } : {}),
     ...extra,
   });
-  if (car && !w.hero.vehicle) c.emit('vehicle', 'mixed', { variant: 'left', car: car.name, place: from.name });
+  if (car && !w.hero.vehicle) c.emit('vehicle', 'mixed', { variant: 'left', car: car.name, body: car.body, place: from.name });
   // A car of hers parked here that has been towed, recovered or stripped while she was away.
   const lost = w.hero.parked?.filter((p) => p.at === to && p.until <= w.clock) ?? [];
   if (lost.length) {
     w.hero.parked = w.hero.parked!.filter((p) => !lost.includes(p));
-    for (const p of lost) c.emit('vehicle', 'bad', { variant: 'gone', car: p.name, kind: p.kind, place: dest.name });
+    for (const p of lost) c.emit('vehicle', 'bad', { variant: 'gone', car: p.name, kind: p.kind, body: p.body ?? 'car', place: dest.name });
   }
   // Whoever she left waiting here is glad to see her.
   for (const a of w.hero.waiting?.filter((x) => x.at === to) ?? []) {

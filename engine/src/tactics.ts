@@ -265,6 +265,8 @@ export class Sim {
   /** A car went up with her in it: that is death whether or not the fight was meant to be lethal. */
   private blastKill = false;
   droveOff = false;
+  /** A hit at the end of a ride-by: momentum. */
+  private rideBonus = 0;
   private lastWield: string;
   private readonly procs = new Set<string>();
   private readonly queue: { unit: Unit; round: number; why: 'joiner' | 'law' | 'backup' }[] = [];
@@ -468,6 +470,8 @@ export class Sim {
     }
     if (this.flanked(this.hero, t, from)) p += 0.08;
     if (!thrown) p += D.hitBonus(this, t, from, weapon);
+    if (ranged && this.carOf(this.hero)?.body === 'bike') p -= 0.1; // one hand on the bars
+    p += this.rideBonus;
     return clamp(p, 0.1, 0.99);
   }
 
@@ -526,6 +530,11 @@ export class Sim {
       this.hitObject(o, amount, 'gun');
       if (tgt.state !== 'active') return 0;
       amount = Math.round(amount * SPILL);
+    } else if (att && att.reach[1] > 1 && this.carOf(tgt)?.body === 'bike' && !this.carOf(tgt)!.wrecked) {
+      // On a bike there is nothing to hide behind: the shot is split between her and the bike.
+      this.hitObject(this.carOf(tgt)!, amount * 0.5, 'gun');
+      if (tgt.state !== 'active') return 0;
+      amount = Math.round(amount * 0.5);
     }
     let n = Math.max(0, Math.round(amount));
     if (tgt.kind === 'hero') n = D.taken(this, this.interpose(n));
@@ -713,7 +722,8 @@ export class Sim {
   speedOf(u: Unit): number {
     if (u.pinned > 0) return 0;
     if (u.speed === 0) return 0;
-    return Math.max(1, u.speed - (u.slow > 0 ? 1 : 0) - (u.leg ? 2 : 0));
+    const riding = this.carOf(u)?.body === 'bike' ? 3 : 0; // a bike under her
+    return Math.max(1, u.speed + riding - (u.slow > 0 ? 1 : 0) - (u.leg ? 2 : 0));
   }
 
   /** Throw a foe back up to `n` tiles away from `me`: into a wall or person for damage and a daze, through an exit to be rid of them, onto a hazard for more. */
@@ -848,14 +858,16 @@ export class Sim {
     const h = w.hero;
     const rng = new Rng(`cars:${w.seed}:${w.beat}:${loc.id}`);
     const specs: Parameters<typeof addObjects>[2] = [];
-    const add = (id: string, name: string, kind: BoardObject['kind'], car: CarLike, seats: number, o: Partial<BoardObject> = {}) =>
-      specs.push({ id, name, kind, car, size: seats >= 6 ? 3 : 2, mine: false, team: 'neutral', doors: 'shut', dents: 0, burn: 0, wrecked: false, ...o });
-    if (h.vehicle) add('own', h.vehicle.name, h.vehicle.kind, normalize(h.vehicle), h.vehicle.seats, { mine: true, team: 'hero', ref: h.vehicle });
-    for (const p of h.parked ?? []) if (p.at === loc.id && p.until > w.clock) add(`own:${p.name}`, p.name, p.kind, normalize(p), p.seats, { mine: true, team: 'hero', ref: p });
+    const add = (id: string, name: string, kind: BoardObject['kind'], car: CarLike, seats: number, o: Partial<BoardObject> = {}) => {
+      const body = o.body ?? 'car';
+      specs.push({ id, name, kind, car, body, size: body === 'bike' ? 1 : seats >= 6 ? 3 : 2, mine: false, team: 'neutral', doors: body === 'bike' ? 'forced' : 'shut', dents: 0, burn: 0, wrecked: false, ...o });
+    };
+    if (h.vehicle) add('own', h.vehicle.name, h.vehicle.kind, normalize(h.vehicle), h.vehicle.seats, { mine: true, team: 'hero', ref: h.vehicle, body: h.vehicle.body });
+    for (const p of h.parked ?? []) if (p.at === loc.id && p.until > w.clock) add(`own:${p.name}`, p.name, p.kind, normalize(p), p.seats, { mine: true, team: 'hero', ref: p, body: p.body });
     const parked = parkedVehicle(w, loc);
     const squad = this.o.foes.some((f) => f.tags.includes('cop'));
     // The squad car is the car the officers came in; whatever is left of a car on the street is hurt by what happens to it here.
-    if (parked) add('parked', parked.name, parked.kind, w.strays?.[loc.id] === parked ? parked : { hp: parked.maxHp, maxHp: parked.maxHp, armor: parked.armor }, parked.seats, parked.kind === 'police' && squad ? { team: 'foe' } : {});
+    if (parked) add('parked', parked.name, parked.kind, w.strays?.[loc.id] === parked ? parked : { hp: parked.maxHp, maxHp: parked.maxHp, armor: parked.armor }, parked.seats, { body: parked.body, ...(parked.kind === 'police' && squad ? { team: 'foe' as const } : {}) });
     if (squad && parked?.kind !== 'police') {
       const mk = MAKES.police[0]!;
       add('cruiser', mk.name, 'police', { hp: mk.maxHp, maxHp: mk.maxHp, armor: mk.armor }, mk.seats, { team: 'foe' });
@@ -886,13 +898,15 @@ export class Sim {
 
   /** She (and whoever of her party fits) gets in. */
   board(o: BoardObject): void {
-    const room = (o.ref?.seats ?? 4) - 1;
+    const bike = o.body === 'bike';
+    const room = (o.ref?.seats ?? (bike ? 2 : 4)) - 1;
     let used = 0;
     this.hero.aboard = o.id;
     this.hero.x = o.cells[0]!.x;
     this.hero.y = o.cells[0]!.y;
     for (const u of this.units) {
       if (u.kind !== 'ally' || u.state !== 'active') continue;
+      if (bike && KINDS[u.comp!.kind]?.flies) continue; // it flies alongside
       const seats = KINDS[u.comp!.kind]?.seats ?? 1;
       if (used + seats > room) continue;
       used += seats;
@@ -920,7 +934,7 @@ export class Sim {
     const hit = hitCar(o.car, dmg, how);
     if (hit.taken <= 0) return;
     if (hit.wrecked) this.explode(o);
-    else if (hit.to !== hit.from) this.note('car_hit', o.mine ? 'bad' : 'good', { variant: hit.to, car: o.name, mine: o.mine }, 2.5, `car:${o.id}:${hit.to}`);
+    else if (hit.to !== hit.from) this.note('car_hit', o.mine ? 'bad' : 'good', { variant: hit.to, car: o.name, mine: o.mine, body: o.body }, 2.5, `car:${o.id}:${hit.to}`);
   }
 
   /** A shot that missed whoever it was aimed at, into the car they were sheltering behind. */
@@ -953,12 +967,15 @@ export class Sim {
     const inside = this.units.filter((u) => u.aboard === o.id && u.state === 'active');
     const beside = this.units.filter((u) => u.state === 'active' && !u.aboard && o.cells.some((p) => dist(p, u) <= 1));
     const names = inside.map((u) => u.name).join(' and ');
+    const bike = o.body === 'bike';
+    // A bike throws whoever was on it as well: a fall on top of the bang.
+    const fall = bike ? Math.round((o.ref?.pace ?? 11) * 0.8) : 0;
     const hurt = (u: Unit, n: number) => {
       u.ref.hp -= n;
       u.burning = 3;
       u.alert = true;
       if (u.kind === 'hero') {
-        this.hooks.maybeInjure(this.c, n, 1);
+        this.hooks.maybeInjure(this.c, n, bike ? 0.5 : 1);
         if (u.ref.hp <= 0) this.blastKill = true;
       } else if (u.ref.hp <= 0) {
         u.state = 'dead';
@@ -968,11 +985,12 @@ export class Sim {
     const out = [...inside];
     for (const u of inside) {
       u.aboard = undefined;
-      hurt(u, blastInside(o.car));
+      hurt(u, blastInside({ armor: o.car.armor, body: o.body }) + fall);
+      if (bike) u.stagger = Math.max(u.stagger, 2);
     }
-    for (const u of beside) hurt(u, blastOutside(o.car));
+    for (const u of beside) hurt(u, blastOutside({ armor: o.car.armor, body: o.body }));
     for (const u of out) if (u.state === 'active') this.unseat(u);
-    this.note('car_wreck', inside.some((u) => u.kind === 'hero') ? 'bad' : 'good', { car: o.name, kind: o.kind, inside: names, hero: inside.some((u) => u.kind === 'hero'), count: inside.length, beside: beside.length, mine: o.mine }, 7, `wreck:${o.id}`);
+    this.note('car_wreck', inside.some((u) => u.kind === 'hero') ? 'bad' : 'good', { car: o.name, kind: o.kind, body: o.body, inside: names, hero: inside.some((u) => u.kind === 'hero'), count: inside.length, beside: beside.length, mine: o.mine }, 7, `wreck:${o.id}`);
   }
 
   /** A foe with strong arms and no gun gets a car open: everyone in it is out on the street and the car is no longer cover. */
@@ -1005,9 +1023,34 @@ export class Sim {
       o.car = h.vehicle;
     }
     if (h.vehicle) h.vehicle.riders = this.units.filter((u) => u.kind === 'ally' && u.state === 'active').map((u) => u.comp!.id).slice(0, Math.max(0, h.vehicle.seats - 1));
-    this.note('car_drive_off', 'mixed', { car: o.name, hpPct: Math.round((h.hp / h.maxHp) * 100) }, 5, 'driveoff');
+    this.note('car_drive_off', 'mixed', { car: o.name, body: o.body, hpPct: Math.round((h.hp / h.maxHp) * 100) }, 5, 'driveoff');
     this.droveOff = true;
     this.hero.state = 'fled';
+  }
+
+  /** The bike goes where she went: its one cell moves, unless she ended somewhere a bike can't stand (a doorway, a fire), when she gets off and it stays. */
+  private rideTo(o: BoardObject, u: Unit): void {
+    const g = this.grid;
+    if (terrainAt(g, u.x, u.y) !== 'floor') {
+      u.aboard = undefined;
+      return;
+    }
+    for (const p of o.cells) g.cells[idx(g, p)] = 'floor';
+    o.cells = [{ x: u.x, y: u.y }];
+    g.cells[idx(g, u)] = 'cover';
+    for (const a of this.units) if (a !== u && a.aboard === o.id) {
+      a.x = u.x;
+      a.y = u.y;
+    }
+  }
+
+  /** In, a hit, and out: a swing or a shot at the end of a run, with the speed behind it. */
+  rideBy(t: Unit): void {
+    this.rideBonus = 0.1;
+    const dealt = this.heroStrike(t, { mult: 1.25 });
+    this.rideBonus = 0;
+    train(this.c, 'driving', 1);
+    this.note('tactic', 'good', { variant: 'ride_by', foe: t.name, dmg: dealt, weapon: this.wield.name }, 3.5, `rideby:${this.round}`);
   }
 
   /** Her car knocks somebody down: speed and weight, and the car pays for it. */
@@ -1015,7 +1058,7 @@ export class Sim {
     const o = this.carOf(this.hero);
     if (!o) return;
     const h = this.w.hero;
-    const pace = paceOf(normalize(o.ref ?? { ...o.car, id: o.id, kind: o.kind, name: o.name, speed: 1, pace: 8, seats: 4, riders: [] }));
+    const pace = paceOf(normalize(o.ref ?? { ...o.car, id: o.id, body: o.body, kind: o.kind, name: o.name, speed: 1, pace: o.body === 'bike' ? 11 : 8, seats: o.body === 'bike' ? 2 : 4, riders: [] }));
     const dmg = Math.round((pace * 3 + h.muscle + skillValue(h, 'driving') * 1.5) * (0.7 + this.c.rng.next() * 0.6));
     this.damage(this.hero, t, dmg);
     if (t.state === 'active') {
@@ -1023,8 +1066,8 @@ export class Sim {
       t.stagger = 2;
     }
     train(this.c, 'driving', 1);
-    this.note('car_run_down', 'good', { foe: t.name, car: o.name, dmg }, 4, `rundown:${t.id}`);
-    this.hitObject(o, o.car.maxHp * 0.07, 'ram');
+    this.note('car_run_down', 'good', { foe: t.name, car: o.name, body: o.body, dmg }, 4, `rundown:${t.id}`);
+    this.hitObject(o, o.car.maxHp * (o.body === 'bike' ? 0.15 : 0.07), 'ram');
   }
 
   // ------------------------------------------------------------------ the round
@@ -1366,7 +1409,11 @@ export class Sim {
   }
 
   private execute(u: Unit, o: Option): void {
-    if (u.aboard && o.mode !== 'stay') u.aboard = undefined; // she gets out
+    const rode = u.aboard ? this.carOf(u) : undefined;
+    // She gets out when she walks off; on a bike she rides, and it goes where she goes.
+    if (rode && o.mode !== 'stay' && (rode.body !== 'bike' || u.kind !== 'hero')) u.aboard = undefined;
+    const sx = u.x;
+    const sy = u.y;
     u.moved = o.mode !== 'stay';
     if (u.kind === 'hero') this.moved = u.moved;
     if (o.mode === 'leap') {
@@ -1384,6 +1431,7 @@ export class Sim {
         this.triggerWatch(u);
       }
     }
+    if (rode?.body === 'bike' && u.kind === 'hero' && u.aboard && (u.x !== sx || u.y !== sy)) this.rideTo(rode, u);
     if (u.state !== 'active' || !o.tech) return;
     const t = o.target;
     if (t) {
