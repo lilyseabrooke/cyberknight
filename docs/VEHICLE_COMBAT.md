@@ -437,3 +437,16 @@ The attackers arrive in a vehicle (a chopper for a lone ganger), the driver carr
 - **Run**: the normal chase engine, pursued, **on foot with them tailing her in the vehicle** (or in her own if she is driving). Police use the usual `pursuers`; the gang is one car with its crew. If she is caught, bails or they wreck, the surviving crew fight her; outrunning the police still costs 2 NPD heat.
 
 Events: `vehicle_attack` (`npd`/`gang`, `gang:bike`), `attack_choice` (`stand`/`run`).
+
+## Fighting during a chase (boarding)
+
+A chase no longer ends because she got close. It ends when everyone chasing or running is **down**, when she **loses them**, or when somebody **stops running** (`caught`, and then the usual fight). Dragons and other wing-borne foes keep the old rule (locked on = caught) until they have a body to climb on (Hera Mk. V will use the machinery below).
+
+- **Standing** (`standP` in `chase.ts`): each round a runner may stop and fight. The odds go up with how strong their crew is against her, being cornered (close, and no faster than her), a half-wrecked vehicle, and her being on their roof; they are scaled down while they are far ahead. Anyone left within reach when the rounds run out stops too.
+- **Weapons**: shooting while chasing picks the driver (through the glass; likelier on thin vehicles and with armor-piercing weapons) or the vehicle itself (a wreck takes its crew with it). A runner on foot just takes it. Close enough to touch with a runner on foot, she swings (`strike`).
+- **Boarding**: locked onto a vehicle (melee range), she can try to climb on: an athletics + reflex check, harder the faster it is and the tighter the road. Success leaves her own vehicle parked behind and puts her on theirs; the chase carries her along their route. Failure costs a bruise and ground.
+- **Aboard**, each round she picks one of: `hijack_door` (Hijack skill, much easier than a real hijack, gets her inside), `break_door` (damage the door; with enough it gives and she is in), `attack_driver` (easier on low-armor vehicles, with piercing weapons and more attack power; trivial from inside), or `jump_off`.
+- **They** choose: stop and fight (ends the chase), fight back (a lone driver who fights swerves and can hit things), or drive hard to shake her. Every round she is outside there is an athletics check to hang on, easier than boarding, harder if they are trying to throw her; inside, none. A thrown fall hurts by speed. A dead driver means a vehicle that coasts to a stop (it is left as a stray with the crew's key on the body).
+- If their vehicle blows up with her on it, she takes the outside blast; inside it, the inside one.
+
+Events: `chase_round` variants `board`, `strike`, `hijack_door`, `break_door`, `attack_driver`, `jump_off`; `chase_mount:foe_stands`.

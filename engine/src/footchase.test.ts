@@ -158,20 +158,21 @@ describe('a chase on foot', () => {
     expect(Object.keys(results).length).toBeGreaterThanOrEqual(2);
   });
 
-  it('faster legs catch more: the place her own speed plugs in', () => {
-    const caught = (implants: string[]): number => {
+  it('faster legs end it sooner: the place her own speed plugs in', () => {
+    const rounds = (implants: string[]): number => {
       let n = 0;
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 150; i++) {
         const { w } = on(`legs-${i}`, ['Pylon Avenue'], 20);
         w.hero.implants = implants;
         w.hero.reflex = 8;
         const runner = guy(w, `r${i}`);
-        const { c } = ctxOf(w, new Rng(`legs-${i}`));
-        if (runChase(c, { mode: 'pursuer', cause: 'test', foes: [onFoot(runner, 5)] }) === 'caught') n++;
+        const { c, events } = ctxOf(w, new Rng(`legs-${i}`));
+        runChase(c, { mode: 'pursuer', cause: 'test', foes: [onFoot(runner, 5)] });
+        n += Number(events.find((e) => e.type === 'chase_end')?.data.rounds ?? 0);
       }
       return n;
     };
-    expect(caught(['hydraulic_calves'])).toBeGreaterThan(caught([]));
+    expect(rounds(['hydraulic_calves'])).toBeLessThan(rounds([]));
   });
 
   it('on foot she is run down by a cruiser, and the road still matters', () => {
@@ -283,7 +284,7 @@ describe('a chase on foot', () => {
       if (k >= 0) {
         grabbed++;
         // She is on it: from then on the chase is a bike's, until it ends.
-        for (const e of events.slice(k)) if (e.type === 'chase_round') expect(['bike', 'foot']).toContain(e.data.body);
+        for (const e of events.slice(k)) if (e.type === 'chase_round') expect(['bike', 'foot', 'car']).toContain(e.data.body); // (a bike can throw her and she can take a car instead)
         if (events.slice(k).some((e) => e.type === 'chase_round' && e.data.body === 'bike')) rode++;
       }
       for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
