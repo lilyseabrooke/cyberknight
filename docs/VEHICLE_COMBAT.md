@@ -40,6 +40,8 @@ interface Vehicle {
   maxHp: number;        // NEW: civilian 60, police 140, atlas 120
   armor: number;        // NEW: flat cut from gunfire, not from rams or fire. civilian 0, police 3, atlas 2
   mounted?: 'gun' | 'ram';  // NEW: police and Atlas fleet cars may have one; a civilian car never does
+  seats: number;        // NEW: how many companions ride with her (she drives). civilian 2, police 3, atlas 3
+  riders: Id[];         // NEW: the companions aboard right now (see "Riders")
   // and the existing fields; ParkedVehicle adds at / until
 }
 
@@ -48,10 +50,19 @@ type CarState = 'sound' | 'scuffed' | 'battered' | 'smoking' | 'wrecked';   // b
 
 - **Condition changes how it drives**: `pace` and her drive reach scale by `0.5 + 0.5 * hp/maxHp`; `smoking` can stall a
   chase round. Condition is also the text key (`car_hit:scuffed`, `car_hit:smoking`), so damage is visible in the log.
-- **Destroyed means destroyed**: at 0 hp the car leaves `hero.vehicle` / `hero.parked` for good, the street gets a
-  `w.flags['wreck:<locId>']` (a burnt-out shell that later scenes on that street get as permanent cover), and she takes a
-  **crash** if she was in it (damage, a chance of `broken_leg`, `burning` if it blew; worse the faster she was going). A
-  wreck is never recovered and never towed.
+- **Destroyed means destroyed**: at 0 hp the car leaves `hero.vehicle` / `hero.parked` for good and the street gets a
+  `w.flags['wreck:<locId>']` (a burnt-out shell that later scenes on that street get as permanent cover). A wreck is never
+  recovered and never towed.
+- **The explosion is what makes a car dangerous to sit in.** A car that reaches 0 hp *explodes* (every kind of car; fuel,
+  batteries, a mounted gun's magazine), and **everyone inside takes heavy damage**: her and every rider. Damage ignores
+  `armor` and cover, and is a big flat chunk of the occupant's own max hp (a first guess: `0.45 * maxHp + 0.25 * car.maxHp`, so a
+  fresh-ish character survives one with a sliver left, and a hurt one doesn't), plus `burning` and a chance of an injury
+  (`broken_leg`, ribs). Faster is worse: add `pace` at the moment of destruction in a chase. Anyone *outside* the car
+  takes the lighter blast from Mode 2 (adjacent cells only). The better the car, the bigger the bang (it scales with
+  `maxHp`), so a tough car buys her time, not safety.
+- **She gets a warning.** `smoking` (below 25% hp) is the cue: text says so, and getting out is a `smart` desire the AI feels
+  strongly. Bailing from a smoking car at speed costs fall damage but not the blast, and she can drag riders out only if she
+  has a free action for each (`bail` takes one rider per round, the rest stay in and go up with it).
 - **Repair** is a `tinkering` action at a street with her car (and, later, a garage place): spend cash/time for hp.
   Optional for the first version: a damaged car simply stays damaged.
 - **Whose car it was still matters**: damaging or wrecking an NPD car adds NPD heat; an Atlas car, Atlas heat (reuse
@@ -107,7 +118,7 @@ Then each chaser takes one action from what its band allows:
 
 **Damage routing.** A shot at the hero first checks the car: roll against `Vehicle.armor`, then the car takes the hit
 (`hp -= dmg - armor`) and a spill-through share lands on her (30% on a clean hit, more on a crit or when the car is
-`smoking`). That's the whole "car as armor": she is safer in a good car and in much more trouble as it falls apart. Fire and
+`smoking`). That's the whole "car as armor": she is safer in a good car and in much more trouble as it falls apart, and the end of the car is the end of her cover *and* a bomb. Fire and
 rams ignore `armor`. At `hp <= 0` the car wrecks (above), the chase ends as `wrecked`, and she is thrown out into the
 nearest street to carry on on foot (or into a scene fight with whoever survived and is still on their wheels).
 
@@ -163,8 +174,67 @@ interface Grid { /* ...existing */ objects?: BoardObject[] }
   - `ram_cover`: smash a foe's cruiser out of position (moves the object; units it was covering lose cover).
   - `shoot_from_car`: when inside, she fires over the door: the car is hers as cover with no cell between, and `flying`-style
     reach. Foes can still hit her through it; damage is routed as in the chase (car first, a share spills through).
+  - `force_door` (a foe's action, see "Doors"): a melee opponent adjacent to the car pries it open and she loses the car as cover.
 - **Foe vehicles** are the same object. Police cruisers have `team: 'foe'` and cover foes; destroying one is NPD heat; a
   dead cruiser is a wreck for the rest of the fight.
+
+## Doors: melee gets her out of the car
+
+Being *inside* the car (aboard) is the strongest cover, so it has a counter that doesn't need a gun: **melee opponents can force
+the door as an action.** On the board, a unit is either *behind* the car (ordinary cover, as above) or *aboard* it:
+
+```ts
+// tactics.ts: Unit
+aboard?: string;            // BoardObject id: the car she (or a rider) is sitting in
+// grid.ts: BoardObject
+doors: 'shut' | 'forced';   // forced is permanent for the fight; the car can be got back into, but gives no cover
+```
+
+- **Why aboard is good**: foes that aren't adjacent have to damage the car to get at her (damage routed car-first, spill-through
+  a share), and `shoot_from_car` needs no cell between her and the window. Armor and `hp` matter.
+- **`force_door`** (any foe with melee reach, adjacent to the car, aboard targets only): the action's chance is
+  `base - car.armor*k - (door already dented? bonus)` plus `muscle` (the bigger the foe the better) and gets a bonus once the car
+  is `battered`; a failure dents it (`+bonus` next time) and costs the foe its action. **On success `doors` becomes `'forced'`
+  and every unit aboard is hauled out onto the nearest free cell beside the car**, losing in-car cover (they're now just
+  standing next to ordinary cover) and taking a round of `stagger`. The car can be got back into (`get_in`, a move action, no
+  cover while the doors hang open), still burns, and can still be driven off, so she can race the foes back to it.
+- **Counters**: driving off (`drive_off`) before they're adjacent; a rider with `absorb` assist (a scrapper-bot) can `interpose`
+  at the door (the existing `interposed` flag) to absorb the first forced attempt; killing the foe first.
+- **In a chase**, `locked` band is the same thing: a melee foe (or a dragon with a claw) in the `locked` band can `force_door`;
+  success ends the chase as `bailed` (she is dumped out at speed: fall damage by `pace`, a chance of injury) and the car is
+  left to whoever took it. Driving at speed is the counter: `pace` above the foe's removes the chance (`locked` is only
+  reachable if the gap closes).
+- **Dragons**: flyers and `ares4` can force doors too. A ram-plated Ares is the one that does it with a roof-first rip.
+
+## Riders: companions in the car
+
+Companions already travel with her (`hero.companions`, up to `MAX_COMPANIONS = 3`, `companions.ts`). A car adds a *seating limit*:
+`Vehicle.seats`, the number of **seat-units** of companions it carries, and she **chooses who comes**.
+
+```ts
+// companions.ts: KindDef
+seats?: number;             // seat-units it takes; default 1. scrapper-bot 2 (it's big), pigeon 0 (it rides her shoulder)
+// types.ts: Companion
+at?: Id;                    // NEW: set when she left them behind: they wait on that street, not with her
+```
+
+- **Choosing**: when she gets in a car (a hijack she wins, or `getin`) with more companions than seats, she picks within capacity.
+  The AI chooses by a score (the same ones `Sim` uses to value an ally: `assist.dmg` / `absorb` / `disable`, hp fraction, and
+  `loyalty`); the big tanks lose out only to small gunners if seats are short. She can also prefer to leave a wounded one
+  safe. A `choose_riders` step emits a `riders` event ("Blackbird squeezes in the drone and the kids; the scrapper-bot
+  stays on the kerb and watches them go") and `Vehicle.riders` holds the ids.
+- **Left behind**: those not chosen get `Companion.at = <street>`, stop counting as in her party for fights (they aren't units on
+  the board), and **follow on foot**: they show up at the first street where she stops and parks, after the time it takes to walk
+  there (`hopMinutes`-style, so a long drive leaves them a long way behind), as `companion_catches_up`. If she doesn't stop
+  within a day they go home (the existing `removeCompanion(..., 'left')`, `Companion.home`).
+- **Parking indoors**: she goes in and riders go with her (they were never the car's); no separate state. Only the *drive*
+  and the *scene fight on the street* care who is aboard.
+- **In combat**: riders are `Unit`s with `aboard` set, so they share the car's cover, take the explosion with her, and can
+  be hauled out when the door is forced. In a chase each rider with an `assist.dmg` adds a small shot to her `shoot` action
+  (a drone out the window); `absorb` riders absorb damage that spills through (the pigeon takes it, then it dies). Riders
+  are lost with the car (an explosion can kill them and they're simply gone from `hero.companions`), which is the other
+  half of why bringing everyone is a choice, not free value.
+- **Capacity by car**: civilian cars 2, police 3, Atlas 3, vans and fleet vans more (a later `kind`).
 
 ## Where the two modes meet
 
@@ -185,9 +255,9 @@ into her car when a fight starts next to it is the first thing a smart hero does
 
 ## Phases
 
-0. **Data** (no visible behaviour): `Vehicle.pace/hp/maxHp/armor/mounted`; `damageCar`; wreck handling and the `wreck:` flag;
+0. **Data** (no visible behaviour): `Vehicle.pace/hp/maxHp/armor/mounted/seats/riders`, `KindDef.seats`, `Companion.at`; `damageCar`; wreck handling and the `wreck:` flag;
    persist damage on parked cars; `heroSpeed` reads the car. Existing hijack/drive behaviour must not change.
-1. **Cover mode**: `BoardObject`, placement, damage-to-object, wrecks and blasts, `take_cover`, `drive_off`. Text for `car_hit` /
+1. **Cover mode**: `BoardObject` (with `doors`), `Unit.aboard`, placement, damage-to-object, wrecks and *the explosion that hurts everyone aboard*, `take_cover`, `drive_off`, `force_door`, `get_in`. Text for `car_hit` /
    `car_wreck`. Ordinary fights on streets with a parked car already read as richer, and nothing else changes.
 2. **Chase engine** with a dragon as the first opponent (`chase_flight` with a vehicle); Hermes Mk. III becomes catchable.
 3. **Foe vehicles and pursuit**: police/Atlas cruisers, the chase from `npdResponse`, hijack-triggered chases; `run_down`, `ram_cover`.
@@ -196,11 +266,11 @@ into her car when a fight starts next to it is the first thing a smart hero does
 
 ## Open choices (defaults assumed unless you say otherwise)
 
-- **Seats and companions**: she drives alone for now; companions don't ride. (Later: a passenger shoots while she drives.)
+- **Seats and companions**: riders are her companions within `seats`; she chooses (above). Nobody else rides, and nobody takes the wheel.
 - **Does she get a gun mount?** Police and Atlas cars can have one; hers only if she steals one. No fitting a civilian car.
 - **Wrecks as permanent cover**: yes, cheap and satisfying; they never expire.
 - **Repair**: not in the first cut. A battered car stays battered until it dies.
 - **RNG**: new rolls (cars on boards, chase rounds) draw from a derived `Rng` per concern, so existing seeds keep their stories;
   verify with `npm test` before and after (see the same note in `DRAGONS_PLAN.md`).
-- **Balance**: a good car makes her nearly untouchable in a fight and Hermes Mk. III trivial for a skilled driver. That's fine
-  for now; mention it and carry on.
+- **Balance**: the explosion, forced doors and seats are what stop the car being a safe room. It's still the best cover she has
+  and Hermes Mk. III is still easy for a skilled driver. Fine for now; note it and carry on.
