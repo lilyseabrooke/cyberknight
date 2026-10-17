@@ -31,6 +31,10 @@ const act = (a: unknown): string => ACTS[String(a)] ?? String(a);
 const lc = (s: unknown): string => String(s).charAt(0).toLowerCase() + String(s).slice(1);
 /** Start a sentence with whatever it is. */
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+/** Its callsign, read off its flank. */
+const named = (d: EventData): string => (d.name ? ` Stencilled on its flank: ${d.name}.` : '');
+/** How long ago, in nights. */
+const ago = (n: unknown): string => (Number(n) <= 0 ? 'earlier tonight' : Number(n) === 1 ? 'last night' : `${n} nights ago`);
 /** Which way something that just went through went. */
 const heads = (d: EventData): string => (d.heading ? ` It went toward ${d.heading}.` : '');
 const roman = (n: unknown): string => ['', 'I', 'II', 'III', 'IV', 'V'][Number(n)] ?? String(n);
@@ -917,22 +921,27 @@ const T: Record<string, Entry> = {
   ),
   // ---- a dragon about the district: it comes into the street, is heard from the next one over, takes off
   'dragon_close:hermes': e(
-    (d) => [d.passing ? (Number(d.mark) === 3 ? `Something white goes over ${d.place} so fast the sound arrives after it. A Hermes Mk. III. Whatever it was carrying, it was gone before anyone could see.${heads(d)}` : `A Hermes courier skims over ${d.place}, reads a few door numbers, and is gone.${heads(d)}`) : Number(d.mark) === 3 ? `A Hermes Mk. III drops into ${d.place}, cargo cradle swinging, ${d.cargo} clamped underneath. It does not stay.` : `A Hermes courier drops into ${d.place}, clipboard flapping, looking for a door number.`],
+    (d) => [d.passing ? (Number(d.mark) === 3 ? `Something white goes over ${d.place} so fast the sound arrives after it. A Hermes Mk. III. Whatever it was carrying, it was gone before anyone could see.${heads(d)}` : `A Hermes courier skims over ${d.place}, reads a few door numbers, and is gone.${heads(d)}`) : Number(d.mark) === 3 ? `A Hermes Mk. III drops into ${d.place}, cargo cradle swinging, ${d.cargo} clamped underneath. It does not stay.${named(d)}` : `A Hermes courier drops into ${d.place}, clipboard flapping, looking for a door number.${named(d)}`],
     (d) => (Number(d.mark) === 3 ? ['It is RIGHT THERE.', 'Think of the money.'] : ['A courier. Not in a hurry, for once.']),
   ),
   'dragon_close:demeter': e(
-    (d) => [d.passing ? `The jingle of a Demeter Mk. ${roman(d.mark)} swells over ${d.place} and recedes.${heads(d)}` : `A Demeter Mk. ${roman(d.mark)} turns into ${d.place} at a deliberate walking pace, baskets swinging, a speaker playing its harvest jingle. It is looking at everyone, one at a time.${d.hidden ? ' Blackbird has already stepped out of sight.' : ''}`],
+    (d) => [d.passing ? `The jingle of a Demeter Mk. ${roman(d.mark)} swells over ${d.place} and recedes.${heads(d)}` : `A Demeter Mk. ${roman(d.mark)} turns into ${d.place} at a deliberate walking pace, baskets swinging, a speaker playing its harvest jingle. It is looking at everyone, one at a time.${named(d)}${d.hidden ? ' Blackbird has already stepped out of sight.' : ''}`],
     ['Everyone is suddenly very interested in their shoes.', 'Methodical. I hate methodical.'],
   ),
   'dragon_close:ares': e(
-    (d) => [d.passing ? `An Ares Mk. ${roman(d.mark)} tears across ${d.place} in a shower of sparks, loudspeaker still reading out its list, and is gone.${heads(d)}` : `An Ares Mk. ${roman(d.mark)} crashes into ${d.place}, taking a lamp post with it. "EVERYONE HERE IS A SUSPECT," it announces. "THIS IS A COURTESY."${d.hidden ? ' Blackbird has already found a shadow.' : ''}`],
+    (d) => [d.passing ? `An Ares Mk. ${roman(d.mark)} tears across ${d.place} in a shower of sparks, loudspeaker still reading out its list, and is gone.${heads(d)}` : `An Ares Mk. ${roman(d.mark)} crashes into ${d.place}, taking a lamp post with it. "EVERYONE HERE IS A SUSPECT," it announces. "THIS IS A COURTESY."${named(d)}${d.hidden ? ' Blackbird has already found a shadow.' : ''}`],
     ['Reckless. That one is reckless.', 'It does not even look where it is going.'],
   ),
   'dragon_close:artemis': e(
-    (d) => [d.passing ? `An Artemis cuts across ${d.place} on a diagonal, scanner flickering, and is on to the next street.${heads(d)}` : Number(d.mark) === 2 ? `An Artemis Mk. II drops into ${d.place} and does not take its optics off Blackbird.${d.hidden ? ' She had already got under cover.' : ''}` : `An Artemis sweeps into ${d.place}, red scanner raking the street from end to end.${d.hidden ? ' Blackbird had got out of sight in time.' : ''}`],
+    (d) => [d.passing ? `An Artemis cuts across ${d.place} on a diagonal, scanner flickering, and is on to the next street.${heads(d)}` : Number(d.mark) === 2 ? `An Artemis Mk. II drops into ${d.place} and does not take its optics off Blackbird.${named(d)}${d.hidden ? ' She had already got under cover.' : ''}` : `An Artemis sweeps into ${d.place}, red scanner raking the street from end to end.${named(d)}${d.hidden ? ' Blackbird had got out of sight in time.' : ''}`],
     (d) => (Number(d.mark) === 2 ? ['It is not looking at the street. It is looking at me.'] : ['A sweep. Stay still.']),
   ),
-  'dragon_close': e((d) => [`A dragon comes into ${d.place}.`], ['Here we go.']),
+  'dragon_close': e((d) => [`A dragon comes into ${d.place}.${named(d)}`], ['Here we go.']),
+  // ---- one she has seen before
+  'dragon_recognized': e(
+    (d) => [`Blackbird knows that callsign: ${d.name}. She saw it ${ago(d.nights)}${d.place ? `, over ${d.place}` : ''}${Number(d.seen) > 1 ? `, and ${Number(d.seen)} times before that` : ''}.${Number(d.fought) > 0 ? ' They have history.' : ''}`],
+    (d) => (Number(d.fought) > 0 ? ['You. Again. We never did finish that.', 'Oh good. It remembers me too.'] : d.variant === 'demeter' ? ['It wants more money. It always wants more money.'] : d.variant === 'hermes' ? ['Still delivering. Still not home.'] : d.variant === 'ares' ? ['Still crashing around the place. Some things you can rely on.'] : ['I know that one. It knows I know that one.']),
+  ),
   // ---- a dragon that has made a place its own
   'dragon_territory:claim': e(
     (d) => [d.family === 'demeter' ? `The Demeter sits down heavily in the middle of ${d.place}, baskets fanned. This is its street now, and it is watching the doors.` : d.family === 'ares' ? `The Ares plants itself in ${d.place} and keeps its loudspeaker trained on the junction. It has claimed the place.` : d.family === 'hermes' ? `The Hermes settles on a lamp post over ${d.place} and will not be moved. It has decided this is its street.` : `The Artemis comes to rest over ${d.place} and folds its wings. It has picked this place, and it is watching who comes in.`],

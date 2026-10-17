@@ -492,8 +492,8 @@ describe('saves and nights', () => {
     let raids = 0;
     let cleared = 0;
     let paid = 0;
-    // (A spot is cleared in about one night in three, so four nights could miss; eight don't.)
-    for (const seed of ['n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8']) {
+    // (A spot is cleared in about one night in three, so four nights could miss; sixteen don't.)
+    for (const seed of Array.from({ length: 16 }, (_, i) => `n${i + 1}`)) {
       const { world: w, events } = runToEnd({ seed: `spot-night-${seed}`, competence: 0.5 });
       raids += events.filter((e) => e.type === 'goal_new' && e.data.dungeon === 'spot' && /^raid /.test(String(e.data.goal))).length;
       cleared += events.filter((e) => e.type === 'dungeon_cleared' && e.data.kind === 'spot').length;

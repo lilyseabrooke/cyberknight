@@ -20,6 +20,7 @@ import { settleContracts } from './contracts';
 import { ensureDungeon } from './dungeons';
 import { afterTakedown, downFor, isShut } from './shutdown';
 import { dropFlights, modelOf } from './dragonmodels';
+import { markKilled } from './dragonlog';
 
 export { npcsAt };
 
@@ -440,6 +441,8 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
       const m = modelOf(f.archetype);
       if (m && !f.tags.includes('artemis') && f.tags.includes('dragon')) h.fame += 3 * m.mark;
     }
+    // The ones that don't come back.
+    for (const f of foes) if (f.tags.includes('dragon') && !f.alive) markKilled(w, f);
   }
   if (w.flight && foes.some((f) => w.flight!.ids.includes(f.id))) dropFlights(w, w.flight.ids);
   if (result === 'win' && foes.some((f) => f.tags.includes('boss'))) h.fame += 10;

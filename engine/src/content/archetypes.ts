@@ -4,6 +4,7 @@ import { makeAmmoBox, makeItem } from './items';
 import { rating, variantOf } from '../weapons';
 import { rollPerson, type PersonSpec } from '../people';
 import { baseHp, basePower } from '../grade';
+import { CALLSIGNS, callsign } from './callsigns';
 
 export interface ArchetypeDef {
   role: string;
@@ -580,12 +581,12 @@ export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
   if (kind === 'kid') return rng.pick(KID);
   if (kind === 'robot') return `${rng.pick(ROBOT)}-${rng.int(100, 999)}`;
   if (kind === 'monster') return 'CINDERJAW';
-  if (kind === 'artemis') return `ARTEMIS-${rng.int(100, 999)}`;
-  if (kind === 'hera') return 'HERA-V "MATRIARCH"';
-  if (kind === 'hermes') return `HERMES-${rng.int(100, 999)}`;
-  if (kind === 'nextday') return 'HERMES-III "NEXT-DAY"';
-  if (kind === 'demeter') return `DEMETER-${rng.int(100, 999)} "${rng.pick(['TITHEMOTHER', 'HARVEST HOME', 'THE LANDLADY', 'CORNUCOPIA'])}"`;
-  if (kind === 'ares') return `ARES-${rng.int(100, 999)} "${rng.pick(['QUIET HOURS', 'CURFEW', 'DUE PROCESS', 'LAST CALL'])}"`;
+  if (kind === 'artemis') return callsign(rng, 'ARTEMIS', 'artemis');
+  if (kind === 'hera') return `HERA-V "${rng.pick(CALLSIGNS.hera!)}"`;
+  if (kind === 'hermes') return callsign(rng, 'HERMES', 'hermes');
+  if (kind === 'nextday') return callsign(rng, 'HERMES', 'express');
+  if (kind === 'demeter') return callsign(rng, 'DEMETER', 'demeter');
+  if (kind === 'ares') return callsign(rng, 'ARES', 'ares');
   return `${rng.pick(FIRST)} ${rng.pick(LAST)}`;
 }
 

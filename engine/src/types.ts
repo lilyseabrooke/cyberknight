@@ -638,6 +638,26 @@ export interface Flight {
   persist?: boolean;
   /** What this one is like, so two of a kind needn't behave alike. Absent means the family's average. See `DragonTemper`. */
   temper?: DragonTemper;
+  /** She has seen this one on this visit (so it is in `Legacy.dragonLog`, once). */
+  logged?: boolean;
+}
+
+/** A dragon she has seen: enough to bring it back later, and for her to know it when it comes. See dragonlog.ts. */
+export interface DragonRecord {
+  /** Its callsign, which is how she knows it. */
+  name: string;
+  /** The archetype it is, e.g. `ares2`. */
+  model: string;
+  temper: DragonTemper;
+  /** Visits she has seen it on, the run it was first and last seen on, and the times she has fought it. */
+  seen: number;
+  first: number;
+  last: number;
+  fought: number;
+  /** Where she last saw it. */
+  place?: string;
+  /** She killed it. It will not be back. */
+  killed?: boolean;
 }
 
 /**
@@ -713,6 +733,8 @@ export interface Legacy {
   runs: number;
   /** Dragons that are kept from night to night (`Flight.persist`), asleep until the next one begins. */
   dragons?: Flight[];
+  /** Every dragon she has seen, newest sightings last. New dragons are now and then one of these again. */
+  dragonLog?: DragonRecord[];
   deaths: DeathRecord[];
   /** Who she is. The backup in the lab restores the same personality and the same name into each new body. */
   personality: Personality;

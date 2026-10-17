@@ -686,7 +686,7 @@ describe('Ares', () => {
 
 describe('what it reads like', () => {
   it('every event the new dragons raise has text, and none of it leaves a token showing', () => {
-    const base = { mark: 2, count: 1, place: 'Strand Street', cargo: 'a sealed Atlas payroll case', fame: 12, amount: 300, owed: 40, hit: 4, fine: 20, npc: 'Dex Mercer', gang: 'Rust Choir', fate: 'down', warned: false, hidden: false, left: false, screams: false, standing: false, season: 'winter', was: 600, passing: false, here: false, heading: 'the alley beside the Halo', family: 'demeter' };
+    const base = { mark: 2, count: 1, place: 'Strand Street', cargo: 'a sealed Atlas payroll case', fame: 12, amount: 300, owed: 40, hit: 4, fine: 20, npc: 'Dex Mercer', gang: 'Rust Choir', fate: 'down', warned: false, hidden: false, left: false, screams: false, standing: false, season: 'winter', was: 600, passing: false, here: false, heading: 'the alley beside the Halo', family: 'demeter', name: 'ARES-237 "QUIET HOURS"', nights: 1, seen: 2, fought: 0 };
     const types: [string, string[]][] = [
       ['dragon_flight', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_close', ['hermes', 'demeter', 'ares', 'artemis']],
@@ -701,6 +701,7 @@ describe('what it reads like', () => {
       ['dragon_follow', ['artemis']],
       ['dragon_territory', ['claim', 'attack']],
       ['dying_dies', ['']],
+      ['dragon_recognized', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_chase', ['caught', 'lost']],
       ['tithe_pay', ['full', 'short', 'broke']],
       ['tithe_haggle', ['win', 'fail']],
@@ -712,7 +713,7 @@ describe('what it reads like', () => {
     const rng = new Rng('words');
     for (const [type, variants] of types) {
       for (const variant of variants) {
-        for (const extra of [{}, { mark: 1 }, { mark: 3, screams: true, warned: true, hidden: true, left: true, fate: 'dying', family: 'hermes', standing: true, count: 2, owed: 0, passing: true, here: true }, { mark: 4, family: 'ares' }, { family: 'artemis' }]) {
+        for (const extra of [{}, { mark: 1 }, { mark: 3, screams: true, warned: true, hidden: true, left: true, fate: 'dying', family: 'hermes', standing: true, count: 2, owed: 0, passing: true, here: true }, { mark: 4, family: 'ares', name: '' }, { family: 'artemis', nights: 0, seen: 1, fought: 2, place: 'Strand Street' }]) {
           const ev: GameEvent = { beat: 1, type, outcome: 'mixed', data: { ...base, ...(variant ? { variant } : {}), ...extra } };
           expect(hasTemplate(ev), `${type}:${variant}`).toBe(true);
           for (const line of render(ev, { rng, realName: 'Pat Doe', personality: personalityFrom({}) })) expect(line.text, `${type}:${variant}`).not.toMatch(/[{}]|undefined|NaN|\[object/);
@@ -1005,5 +1006,176 @@ describe('dying', () => {
     expect(w2.npcs.dy_o!.alive).toBe(false);
     expect(w2.npcs.dy_o!.dying).toBeUndefined();
     expect(w2.dying).toEqual([]);
+  });
+});
+
+describe('callsigns', () => {
+  it('every dragon has one, in the form of its model, a number and a name, and no two are alike for long', () => {
+    const names = new Set<string>();
+    for (const id of Object.keys(DRAGON_MODELS)) {
+      for (let i = 0; i < 12; i++) {
+        const n = spawnNpc(new Rng(`${id}-${i}`), `cs_${id}_${i}`, id, 'street_main');
+        expect(n.name, id).toMatch(id.startsWith('hera') ? /^HERA-V ".+"$/ : /^[A-Z]+-\d{3} "[A-Z' -]+"$/);
+        names.add(n.name);
+      }
+    }
+    expect(names.size).toBeGreaterThan(Object.keys(DRAGON_MODELS).length * 12 * 0.9);
+    // the family shows in the name
+    expect(spawnNpc(new Rng('x'), 'cs_a', 'ares2', 'street_main').name).toMatch(/^ARES-/);
+    expect(spawnNpc(new Rng('x'), 'cs_h', 'hermes3', 'street_main').name).toMatch(/^HERMES-/);
+    // and CINDERJAW is still CINDERJAW
+    expect(spawnNpc(new Rng('x'), 'cs_c', 'apollo', 'overpass').name).toBe('CINDERJAW');
+  });
+});
+
+describe('the dragons she has seen', () => {
+  const sighting = (seed: string, model = 'demeter') => {
+    const w = world(seed);
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const t = ctxOf(w, seed);
+    const f = withHer(w, t.c, model);
+    f.roam!.met = false; // she hasn't laid eyes on it yet
+    return { w, f, ...t };
+  };
+
+  it('is told the callsign when a dragon turns up, and the book keeps it', () => {
+    const w = world('book');
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'book');
+    const f = spawnFlight(c, 'ares2', 1, { at: 'halo_alley' })!;
+    f.roam!.nextAt = w.clock;
+    f.roam!.visited = ['halo_alley'];
+    f.temper = { curiosity: 1, aggression: 0.5, territoriality: 0, patience: 1, alertness: 0.5 };
+    for (let b = 0; b < 60 && !events.some((e) => e.type === 'dragon_close'); b++) {
+      tick(w, c);
+      if (f.locationId !== 'street_main') f.roam!.nextAt = w.clock;
+    }
+    const close = events.find((e) => e.type === 'dragon_close' && !e.data.passing)!;
+    expect(close).toBeTruthy();
+    const name = w.npcs[f.ids[0]!]!.name;
+    expect(close.data.name).toBe(name);
+    expect(render(close, { rng: new Rng('r'), realName: 'Pat Doe', personality: personalityFrom({}) }).map((l) => l.text).join(' ')).toContain(name);
+    const log = w.legacy.dragonLog!;
+    expect(log.length).toBe(1);
+    expect(log[0]).toMatchObject({ name, model: 'ares2', seen: 1, first: w.legacy.runs, last: w.legacy.runs });
+    expect(log[0]!.temper).toEqual(f.temper);
+    // it isn't a dragon she's seen before, so nobody says so
+    expect(events.some((e) => e.type === 'dragon_recognized')).toBe(false);
+  });
+
+  it('counts a dragon once a visit, however many times it turns into her street', () => {
+    const { w, f, c } = sighting('once');
+    for (let i = 0; i < 3; i++) {
+      f.roam!.met = false;
+      tick(w, c, 1, 0);
+    }
+    expect(f.logged).toBe(true);
+    expect(w.legacy.dragonLog!.length).toBe(1);
+    expect(w.legacy.dragonLog![0]!.seen).toBe(1);
+  });
+
+  it('now and then a new dragon is one she has seen before, and she knows it', () => {
+    let again = 0;
+    let fresh = 0;
+    for (let i = 0; i < 60; i++) {
+      const w = world(`again-${i}`);
+      w.hero.locationId = 'street_main';
+      clearRoom(w, 'street_main');
+      w.legacy.runs = 5;
+      const temper = { curiosity: 0.11, aggression: 0.22, territoriality: 0.33, patience: 0.44, alertness: 0.55 };
+      w.legacy.dragonLog = [{ name: 'DEMETER-555 "FINAL NOTICE"', model: 'demeter', temper, seen: 2, first: 3, last: 4, fought: 1, place: 'Strand Street' }];
+      const { c, events } = ctxOf(w, `again-${i}`);
+      const f = spawnFlight(c, 'demeter', 1, { at: 'street_main' })!;
+      if (w.npcs[f.ids[0]!]!.name === 'DEMETER-555 "FINAL NOTICE"') {
+        again++;
+        expect(f.temper).toEqual(temper);
+        f.roam!.nextAt = Infinity;
+        tick(w, c, 1, 0);
+        const rec = events.find((e) => e.type === 'dragon_recognized')!;
+        expect(rec.data).toMatchObject({ name: 'DEMETER-555 "FINAL NOTICE"', seen: 2, nights: 1, fought: 1, place: 'Strand Street' });
+        expect(w.legacy.dragonLog!.length).toBe(1);
+        expect(w.legacy.dragonLog![0]).toMatchObject({ seen: 3, last: 5 });
+        const lines = render(rec, { rng: new Rng('r'), realName: 'Pat Doe', personality: personalityFrom({}) }).map((l) => l.text).join(' ');
+        expect(lines).toContain('last night');
+        expect(lines).toContain('history');
+      } else {
+        fresh++;
+      }
+    }
+    expect(again).toBeGreaterThan(10);
+    expect(fresh).toBeGreaterThan(10);
+  });
+
+  it('only a dragon of the same model, one that is not already about, and one she has not killed', () => {
+    const base = { temper: { curiosity: 0.5, aggression: 0.5, territoriality: 0.5, patience: 0.5, alertness: 0.5 }, seen: 1, first: 1, last: 1, fought: 0 };
+    let got = new Set<string>();
+    for (let i = 0; i < 60; i++) {
+      const w = world(`only-${i}`);
+      w.hero.locationId = 'halo_floor';
+      w.legacy.dragonLog = [
+        { ...base, name: 'ARES-111 "CURFEW"', model: 'ares2' },
+        { ...base, name: 'DEMETER-222 "PAYDAY"', model: 'demeter', killed: true },
+        { ...base, name: 'DEMETER-333 "RENT DAY"', model: 'demeter' },
+      ];
+      const { c } = ctxOf(w, `only-${i}`);
+      // one of them is already out there
+      const out = spawnFlight(c, 'demeter', 1, { temper: {} })!;
+      w.npcs[out.ids[0]!]!.name === 'DEMETER-333 "RENT DAY"' ? got.add('first') : got.add('fresh');
+      const second = spawnFlight(c, 'demeter', 1)!;
+      const name = w.npcs[second.ids[0]!]!.name;
+      expect(name).not.toBe('DEMETER-222 "PAYDAY"'); // killed
+      expect(name).not.toBe('ARES-111 "CURFEW"'); // a different model
+      if (w.npcs[out.ids[0]!]!.name === 'DEMETER-333 "RENT DAY"') expect(name).not.toBe('DEMETER-333 "RENT DAY"'); // already here
+    }
+    expect(got.has('first')).toBe(true);
+  });
+
+  it('a dragon she kills is marked and will not be back; one she fights is counted', () => {
+    const { w, f, c } = sighting('kill', 'hermes');
+    const name = w.npcs[f.ids[0]!]!.name;
+    tick(w, c, 1, 0); // she sees it
+    expect(w.legacy.dragonLog![0]!.name).toBe(name);
+    const npc = w.npcs[f.ids[0]!]!;
+    npc.hp = npc.maxHp = 1;
+    npc.power = 1;
+    w.hero.maxHp = w.hero.hp = 1000;
+    f.hidden = false;
+    f.noticed = false;
+    f.roam!.nextAt = Infinity;
+    run(dragonCandidates(w), 'engage_flight', c);
+    expect(w.legacy.dragonLog![0]!.fought).toBe(1);
+    expect(w.legacy.dragonLog![0]!.killed).toBe(true);
+    expect(w.flights).not.toContain(f);
+  });
+
+  it('the book is kept from night to night, and stays within bounds', () => {
+    const w = world('keepbook');
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const { c } = ctxOf(w, 'keepbook');
+    const f = withHer(w, c, 'ares2');
+    f.roam!.met = false;
+    f.hidden = true;
+    tick(w, c, 1, 0);
+    const name = w.npcs[f.ids[0]!]!.name;
+    w.ending = 'dawn';
+    const u = endRun(w);
+    expect(u.legacy.dragonLog!.map((r) => r.name)).toContain(name);
+    const w2 = beginRun(u, { seed: 'keepbook-2' });
+    expect(w2.legacy.dragonLog!.map((r) => r.name)).toContain(name);
+    // it doesn't grow without end
+    for (let i = 0; i < 100; i++) {
+      const ww = world(`cap-${i}`);
+      ww.legacy.dragonLog = w2.legacy.dragonLog;
+      ww.hero.locationId = 'street_main';
+      const cc = ctxOf(ww, `c${i}`).c;
+      const g = withHer(ww, cc, 'hermes');
+      g.roam!.met = false;
+      tick(ww, cc, 1, 0);
+      expect(g.logged).toBe(true);
+    }
+    expect(w2.legacy.dragonLog!.length).toBeLessThanOrEqual(60);
   });
 });

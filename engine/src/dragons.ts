@@ -6,7 +6,7 @@ import { train } from './skills';
 import { dragonReadiness } from './pursuit';
 import { Rng } from './rng';
 import { BASE_MIN_PER_BEAT } from './clock';
-import { addNpc, AWAY, moveNpc, removeNpc } from './population';
+import { addNpc, AWAY, moveNpc, removeNpc, renameNpc } from './population';
 import { routeTo } from './plans';
 import { influenceOf } from './factions';
 import { isShut } from './shutdown';
@@ -14,6 +14,7 @@ import { GANGS, spawnNpc } from './content/archetypes';
 import { dangerOf } from './grade';
 import { DRAGON_MODELS, TERRITORIAL, dropFlights, flightModel, hasTrait, hopMinutes, reachPerBeat, rollTemper, runsDown, temperOf, type DragonModel } from './dragonmodels';
 import { startDying } from './dying';
+import { logSighting, noteFought, pickKnown } from './dragonlog';
 
 /**
  * The dragons that aren't Apollo. Each flies into a district, goes through the pattern of its kind, takes off, and is
@@ -245,6 +246,8 @@ export function spawnFlight(c: Ctx, model: string, count: number, opts: SpawnOpt
   // Hera isn't going anywhere: she is over wherever Blackbird is, for a few beats.
   if (!m.pattern) {
     const dragons = spawnGroup(c, model, count);
+    const known = pickKnown(c, model);
+    if (known) renameNpc(w, dragons[0]!, known.name);
     const f: Flight = { kind: m.family, model, ids: dragons.map((d) => d.id), locationId: here.id, until: w.beat + 9, hidden: false, noticed: false, born: w.beat, clock: w.clock };
     w.flights.push(f);
     w.flight = f;
@@ -254,6 +257,8 @@ export function spawnFlight(c: Ctx, model: string, count: number, opts: SpawnOpt
     c.emit('dragon_flight', 'mixed', { variant: m.family, mark: m.mark, model, count, warned, place: here.name, first: !w.flags[`${m.family}_seen_before`] });
     w.flags[`${m.family}_seen_before`] = true;
     w.flags.dragon_known = true;
+    // She is looking right at it.
+    sight(c, f, m);
     return f;
   }
 
@@ -268,9 +273,12 @@ export function spawnFlight(c: Ctx, model: string, count: number, opts: SpawnOpt
   }
   const dragons = opts.persist ? spawnPersistent(c, model, count, entry) : spawnGroup(c, model, count);
   for (const d of dragons) moveNpc(w, d, entry);
+  // Now and then it is one she has seen before: the same callsign and the same temper.
+  const known = pickKnown(c, model);
+  if (known) renameNpc(w, dragons[0]!, known.name);
   const f: Flight = { kind: m.family, model, ids: dragons.map((d) => d.id), locationId: entry, until: w.beat + 100000, hidden: false, noticed: false, born: w.beat, clock: w.clock };
   if (opts.persist) f.persist = true;
-  f.temper = { ...rollTemper(new Rng(`temper:${w.worldSeed}:${f.ids[0]}`), m.family), ...opts.temper };
+  f.temper = { ...(known?.temper ?? rollTemper(new Rng(`temper:${w.worldSeed}:${f.ids[0]}`), m.family)), ...opts.temper };
   if (m.family === 'hermes' && m.traits.includes('swift')) f.cargo = rng.pick(CARGO);
   if (m.traits.includes('screams')) {
     f.phase = 'scream';
@@ -599,6 +607,16 @@ function placeFlight(w: World, f: Flight, to: Id): void {
 
 // ---- what she sees of it
 
+/** First sight of it this visit: the book gets it, and if she has seen it before she knows it. */
+function sight(c: Ctx, f: Flight, m: DragonModel): void {
+  if (f.logged) return;
+  f.logged = true;
+  const { w } = c;
+  const npc = w.npcs[f.ids[0]!];
+  const before = logSighting(w, f);
+  if (before && npc) c.emit('dragon_recognized', 'mixed', { variant: f.kind, mark: m.mark, name: npc.name, seen: before.seen, nights: w.legacy.runs - before.last, fought: before.fought, place: before.place ?? '' });
+}
+
 /** It has turned up where she is. */
 function meet(c: Ctx, f: Flight, m: DragonModel): void {
   const { w } = c;
@@ -615,7 +633,8 @@ function meet(c: Ctx, f: Flight, m: DragonModel): void {
     const hunting = w.mind.goals.find((g) => g.kind === 'dragon');
     if (warned && !(hunting && dragonReadiness(w, hunting) >= 0.5)) f.hidden = true;
   }
-  c.emit('dragon_close', 'mixed', { variant: f.kind, mark: m.mark, count: f.ids.length, place: w.locations[h.locationId]!.name, hidden: f.hidden, cargo: f.cargo ?? '' });
+  c.emit('dragon_close', 'mixed', { variant: f.kind, mark: m.mark, count: f.ids.length, place: w.locations[h.locationId]!.name, hidden: f.hidden, cargo: f.cargo ?? '', name: f.logged ? '' : w.npcs[f.ids[0]!]?.name ?? '' });
+  sight(c, f, m);
   if (f.roam!.den === h.locationId && !f.hidden) c.emit('dragon_territory', 'bad', { variant: 'claim', family: f.kind, mark: m.mark, place: w.locations[h.locationId]!.name });
 }
 
@@ -638,6 +657,7 @@ function passing(c: Ctx, f: Flight, m: DragonModel, toward: Id): void {
   const heading = loc.exits.find((e) => e.to === toward)?.label ?? w.locations[toward]?.name ?? 'the rooftops';
   f.roam!.seen = { at, toward, beat: w.beat };
   c.emit('dragon_close', 'mixed', { variant: f.kind, mark: m.mark, count: f.ids.length, place: loc.name, passing: true, heading, cargo: f.cargo ?? '' });
+  sight(c, f, m);
 }
 
 /** A sound of it from the next street over. */
@@ -704,6 +724,7 @@ function comeBack(c: Ctx, f: Flight, m: DragonModel): void {
   f.locationId = entry;
   f.hidden = false;
   f.noticed = false;
+  f.logged = false;
   f.phase = m.traits.includes('screams') ? 'scream' : m.family === 'ares' ? 'raid' : undefined;
   if (f.phase === 'scream') f.arrives = w.beat + 2 + rng.int(0, 1);
   beginVisit(c, f, m, nodes, entry);
@@ -764,6 +785,7 @@ function engage(c: Ctx, cause?: string): void {
   if (!foes.length) return;
   f.noticed = true;
   const ids = [...f.ids];
+  noteFought(c.w, foes);
   fight(c, foes, { cause: cause ?? CAUSE[f.model ?? f.kind] ?? 'a dragon', joiners: false });
   dropFlights(c.w, ids);
 }
