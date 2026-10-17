@@ -1,25 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, createWorld, hasTemplate, personalityFrom, render, type GameEvent, type World } from './index';
-import { ambientDragons, dragonCandidates, demeterSeason, gangActivity, spawnFlight } from './dragons';
-import { DRAGON_MODELS, hasTrait, heroSpeed, reachPerBeat, runsDown } from './dragonmodels';
+import { ambientDragons, dragonCandidates, demeterSeason, districtAround, gangActivity, spawnFlight } from './dragons';
+import { DRAGON_MODELS, hasTrait, heroSpeed, hopMinutes, reachPerBeat, runsDown } from './dragonmodels';
 import { ARCHETYPES, spawnNpc } from './content/archetypes';
 import { ITEMS } from './content/items';
 import { fight } from './combat';
-import { addNpc } from './population';
+import { addNpc, AWAY } from './population';
 import { routeTo } from './plans';
 import { BASE_MIN_PER_BEAT } from './clock';
 import { foeProfile } from './tactics';
+import { beginRun, endRun } from './universe';
 import type { Candidate } from './candidate';
 import type { Ctx, Flight } from './types';
 
+/** A quiet world: nothing new flies in on its own, so a test sees only the dragons it brings. */
 const world = (seed: string, competence = 0.9): World => {
   const w = createWorld({ seed, competence, personality: personalityFrom({}) });
   w.beat = 40;
+  w.flags.quiet_skies = true;
   return w;
 };
 const ctxOf = (w: World, seed: string): { c: Ctx; events: GameEvent[] } => {
   const events: GameEvent[] = [];
   return { events, c: { w, rng: new Rng(seed), emit: (type, outcome, data = {}) => void events.push({ beat: w.beat, type, outcome, data }) } };
+};
+/** Let `n` beats go by, `minutes` apiece. */
+const tick = (w: World, c: Ctx, n = 1, minutes = BASE_MIN_PER_BEAT): void => {
+  for (let i = 0; i < n; i++) {
+    w.beat++;
+    w.clock += minutes;
+    ambientDragons(c);
+  }
 };
 const run = (cands: Candidate[], key: string, c: Ctx): void => {
   const cand = cands.find((x) => x.key === key);
@@ -29,6 +40,16 @@ const run = (cands: Candidate[], key: string, c: Ctx): void => {
 const clearRoom = (w: World, loc: string): void => {
   for (const n of Object.values(w.npcs)) if (n.locationId === loc && !n.id.startsWith('tmp_')) n.alive = false;
 };
+/** A dragon with her, holding still. */
+const withHer = (w: World, c: Ctx, model: string, opts: { count?: number } = {}): Flight => {
+  const f = spawnFlight(c, model, opts.count ?? 1, { at: w.hero.locationId })!;
+  f.roam!.nextAt = Infinity;
+  f.roam!.met = true;
+  f.roam!.heroAt = w.hero.locationId;
+  w.flight = f;
+  return f;
+};
+const live = (w: World): Flight[] => w.flights.filter((f) => f.roam?.stage !== 'away');
 
 describe('the second batch of dragons: what they are', () => {
   it('every model is a real Atlas dragon with loot that exists, and the speeds say who is who', () => {
@@ -46,7 +67,6 @@ describe('the second batch of dragons: what they are', () => {
     expect(DRAGON_MODELS.hermes3!.speed).toBeGreaterThan(DRAGON_MODELS.hermes!.speed * 2);
     expect(DRAGON_MODELS.ares4!.speed).toBeGreaterThan(DRAGON_MODELS.ares2!.speed * 2);
     expect(DRAGON_MODELS.artemis2!.speed).toBeGreaterThan(DRAGON_MODELS.artemis!.speed);
-    // stats climb with the mark
     const hp = (id: string) => ARCHETYPES[id]!.hp!;
     expect(hp('demeter')).toBeLessThan(hp('demeter2'));
     expect(hp('demeter2')).toBeLessThan(hp('demeter3'));
@@ -61,12 +81,251 @@ describe('the second batch of dragons: what they are', () => {
     expect(heroSpeed(w)).toBeLessThanOrEqual(7);
     for (const id of ['hermes3', 'ares4', 'artemis2']) expect(runsDown(w, DRAGON_MODELS[id]!.speed), id).toBe(false);
     expect(runsDown(w, 1)).toBe(true);
-    // a dragon twice her speed makes up two hops for every one she makes
     expect(reachPerBeat(w, heroSpeed(w) * 2)).toBe(2);
-    // and nothing she can do on foot gets her fast enough for the Hermes Mk. III
     w.hero.reflex = 9;
     w.hero.implants.push('hydraulic_calves');
     expect(runsDown(w, DRAGON_MODELS.hermes3!.speed)).toBe(false);
+    // and the slow ones are slow on the street
+    expect(hopMinutes(DRAGON_MODELS.demeter!.speed)).toBeGreaterThan(hopMinutes(DRAGON_MODELS.hermes!.speed));
+  });
+});
+
+describe('a visit to the district', () => {
+  /** Hero indoors, nobody about: nothing for the dragon to do to her. */
+  const quiet = (seed: string) => {
+    const w = world(seed);
+    w.hero.locationId = 'halo_floor';
+    clearRoom(w, 'street_main');
+    return { w, ...ctxOf(w, seed) };
+  };
+
+  it('it flies in at the edge of the district, a couple of streets off, and says so', () => {
+    const { w, c, events } = quiet('arrive');
+    const f = spawnFlight(c, 'demeter', 1)!;
+    expect(f.locationId).not.toBe('halo_floor');
+    const anchor = 'street_main'; // the street outside the bar
+    const { dist } = districtAround(w, anchor);
+    expect(dist[f.locationId]).toBeGreaterThanOrEqual(2);
+    const ev = events.find((e) => e.type === 'dragon_flight')!;
+    expect(ev.data.place).toBe(w.locations[f.locationId]!.name);
+    expect(f.roam!.stage).toBe('stay');
+    for (const id of f.ids) expect(w.npcs[id]!.locationId).toBe(f.locationId);
+    // she isn't with it, so it isn't "the" flight
+    tick(w, c);
+    expect(w.flight).toBeNull();
+  });
+
+  it('a Demeter prowls slowly, taking in the district, and then takes off and is forgotten', () => {
+    const { w, c, events } = quiet('prowl');
+    const f = spawnFlight(c, 'demeter', 1)!;
+    const ids = [...f.ids];
+    const seen = new Set<string>([f.locationId]);
+    let left = -1;
+    for (let b = 0; b < 200 && w.flights.includes(f); b++) {
+      tick(w, c);
+      seen.add(f.locationId);
+      if (left < 0 && f.roam!.stage === 'leave') left = b;
+    }
+    expect(seen.size).toBeGreaterThanOrEqual(3);
+    // a long stay: well over an hour of world time
+    expect(left * BASE_MIN_PER_BEAT).toBeGreaterThanOrEqual(100);
+    expect(events.some((e) => e.type === 'dragon_depart' || e.type === 'dragon_flight')).toBe(true);
+    // far enough away, it is gone, bodies and all
+    expect(w.flights).not.toContain(f);
+    for (const id of ids) expect(w.npcs[id]).toBeUndefined();
+  });
+
+  it('a Demeter takes a share from anyone it finds', () => {
+    const { w, c } = quiet('collect');
+    const f = spawnFlight(c, 'demeter', 1)!;
+    // somebody in each place it might visit
+    const people = districtAround(w, 'street_main').nodes.filter((n) => n !== 'halo_floor').map((loc, i) => {
+      const n = spawnNpc(new Rng(`p${i}`), `p${i}`, 'drifter', loc);
+      n.cash = 100;
+      addNpc(w, n);
+      return n;
+    });
+    tick(w, c, 60);
+    expect(people.some((n) => n.cash < 100)).toBe(true);
+    expect(f.roam!.visited.length).toBeGreaterThan(2);
+  });
+
+  it('a Hermes picks a few places in the district, hits each, and goes', () => {
+    const { w, c } = quiet('deliver');
+    const f = spawnFlight(c, 'hermes', 1)!;
+    const goals = [...f.roam!.goals];
+    expect(goals.length).toBeGreaterThanOrEqual(3);
+    let beats = 0;
+    while (w.flights.includes(f) && f.roam!.stage === 'stay' && beats++ < 200) tick(w, c);
+    expect(f.roam!.stage === 'leave' || !w.flights.includes(f)).toBe(true);
+    for (const g of goals) expect(f.roam!.visited, g).toContain(g);
+    // quick: a short round, nothing like the Demeter's
+    expect(beats * BASE_MIN_PER_BEAT).toBeLessThan(90);
+  });
+
+  it('an Artemis makes one fast sweep of everything and takes off', () => {
+    const { w, c } = quiet('sweep');
+    const f = spawnFlight(c, 'artemis', 2)!;
+    expect(f.ids.length).toBe(2);
+    let beats = 0;
+    while (f.roam!.stage === 'stay' && beats++ < 200) tick(w, c);
+    for (const d of f.roam!.district) expect(f.roam!.visited, d).toContain(d);
+    expect(beats * BASE_MIN_PER_BEAT).toBeLessThan(60);
+    // the pack moves as one
+    expect(new Set(f.ids.map((id) => w.npcs[id]!.locationId)).size).toBe(1);
+  });
+
+  it('an Ares crashes about, hurting whoever is there, and leaves when nobody is left to hurt', () => {
+    const { w, c } = quiet('rampage');
+    const f = spawnFlight(c, 'ares2', 1)!;
+    const crowd = districtAround(w, 'street_main').nodes.filter((n) => n !== 'halo_floor').flatMap((loc, i) => {
+      const n = spawnNpc(new Rng(`g${i}`), `g${i}`, 'drifter', loc);
+      n.ephemeral = true;
+      addNpc(w, n);
+      return [n];
+    });
+    let beats = 0;
+    while (f.roam!.stage === 'stay' && beats++ < 300) tick(w, c);
+    // it found somebody, and they are not all still standing
+    expect(crowd.some((n) => !n.alive)).toBe(true);
+    // and then it ran out of people and got bored, long before its time was up
+    expect(f.roam!.stage).toBe('leave');
+    expect(w.clock).toBeLessThan(f.roam!.until + 10);
+    expect(f.roam!.lastHit).toBeGreaterThan(0);
+  });
+
+  it('an Ares with nobody to hit gives up quickly', () => {
+    const { w, c } = quiet('bored');
+    for (const loc of districtAround(w, 'street_main').nodes) clearRoom(w, loc);
+    const f = spawnFlight(c, 'ares2', 1)!;
+    let beats = 0;
+    while (f.roam!.stage === 'stay' && beats++ < 300) tick(w, c);
+    expect(f.roam!.stage).toBe('leave');
+    expect(beats * BASE_MIN_PER_BEAT).toBeLessThan(75);
+  });
+
+  it('it leaves by taking flight, and is dropped once it is far enough from her', () => {
+    const { w, c, events } = quiet('leave');
+    const f = spawnFlight(c, 'hermes', 1)!;
+    f.roam!.until = w.clock; // it has had enough
+    tick(w, c);
+    expect(f.roam!.stage).toBe('leave');
+    expect(w.flights).toContain(f);
+    let beats = 0;
+    while (w.flights.includes(f) && beats++ < 40) tick(w, c);
+    expect(w.flights).not.toContain(f);
+    expect(beats).toBeLessThan(20);
+    // close enough to hear it go
+    expect(events.filter((e) => e.type === 'dragon_depart').length + events.filter((e) => e.type === 'dragon_flight').length).toBeGreaterThan(0);
+  });
+
+  it('she hears one from the next street over', () => {
+    const w = world('near');
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'near');
+    const f = spawnFlight(c, 'demeter', 1, { at: 'halo_alley' })!;
+    f.roam!.nextAt = Infinity;
+    tick(w, c);
+    expect(events.some((e) => e.type === 'dragon_near' && e.data.variant === 'demeter')).toBe(true);
+    // not every beat
+    const n = events.filter((e) => e.type === 'dragon_near').length;
+    tick(w, c, 3);
+    expect(events.filter((e) => e.type === 'dragon_near').length).toBe(n);
+  });
+
+  it('one that turns into her street is "with her": she can deal with it, and it stops being her business when it moves on', () => {
+    const w = world('meet');
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'meet');
+    const f = spawnFlight(c, 'demeter', 1, { at: 'halo_alley' })!;
+    f.roam!.nextAt = w.clock; // moves now
+    f.roam!.visited = ['halo_alley', 'street_main~0', 'street_main~1']; // so it fancies the street
+    for (let b = 0; b < 60 && w.flight !== f; b++) {
+      tick(w, c);
+      if (f.locationId !== 'street_main') f.roam!.nextAt = w.clock;
+    }
+    expect(w.flight).toBe(f);
+    expect(events.some((e) => e.type === 'dragon_close' && e.data.variant === 'demeter')).toBe(true);
+    // it carries on without her
+    f.hidden = true;
+    f.roam!.nextAt = w.clock;
+    tick(w, c, 20);
+    expect(f.locationId === 'street_main' && w.flight === f).toBe(false);
+    expect(events.some((e) => e.type === 'dragon_pass')).toBe(true);
+  });
+
+  it('a district usually has one dragon in it, and sometimes two: a long visit and a quick one overlap', () => {
+    const w = world('numbers');
+    w.flags.quiet_skies = false;
+    w.hero.locationId = 'halo_floor';
+    const { c } = ctxOf(w, 'numbers');
+    const counts = [0, 0, 0, 0];
+    let most = 0;
+    for (let b = 0; b < 6000; b++) {
+      w.beat = 40 + b;
+      w.clock += BASE_MIN_PER_BEAT;
+      w.hero.hp = w.hero.maxHp;
+      ambientDragons(c);
+      const n = live(w).filter((f) => f.roam?.stage === 'stay').length;
+      counts[Math.min(3, n)]!++;
+      most = Math.max(most, n);
+    }
+    // there are dragons about for a good part of the time, and mostly one at a time
+    expect(counts[1]).toBeGreaterThan(0);
+    expect(counts[2]! + counts[3]!).toBeGreaterThan(0);
+    expect(counts[1]).toBeGreaterThan((counts[2]! + counts[3]!) * 2);
+    expect(most).toBeLessThanOrEqual(4);
+  });
+});
+
+describe('keeping one', () => {
+  it('a persistent dragon is not forgotten: it takes off, goes away for a while, and comes back', () => {
+    const w = world('persist');
+    w.hero.locationId = 'halo_floor';
+    const { c, events } = ctxOf(w, 'persist');
+    const f = spawnFlight(c, 'hermes', 1, { persist: true })!;
+    const id = f.ids[0]!;
+    expect(id.startsWith('tmp_')).toBe(false);
+    f.roam!.until = w.clock;
+    let beats = 0;
+    while (f.roam!.stage !== 'away' && beats++ < 100) tick(w, c);
+    expect(f.roam!.stage).toBe('away');
+    expect(w.flights).toContain(f);
+    expect(w.npcs[id]!.locationId).toBe(AWAY);
+    const arrivals = events.filter((e) => e.type === 'dragon_flight').length;
+    // and later it is back
+    w.clock = f.roam!.returnAt!;
+    tick(w, c);
+    expect(f.roam!.stage).toBe('stay');
+    expect(events.filter((e) => e.type === 'dragon_flight').length).toBe(arrivals + 1);
+    expect(w.npcs[id]!.locationId).not.toBe(AWAY);
+  });
+
+  it('and it is there the next night, asleep until it comes back; the others are not', () => {
+    const w = world('keep');
+    w.hero.locationId = 'halo_floor';
+    const { c } = ctxOf(w, 'keep');
+    const kept = spawnFlight(c, 'demeter', 1, { persist: true })!;
+    const one = spawnFlight(c, 'hermes', 1)!;
+    const id = kept.ids[0]!;
+    w.ending = 'dawn';
+    const u = endRun(w);
+    expect(u.legacy.dragons?.map((d) => d.ids[0])).toEqual([id]);
+    expect(u.npcs[id]).toBeTruthy();
+    expect(u.npcs[one.ids[0]!]).toBeUndefined();
+
+    const w2 = beginRun(u, { seed: 'keep-2' });
+    expect(w2.flights.length).toBe(1);
+    const back = w2.flights[0]!;
+    expect(back.ids[0]).toBe(id);
+    expect(back.roam!.stage).toBe('away');
+    expect(w2.npcs[id]!.locationId).toBe(AWAY);
+    expect(back.roam!.returnAt!).toBeGreaterThan(w2.clock);
+    // a night with nothing persistent starts with an empty sky
+    const w3 = beginRun(endRun(createWorld({ seed: 'plain' })), { seed: 'plain-2' });
+    expect(w3.flights).toEqual([]);
   });
 });
 
@@ -75,28 +334,28 @@ describe('Hermes', () => {
     const w = world('hermes3');
     w.hero.locationId = 'street_main';
     const { c, events } = ctxOf(w, 'h3');
-    spawnFlight(c, 'hermes3', 1);
-    const f = w.flight!;
+    const f = withHer(w, c, 'hermes3');
     expect(f.cargo).toBeTruthy();
     expect(events.find((e) => e.type === 'dragon_flight')!.data.cargo).toBe(f.cargo);
     const cands = dragonCandidates(w);
     expect(cands.map((x) => x.key)).toContain('chase_flight');
     expect(cands.map((x) => x.key)).not.toContain('engage_flight');
     run(cands, 'chase_flight', c);
-    const chase = events.find((e) => e.type === 'dragon_chase')!;
-    expect(chase.data.variant).toBe('lost');
+    expect(events.find((e) => e.type === 'dragon_chase')!.data.variant).toBe('lost');
     expect(events.some((e) => e.type === 'fight_start')).toBe(false);
-    expect(w.flight).toBeNull();
-    expect(Object.values(w.npcs).some((n) => n.archetype === 'hermes3' && n.alive)).toBe(false);
+    // it takes off, and is gone soon enough
+    expect(f.roam!.stage).toBe('leave');
+    let beats = 0;
+    while (w.flights.includes(f) && beats++ < 40) tick(w, c);
+    expect(w.flights).not.toContain(f);
   });
 
-  it('Mk. III never notices her, so it never comes to her', () => {
+  it('Mk. III never notices her, so it never comes for her', () => {
     const w = world('hermes3b');
     w.hero.locationId = 'street_main';
     const { c, events } = ctxOf(w, 'h3b');
-    spawnFlight(c, 'hermes3', 1);
-    w.flight!.until = w.beat + 200;
-    for (let i = 0; i < 100; i++) ambientDragons(c);
+    withHer(w, c, 'hermes3');
+    for (let i = 0; i < 100; i++) tick(w, c, 1, 0);
     expect(events.some((e) => e.type === 'dragon_notice')).toBe(false);
   });
 
@@ -104,17 +363,17 @@ describe('Hermes', () => {
     const w = world('hermes1');
     w.hero.locationId = 'street_main';
     const { c, events } = ctxOf(w, 'h1');
-    spawnFlight(c, 'hermes', 1);
+    const f = withHer(w, c, 'hermes');
     const cands = dragonCandidates(w);
     expect(cands.map((x) => x.key)).toContain('engage_flight');
     expect(cands.map((x) => x.key)).not.toContain('chase_flight');
     w.hero.cash = 100;
-    w.flight!.until = w.beat + 400;
-    for (let i = 0; i < 400 && !events.some((e) => e.type === 'courier_fine'); i++) ambientDragons(c);
+    for (let i = 0; i < 400 && !events.some((e) => e.type === 'courier_fine'); i++) tick(w, c, 1, 0);
     const fine = events.find((e) => e.type === 'courier_fine');
     expect(fine).toBeTruthy();
     expect(w.hero.cash).toBe(100 - Number(fine!.data.fine));
-    expect(w.flight).toBeNull();
+    // it has done its business and pays her no further mind
+    expect(f.hidden).toBe(true);
   });
 });
 
@@ -132,11 +391,10 @@ describe('Demeter', () => {
     w.hero.locationId = 'street_main';
     w.hero.cash = cash;
     const t = ctxOf(w, seed);
-    spawnFlight(t.c, model, 1);
-    w.flight!.until = w.beat + 400;
-    for (let i = 0; i < 400 && w.flight?.phase !== 'demand'; i++) ambientDragons(t.c);
-    expect(w.flight?.phase).toBe('demand');
-    return { w, ...t };
+    const f = withHer(w, t.c, model);
+    for (let i = 0; i < 400 && f.phase !== 'demand'; i++) tick(w, t.c, 1, 0);
+    expect(f.phase).toBe('demand');
+    return { w, f, ...t };
   };
 
   it('a Demeter that spots her makes a demand, and it is larger the higher the mark', () => {
@@ -149,29 +407,32 @@ describe('Demeter', () => {
     expect(dragonCandidates(a.w).map((x) => x.key).sort()).toEqual(['haggle_tithe', 'pay_tithe', 'refuse_tithe']);
   });
 
-  it('paying takes the money and the dragon moves on; being short leaves a debt that the next one adds', () => {
-    const { w, c, events } = demanded('pay');
+  it('paying takes the money and the dragon carries on without bothering her again', () => {
+    const { w, f, c, events } = demanded('pay');
     const amount = Number(events.find((e) => e.type === 'tithe_demand')!.data.amount);
     run(dragonCandidates(w), 'pay_tithe', c);
     expect(w.hero.cash).toBe(1000 - amount);
     expect(events.find((e) => e.type === 'tithe_pay')!.data.variant).toBe('full');
-    expect(w.flight).toBeNull();
+    expect(f.phase).toBeUndefined();
+    const demands = events.filter((e) => e.type === 'tithe_demand').length;
+    tick(w, c, 30, 0);
+    expect(events.filter((e) => e.type === 'tithe_demand').length).toBe(demands);
+  });
 
+  it('being short leaves a debt that the next one adds', () => {
     const poor = demanded('poor', 'demeter', 30);
     const ask = Number(poor.events.find((e) => e.type === 'tithe_demand')!.data.amount);
     run(dragonCandidates(poor.w), 'pay_tithe', poor.c);
     expect(poor.w.hero.cash).toBe(0);
     expect(poor.events.find((e) => e.type === 'tithe_pay')!.data.variant).toBe('short');
     expect(poor.w.counters.tithe_debt).toBe(ask - 30);
-    // the next collector knows
     const again = world('poor-2');
     again.counters.tithe_debt = ask - 30;
     again.hero.locationId = 'street_main';
     again.hero.cash = 30;
     const t = ctxOf(again, 'again');
-    spawnFlight(t.c, 'demeter', 1);
-    again.flight!.until = again.beat + 400;
-    for (let i = 0; i < 400 && again.flight?.phase !== 'demand'; i++) ambientDragons(t.c);
+    const f = withHer(again, t.c, 'demeter');
+    for (let i = 0; i < 400 && f.phase !== 'demand'; i++) tick(again, t.c, 1, 0);
     expect(Number(t.events.find((e) => e.type === 'tithe_demand')!.data.amount)).toBeGreaterThan(ask - 30);
   });
 
@@ -186,183 +447,167 @@ describe('Demeter', () => {
 
   it('saying no, or saying nothing, is a threat to public security: it shoots', () => {
     const { w, c, events } = demanded('no');
-    const heat = w.heat.atlas ?? 0;
     run(dragonCandidates(w), 'refuse_tithe', c);
     expect(events.find((e) => e.type === 'tithe_refuse')!.data.variant).toBe('refuse');
     expect(events.some((e) => e.type === 'fight_start' && String(e.data.dragon).startsWith('demeter'))).toBe(true);
-    expect(w.heat.atlas ?? 0).toBeGreaterThanOrEqual(Math.min(10, heat + 1) - 0);
+    expect(w.heat.atlas ?? 0).toBeGreaterThan(0);
 
     const quiet = demanded('quiet');
-    quiet.w.beat = quiet.w.flight!.until + 1;
+    quiet.w.beat = quiet.f.until + 1;
     ambientDragons(quiet.c);
     expect(quiet.events.find((e) => e.type === 'tithe_refuse')!.data.variant).toBe('silence');
     expect(quiet.events.some((e) => e.type === 'fight_start')).toBe(true);
   });
 
-  it('walking away from a demand does not settle it', () => {
-    const { w, c, events } = demanded('walk');
+  it('walking away from a demand does not settle it: it shoots her in the back and the arrears stand', () => {
+    const { w, f, c, events } = demanded('walk');
     const amount = Number(events.find((e) => e.type === 'tithe_demand')!.data.amount);
     w.hero.locationId = 'halo_alley';
     const hp = w.hero.hp;
-    ambientDragons(c);
+    tick(w, c, 1, 0);
     expect(w.counters.tithe_debt).toBe(amount);
     expect(events.some((e) => e.type === 'tithe_evade')).toBe(true);
-    // it shoots her in the back on the way out
     expect(w.hero.hp).toBeLessThan(hp);
     expect(w.heat.atlas ?? 0).toBeGreaterThan(0);
-    expect(w.flight).toBeNull();
+    // and it goes on prowling
+    expect(w.flights).toContain(f);
+    expect(f.phase).toBeUndefined();
   });
 
   it('killing one pays out what it has collected', () => {
-    const w = world('purse');
-    w.hero.locationId = 'street_main';
     const n = spawnNpc(new Rng('p'), 'p', 'demeter3', 'street_main');
     expect(n.cash).toBeGreaterThanOrEqual(900);
   });
 });
 
-describe('Artemis Mk. II', () => {
-  it('turns up for heat, and only for heat', () => {
+describe('Artemis', () => {
+  it('Mk. II turns up for heat, and only for heat', () => {
     const cold = world('cold');
     cold.hero.locationId = 'halo_floor';
+    cold.flags.quiet_skies = false;
     const hot = world('hot');
     hot.hero.locationId = 'halo_floor';
+    hot.flags.quiet_skies = false;
     hot.heat.atlas = 9;
     let coldFlights = 0;
     let hotFlights = 0;
     for (let b = 0; b < 600; b++) {
       for (const [w, tally] of [[cold, 'c'], [hot, 'h']] as const) {
         w.beat = 40 + b;
+        w.flights = [];
         w.flight = null;
-        const t = ctxOf(w, `a2-${tally}-${b}`);
-        ambientDragons(t.c);
-        if ((w.flight as Flight | null)?.model === 'artemis2') tally === 'c' ? coldFlights++ : hotFlights++;
+        ambientDragons(ctxOf(w, `a2-${tally}-${b}`).c);
+        if (w.flights.some((f) => f.model === 'artemis2')) tally === 'c' ? coldFlights++ : hotFlights++;
       }
     }
     expect(coldFlights).toBe(0);
     expect(hotFlights).toBeGreaterThan(5);
   });
 
-  it('keeps up with her: how soon it finds her again is its speed against hers', () => {
+  it('Mk. II goes for her, at its own speed, and finds her even indoors', () => {
     const w = world('track');
-    w.hero.locationId = 'street_main';
-    const { c, events } = ctxOf(w, 'tr');
-    spawnFlight(c, 'artemis2', 1);
-    const f = w.flight!;
-    f.until = w.beat + 50;
-    f.hidden = false;
-    const m = DRAGON_MODELS.artemis2!;
-    // she slips away to the bar, one hop
     w.hero.locationId = 'halo_floor';
-    expect(routeTo(w, f.locationId, 'halo_floor')!.dist).toBeGreaterThanOrEqual(1);
+    clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'tr');
+    const f = spawnFlight(c, 'artemis2', 1)!;
     const hops = routeTo(w, f.locationId, 'halo_floor')!.dist;
+    expect(hops).toBeGreaterThanOrEqual(2);
     let beats = 0;
-    while (f.locationId !== 'halo_floor' && beats < 20) {
-      w.beat++;
-      w.clock += BASE_MIN_PER_BEAT;
-      ambientDragons(c);
-      beats++;
-    }
-    expect(w.flight).toBe(f);
+    while (f.locationId !== 'halo_floor' && beats++ < 40) tick(w, c);
     expect(f.locationId).toBe('halo_floor');
-    expect(events.some((e) => e.type === 'dragon_follow')).toBe(true);
-    // it is faster than she is, so it closes a hop in less than a beat; give or take rounding
-    expect(beats).toBeLessThanOrEqual(Math.ceil(hops / reachPerBeat(w, m.speed)) + 1);
-    // the dragons moved with it
+    expect(events.some((e) => e.type === 'dragon_close' && e.data.variant === 'artemis' && e.data.mark === 2)).toBe(true);
+    // it is faster than she is, so it covers a hop in less than a beat; give or take rounding
+    expect(beats).toBeLessThanOrEqual(Math.ceil((hops * hopMinutes(DRAGON_MODELS.artemis2!.speed)) / BASE_MIN_PER_BEAT) + 2);
+    // it is on her: either it is with her, or it has already started on her
+    expect(w.flight === f || events.some((e) => e.type === 'fight_start')).toBe(true);
     for (const id of f.ids) expect(w.npcs[id]!.locationId).toBe('halo_floor');
   });
 
-  it('a patient hero who lies low for a long time gets found', () => {
+  it('a hero who lies low for a long time is found, however far it had to come', () => {
     const w = world('lowlie');
-    w.hero.locationId = 'street_main';
-    const { c } = ctxOf(w, 'll');
-    spawnFlight(c, 'artemis2', 1);
-    const f = w.flight!;
-    f.until = w.beat + 50;
     w.hero.locationId = 'halo_floor';
-    w.beat++;
-    w.clock += 120; // an hour or two of keeping her head down
-    ambientDragons(c);
+    clearRoom(w, 'street_main');
+    const { c } = ctxOf(w, 'll');
+    const f = spawnFlight(c, 'artemis2', 1)!;
+    tick(w, c, 1, 120); // an hour or two of keeping her head down
     expect(f.locationId).toBe('halo_floor');
   });
 
-  it('a dragon too slow to keep up (Demeter) just loses her', () => {
-    expect(hasTrait('demeter', 'tracks')).toBe(false);
-    const w = world('slowpoke');
-    w.hero.locationId = 'street_main';
-    const { c } = ctxOf(w, 'sp');
-    spawnFlight(c, 'demeter', 1);
+  it('a quick sweep that does not include her passes her by', () => {
+    const w = world('pass');
     w.hero.locationId = 'halo_floor';
-    ambientDragons(c);
-    expect(w.flight).toBeNull();
+    clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'pass');
+    const f = spawnFlight(c, 'artemis', 1)!;
+    let beats = 0;
+    while (w.flights.includes(f) && beats++ < 100) tick(w, c);
+    expect(events.some((e) => e.type === 'fight_start')).toBe(false);
   });
 });
 
 describe('Ares', () => {
-  const near = (seed: string, model: string) => {
-    const w = world(seed);
-    w.hero.locationId = 'street_main';
-    const t = ctxOf(w, seed);
-    spawnFlight(t.c, model, 1);
-    return { w, ...t };
-  };
-
   it('accuses everyone, gang or not', () => {
-    const { w, c, events } = near('everyone', 'ares2');
+    const w = world('everyone');
+    w.hero.locationId = 'street_main';
     clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'everyone');
     const crowd = ['barkeep', 'bartender', 'hacker', 'bouncer'].map((a, i) => {
       const n = spawnNpc(new Rng(a), `v${i}`, a, 'street_main');
       addNpc(w, n);
       return n;
     });
-    w.flight!.hidden = true; // she keeps out of it
-    w.flight!.until = w.beat + 200;
-    for (let i = 0; i < 30; i++) ambientDragons(c);
+    const f = withHer(w, c, 'ares2');
+    f.hidden = true; // she keeps out of it
+    for (let i = 0; i < 30; i++) tick(w, c, 1, 0);
     const named = events.filter((e) => e.type === 'ares_accuse' && e.data.variant === 'victim').map((e) => e.data.npc);
     expect(named.length).toBeGreaterThanOrEqual(3);
-    // none of them is a ganger, and every one gets a gang to be accused of anyway
     expect(crowd.every((n) => !n.tags.includes('ganger'))).toBe(true);
     for (const e of events.filter((x) => x.type === 'ares_accuse')) expect(String(e.data.gang).length).toBeGreaterThan(0);
     expect(crowd.filter((n) => !n.alive || n.downUntil > w.beat).length).toBeGreaterThanOrEqual(2);
   });
 
   it('can turn on her, and it is a fight', () => {
-    const { w, c, events } = near('turn', 'ares2');
-    w.flight!.until = w.beat + 200;
-    for (let i = 0; i < 200 && w.flight; i++) ambientDragons(c);
-    const hero = events.find((e) => e.type === 'ares_accuse' && e.data.variant === 'hero');
-    expect(hero).toBeTruthy();
+    const w = world('turn');
+    w.hero.locationId = 'street_main';
+    const { c, events } = ctxOf(w, 'turn');
+    withHer(w, c, 'ares2');
+    for (let i = 0; i < 200 && w.flight; i++) tick(w, c, 1, 0);
+    expect(events.find((e) => e.type === 'ares_accuse' && e.data.variant === 'hero')).toBeTruthy();
     expect(events.some((e) => e.type === 'fight_start' && e.data.dragon === 'ares2')).toBe(true);
+    // and it's over with her: the dragon doesn't linger
+    expect(w.flights.some((f) => f.model === 'ares2')).toBe(false);
   });
 
-  it('Mk. IV screams first, and a hero who gets indoors is left alone', () => {
-    const { w, c, events } = near('scream', 'ares4');
-    const f = w.flight!;
+  it('Mk. IV screams first, from the edge of the district, and a hero who gets indoors is left alone', () => {
+    const w = world('scream');
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'scream');
+    const f = spawnFlight(c, 'ares4', 1)!;
     expect(events.find((e) => e.type === 'dragon_flight')!.data.screams).toBe(true);
     expect(f.phase).toBe('scream');
     expect(f.arrives! - w.beat).toBeGreaterThanOrEqual(2);
+    expect(f.locationId).not.toBe('street_main');
     const cands = dragonCandidates(w);
     expect(cands.map((x) => x.key).sort()).toEqual(['shelter_scream', 'stand_ground']);
     run(cands, 'shelter_scream', c);
     expect(w.locations[w.hero.locationId]!.outdoors).toBe(false);
-    // the raid goes on without her; she is not in it
-    for (let i = 0; i < 12 && w.flight; i++) {
-      w.beat++;
-      ambientDragons(c);
-    }
-    expect(w.flight).toBeNull();
+    let beats = 0;
+    while (w.flights.includes(f) && beats++ < 200) tick(w, c);
+    expect(w.flights).not.toContain(f);
+    expect(events.some((e) => e.type === 'ares_arrive')).toBe(true);
     expect(events.some((e) => e.type === 'fight_start')).toBe(false);
     expect(events.some((e) => e.type === 'ares_all_clear')).toBe(true);
-    expect((w.counters[`ares_raids:street_main`] ?? 0)).toBe(1);
   });
 
-  it('Mk. IV finds a hero who stands her ground, or who walks back out', () => {
-    const { w, c, events } = near('stand', 'ares4');
+  it('Mk. IV comes looking for a hero who stands her ground', () => {
+    const w = world('stand');
+    w.hero.locationId = 'street_main';
+    clearRoom(w, 'street_main');
+    const { c, events } = ctxOf(w, 'stand');
+    spawnFlight(c, 'ares4', 1);
     run(dragonCandidates(w), 'stand_ground', c);
-    for (let i = 0; i < 6 && w.flight; i++) {
-      w.beat++;
-      ambientDragons(c);
-    }
+    for (let i = 0; i < 40 && !events.some((e) => e.type === 'fight_start'); i++) tick(w, c);
     expect(events.some((e) => e.type === 'ares_arrive')).toBe(true);
     expect(events.some((e) => e.type === 'fight_start' && e.data.dragon === 'ares4')).toBe(true);
   });
@@ -396,55 +641,60 @@ describe('Ares', () => {
     loc.influence = { [gangs[0]!.id]: 0.7, atlas: 0.3 };
     expect(gangActivity(w, loc)).toBeGreaterThan(0.6);
     expect(gangActivity(w, w.locations.halo_floor!)).toBeLessThan(gangActivity(w, loc));
-    const t = ctxOf(w, 'turf');
     w.hero.locationId = 'street_main';
-    spawnFlight(t.c, 'ares2', 1);
-    w.flight!.hidden = true;
-    w.beat = w.flight!.until + 1;
-    ambientDragons(t.c);
+    clearRoom(w, 'street_main');
+    const n = spawnNpc(new Rng('t'), 'turf_npc', 'drifter', 'street_main');
+    addNpc(w, n);
+    const t = ctxOf(w, 'turf');
+    const f = withHer(w, t.c, 'ares2');
+    f.hidden = true;
+    tick(w, t.c, 3, 0);
     expect(w.counters['ares_raids:street_main']).toBe(1);
     expect(loc.influence![gangs[0]!.id]!).toBeLessThan(0.7);
   });
 
   it('turns up on gang turf and nowhere else, and escalates to the Mk. IV after repeat raids', () => {
-    const quiet = world('quiet-turf');
-    quiet.hero.locationId = 'street_main';
-    quiet.locations.street_main!.influence = {};
-    const loud = world('loud-turf');
-    loud.hero.locationId = 'street_main';
-    const gangs = Object.values(loud.factions).filter((f) => f.kind === 'gang');
-    loud.locations.street_main!.influence = { [gangs[0]!.id]: 0.9 };
-    const seen = { quiet: new Set<string>(), loud: new Set<string>(), escalated: new Set<string>() };
-    const escalated = world('loud-turf-2');
-    escalated.hero.locationId = 'street_main';
-    escalated.locations.street_main!.influence = { [gangs[0]!.id]: 0.9 };
-    escalated.counters['ares_raids:street_main'] = 1;
+    const gangs = Object.values(world('g').factions).filter((f) => f.kind === 'gang');
+    const mk = (seed: string, influence: Record<string, number>, raids = 0) => {
+      const w = world(seed);
+      w.flags.quiet_skies = false;
+      w.hero.locationId = 'street_main';
+      w.locations.street_main!.influence = influence;
+      if (raids) w.counters['ares_raids:street_main'] = raids;
+      return w;
+    };
+    const cases = { quiet: mk('quiet-turf', {}), loud: mk('loud-turf', { [gangs[0]!.id]: 0.9 }), escalated: mk('loud-turf-2', { [gangs[0]!.id]: 0.9 }, 1) };
+    const seen: Record<string, Set<string>> = { quiet: new Set(), loud: new Set(), escalated: new Set() };
     for (let b = 0; b < 1500; b++) {
-      for (const [w, set] of [[quiet, seen.quiet], [loud, seen.loud], [escalated, seen.escalated]] as const) {
+      for (const [name, w] of Object.entries(cases)) {
         w.beat = 40 + b;
+        w.flights = [];
         w.flight = null;
         ambientDragons(ctxOf(w, `t-${b}`).c);
-        const fl = w.flight as Flight | null;
-        if (fl?.kind === 'ares') set.add(fl.model!);
+        for (const f of w.flights) if (f.kind === 'ares') seen[name]!.add(f.model!);
       }
     }
-    expect([...seen.quiet]).toEqual([]);
-    expect(seen.loud.has('ares2')).toBe(true);
-    expect(seen.loud.has('ares4')).toBe(false);
-    expect(seen.escalated.has('ares4')).toBe(true);
+    expect([...seen.quiet!]).toEqual([]);
+    expect(seen.loud!.has('ares2')).toBe(true);
+    expect(seen.loud!.has('ares4')).toBe(false);
+    expect(seen.escalated!.has('ares4')).toBe(true);
   });
 });
 
 describe('what it reads like', () => {
   it('every event the new dragons raise has text, and none of it leaves a token showing', () => {
-    const base = { mark: 2, count: 1, place: 'Strand Street', cargo: 'a sealed Atlas payroll case', fame: 12, amount: 300, owed: 40, hit: 4, fine: 20, npc: 'Dex Mercer', gang: 'Rust Choir', fate: 'down', warned: false, hidden: false, left: false, screams: false, standing: false, season: 'winter', was: 600 };
+    const base = { mark: 2, count: 1, place: 'Strand Street', cargo: 'a sealed Atlas payroll case', fame: 12, amount: 300, owed: 40, hit: 4, fine: 20, npc: 'Dex Mercer', gang: 'Rust Choir', fate: 'down', warned: false, hidden: false, left: false, screams: false, standing: false, season: 'winter', was: 600, passing: false, here: false };
     const types: [string, string[]][] = [
       ['dragon_flight', ['hermes', 'demeter', 'ares', 'artemis']],
+      ['dragon_close', ['hermes', 'demeter', 'ares', 'artemis']],
+      ['dragon_near', ['hermes', 'demeter', 'ares', 'artemis']],
+      ['dragon_depart', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_pass', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_notice', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_engage', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_gawk', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_film', ['hermes', 'demeter', 'ares', 'artemis']],
+      ['dragon_duck', ['hermes', 'demeter', 'ares', 'artemis']],
       ['dragon_follow', ['artemis']],
       ['dragon_chase', ['caught', 'lost']],
       ['tithe_pay', ['full', 'short', 'broke']],
@@ -457,7 +707,7 @@ describe('what it reads like', () => {
     const rng = new Rng('words');
     for (const [type, variants] of types) {
       for (const variant of variants) {
-        for (const extra of [{}, { mark: 1 }, { mark: 3, screams: true, warned: true, hidden: true, left: true, fate: 'dead', standing: true, count: 2, owed: 0 }, { mark: 4 }]) {
+        for (const extra of [{}, { mark: 1 }, { mark: 3, screams: true, warned: true, hidden: true, left: true, fate: 'dead', standing: true, count: 2, owed: 0, passing: true, here: true }, { mark: 4 }]) {
           const ev: GameEvent = { beat: 1, type, outcome: 'mixed', data: { ...base, ...(variant ? { variant } : {}), ...extra } };
           expect(hasTemplate(ev), `${type}:${variant}`).toBe(true);
           for (const line of render(ev, { rng, realName: 'Pat Doe', personality: personalityFrom({}) })) expect(line.text, `${type}:${variant}`).not.toMatch(/[{}]|undefined|NaN|\[object/);
@@ -476,5 +726,9 @@ describe('what it reads like', () => {
         for (const l of lines) expect(l.text).not.toMatch(/[{}]|undefined|NaN|\[object/);
       }
     }
+  });
+
+  it('the dragons carry on as flags and helpers the tests use', () => {
+    expect(hasTrait('ares4', 'relentless')).toBe(true);
   });
 });

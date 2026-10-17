@@ -628,6 +628,44 @@ export interface Flight {
   stand?: boolean;
   /** She got indoors ahead of an Ares. */
   sheltered?: boolean;
+  /** Where she took cover from one that hadn't reached her yet; she is still hidden when it does. */
+  coverIn?: Id;
+  /** Roams the streets of a district on its own errands (see `Roam`). Absent means it just hangs over where she is. */
+  roam?: Roam;
+  /** Kept from one night to the next, and never forgotten for being far away: it leaves the district and comes back later. See dragons.ts. */
+  persist?: boolean;
+}
+
+/**
+ * A dragon's visit to a district: it flies in, goes through the pattern of its kind (a prowl, a rampage, a round of
+ * deliveries, a sweep), takes off, and is forgotten once it is far enough from her. Times are world minutes.
+ */
+export interface Roam {
+  /** `stay` runs its pattern; `leave` has taken off and is flying out of the district; `away` is a persistent one that has gone for now. */
+  stage: 'stay' | 'leave' | 'away';
+  /** The outdoor places of the district it came to, and the one it came in at. */
+  district: Id[];
+  entry: Id;
+  /** When it next moves, and when it will have had enough. */
+  nextAt: number;
+  until: number;
+  /** Where it has been, where it means to go, and (for an Ares) when it last had someone to hurt. */
+  visited: Id[];
+  goals: Id[];
+  lastHit: number;
+  /** Places an Ares has already raided on this visit. */
+  raided: Id[];
+  /** Hops it has flown off since taking off. */
+  away: number;
+  /** When a persistent one comes back. */
+  returnAt?: number;
+  /** She was with it at the end of the last beat, and when she last heard it close by. */
+  met?: boolean;
+  nearAt?: number;
+  /** The world minute it was last tended, for the ground it covers while she waits. */
+  tended?: number;
+  /** Where she was when it was last tended, to tell who moved when they part. */
+  heroAt?: Id;
 }
 
 /** A run that ended in her death, and who was there. The world remembers; so do the people who saw or heard. */
@@ -644,6 +682,8 @@ export interface DeathRecord {
 export interface Legacy {
   /** How many runs have begun. */
   runs: number;
+  /** Dragons that are kept from night to night (`Flight.persist`), asleep until the next one begins. */
+  dragons?: Flight[];
   deaths: DeathRecord[];
   /** Who she is. The backup in the lab restores the same personality and the same name into each new body. */
   personality: Personality;
@@ -715,7 +755,10 @@ export interface World {
   /** Misc numeric counters (laser-tag wins, ads seen, etc.). */
   counters: Record<string, number>;
   damsel: Damsel | null;
+  /** The dragon she is with, if any: whichever of `flights` shares her place. */
   flight: Flight | null;
+  /** Every dragon in the world right now: the ones roaming a district, and any hanging over her. */
+  flights: Flight[];
   /** Recently chosen action keys, used to discourage loops. */
   recent: string[];
   brawlUntil: number;

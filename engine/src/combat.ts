@@ -19,7 +19,7 @@ import { spreadDeed } from './ties';
 import { settleContracts } from './contracts';
 import { ensureDungeon } from './dungeons';
 import { afterTakedown, downFor, isShut } from './shutdown';
-import { modelOf } from './dragonmodels';
+import { dropFlights, modelOf } from './dragonmodels';
 
 export { npcsAt };
 
@@ -441,7 +441,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
       if (m && !f.tags.includes('artemis') && f.tags.includes('dragon')) h.fame += 3 * m.mark;
     }
   }
-  if (w.flight && foes.some((f) => w.flight!.ids.includes(f.id))) w.flight = null;
+  if (w.flight && foes.some((f) => w.flight!.ids.includes(f.id))) dropFlights(w, w.flight.ids);
   if (result === 'win' && foes.some((f) => f.tags.includes('boss'))) h.fame += 10;
   // Allies took their own knocks on the board. Those who went down are lost; the rest share the loyalty.
   if (!w.over) {

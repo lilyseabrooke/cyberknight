@@ -215,6 +215,17 @@ Cyberdragons are Atlas "protection" platforms, in several models that behave dif
 
 **Speed is a stat** (`engine/src/dragonmodels.ts`), on the fight board's scale (tiles per round; Blackbird is 3-7, `heroSpeed`). It decides everything about keeping up: a tracking dragon makes up ground on her by its speed against hers over the time that passes; she can only run down a `swift` dragon if she is faster than it; and she can't flee a `relentless` one that is faster than she is. When vehicles and real hero speed land, `heroSpeed` is the only thing that has to change. See [`DRAGONS_PLAN.md`](DRAGONS_PLAN.md).
 
+**Dragons roam a district** (`engine/src/dragons.ts`). A dragon (except Hera, who hangs over wherever she is) is a world-level `Flight` in `w.flights`, not an event on top of Blackbird. It **flies in** at the edge of the open streets round her (a `dragon_flight` event), goes through **the pattern of its kind** at its own speed, **takes off** (`dragon_depart`), and is **forgotten** once it is far enough from her. While it's about she hears it from the next street over (`dragon_near`), it turns into her street (`dragon_close`) and she can deal with it as below, and it moves on. The patterns:
+
+| Family | In the district |
+|---|---|
+| Demeter | A slow, methodical prowl that goes where the people and the unvisited streets are, takes a share from anyone it finds, and stays a couple of hours of world time. |
+| Ares | Crashes about at random hitting whoever is there, whether or not she's watching; gets bored and leaves if 40 minutes pass without anybody to hit. A Mk. IV screams from the edge of the district first. |
+| Hermes | Picks 3-5 streets in the district at random, delivers to each, and leaves at once. |
+| Artemis | One quick sweep of every street; Mk. II goes for her instead, wherever she is. |
+
+A district usually has one or no dragons in it, and a long visit (Demeter, Ares) and a quick one (Hermes, Artemis) overlapping is not unusual. She can **duck inside** when one is close, and her pathing treats a street with a dragon on it (or beside it) as risky. A flight can be made **persistent** (`Flight.persist`): it is never forgotten, goes away after taking off and comes back later, and is kept from night to night in `legacy.dragons`. Otherwise everything resets each night. `w.flags.quiet_skies` keeps all of them home, for a test that follows a night to see something else.
+
 A flight gives her a few beats to react: **engage**, **hide**, **gawk**, or **film it for fame**. Clueless heroes engage, gawk and film (and sometimes get noticed and flattened); competent ones weigh the power ratio against their current HP and hide. Scouts and the sonic-ear implant can warn her in time.
 
 **Known balance notes (for M5):** a clueless Blackbird beats the dragon ~5% of nights by luck, a mid-competence one ~15%, a highly competent and prepared one ~17%. Meta-progression (Firmware, starting gear) should push the smart end much higher. Events: ~250 distinct kinds per sampling, every one with templates (tested).

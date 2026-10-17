@@ -15,7 +15,7 @@ import { remember } from './combat';
 import { tiesFrom } from './ties';
 import { DROPS } from './content/drops';
 import { applyUpgrades, settleAccount } from './lab';
-import type { DeathRecord, Id, Npc, World } from './types';
+import type { DeathRecord, Flight, Id, Npc, World } from './types';
 
 /**
  * The world and the run, as two things.
@@ -122,6 +122,8 @@ function recordDeath(w: World): void {
 export function endRun(w: World): Universe {
   if (w.ending === 'dead') recordDeath(w);
   settleAccount(w);
+  // The dragons that are kept sleep until the next night.
+  w.legacy.dragons = w.flights.filter((f) => f.persist);
   const companions = new Map(w.hero.companions.filter((c) => c.npcId).map((c) => [c.npcId!, c.home]));
   for (const n of allNpcs(w)) {
     if (n.id.startsWith('tmp_') && !memorable(n)) {
@@ -148,6 +150,26 @@ export function warringGangs(w: Pick<World, 'factions'>): [Id, Id] {
     if (r < low) { low = r; best = [a.id, b.id]; }
   }
   return best;
+}
+
+/** Persistent dragons are still about from the night before: gone for now, and back after a while. */
+function restoreDragons(u: Universe): Flight[] {
+  const out = (u.legacy.dragons ?? []).filter((f) => f.ids.some((id) => u.npcs[id]?.alive));
+  for (const f of out) {
+    const r = f.roam;
+    if (!r) continue;
+    r.stage = 'away';
+    r.returnAt = u.clock + 30 + new Rng(`dragon-return:${u.worldSeed}:${u.legacy.runs}:${f.ids[0]}`).int(0, 120);
+    r.tended = u.clock;
+    f.hidden = false;
+    f.noticed = false;
+    f.phase = undefined;
+    for (const id of f.ids) {
+      const n = u.npcs[id];
+      if (n) moveNpc(u, n, AWAY);
+    }
+  }
+  return out;
 }
 
 /** What the morning after looks like to the people and places Blackbird left behind. */
@@ -224,6 +246,7 @@ export function beginRun(u: Universe, opts: BeginOptions = {}): World {
     counters: { paint_stock: 8, start_cash: hero.cash },
     damsel: null,
     flight: null,
+    flights: restoreDragons(u),
     recent: [],
     brawlUntil: 0,
     blackoutUntil: 0,

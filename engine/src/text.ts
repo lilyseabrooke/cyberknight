@@ -913,6 +913,35 @@ const T: Record<string, Entry> = {
     },
     (d) => (d.screams ? ['That is the sound of a bad idea arriving.', 'Okay. Inside. Inside is a good place to be.'] : ['Everyone? EVERYONE? That is a lot of gang.']),
   ),
+  // ---- a dragon about the district: it comes into the street, is heard from the next one over, takes off
+  'dragon_close:hermes': e(
+    (d) => [d.passing ? (Number(d.mark) === 3 ? `Something white goes over ${d.place} so fast the sound arrives after it. A Hermes Mk. III. Whatever it was carrying, it was gone before anyone could see.` : `A Hermes courier skims over ${d.place}, reads a few door numbers, and is gone.`) : Number(d.mark) === 3 ? `A Hermes Mk. III drops into ${d.place}, cargo cradle swinging, ${d.cargo} clamped underneath. It does not stay.` : `A Hermes courier drops into ${d.place}, clipboard flapping, looking for a door number.`],
+    (d) => (Number(d.mark) === 3 ? ['It is RIGHT THERE.', 'Think of the money.'] : ['A courier. Not in a hurry, for once.']),
+  ),
+  'dragon_close:demeter': e(
+    (d) => [d.passing ? `The jingle of a Demeter Mk. ${roman(d.mark)} swells over ${d.place} and recedes.` : `A Demeter Mk. ${roman(d.mark)} turns into ${d.place} at a deliberate walking pace, baskets swinging, a speaker playing its harvest jingle. It is looking at everyone, one at a time.${d.hidden ? ' Blackbird has already stepped out of sight.' : ''}`],
+    ['Everyone is suddenly very interested in their shoes.', 'Methodical. I hate methodical.'],
+  ),
+  'dragon_close:ares': e(
+    (d) => [d.passing ? `An Ares Mk. ${roman(d.mark)} tears across ${d.place} in a shower of sparks, loudspeaker still reading out its list, and is gone.` : `An Ares Mk. ${roman(d.mark)} crashes into ${d.place}, taking a lamp post with it. "EVERYONE HERE IS A SUSPECT," it announces. "THIS IS A COURTESY."${d.hidden ? ' Blackbird has already found a shadow.' : ''}`],
+    ['Reckless. That one is reckless.', 'It does not even look where it is going.'],
+  ),
+  'dragon_close:artemis': e(
+    (d) => [d.passing ? `An Artemis cuts across ${d.place} on a diagonal, scanner flickering, and is on to the next street.` : Number(d.mark) === 2 ? `An Artemis Mk. II drops into ${d.place} and does not take its optics off Blackbird.${d.hidden ? ' She had already got under cover.' : ''}` : `An Artemis sweeps into ${d.place}, red scanner raking the street from end to end.${d.hidden ? ' Blackbird had got out of sight in time.' : ''}`],
+    (d) => (Number(d.mark) === 2 ? ['It is not looking at the street. It is looking at me.'] : ['A sweep. Stay still.']),
+  ),
+  'dragon_close': e((d) => [`A dragon comes into ${d.place}.`], ['Here we go.']),
+  'dragon_near:hermes': e(() => ['A thin whine passes over the next street along, somebody\'s package getting delivered at speed.'], ['Courier. Somewhere close.']),
+  'dragon_near:demeter': e(() => ['From the next street over comes a tinny harvest-festival jingle, and under it, very quietly, the sound of people deciding not to have any money.'], ['That jingle. It is the next street over.', 'Time to be inside.']),
+  'dragon_near:ares': e(() => ['Somewhere close, a loudspeaker begins to read out a list of names, and something very heavy lands on something that does not take it well.'], ['Ares. Next street. Let it keep going.']),
+  'dragon_near:artemis': e((d) => [Number(d.mark) === 2 ? 'A thermal-optics whine from the next street over: an Artemis Mk. II, coming this way, as if it knew.' : 'A red scanner glow sweeps across the rooftops of the next street over.'], ['A patrol, close. Do not be on the street.']),
+  'dragon_near': e(() => ['Something with wings is working the next street over.'], ['Close.']),
+  'dragon_depart:hermes': e((d) => [Number(d.mark) === 3 ? 'The Hermes Mk. III is already a white thread over the rooftops, and then not even that.' : 'The Hermes tilts, finds its altitude, and is a dot over the rooftops before it has finished the thought.'], ['Gone. Good for it.']),
+  'dragon_depart:demeter': e((d) => [d.here ? 'The Demeter finishes its round, lifts clear of the street, and takes the jingle with it. "THE HARVEST IS IN," it says to no one in particular.' : 'The jingle rises and fades. The Demeter lifts clear of the district, its baskets heavier than when it came.'], ['That is it for now. Until next time.']),
+  'dragon_depart:ares': e((d) => [d.here ? 'The Ares, bored, finally unfolds its wings and goes straight up, shedding debris. "PEACE HAS BEEN RESTORED," it says, to a street it just broke.' : 'The Ares goes up over the rooftops, trailing its loudspeaker. "PEACE HAS BEEN RESTORED." It is the loudest thing in the district.'], ['Finally. It got bored.']),
+  'dragon_depart:artemis': e((d) => [d.here ? 'The Artemis finishes its sweep and climbs out of the street in a long banked turn.' : 'The Artemis finishes its sweep and takes off over the rooftops.'], ['And they are off.']),
+  'dragon_depart': e(() => ['The dragon takes off.'], ['Gone.']),
+  dragon_duck: e((d) => [`Blackbird takes a quick look at the sky and goes through the nearest door, ${d.place}. Outside, something heavy goes by.`], ['Not today. Inside.']),
   'dragon_pass:hermes': e(
     (d) => [d.hidden ? 'The Hermes circles twice, finds no one to sign, and goes on its way. Blackbird comes out of her doorway looking like she has never been so good at anything.' : 'The Hermes gives up on the address and zips off with its clipboard clutched to its chest.'],
     ['Delivery failed. Mine, too, probably.'],

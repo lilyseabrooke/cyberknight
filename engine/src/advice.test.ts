@@ -308,8 +308,8 @@ describe('asking the lab', () => {
     });
 
     it('is part of the world: the question and the answer survive a save and replay the same', () => {
-      const play = (answer: boolean) => {
-        const { world: w } = createRun({ seed: 'replay', competence: 0.4 });
+      const play = (answer: boolean, n = 0) => {
+        const { world: w } = createRun({ seed: n ? `replay-${n}` : 'replay', competence: 0.4 });
         let guard = 0;
         while (!w.over && !w.mind.ask && guard++ < 600) step(w);
         if (!w.mind.ask) return null;
@@ -324,7 +324,7 @@ describe('asking the lab', () => {
       };
       // Some nights she never asks; find one that does.
       let found = false;
-      for (let i = 0; i < 12 && !found; i++) found = !!play(true);
+      for (let i = 0; i < 12 && !found; i++) found = !!play(true, i);
       expect(found).toBe(true);
     });
 

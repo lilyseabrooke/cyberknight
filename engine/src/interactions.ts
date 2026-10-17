@@ -222,8 +222,14 @@ export function gather(w: World): Candidate[] {
     const dest = w.locations[e.to]!;
     const toDragon = e.to === 'overpass';
     const dragonRisk = toDragon && alive(dragon) ? clamp(dragonPower / heroPower(w) - 0.6, 0, 4) : 0;
-    // An Ares still working a place is a reason to be somewhere else.
-    const lurking = w.flight?.kind === 'ares' && w.flight.phase && w.flight.locationId === e.to ? (w.flight.model === 'ares4' ? 4 : 2.5) : 0;
+    // A dragon working a street, or the next one over, is a reason to be somewhere else.
+    let lurking = 0;
+    for (const fl of w.flights) {
+      if (fl.roam?.stage !== 'stay') continue;
+      const worst = fl.model === 'ares4' ? 4 : fl.kind === 'ares' ? 2.5 : fl.kind === 'hermes' ? 0.4 : 1.5;
+      if (fl.locationId === e.to) lurking = Math.max(lurking, worst);
+      else if (dest.exits.some((x) => x.to === fl.locationId)) lurking = Math.max(lurking, worst * 0.35);
+    }
     const supply = supplyUrge(w, e.to);
     const need = needsUrge(w, e.to);
     const urge = { bonus: supply.bonus + need.bonus, smart: supply.smart + need.smart };

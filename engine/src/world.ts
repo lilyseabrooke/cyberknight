@@ -371,6 +371,7 @@ export function createWorld(opts: RunOptions): World {
     counters: { paint_stock: 8 },
     damsel: null,
     flight: null,
+    flights: [],
     recent: [],
     brawlUntil: 0,
     blackoutUntil: 0,

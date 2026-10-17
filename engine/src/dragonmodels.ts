@@ -1,4 +1,4 @@
-import type { Flight, World } from './types';
+import type { Flight, Id, World } from './types';
 
 /**
  * The dragons that fly: which family each belongs to, how fast it goes, and what sets it apart. Hera and Artemis are here
@@ -20,14 +20,19 @@ export type DragonTrait =
   /** Announces itself before it arrives. */
   | 'screams';
 
+/** What a dragon does with a district it has flown into. Hera has none: she hangs over wherever she is. */
+export type Pattern = 'prowl' | 'rampage' | 'deliver' | 'sweep';
+
 export interface DragonModel {
   family: DragonFamily;
   mark: number;
   speed: number;
   traits: DragonTrait[];
+  pattern?: Pattern;
 }
 
-const m = (family: DragonFamily, mark: number, speed: number, ...traits: DragonTrait[]): DragonModel => ({ family, mark, speed, traits });
+const PATTERN: Partial<Record<DragonFamily, Pattern>> = { demeter: 'prowl', ares: 'rampage', hermes: 'deliver', artemis: 'sweep' };
+const m = (family: DragonFamily, mark: number, speed: number, ...traits: DragonTrait[]): DragonModel => ({ family, mark, speed, traits, pattern: PATTERN[family] });
 
 /** On the fight board an ordinary person goes 3 and Blackbird 3-7, so these read against her. */
 export const DRAGON_MODELS: Record<string, DragonModel> = {
@@ -74,3 +79,12 @@ export function runsDown(w: World, speed: number): boolean {
 
 /** Hops a dragon makes up on her in one beat, as she goes about her business: its speed against hers. */
 export const reachPerBeat = (w: World, speed: number): number => speed / heroSpeed(w);
+
+/** World minutes a dragon takes to cross one hop of street, at its speed. Blackbird at speed 3 does it in three. */
+export const hopMinutes = (speed: number): number => 9 / Math.max(1, speed);
+
+/** A flight is over (it was fought, or it left): it is no longer in the world's list, nor the one she is with. */
+export function dropFlights(w: World, ids: Id[]): void {
+  w.flights = (w.flights ?? []).filter((f) => !f.ids.some((i) => ids.includes(i)));
+  if (w.flight && w.flight.ids.some((i) => ids.includes(i))) w.flight = null;
+}
