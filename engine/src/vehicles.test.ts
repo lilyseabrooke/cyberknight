@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng, hasTemplate, type GameEvent } from './index';
 import { createWorld } from './world';
 import { relocate } from './combat';
+import { arrive } from './candidate';
 import { liftCordon } from './mapgen';
 import { gather } from './interactions';
 import { parkedVehicle, roadsFrom, vehicleCandidates } from './vehicles';
@@ -97,6 +98,33 @@ describe('vehicles', () => {
     if (door) {
       relocate(w, door.to);
       expect(w.hero.vehicle).toBeUndefined();
+      expect(w.hero.parked).toHaveLength(1);
     }
+  });
+
+  it('a car she has taken stays hers: she gets back in without hijacking, until it is gone', () => {
+    const { w, street } = streetWith('civilian');
+    relocate(w, street);
+    w.hero.vehicle = { kind: 'civilian', name: 'a test car', speed: 1 };
+    const door = w.locations[street]!.exits.find((e) => !e.gate && w.locations[e.to]!.kind !== 'street' && !w.locations[e.to]!.dungeon)!;
+    const { c, events } = ctxOf(w, 'back');
+    arrive(c, door.to, 'walk');
+    expect(w.hero.vehicle).toBeUndefined();
+    arrive(c, street, 'walk');
+    const keys = gather(w).map((x) => x.key);
+    expect(keys).toContain(`getin:${street}`);
+    expect(keys).not.toContain(`hijack:${street}`);
+    perform(c, gather(w).find((x) => x.key === `getin:${street}`)!);
+    expect(w.hero.vehicle?.name).toBe('a test car');
+    expect(w.hero.parked).toHaveLength(0);
+    expect(events.every(hasTemplate)).toBe(true);
+    // Left for good: it is towed away.
+    arrive(c, door.to, 'walk');
+    w.clock += 3 * 24 * 60;
+    arrive(c, street, 'walk');
+    expect(w.hero.parked).toHaveLength(0);
+    expect(w.hero.vehicle).toBeUndefined();
+    expect(events.some((e) => e.type === 'vehicle' && e.data.variant === 'gone')).toBe(true);
+    expect(events.every(hasTemplate)).toBe(true);
   });
 });

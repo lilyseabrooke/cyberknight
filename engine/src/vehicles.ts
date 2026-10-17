@@ -5,7 +5,7 @@ import { clamp, type Candidate } from './candidate';
 import { isShut } from './shutdown';
 import { skillValue, synergy, train } from './skills';
 import { workingCameras } from './witness';
-import type { Ctx, Id, Location, Vehicle, World } from './types';
+import type { Ctx, Id, Location, ParkedVehicle, Vehicle, World } from './types';
 
 /**
  * Cars. Simple on purpose: a street may have one parked on it, she can steal it (hijacking), and while she is in it the
@@ -49,6 +49,9 @@ export function parkedVehicle(w: World, loc: Location): Make | null {
   return { kind, name: rng.pick(CARS[kind].names), speed: CARS[kind].speed };
 }
 
+/** A car of hers that is parked on this street and hasn't been taken away yet. */
+export const ownedHere = (w: World, loc: Location): ParkedVehicle | undefined => w.hero.parked?.find((p) => p.at === loc.id && p.until > w.clock);
+
 /** Streets she can get to from here by road: only street to street, nothing locked, shut or in the way. Fewest hops first. */
 export function roadsFrom(w: World, from: Id, reach: number): { id: Id; hops: number; path: Id[] }[] {
   const seen = new Map<Id, Id[]>([[from, []]]);
@@ -84,6 +87,20 @@ export function vehicleCandidates(w: World): Candidate[] {
   const out: Candidate[] = [];
 
   if (!h.vehicle) {
+    // One of hers is parked here: no need to steal it again.
+    const mine = ownedHere(w, loc);
+    if (mine) {
+      out.push({
+        key: `getin:${loc.id}`, drives: { curiosity: 0.4, greed: 0.2 }, bonus: 0.9,
+        run: (c) => {
+          const { w } = c;
+          w.hero.vehicle = { kind: mine.kind, name: mine.name, speed: mine.speed };
+          w.hero.parked = w.hero.parked!.filter((p) => p !== mine);
+          c.emit('vehicle', 'good', { variant: 'back', car: mine.name, place: loc.name });
+        },
+      });
+      return out;
+    }
     const car = parkedVehicle(w, loc);
     if (car) {
       out.push({

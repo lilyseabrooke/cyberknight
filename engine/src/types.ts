@@ -87,13 +87,19 @@ export interface Companion {
   home?: Id;
 }
 
-/** A car she is in. It goes with her along the streets and is left at the kerb the moment she walks into a building. See vehicles.ts. */
+/** A car she is in. It goes with her along the streets and is parked where she walks into a building. See vehicles.ts. */
 export interface Vehicle {
   /** Whose it was, and so who comes looking: a civilian's, the NPD's, Atlas's. */
   kind: 'civilian' | 'police' | 'atlas';
   name: string;
   /** How much further it takes her than a civilian car does. */
   speed: number;
+}
+
+/** A car she took and left on a street. It is hers until it is towed, recovered or stripped (`until`, a world minute). */
+export interface ParkedVehicle extends Vehicle {
+  at: Id;
+  until: number;
 }
 
 export interface Hero {
@@ -132,6 +138,8 @@ export interface Hero {
   inventory: Item[];
   /** The vehicle she is driving, if any. */
   vehicle?: Vehicle;
+  /** Cars of hers parked around the city; she gets back in without hijacking again. */
+  parked?: ParkedVehicle[];
   /** Rounds on hand by ammo type (see content/ammo.ts). Shooting spends them; no rounds, no shooting. */
   ammo: Record<string, number>;
   buffs: Buff[];

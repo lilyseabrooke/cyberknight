@@ -37,6 +37,9 @@ export const ACTION_MINUTES: Record<string, number> = {
   pawn: 30, pawnfight: 15, pawnquick: 6, pawndeal: 20,
 };
 
+/** How long a car she has left on a street stays hers, by whose it was: the police and Atlas come for their own sooner. */
+export const CAR_LIFE_MIN = { civilian: 2 * MIN_PER_DAY, police: 6 * 60, atlas: 12 * 60 } as const;
+
 /** Extra world minutes a fight adds to the beat it happens in. */
 export const FIGHT_MINUTES = 15;
 

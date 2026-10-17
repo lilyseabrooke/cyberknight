@@ -71,6 +71,12 @@ export function arrive(c: Ctx, to: string, variant: string, extra: Record<string
     ...extra,
   });
   if (car && !w.hero.vehicle) c.emit('vehicle', 'mixed', { variant: 'left', car: car.name, place: from.name });
+  // A car of hers parked here that has been towed, recovered or stripped while she was away.
+  const lost = w.hero.parked?.filter((p) => p.at === to && p.until <= w.clock) ?? [];
+  if (lost.length) {
+    w.hero.parked = w.hero.parked!.filter((p) => !lost.includes(p));
+    for (const p of lost) c.emit('vehicle', 'bad', { variant: 'gone', car: p.name, kind: p.kind, place: dest.name });
+  }
   // A room in a dungeon: whatever's in it finds out about her.
   if (dest.dungeon && !w.over) enterRoom(c, dest);
   if (w.over || w.hero.locationId !== to) return;

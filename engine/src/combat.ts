@@ -4,6 +4,7 @@ import { KINDS, removeCompanion } from './companions';
 import { skillLevel, skillValue, train } from './skills';
 import { basePower, fightTraining, hpPerLevel, levelCost } from './grade';
 import { perk } from './lab';
+import { CAR_LIFE_MIN } from './clock';
 import { addAmmo, wielded } from './arms';
 import { fxOf, rating } from './weapons';
 import { Sim, highlights, type Arrival, type Hooks, type LogEntry, type RoundRecord } from './tactics';
@@ -46,7 +47,11 @@ export function relocate(w: World, to: string): void {
   h.previousLocationId = from;
   h.locationId = to;
   const dest = w.locations[to];
-  if (dest && dest.kind !== 'street') delete h.vehicle; // a car stays at the kerb; see vehicles.ts
+  if (dest && dest.kind !== 'street' && h.vehicle) {
+    // The car stays where she left it, and stays hers for a while; see vehicles.ts.
+    if (w.locations[from]?.kind === 'street') (h.parked ??= []).push({ ...h.vehicle, at: from, until: w.clock + CAR_LIFE_MIN[h.vehicle.kind] });
+    delete h.vehicle;
+  }
   if (dest) {
     dest.visits++;
     expand(w, dest); // the city grows to meet her; see mapgen.ts
