@@ -39,6 +39,8 @@ export interface BoardObject {
   kind: Vehicle['kind'];
   /** A car is a box she sits in; a bike one cell she rides, with no door and nothing to hide in. */
   body: Vehicle['body'];
+  /** Which car it is (`Vehicle.id`), so a key in somebody's pocket can be matched to it. */
+  carId?: string;
   mine: boolean;
   team: 'hero' | 'foe' | 'neutral';
   /** Shut doors make a car a place to hide; forced ones are open for the rest of the fight. */

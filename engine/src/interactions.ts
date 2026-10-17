@@ -19,6 +19,7 @@ import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
 import { vehicleCandidates } from './vehicles';
+import { getawayCandidates } from './getaway';
 import { goalCandidates } from './goals';
 import { dungeonCandidates, entranceRisk } from './dungeons';
 import { discretionCandidates } from './discretion';
@@ -200,6 +201,7 @@ export function gather(w: World): Candidate[] {
   out.push(...hustleCandidates(w));
   out.push(...gymCandidates(w));
   out.push(...vehicleCandidates(w));
+  out.push(...getawayCandidates(w));
   out.push(...pawnCandidates(w));
 
   // --------------------------------------------------------------- herself

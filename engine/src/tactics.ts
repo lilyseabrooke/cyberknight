@@ -73,6 +73,8 @@ export interface Unit extends Pos {
   interposed: boolean;
   /** The id of the car it is sitting in (see `BoardObject`). Shut doors make that the best cover there is. */
   aboard?: string;
+  /** A foe with the key to a car on the board: its id. When it runs, it runs for that, not for a door. */
+  carFlee?: string;
   cd: Record<string, number>;
 }
 
@@ -140,6 +142,8 @@ export interface SimResult {
   stats: Sim['stats'];
   /** She got into her car and left. */
   droveOff: boolean;
+  /** Foes who got away in a car, and which car (the key in their pocket). */
+  getaways: { npc: Npc; carId: string }[];
   /** A police cruiser that was on the board is still in one piece (so it can follow). */
   cruiser: boolean;
   log: LogEntry[];
@@ -265,6 +269,7 @@ export class Sim {
   /** A car went up with her in it: that is death whether or not the fight was meant to be lethal. */
   private blastKill = false;
   droveOff = false;
+  readonly getaways: { npc: Npc; carId: string }[] = [];
   /** A hit at the end of a ride-by: momentum. */
   private rideBonus = 0;
   private lastWield: string;
@@ -836,17 +841,42 @@ export class Sim {
   }
 
   /** Off the board alive: through an exit, or thrown out of one. */
-  eject(t: Unit, how: 'thrown_out' | 'ran' | 'scared'): void {
+  eject(t: Unit, how: 'thrown_out' | 'ran' | 'scared' | 'drove'): void {
     t.state = 'fled';
     if (t.npc) {
       this.fled.add(t.npc.id);
-      this.note('foe_flees', 'good', { variant: how, foe: t.name, role: t.npc.role }, how === 'thrown_out' ? 4.5 : 3.5, `flee:${t.id}`);
+      this.note('foe_flees', how === 'drove' ? 'mixed' : 'good', { variant: how, foe: t.name, role: t.npc.role, ...(how === 'drove' ? { car: this.carOf2(t)?.name ?? 'a car' } : {}) }, how === 'thrown_out' ? 4.5 : how === 'drove' ? 5 : 3.5, `flee:${t.id}`);
     }
   }
 
   leave(me: Unit): void {
-    if (me.kind === 'foe') this.eject(me, me.scared ? 'scared' : 'ran');
+    if (me.kind === 'foe' && me.carFlee && this.keyCar(me)) {
+      // Into the car it has the key to, and gone: the car goes with it.
+      const o = this.keyCar(me)!;
+      this.eject(me, 'drove');
+      this.getaways.push({ npc: me.npc!, carId: o.carId! });
+      for (const p of o.cells) this.grid.cells[idx(this.grid, p)] = 'floor';
+      this.grid.objects = (this.grid.objects ?? []).filter((x) => x !== o);
+    } else if (me.kind === 'foe') this.eject(me, me.scared ? 'scared' : 'ran');
     else me.state = 'fled';
+  }
+
+  /** The car (not hers, in one piece) a foe has the key to, if it is on the board. */
+  keyCar(u: Unit): BoardObject | undefined {
+    const n = u.npc;
+    if (u.kind !== 'foe' || !n || n.flags.includes('cornered')) return undefined;
+    const keys = n.loadout.filter((i) => i.tags.includes('key') && i.carId);
+    return this.grid.objects?.find((o) => !o.mine && !o.wrecked && o.car.hp > 0 && !!o.carId && keys.some((k) => k.carId === o.carId));
+  }
+
+  private carOf2(u: Unit): BoardObject | undefined {
+    return u.carFlee ? this.grid.objects?.find((o) => o.id === u.carFlee) : undefined;
+  }
+
+  /** Is this tile right beside the car the foe is running for? */
+  nearCar(u: Unit, from: Pos): boolean {
+    const o = this.carOf2(u);
+    return !!o && !o.wrecked && o.cells.some((p) => dist(p, from) <= 1);
   }
 
   // ------------------------------------------------------------------ cars
@@ -867,7 +897,7 @@ export class Sim {
     const parked = parkedVehicle(w, loc);
     const squad = this.o.foes.some((f) => f.tags.includes('cop'));
     // The squad car is the car the officers came in; whatever is left of a car on the street is hurt by what happens to it here.
-    if (parked) add('parked', parked.name, parked.kind, w.strays?.[loc.id] === parked ? parked : { hp: parked.maxHp, maxHp: parked.maxHp, armor: parked.armor }, parked.seats, { body: parked.body, ...(parked.kind === 'police' && squad ? { team: 'foe' as const } : {}) });
+    if (parked) add('parked', parked.name, parked.kind, w.strays?.[loc.id] === parked ? parked : { hp: parked.maxHp, maxHp: parked.maxHp, armor: parked.armor }, parked.seats, { body: parked.body, carId: parked.id, ...(parked.kind === 'police' && squad ? { team: 'foe' as const } : {}) });
     if (squad && parked?.kind !== 'police') {
       const mk = MAKES.police[0]!;
       add('cruiser', mk.name, 'police', { hp: mk.maxHp, maxHp: mk.maxHp, armor: mk.armor }, mk.seats, { team: 'foe' });
@@ -1104,6 +1134,7 @@ export class Sim {
       wield: this.wield,
       stats: this.stats,
       droveOff: this.droveOff,
+      getaways: this.getaways,
       cruiser: !!this.grid.objects?.some((o) => o.team === 'foe' && !o.wrecked),
       log: this.log,
       roundLog: this.roundLog,
@@ -1257,6 +1288,14 @@ export class Sim {
   private foeMorale(u: Unit): void {
     if (!u.canFlee || u.fleeing) return;
     const r = u.ref.hp / u.ref.maxHp;
+    // With the key to a car close by, running is a real option, and the nearer she is to finishing it the likelier they are to take it:
+    // those who think they are about to die go early.
+    const ride = this.keyCar(u);
+    u.carFlee = ride?.id;
+    if (ride) {
+      const dread = this.heroExpected(u, this.wield, 1) / Math.max(1, u.ref.hp);
+      if (dread >= 0.45 && this.c.rng.chance(clamp(0.3 + 0.55 * (dread - 0.45) + 0.25 * (1 - r), 0.15, 0.95)) && this.panicIfCan(u)) return;
+    }
     if (r < 0.28 + D.nervePenalty(this, u) && this.c.rng.chance(0.35 + 0.35 * this.lostFraction())) this.panicIfCan(u);
   }
 
@@ -1285,6 +1324,15 @@ export class Sim {
   private exitMap(u: Unit): Map<number, number> {
     const g = this.grid;
     const best = new Map<number, number>();
+    // A foe with a car to run to runs to the car.
+    const ride = this.carOf2(u);
+    if (ride && !ride.wrecked) {
+      for (const p of ride.cells) {
+        const r = reach(g, p, 40, () => false, u.flying);
+        for (const [i, c] of r.cost) if (c < (best.get(i) ?? Infinity)) best.set(i, c);
+      }
+      return best;
+    }
     for (const e of g.exits) {
       if (this.occupant(e, u)) continue;
       const r = reach(g, e, 40, () => false, u.flying);

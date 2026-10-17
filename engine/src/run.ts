@@ -42,7 +42,7 @@ export const TEST_BEAT_CAP = 600;
 /** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
 const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
 
-const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight', 'hijack']);
+const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight', 'hijack', 'pursue']);
 
 export function score(w: World, cand: Candidate): number {
   const h = w.hero;

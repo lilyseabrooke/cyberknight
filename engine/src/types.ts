@@ -822,6 +822,8 @@ export interface World {
   worldSeed: string;
   /** Persistent across runs; see Universe in universe.ts. */
   legacy: Legacy;
+  /** People who got away in a car, and the cars they took: she can go after them for a beat or two. See getaway.ts. */
+  getaways?: { npcId: Id; vehicle: Vehicle; from: Id; beat: number }[];
   /** Cars left on a street by a chase (the cruiser that was still running when it ended), by street. They are what is parked there until somebody takes them. */
   strays?: Record<Id, Vehicle>;
   beat: number;

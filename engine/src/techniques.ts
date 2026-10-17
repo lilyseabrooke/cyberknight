@@ -391,7 +391,9 @@ function leave(): Technique {
     range: [0, 0],
     los: false,
     value(s2, me, from) {
-      return me.fleeing && terrainAt(s2.grid, from.x, from.y) === 'exit' ? 100 : null;
+      if (!me.fleeing) return null;
+      if (me.carFlee && s2.keyCar(me)) return s2.nearCar(me, from) ? 100 : null; // it has a car to get to, not a door
+      return terrainAt(s2.grid, from.x, from.y) === 'exit' ? 100 : null;
     },
     run(s2, me) {
       s2.leave(me);

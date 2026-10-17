@@ -369,3 +369,22 @@ How hard a street is to drive, how fast she goes, what goes wrong, and which way
   `Stretch` (open, traffic, tight, bridge) is gone; the telling names the road instead ("a packed pedestrian way").
 - **Not built**: weather other than acid rain, speed choices as separate candidates (she picks speed herself), a way to pick the highway on
   foot, and a chase leaving a highway for a street on purpose (it turns into a random neighbour).
+
+## Getaways and pursuit
+
+- **Who runs for a car** (`tactics.ts`): a foe who can flee (not police, security, robots, dragons or bosses) and has the key to a car on the
+  board that isn't hers (`keyCar`, matched by `Item.carId`) runs for the car instead of a door. How early depends on how near they think
+  they are to dying: `dread` is what her next hit would do as a share of what they have left, and from 0.45 up they go, likelier the
+  nearer it is to 1 and the more hurt they are. (The ordinary low-morale panic goes to the car too.) Standing beside it, they get in and
+  go: the car leaves the street with them (`foe_flees:drove`), and they leave the fight like anyone who ran.
+- **After** (`getaway.ts`, `registerGetaways`): the car is theirs and gone from the street, they are gone from the place (`AWAY`), and a
+  `getaway` record (`World.getaways`: who, the car, where, which beat) is kept for `GETAWAY_BEATS` (2) beats.
+- **Going after them** (`pursue:<npc>`): a candidate while she is still where it happened. How much she wants it: a kill goal, a hunt or a
+  flatline job on them (`wantedDead`) most, a bounty she knows of too; much less if she has no wheels and her legs can't do it.
+  - **In a car** (hers, or one parked close by that she takes first): a real chase, with her as the pursuer (`runChase` in `pursuer` mode)
+    against their car: gap, road, traffic, shooting, crashes. Caught: they are cornered and it is a fight they can't drive away from (the
+    `cornered` flag stops a second getaway). Their car blowing up kills them, which counts as a kill.
+  - **On foot**: `runsDown(w, pace)` in `dragonmodels.ts`, which compares her speed (`heroSpeed`, so her legs while she has no vehicle) to their
+    car's. **This is the seam her own speed plugs into**: today her legs never beat a car, so it is a lost chase every time; the day she
+    gets faster the same call starts to catch some.
+  - Lost: they are away for a while and have opinions (the ordinary rules for somebody who ran).
