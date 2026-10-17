@@ -40,8 +40,8 @@ interface Vehicle {
   maxHp: number;        // NEW: civilian 60, police 140, atlas 120
   armor: number;        // NEW: flat cut from gunfire, not from rams or fire. civilian 0, police 3, atlas 2
   mounted?: 'gun' | 'ram';  // NEW: police and Atlas fleet cars may have one; a civilian car never does
-  seats: number;        // NEW: how many companions ride with her (she drives). civilian 2, police 3, atlas 3
-  riders: Id[];         // NEW: the companions aboard right now (see "Riders")
+  seats: number;        // NEW: everyone aboard, counting Blackbird. 4 for most cars, 6 for larger ones, 8 for a few (vans, fleet vans)
+  riders: Id[];         // NEW: the companions aboard right now, at most seats - 1 seat-units (see "Riders")
   // and the existing fields; ParkedVehicle adds at / until
 }
 
@@ -54,12 +54,13 @@ type CarState = 'sound' | 'scuffed' | 'battered' | 'smoking' | 'wrecked';   // b
   `w.flags['wreck:<locId>']` (a burnt-out shell that later scenes on that street get as permanent cover). A wreck is never
   recovered and never towed.
 - **The explosion is what makes a car dangerous to sit in.** A car that reaches 0 hp *explodes* (every kind of car; fuel,
-  batteries, a mounted gun's magazine), and **everyone inside takes heavy damage**: her and every rider. Damage ignores
-  `armor` and cover, and is a big flat chunk of the occupant's own max hp (a first guess: `0.45 * maxHp + 0.25 * car.maxHp`, so a
-  fresh-ish character survives one with a sliver left, and a hurt one doesn't), plus `burning` and a chance of an injury
-  (`broken_leg`, ribs). Faster is worse: add `pace` at the moment of destruction in a chase. Anyone *outside* the car
-  takes the lighter blast from Mode 2 (adjacent cells only). The better the car, the bigger the bang (it scales with
-  `maxHp`), so a tough car buys her time, not safety.
+  batteries, a mounted gun's magazine), and **everyone inside takes the same flat damage**: her and every rider. It ignores
+  `armor`, cover, level and how big the car was: `CAR_BLAST = 100` (a first guess; Blackbird starts at 90 max hp and gains
+  about 13 a level, so **it flatlines a level 1 Blackbird outright, a level 2 at full health crawls out with a few hp, and
+  anyone tougher walks out hurt**. A hurt character of any level can still die: it is flat, not a share of max hp). It also
+  sets the occupants `burning` and rolls an injury (`broken_leg`, ribs). Riders are the same: a companion with fewer than
+  100 hp (every kind in `companions.ts` today) is simply killed, which is part of the cost of bringing them. Anyone *outside* the
+  car takes a smaller flat blast, `CAR_BLAST_OUTSIDE = 40`, adjacent cells only (Mode 2). Speed in a chase doesn't change it.
 - **She gets a warning.** `smoking` (below 25% hp) is the cue: text says so, and getting out is a `smart` desire the AI feels
   strongly. Bailing from a smoking car at speed costs fall damage but not the blast, and she can drag riders out only if she
   has a free action for each (`bail` takes one rider per round, the rest stay in and go up with it).
@@ -209,11 +210,13 @@ doors: 'shut' | 'forced';   // forced is permanent for the fight; the car can be
 ## Riders: companions in the car
 
 Companions already travel with her (`hero.companions`, up to `MAX_COMPANIONS = 3`, `companions.ts`). A car adds a *seating limit*:
-`Vehicle.seats`, the number of **seat-units** of companions it carries, and she **chooses who comes**.
+`Vehicle.seats`, the number of **seats**, counting Blackbird (so **4 seats = her and up to 3 companions**; 6 seats = up to 5; 8
+seats = up to 7), and she **chooses who comes**. Companions take **seat-units** from the rest.
 
 ```ts
 // companions.ts: KindDef
 seats?: number;             // seat-units it takes; default 1. scrapper-bot 2 (it's big), pigeon 0 (it rides her shoulder)
+// With MAX_COMPANIONS at 3, a 4-seater takes the whole party; the 6 and 8 seaters are for a bigger party later.
 // types.ts: Companion
 at?: Id;                    // NEW: set when she left them behind: they wait on that street, not with her
 ```
@@ -223,10 +226,13 @@ at?: Id;                    // NEW: set when she left them behind: they wait on 
   `loyalty`); the big tanks lose out only to small gunners if seats are short. She can also prefer to leave a wounded one
   safe. A `choose_riders` step emits a `riders` event ("Blackbird squeezes in the drone and the kids; the scrapper-bot
   stays on the kerb and watches them go") and `Vehicle.riders` holds the ids.
-- **Left behind**: those not chosen get `Companion.at = <street>`, stop counting as in her party for fights (they aren't units on
-  the board), and **follow on foot**: they show up at the first street where she stops and parks, after the time it takes to walk
-  there (`hopMinutes`-style, so a long drive leaves them a long way behind), as `companion_catches_up`. If she doesn't stop
-  within a day they go home (the existing `removeCompanion(..., 'left')`, `Companion.home`).
+- **Left behind**: those not chosen get `Companion.at = <street>` and stop counting as in her party for fights (they aren't
+  units on the board). **Each one decides for itself whether to go home or stay where it is**, once, when she drives off: a
+  weighted choice from the companion (`loyalty` and the kind: loyal ones and anything with no home stay put and wait; low-loyalty
+  or homebody ones, `Companion.home`, and NPC-born ones go home). **Stay**: it waits on that street and rejoins on its own if she
+  comes back to it (arrival check, `companion_waits` / `companion_rejoins`). **Go home**: `removeCompanion(c, comp, 'left')`, as
+  today, and they return to wherever `home`/`npcId` says. No catching up on foot, and no timer: waiting ones wait for the rest of
+  the run.
 - **Parking indoors**: she goes in and riders go with her (they were never the car's); no separate state. Only the *drive*
   and the *scene fight on the street* care who is aboard.
 - **In combat**: riders are `Unit`s with `aboard` set, so they share the car's cover, take the explosion with her, and can
@@ -234,7 +240,9 @@ at?: Id;                    // NEW: set when she left them behind: they wait on 
   (a drone out the window); `absorb` riders absorb damage that spills through (the pigeon takes it, then it dies). Riders
   are lost with the car (an explosion can kill them and they're simply gone from `hero.companions`), which is the other
   half of why bringing everyone is a choice, not free value.
-- **Capacity by car**: civilian cars 2, police 3, Atlas 3, vans and fleet vans more (a later `kind`).
+- **Capacity by car**: 4 seats for most cars (civilian cars, police cruisers, Atlas SUVs), 6 for larger ones (taxis, delivery vans,
+  Atlas executive limos), 8 for a few (fleet vans, minibuses). Which make has which is a field on the make table in `vehicles.ts`
+  (today every car is rolled from `CARS[kind]`; this becomes a per-name entry).
 
 ## Where the two modes meet
 
