@@ -22,6 +22,16 @@ export const CRIME: Affordance<GymView>[] = [
       lose: R(['A regular walks into the locker room at {gym} while Blackbird has a wire in somebody else\'s padlock. They look at each other for a while.'], { heat: ['gym', 1], affinity: -10, fight: true }) },
   }),
   row({
+    id: 'car-park-keys', where: { room: 'floor' }, pace: 'session',
+    needs: ['skill:hijack', 'skill:driving', 'drive:greed'],
+    sees: 'A car park out the back with a dozen cars in it, and a hook by the desk where members hang their keys and their trust.', stakes: 'A car she can sell off or a spare in the boot; an alarm and a very large member.', consequence: 'Heat on the gym; a member who now takes the bus.',
+    drives: { greed: 0.9, curiosity: 0.3 }, bonus: 0.02, risk: 0.6, intent: ['Blackbird looks out at the car park, and then at the hook of keys by the desk, and does the arithmetic.'],
+    ok: notBanned,
+    check: { parts: ['hijack', ['driving', 0.4]], base: 0.3, per: 0.07, dark: 0.1,
+      win: R(['A set of keys from the hook at {gym}, a quiet lap of the car park, and a boot with {amount}nd of someone\'s gym fees in it. The car goes back. Most of the car.'], { cash: [30, 130], train: [['hijack', 2], ['driving', 1]], xp: 4, thought: ['Borrowed, fully fuelled, and returned. Mostly.'] }),
+      lose: R(['The alarm on a very expensive car at {gym} goes off the moment Blackbird sits in it, and so does its owner, from the squat rack.'], { heat: ['gym', 1], affinity: -8, fight: true }) },
+  }),
+  row({
     id: 'lost-found-lift', where: { feature: 'lost_found' }, pace: 'quick',
     needs: ['skill:sleight', 'skill:scavenging', 'drive:greed'],
     sees: 'A box of things people forgot, which someone will soon remember.', stakes: 'A pocketful of small valuables.', consequence: '—',

@@ -81,7 +81,7 @@ const foeOf = (w: World, g: Goal): Npc | undefined => (g.npc ? w.npcs[g.npc] : u
 /** Loud things. A hero trying to be quiet does not do these. */
 const NOISY = new Set([
   'challenge', 'sweep', 'threaten', 'join_brawl', 'pickpocket', 'graffiti', 'karaoke', 'dj_set', 'gig', 'busk', 'serenade', 'jam', 'beatbox',
-  'laser_tag', 'billboard', 'engage_flight', 'challenge_dragon', 'refuse_tithe', 'stand_ground', 'steal_puppy', 'rob_paint_shop', 'threaten_clerk', 'armwrestle',
+  'laser_tag', 'billboard', 'engage_flight', 'challenge_dragon', 'refuse_tithe', 'stand_ground', 'steal_puppy', 'rob_paint_shop', 'threaten_clerk', 'armwrestle', 'hijack',
 ]);
 /** Things that look good to a girl who is watching. */
 const IMPRESSIVE = new Set(['karaoke', 'dj_set', 'gig', 'busk', 'serenade', 'jam', 'beatbox', 'billboard', 'graffiti', 'laser_tag', 'darts', 'pool', 'parkour', 'mix_molotov', 'tend_bar', 'dancefloor', 'buy_round', 'engage_flight', 'challenge_dragon']);

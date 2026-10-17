@@ -18,6 +18,7 @@ import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
+import { vehicleCandidates } from './vehicles';
 import { goalCandidates } from './goals';
 import { dungeonCandidates, entranceRisk } from './dungeons';
 import { discretionCandidates } from './discretion';
@@ -198,6 +199,7 @@ export function gather(w: World): Candidate[] {
   out.push(...discretionCandidates(w));
   out.push(...hustleCandidates(w));
   out.push(...gymCandidates(w));
+  out.push(...vehicleCandidates(w));
   out.push(...pawnCandidates(w));
 
   // --------------------------------------------------------------- herself

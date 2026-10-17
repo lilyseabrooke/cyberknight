@@ -58,6 +58,7 @@ export function revealExit(w: World, from: string, to: string): boolean {
 export function arrive(c: Ctx, to: string, variant: string, extra: Record<string, string | number | boolean> = {}): void {
   const { w } = c;
   const from = w.locations[w.hero.locationId]!;
+  const car = w.hero.vehicle;
   relocate(w, to);
   const dest = w.locations[to]!;
   c.emit('go', 'mixed', {
@@ -69,6 +70,7 @@ export function arrive(c: Ctx, to: string, variant: string, extra: Record<string
     ...(dest.visits === 1 && dest.blurb ? { blurb: dest.blurb } : {}),
     ...extra,
   });
+  if (car && !w.hero.vehicle) c.emit('vehicle', 'mixed', { variant: 'left', car: car.name, place: from.name });
   // A room in a dungeon: whatever's in it finds out about her.
   if (dest.dungeon && !w.over) enterRoom(c, dest);
   if (w.over || w.hero.locationId !== to) return;

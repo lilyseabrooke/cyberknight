@@ -46,6 +46,7 @@ export function relocate(w: World, to: string): void {
   h.previousLocationId = from;
   h.locationId = to;
   const dest = w.locations[to];
+  if (dest && dest.kind !== 'street') delete h.vehicle; // a car stays at the kerb; see vehicles.ts
   if (dest) {
     dest.visits++;
     expand(w, dest); // the city grows to meet her; see mapgen.ts

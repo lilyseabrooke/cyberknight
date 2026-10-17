@@ -113,6 +113,17 @@ const T: Record<string, Entry> = {
   ),
 
   // ---------------------------------------------------------------- movement
+  'hijack:ok': e(
+    (d) => [
+      d.kind === 'police' ? `Blackbird pops the door of ${d.car} and is behind the wheel before the dash has finished booting. It is, strictly, the NPD's.` : d.kind === 'atlas' ? `Blackbird has ${d.car} open and running in under a minute. Atlas fleet vehicles come with trackers. She knows. She drives it anyway.` : `Blackbird slips into ${d.car}, shorts two wires, and the engine coughs awake. Ownership has been renegotiated.`,
+      d.seen ? 'Somebody was looking. Somebody is always looking.' : 'Nobody watching. The street holds its breath, then goes back to its business.',
+    ],
+    ['Borrowing. Indefinitely.', 'Never leave your keys in a city that has me in it.'],
+  ),
+  'hijack:fail': e((d) => [`${d.car}'s alarm shrieks the second Blackbird touches the handle. Every head on the street turns. She leaves it where it is.`, `The ignition on ${d.car} bites back with a jolt and a siren. Blackbird withdraws with as much dignity as she can find.`], ['That car had a better lock than I deserved to meet.']),
+  'drive:along': e((d) => [`Blackbird takes ${d.car} down ${d.hops} streets at speed and pulls up at ${d.to}.`, `${d.hops} streets slide past the windows. ${d.to}.`], ['Faster than walking. Louder, too.', 'Drive, she said. So I did.']),
+  'drive:across': e((d) => [`Blackbird takes ${d.car} out of ${d.from} and across the district line, ${d.hops} streets in what feels like a long blink. ${d.to}.`, `The neon changes colour somewhere around the third street. Blackbird pulls ${d.car} up at ${d.to}, in a different part of the city.`], ['A whole other district, and my tank is full of somebody else\'s gas.', 'Neo is smaller from a car.']),
+  'vehicle:left': e((d) => [`Blackbird leaves ${d.car} at the kerb outside ${d.place}. Somebody will pick it up. Possibly a tow drone.`], ['Parked. Illegally. On principle.']),
   'go:walk': e((d) => [`Blackbird heads for ${d.to}.`, `Off to ${d.to}.`, `Blackbird takes the long way to ${d.to}.`], ['Onward.', "Destiny's that way. Probably."]),
   'go:paid': e((d) => [`Forty neodollars to the bouncer, and the velvet rope opens. Blackbird is inside ${d.to}.`], ['Worth it. I think.']),
   'go:charmed': e(
@@ -481,8 +492,8 @@ const T: Record<string, Entry> = {
   'bystander:cheer': e((d) => [`${d.npc} whoops. Somebody is clearly in her corner. ${d.victim} had it coming, apparently.`, `${d.npc} raises a glass. A small crowd forms. A very small crowd.`], ['Fans. I have fans. Remember the name.']),
   'bystander:shun': e((d) => [`${d.npc} watches Blackbird hit ${d.victim} and quietly rearranges {their} opinion of her. It does not go well for her.`], ["{They} {is} just jealous."]),
   'bystander:crowd': e((d) => [`${d.count} more ${Number(d.count) === 1 ? 'person has' : 'people have'} an opinion about this. All of them are taking notes.`], ['A tough crowd. They will come around.']),
-  'heat_up:npd': e((d) => [d.source === 'bodies' ? `The bodies change the paperwork. Police heat is ${d.level}.` : `Someone files a report. Police heat +${d.gain}, now ${d.level}.`, d.source === 'bodies' ? `A dead body in front of witnesses is a different sort of file. Police heat ${d.level}.` : `The NPD logs Blackbird's name against the incident. Heat: ${d.level}.`], ['They are going to write me a ticket. A big one.']),
-  'heat_up:atlas': e((d) => [d.source === 'bodies' ? `Atlas security finds the bodies. Atlas heat is ${d.level}.` : `Somebody at Atlas pulls the footage. Atlas heat +${d.gain}, now ${d.level}.`], ['Corporate footage. They love me up there.']),
+  'heat_up:npd': e((d) => [d.source === 'hijack' ? `A stolen-vehicle report goes out with Blackbird's description on it. Police heat +${d.gain}, now ${d.level}.` : d.source === 'bodies' ? `The bodies change the paperwork. Police heat is ${d.level}.` : `Someone files a report. Police heat +${d.gain}, now ${d.level}.`, d.source === 'bodies' ? `A dead body in front of witnesses is a different sort of file. Police heat ${d.level}.` : `The NPD logs Blackbird's name against the incident. Heat: ${d.level}.`], ['They are going to write me a ticket. A big one.']),
+  'heat_up:atlas': e((d) => [d.source === 'hijack' ? `The Atlas fleet tracker pings a new, unauthorized driver. Atlas heat +${d.gain}, now ${d.level}.` : d.source === 'bodies' ? `Atlas security finds the bodies. Atlas heat is ${d.level}.` : `Somebody at Atlas pulls the footage. Atlas heat +${d.gain}, now ${d.level}.`], ['Corporate footage. They love me up there.']),
 
 
   // ------------------------------------------------------------------ combat
@@ -1957,7 +1968,7 @@ export function render(ev: GameEvent, ctx: RenderCtx): TextLine[] {
   const extra = { hero: 'Blackbird', real: ctx.realName };
   const rs = lines(entry.r, ev.data);
   if (rs.length) out.push({ voice: 'report', text: interp(ctx.rng.pick(rs), ev.data, extra) });
-  if (ev.type === 'go' && ev.data.first === true && typeof ev.data.blurb === 'string') {
+  if ((ev.type === 'go' || ev.type === 'drive') && ev.data.first === true && typeof ev.data.blurb === 'string') {
     out.push({ voice: 'report', text: ev.data.blurb }); // a place the city made up as she got there, or one that changed hands
   } else if (ev.type === 'go' && ev.data.first === true && typeof ev.data.toId === 'string' && BLURBS[ev.data.toId]) {
     out.push({ voice: 'report', text: BLURBS[ev.data.toId]! });

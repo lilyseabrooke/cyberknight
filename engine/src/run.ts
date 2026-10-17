@@ -42,7 +42,7 @@ export const TEST_BEAT_CAP = 600;
 /** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
 const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
 
-const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight']);
+const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight', 'hijack']);
 
 export function score(w: World, cand: Candidate): number {
   const h = w.hero;
@@ -81,7 +81,7 @@ export function restlessness(w: World, cand: Candidate): number {
   const t = w.hero.personality.traits;
   const appetite = Math.max(0.3, 0.8 + (t.curiosity - 0.5) + 0.4 * (t.thrill - 0.5));
   const bored = 1 - interest(w, w.hero.locationId);
-  if (family !== 'go' || !dest) return -1.5 * appetite * bored;
+  if ((family !== 'go' && family !== 'drive') || !dest) return -1.5 * appetite * bored;
   return 3 * appetite * (interest(w, dest) - (1 - bored)) + 1.5 * appetite * bored;
 }
 

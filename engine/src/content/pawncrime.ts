@@ -203,6 +203,16 @@ export const CRIME: Affordance<PawnView>[] = [
       lose: R(['The serial comes off wrong, and the watch chimes, politely, with a message about the wellness of its owner.'], { heat: ['atlas', 1.5], affinity: -4 }) },
   }),
   row({
+    id: 'loading-bay-van', where: { room: 'floor' }, pace: 'session',
+    needs: ['skill:hijack', 'skill:driving', 'drive:greed'],
+    sees: 'A delivery van idling at the loading bay with the door open and nobody in it, which is the shop\'s idea of security.', stakes: 'A van and whatever is in the back; a broker, a camera and a very short chase.', consequence: 'Whatever she takes is hot to the shop for good.',
+    drives: { greed: 1.0, curiosity: 0.3 }, bonus: 0.02, risk: 0.6, intent: ['Blackbird looks at the van at the loading bay, and the van, in its way, looks back.'],
+    ok: notBanned,
+    check: { parts: ['hijack', ['driving', 0.4]], base: 0.3, per: 0.07, dark: 0.1,
+      win: R(['The van at the loading bay of {shop} starts with a cough. Round the block, out of sight, and the back holds {amount}nd of stock that will not be missed until Thursday.'], { cash: [30, 140], train: [['hijack', 2], ['driving', 1]], xp: 4 }),
+      lose: R(['The van at {shop} is not idling. It is waiting for {npc}, who comes out of the shop eating a sandwich and drops it.'], { affinity: -8, warn: ['pickpocket', 1], fight: true }) },
+  }),
+  row({
     id: 'lost-property-lift', where: { feature: 'lost_property' }, pace: 'quick',
     needs: ['skill:sleight', 'skill:scavenging', 'drive:greed'],
     sees: 'A box of bags nobody has come back for, which someone is bound to remember.', stakes: 'A few things in a few pockets.', consequence: '—',

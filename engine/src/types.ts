@@ -87,6 +87,15 @@ export interface Companion {
   home?: Id;
 }
 
+/** A car she is in. It goes with her along the streets and is left at the kerb the moment she walks into a building. See vehicles.ts. */
+export interface Vehicle {
+  /** Whose it was, and so who comes looking: a civilian's, the NPD's, Atlas's. */
+  kind: 'civilian' | 'police' | 'atlas';
+  name: string;
+  /** How much further it takes her than a civilian car does. */
+  speed: number;
+}
+
 export interface Hero {
   name: string;
   /** Randomly generated, astonishingly uncool. */
@@ -121,6 +130,8 @@ export interface Hero {
   weapon: Item;
   armor: Item | null;
   inventory: Item[];
+  /** The vehicle she is driving, if any. */
+  vehicle?: Vehicle;
   /** Rounds on hand by ammo type (see content/ammo.ts). Shooting spends them; no rounds, no shooting. */
   ammo: Record<string, number>;
   buffs: Buff[];

@@ -54,7 +54,7 @@ export function hideoutDist(w: World, from: Id): number {
 const CRIMES = new Set([
   'challenge', 'sweep', 'threaten', 'join_brawl', 'pickpocket', 'graffiti', 'rob_till', 'till', 'safe', 'vault', 'crates', 'steal_guitar',
   'steal_puppy', 'shoplift_paint', 'rob_paint_shop', 'threaten_clerk', 'billboard', 'mix_molotov', 'engage_flight', 'challenge_dragon', 'refuse_tithe', 'stand_ground',
-  'make_move', 'karaoke', 'dj_set', 'gig', 'busk', 'laser_tag', 'raid_loot', 'raid_ambush',
+  'hijack', 'make_move', 'karaoke', 'dj_set', 'gig', 'busk', 'laser_tag', 'raid_loot', 'raid_ambush',
 ]);
 
 /** Added to every candidate's score. Pulls her towards cover, keeps her there, and off the crime. */
