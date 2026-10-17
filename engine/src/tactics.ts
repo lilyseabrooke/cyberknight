@@ -853,8 +853,10 @@ export class Sim {
     if (h.vehicle) add('own', h.vehicle.name, h.vehicle.kind, normalize(h.vehicle), h.vehicle.seats, { mine: true, team: 'hero', ref: h.vehicle });
     for (const p of h.parked ?? []) if (p.at === loc.id && p.until > w.clock) add(`own:${p.name}`, p.name, p.kind, normalize(p), p.seats, { mine: true, team: 'hero', ref: p });
     const parked = parkedVehicle(w, loc);
-    if (parked) add('parked', parked.name, parked.kind, { hp: parked.maxHp, maxHp: parked.maxHp, armor: parked.armor }, parked.seats);
-    if (this.o.foes.some((f) => f.tags.includes('cop'))) {
+    const squad = this.o.foes.some((f) => f.tags.includes('cop'));
+    // The squad car is the car the officers came in; whatever is left of a car on the street is hurt by what happens to it here.
+    if (parked) add('parked', parked.name, parked.kind, w.strays?.[loc.id] === parked ? parked : { hp: parked.maxHp, maxHp: parked.maxHp, armor: parked.armor }, parked.seats, parked.kind === 'police' && squad ? { team: 'foe' } : {});
+    if (squad && parked?.kind !== 'police') {
       const mk = MAKES.police[0]!;
       add('cruiser', mk.name, 'police', { hp: mk.maxHp, maxHp: mk.maxHp, armor: mk.armor }, mk.seats, { team: 'foe' });
     }
@@ -945,6 +947,7 @@ export class Sim {
     const loc = h.locationId;
     w.flags[`wreck:${loc}`] = true;
     w.flags[`stolen:${loc}`] = true;
+    if (w.strays?.[loc]) delete w.strays[loc];
     if (o.kind === 'police' || o.team === 'foe') w.heat.npd = Math.min(10, (w.heat.npd ?? 0) + 2);
     else if (o.kind === 'atlas') w.heat.atlas = Math.min(10, (w.heat.atlas ?? 0) + 2);
     const inside = this.units.filter((u) => u.aboard === o.id && u.state === 'active');
@@ -1012,7 +1015,7 @@ export class Sim {
     const o = this.carOf(this.hero);
     if (!o) return;
     const h = this.w.hero;
-    const pace = paceOf(normalize(o.ref ?? { ...o.car, kind: o.kind, name: o.name, speed: 1, pace: 8, seats: 4, riders: [] }));
+    const pace = paceOf(normalize(o.ref ?? { ...o.car, id: o.id, kind: o.kind, name: o.name, speed: 1, pace: 8, seats: 4, riders: [] }));
     const dmg = Math.round((pace * 3 + h.muscle + skillValue(h, 'driving') * 1.5) * (0.7 + this.c.rng.next() * 0.6));
     this.damage(this.hero, t, dmg);
     if (t.state === 'active') {

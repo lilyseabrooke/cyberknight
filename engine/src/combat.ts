@@ -4,10 +4,9 @@ import { KINDS, removeCompanion } from './companions';
 import { skillLevel, skillValue, train } from './skills';
 import { basePower, fightTraining, hpPerLevel, levelCost } from './grade';
 import { perk } from './lab';
-import { CAR_LIFE_MIN } from './clock';
-import { roadsFrom } from './roads';
+import { assignKeys, roadsFrom } from './roads';
 import { policeChase } from './chase';
-import { parkIt } from './cars';
+import { keyTo, lifeOf, parkIt } from './cars';
 import { addAmmo, wielded } from './arms';
 import { fxOf, rating } from './weapons';
 import { Sim, highlights, type Arrival, type Hooks, type LogEntry, type RoundRecord } from './tactics';
@@ -52,7 +51,7 @@ export function relocate(w: World, to: string): void {
   const dest = w.locations[to];
   if (dest && dest.kind !== 'street' && h.vehicle) {
     // The car stays where she left it, and stays hers for a while; see vehicles.ts.
-    if (w.locations[from]?.kind === 'street') (h.parked ??= []).push(parkIt(h.vehicle, from, w.clock + CAR_LIFE_MIN[h.vehicle.kind]));
+    if (w.locations[from]?.kind === 'street') (h.parked ??= []).push(parkIt(h.vehicle, from, w.clock + lifeOf(h.vehicle, keyTo(h, h.vehicle.id))));
     delete h.vehicle;
   }
   if (dest) {
@@ -61,6 +60,7 @@ export function relocate(w: World, to: string): void {
     if (dest.dungeon) ensureDungeon(w, dest); // and so does the inside of a dungeon; see dungeons.ts
     settleAt(w, to, w.clock);
     populate(w, dest);
+    assignKeys(w, dest);
   }
   for (const e of w.locations[from]?.exits ?? []) if (e.to === to) e.hidden = false;
   for (const e of dest?.exits ?? []) if (e.to === from) e.hidden = false;

@@ -6,8 +6,13 @@ import { Sim } from './tactics';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { newCompanion } from './companions';
-import { MAKES, SPILL, blastInside, blastOutside, stateOf, vehicleOf, hitCar, normalize } from './cars';
+import { KEY_LIFE, MAKES, SPILL, blastInside, blastOutside, carKey, lifeOf, stateOf, vehicleOf, hitCar, normalize } from './cars';
 import { boardParty } from './vehicles';
+import { assignKeys, parkedVehicle } from './roads';
+import { gather } from './interactions';
+import { perform } from './run';
+import { spawnGroup } from './candidate';
+import { sellable } from './plans';
 import { policeChase, dragonChase, cruisers, runChase, bandOf } from './chase';
 import { heroSpeed, legSpeed } from './dragonmodels';
 import { always, never } from './testkit';
@@ -295,5 +300,110 @@ describe('chases', () => {
     expect(gun.taken).toBe(10 - v.armor);
     expect(ram.taken).toBe(10);
     expect(runChase).toBeDefined();
+  });
+});
+
+describe('car keys', () => {
+  const street = (seed: string) => {
+    const w = createWorld({ seed, competence: 0.5 });
+    w.hero.locationId = 'street_main';
+    return w;
+  };
+  /** A street with a car parked on it and somebody standing next to it, found by walking onto streets until one has. */
+  const carWithPeople = (kind: Vehicle['kind']) => {
+    for (let i = 0; i < 200; i++) {
+      const w = createWorld({ seed: `key-${kind}-${i}`, competence: 0.5 });
+      for (const id of Object.keys(w.locations)) {
+        const loc = w.locations[id]!;
+        if (loc.kind !== 'street' || loc.gen?.role !== 'street' && id !== 'street_main') continue;
+        relocate(w, id);
+        const car = parkedVehicle(w, loc);
+        if (!car || car.kind !== kind) continue;
+        const folk = Object.values(w.npcs).filter((n) => n.locationId === id && n.alive && !n.tags.includes('cop') && !n.tags.includes('security') && !n.tags.includes('robot') && !n.tags.includes('dragon') && n.archetype !== 'puppy');
+        if (kind === 'civilian' && !folk.length) continue;
+        return { w, loc, car, folk };
+      }
+    }
+    return null;
+  };
+
+  it('a car with a person with it has a key, in their loot, once', () => {
+    const found = carWithPeople('civilian');
+    expect(found).not.toBeNull();
+    const { w, loc, car } = found!;
+    const holders = Object.values(w.npcs).filter((n) => n.loadout.some((i) => i.carId === car.id));
+    expect(holders).toHaveLength(1);
+    expect(holders[0]!.loadout.find((i) => i.carId === car.id)!.tags).toContain('key');
+    assignKeys(w, loc);
+    assignKeys(w, loc);
+    expect(Object.values(w.npcs).flatMap((n) => n.loadout).filter((i) => i.carId === car.id)).toHaveLength(1);
+  });
+
+  it('the police car at a spot with officers is keyed to an officer', () => {
+    const w = street('key-cops');
+    const loc = w.locations.street_main!;
+    const cops = spawnGroup({ w, rng: new Rng('k'), emit: () => {} }, 'npd_officer', 2);
+    const car = parkedVehicle(w, loc)!;
+    expect(car.kind).toBe('police');
+    const holder = cops.find((n) => n.loadout.some((i) => i.carId === car.id));
+    expect(holder).toBeDefined();
+  });
+
+  it('with its key she gets in without a hijack, and nobody sees', () => {
+    const found = carWithPeople('civilian')!;
+    const { w, loc, car } = found;
+    w.hero.inventory.push(carKey(car));
+    const keys = gather(w).map((x) => x.key);
+    expect(keys).toContain(`usekey:${loc.id}`);
+    expect(keys).not.toContain(`hijack:${loc.id}`);
+    const { c, events } = ctxOf(w, never());
+    perform(c, gather(w).find((x) => x.key === `usekey:${loc.id}`)!);
+    expect(w.hero.vehicle?.id).toBe(car.id);
+    expect(w.heat.npd ?? 0).toBe(0);
+    expect(parkedVehicle(w, loc)).toBeNull();
+    expect(events.every(hasTemplate)).toBe(true);
+  });
+
+  it('a car she has the key to lasts three times as long parked; police, Atlas and gangers\' cars do not', () => {
+    const civ = vehicleOf(MAKES.civilian[0]!, 'a');
+    const base = lifeOf(civ, undefined);
+    expect(lifeOf(civ, carKey(civ))).toBe(base * KEY_LIFE);
+    expect(lifeOf(civ, carKey(civ, true))).toBe(base);
+    const cop = vehicleOf(MAKES.police[0]!, 'b');
+    expect(lifeOf(cop, carKey(cop))).toBe(lifeOf(cop, undefined));
+    const atlas = vehicleOf(MAKES.atlas[0]!, 'c');
+    expect(lifeOf(atlas, carKey(atlas))).toBe(lifeOf(atlas, undefined));
+
+    // And it is what relocate uses when she walks into a building.
+    const w = street('key-park');
+    w.hero.vehicle = vehicleOf(MAKES.civilian[0]!, 'mine');
+    w.hero.inventory.push(carKey(w.hero.vehicle));
+    relocate(w, 'halo_floor');
+    expect(w.hero.parked![0]!.until - w.clock).toBe(base * KEY_LIFE);
+  });
+
+  it('keys are not for sale', () => {
+    const k = carKey(vehicleOf(MAKES.civilian[0]!, 'z'));
+    expect(sellable(k)).toBe(false);
+  });
+
+  it('a cruiser still running when a chase ends is left on the street, with its key on the officer', () => {
+    let left = 0;
+    for (let i = 0; i < 80 && !left; i++) {
+      const w = createWorld({ seed: `stray-${i}`, competence: 0.6 });
+      w.hero.locationId = 'street_main';
+      w.heat.npd = 5;
+      w.hero.vehicle = vehicleOf(MAKES.civilian[0]!, 'mine');
+      const { c } = ctxOf(w, new Rng(`stray-${i}-r`));
+      const cops = spawnGroup(c, 'npd_officer', 2);
+      policeChase(c, 'ambush', cops);
+      const stray = w.strays?.street_main;
+      if (stray) {
+        left++;
+        expect(stray.kind).toBe('police');
+        expect(cops.some((n) => n.loadout.some((it) => it.carId === stray.id))).toBe(true);
+      }
+    }
+    expect(left).toBeGreaterThan(0);
   });
 });

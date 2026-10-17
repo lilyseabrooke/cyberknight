@@ -123,6 +123,10 @@ const T: Record<string, Entry> = {
   'hijack:fail': e((d) => [`${d.car}'s alarm shrieks the second Blackbird touches the handle. Every head on the street turns. She leaves it where it is.`, `The ignition on ${d.car} bites back with a jolt and a siren. Blackbird withdraws with as much dignity as she can find.`], ['That car had a better lock than I deserved to meet.']),
   'drive:along': e((d) => [`Blackbird takes ${d.car} down ${d.hops} streets at speed and pulls up at ${d.to}.`, `${d.hops} streets slide past the windows. ${d.to}.`], ['Faster than walking. Louder, too.', 'Drive, she said. So I did.']),
   'drive:across': e((d) => [`Blackbird takes ${d.car} out of ${d.from} and across the district line, ${d.hops} streets in what feels like a long blink. ${d.to}.`, `The neon changes colour somewhere around the third street. Blackbird pulls ${d.car} up at ${d.to}, in a different part of the city.`], ['A whole other district, and my tank is full of somebody else\'s gas.', 'Neo is smaller from a car.']),
+  'vehicle:keyed': e(
+    (d) => [d.kind === 'police' ? `The key from the officer's pocket turns in ${d.car} like it was made for it, which it was. Blackbird is behind the wheel of an NPD car with nobody to say otherwise.` : d.kind === 'atlas' ? `The key opens ${d.car} with a polite chirp. Blackbird gets in. The seat adjusts itself to her, which is unnerving.` : `The key slides into ${d.car} and turns. No wire, no alarm, no hurry. Blackbird gets in and shuts the door behind her like she owns it. She does now.`],
+    ['Keys. Underrated.', 'Look at that. A door that opens when I ask.'],
+  ),
   'vehicle:riders': e(
     (d) => [d.left ? `Blackbird counts seats. ${d.riders ? `${d.riders} pile${String(d.riders).includes(' and ') ? '' : 's'} in` : 'Nobody fits'}; ${d.left} will have to find another way.` : `${d.riders} climb${String(d.riders).includes(' and ') ? '' : 's'} into ${d.car} with Blackbird. Every seat has an opinion.`],
     ['A full car is a loud car.', 'Seatbelts are mandatory. Nobody has told the seatbelts.'],

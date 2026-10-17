@@ -131,7 +131,7 @@ export function gather(w: World): Candidate[] {
       if (!w.flags.job_taken) {
         out.push({ key: `ask_work:${n.id}`, drives: { quest: 1.0, greed: 0.3 }, bonus: 0.2, run: (c) => askWork(c, n) });
       }
-      const sellable = h.inventory.filter((i) => (i.kind === 'loot' || i.kind === 'weapon' || i.kind === 'armor' || i.kind === 'gadget') && !i.tags.includes('instrument') && !i.tags.includes('quest'));
+      const sellable = h.inventory.filter((i) => (i.kind === 'loot' || i.kind === 'weapon' || i.kind === 'armor' || i.kind === 'gadget') && !i.tags.includes('instrument') && !i.tags.includes('quest') && !i.tags.includes('key'));
       if (sellable.length) {
         out.push({
           key: 'fence', drives: { greed: 1.0 }, bonus: sellable.length * 0.1,

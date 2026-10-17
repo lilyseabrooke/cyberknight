@@ -3,7 +3,7 @@ import { addHeat, npcsAt, relocate, remember } from './combat';
 import { sneakBonus } from './extras';
 import { clamp, type Candidate } from './candidate';
 import { roadsFrom, driveMinutes, parkedVehicle, isPerson } from './roads';
-import { MAKES, condition, normalize, vehicleOf, type Make } from './cars';
+import { condition, keyTo, normalize } from './cars';
 import { KINDS, removeCompanion } from './companions';
 import { policeChase } from './chase';
 import { skillValue, synergy, train } from './skills';
@@ -52,6 +52,19 @@ export function vehicleCandidates(w: World): Candidate[] {
       return out;
     }
     const car = parkedVehicle(w, loc);
+    // With its key she just gets in: no lock to beat, nobody to see her do it.
+    if (car && keyTo(h, car.id)) {
+      out.push({
+        key: `usekey:${loc.id}`, drives: { curiosity: 0.4, greed: 0.3 }, bonus: 1.0,
+        run: (c) => {
+          takeCar(c.w, loc, car);
+          c.emit('vehicle', 'good', { variant: 'keyed', car: car.name, kind: car.kind, place: loc.name });
+          train(c, 'driving', 1);
+          boardParty(c, c.w.hero.vehicle!, loc);
+        },
+      });
+      return out;
+    }
     if (car) {
       out.push({
         key: `hijack:${loc.id}`, drives: { greed: 0.45, curiosity: 0.5, bravery: 0.25 }, bonus: 0.15,
@@ -79,7 +92,14 @@ export function vehicleCandidates(w: World): Candidate[] {
 
 // =============================================================== resolvers
 
-function hijack(c: Ctx, loc: Location, car: Make): void {
+/** The car is hers now: gone from the street, in her hands. */
+function takeCar(w: World, loc: Location, car: Vehicle): void {
+  w.flags[`stolen:${loc.id}`] = true;
+  if (w.strays?.[loc.id]) delete w.strays[loc.id];
+  w.hero.vehicle = normalize({ ...car, riders: [] });
+}
+
+function hijack(c: Ctx, loc: Location, car: Vehicle): void {
   const { w, rng } = c;
   const h = w.hero;
   const hard = car.kind === 'civilian' ? 0 : 0.1;
@@ -99,8 +119,7 @@ function hijack(c: Ctx, loc: Location, car: Make): void {
   }
 
   if (ok) {
-    w.flags[`stolen:${loc.id}`] = true;
-    h.vehicle = vehicleOf(car);
+    takeCar(w, loc, car);
     train(c, 'driving', 1);
   }
   c.emit('hijack', ok ? (seen ? 'mixed' : 'good') : 'bad', { variant: ok ? 'ok' : 'fail', car: car.name, kind: car.kind, seen, witnesses: people.length, place: loc.name });

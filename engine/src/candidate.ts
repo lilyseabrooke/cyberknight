@@ -6,6 +6,7 @@ import { dangerOf } from './grade';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { enterRoom } from './dungeons';
+import { assignKeys } from './roads';
 import { slotsFree } from './companions';
 
 /**
@@ -46,6 +47,8 @@ export function spawnGroup(c: Ctx, archetype: string, count: number, faction?: s
     addNpc(c.w, n);
     out.push(n);
   }
+  // Police and guards turn up with their car.
+  if (c.w.locations[c.w.hero.locationId]?.kind === 'street') assignKeys(c.w, c.w.locations[c.w.hero.locationId]!);
   return out;
 }
 

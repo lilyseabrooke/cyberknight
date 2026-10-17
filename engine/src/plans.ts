@@ -170,7 +170,7 @@ const PRIOR: Record<string, number> = {
 /** Spending, as opposed to earning. A hero saving up for something does not do these. */
 export const SPEND = new Set(['order_drink', 'buy_round', 'buy_gear', 'buy_stim', 'buy_stims', 'buy_noodles', 'buy_paint', 'implant', 'laser_tag', 'mix_molotov', 'buy_intel']);
 
-export const sellable = (i: Item): boolean => ['loot', 'weapon', 'armor', 'gadget'].includes(i.kind) && !i.tags.includes('instrument') && !i.tags.includes('quest');
+export const sellable = (i: Item): boolean => ['loot', 'weapon', 'armor', 'gadget'].includes(i.kind) && !i.tags.includes('instrument') && !i.tags.includes('quest') && !i.tags.includes('key');
 
 /** What the fixer would pay for what she's carrying (she keeps her best melee backup). */
 export function fenceValue(h: Hero): number {

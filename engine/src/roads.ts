@@ -1,23 +1,46 @@
 import { Rng } from './rng';
 import { isShut } from './shutdown';
 import { npcsAt } from './population';
-import { MAKES, type Make } from './cars';
-import type { Id, Location, Vehicle, World } from './types';
+import { MAKES, carKey, vehicleOf } from './cars';
+import type { Id, Location, Npc, Vehicle, World } from './types';
 
 const isPerson = (tags: string[], archetype: string): boolean => !tags.includes('robot') && !tags.includes('dragon') && !tags.includes('boss') && archetype !== 'puppy';
 export { isPerson };
 
 const PARKED_CHANCE = 0.45;
 
-/** The car waiting on this street, if any. A pure function of the run and the place, minus ones already taken. */
-export function parkedVehicle(w: World, loc: Location): Make | null {
-  if (loc.kind !== 'street' || w.flags[`stolen:${loc.id}`]) return null;
+/** The car waiting on this street, if any: a stray left by a chase, else one the street grew. A pure function of the run and the place, minus ones already taken. */
+export function parkedVehicle(w: World, loc: Location): Vehicle | null {
+  if (loc.kind !== 'street') return null;
+  const stray = w.strays?.[loc.id];
+  if (stray) return stray;
+  if (w.flags[`stolen:${loc.id}`]) return null;
   const rng = new Rng(`car:${w.seed}:${loc.id}`);
   const cop = npcsAt(w, loc.id).some((n) => n.tags.includes('cop'));
   if (!cop && !rng.chance(PARKED_CHANCE)) return null;
   const district = loc.gen?.district;
   const kind: Vehicle['kind'] = cop ? 'police' : rng.chance(district === 'corporate' ? 0.4 : 0.07) ? 'atlas' : rng.chance(0.1) ? 'police' : 'civilian';
-  return rng.pick(MAKES[kind]);
+  return vehicleOf(rng.pick(MAKES[kind]), `car:${w.seed}:${loc.id}:${kind}`);
+}
+
+/** Somebody who would be driving this kind of car: the officers with the squad car, the guards with the Atlas one, any bystander with a civilian one. */
+function driverOf(car: Vehicle, folk: Npc[]): Npc | undefined {
+  const people = folk.filter((n) => n.alive && !n.tags.some((t) => ['robot', 'dragon', 'boss'].includes(t)) && n.archetype !== 'puppy');
+  const pool = car.kind === 'police' ? people.filter((n) => n.tags.includes('cop')) : car.kind === 'atlas' ? people.filter((n) => n.faction === 'atlas' || n.tags.includes('security') || n.tags.includes('corp')) : people.filter((n) => !n.tags.includes('cop') && !n.tags.includes('security'));
+  return pool.length ? new Rng(`driver:${car.id}`).pick(pool) : undefined;
+}
+
+/**
+ * A car that has people with it has a key, and the driver has it: whoever is in it, or else somebody connected to it, picked by
+ * chance. It goes among their loot, so it comes off them however she deals with them. Once per car.
+ */
+export function assignKeys(w: World, loc: Location): void {
+  const car = parkedVehicle(w, loc);
+  if (!car || w.flags[`keyed:${car.id}`]) return;
+  const driver = driverOf(car, npcsAt(w, loc.id));
+  if (!driver) return;
+  w.flags[`keyed:${car.id}`] = true;
+  driver.loadout.push(carKey(car, driver.tags.includes('ganger')));
 }
 
 /** Streets she can get to from here by road: only street to street, nothing locked, shut or in the way. Fewest hops first. */

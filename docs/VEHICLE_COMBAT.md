@@ -307,3 +307,19 @@ Everything above is in, with these differences and choices:
 - **Left-behind companions**: `Hero.waiting` rather than a field on `Companion`, so everything that walks `hero.companions` is untouched;
   they rejoin on arrival at the street (`companion_rejoins`).
 - **Status panel** shows the car, its condition and hp, and how many are aboard.
+
+## Keys
+
+- **Who has one**: a car with people with it has a key, and the driver carries it among their loot (`assignKeys` in `roads.ts`, once
+  per car, when she arrives on the street or a squad turns up). The driver is whoever would be in it: an officer for a police car (the
+  squad car at a spot with NPD officers), a guard for an Atlas one, any bystander for a civilian car, picked by chance when nobody is
+  actually in it. No driver around, no key (an abandoned car). A cruiser in a police chase is keyed to its driver too, and if it is
+  still running when the chase ends it is left on the street (`World.strays`) for her to take.
+- **The key**: an item (`tags: ['key']`, `Item.carId` = `Vehicle.id`, `Item.ownerGang` if the driver was a ganger). It comes off the
+  driver however she deals with them: killed, beaten, or pickpocketed. It can't be sold.
+- **What it does**: with the key to the car in front of her she gets in (`usekey`): no hijack check, no failed attempt, nobody to see
+  it, no heat from taking it. Without one the street offers a hijack as before.
+- **How long it keeps**: a parked car she has the key to lasts three times as long (`KEY_LIFE`), unless it is an NPD or Atlas car, or
+  its owners were gangers: those are hunted or somebody's to take back, key or no key.
+- A car on the board is the same car: the police car at a spot with officers is the squad car the officers shelter behind, and a stray
+  from a chase keeps the damage it took.

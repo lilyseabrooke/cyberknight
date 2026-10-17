@@ -1,4 +1,5 @@
-import type { ParkedVehicle, Vehicle } from './types';
+import { CAR_LIFE_MIN } from './clock';
+import type { Hero, Item, ParkedVehicle, Vehicle } from './types';
 
 /**
  * The cars themselves: what each make is, how much punishment it takes, and what happens when it has taken too much.
@@ -60,7 +61,8 @@ export const MAKES: Record<Vehicle['kind'], Make[]> = {
 export const ALL_MAKES: Make[] = [...MAKES.civilian, ...MAKES.police, ...MAKES.atlas];
 
 /** A new car off the lot (or off the kerb). */
-export const vehicleOf = (mk: Make): Vehicle => ({
+export const vehicleOf = (mk: Make, id?: string): Vehicle => ({
+  id: id ?? `make:${mk.name}`,
   kind: mk.kind,
   name: mk.name,
   speed: mk.speed,
@@ -75,9 +77,10 @@ export const vehicleOf = (mk: Make): Vehicle => ({
 
 /** A car from an older save (or a test) with some of this missing: fill it in from its make, or its kind. */
 export function normalize(v: Vehicle): Vehicle {
-  if (v.maxHp !== undefined && v.hp !== undefined && v.riders && v.seats !== undefined) return v;
+  if (v.id !== undefined && v.maxHp !== undefined && v.hp !== undefined && v.riders && v.seats !== undefined) return v;
   const mk = ALL_MAKES.find((x) => x.name === v.name) ?? m(v.kind, v.name);
   const fresh = vehicleOf(mk);
+  v.id ??= fresh.id;
   v.pace ??= fresh.pace;
   v.maxHp ??= fresh.maxHp;
   v.hp ??= v.maxHp;
@@ -130,3 +133,31 @@ export function hitCar(v: Pick<Vehicle, 'hp' | 'maxHp' | 'armor'>, dmg: number, 
   v.hp = Math.max(0, v.hp - taken);
   return { taken, from, to: stateOf(v), wrecked: v.hp <= 0 };
 }
+
+// ===================================================================== keys
+
+/** The key to a car, as an item. Whoever was driving it (or was with it) carries one. */
+export const carKey = (car: Pick<Vehicle, 'id' | 'name'>, gang = false): Item => ({
+  id: 'car_key',
+  name: `the key to ${car.name}`,
+  kind: 'loot',
+  power: 0,
+  value: 12,
+  tags: ['key'],
+  carId: car.id,
+  ...(gang ? { ownerGang: true } : {}),
+});
+
+/** Her key to this car, if she has one. */
+export const keyTo = (h: Pick<Hero, 'inventory'>, carId: string): Item | undefined => h.inventory.find((i) => i.tags.includes('key') && i.carId === carId);
+
+/**
+ * How long a car she leaves on a street stays hers. With its key a civilian car lasts three times as long: nobody is hunting for
+ * it and it is not hot. A police or Atlas car is hunted whatever she carries, and a gang's car is somebody's to take back.
+ */
+export function lifeOf(v: Pick<Vehicle, 'id' | 'kind'>, key: Item | undefined): number {
+  const base = CAR_LIFE_MIN[v.kind];
+  return key && v.kind === 'civilian' && !key.ownerGang ? base * KEY_LIFE : base;
+}
+
+export const KEY_LIFE = 3;

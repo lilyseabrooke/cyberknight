@@ -32,6 +32,9 @@ export interface Item {
   rounds?: number;
   /** Weapons: the traits that make this one different from the next. See weapons.ts. Named classics without it get plain defaults. */
   fx?: WeaponFx;
+  /** Car keys: the car this opens (`Vehicle.id`), and whether it belonged to gangers (their cars don't keep). See cars.ts. */
+  carId?: string;
+  ownerGang?: boolean;
 }
 
 /** What a weapon does besides hit. Every number is a trade against the base damage in `Item.power`. */
@@ -89,6 +92,8 @@ export interface Companion {
 
 /** A car she is in. It goes with her along the streets and is parked where she walks into a building. See vehicles.ts and cars.ts. */
 export interface Vehicle {
+  /** Which car this is. A key opens the car with this id. */
+  id: string;
   /** Whose it was, and so who comes looking: a civilian's, the NPD's, Atlas's. */
   kind: 'civilian' | 'police' | 'atlas';
   name: string;
@@ -813,6 +818,8 @@ export interface World {
   worldSeed: string;
   /** Persistent across runs; see Universe in universe.ts. */
   legacy: Legacy;
+  /** Cars left on a street by a chase (the cruiser that was still running when it ended), by street. They are what is parked there until somebody takes them. */
+  strays?: Record<Id, Vehicle>;
   beat: number;
   /** World minutes. Advances a little every beat, and more when something takes time. See clock.ts. */
   clock: number;

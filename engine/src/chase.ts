@@ -1,5 +1,5 @@
 import type { Ctx, Npc, Vehicle } from './types';
-import { MAKES, SPILL, blastInside, hitCar, normalize, stateOf } from './cars';
+import { ALL_MAKES, MAKES, SPILL, blastInside, carKey, hitCar, normalize, stateOf, vehicleOf } from './cars';
 import { fight, heroPower, kill, maybeInjure, relocate } from './combat';
 import { spawnGroup, clamp } from './candidate';
 import { heroSpeed } from './dragonmodels';
@@ -27,7 +27,7 @@ export interface Chaser {
   /** The people in it (or the dragon itself). */
   crew: Npc[];
   /** A car, if it is in one. A dragon has wings instead. */
-  car?: { kind: Vehicle['kind']; name: string; hp: number; maxHp: number; armor: number };
+  car?: { id: string; kind: Vehicle['kind']; name: string; hp: number; maxHp: number; armor: number };
   pace: number;
   /** Tiles between it and her. */
   gap: number;
@@ -267,6 +267,12 @@ function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle, rounds:
     if (o.foes.some((f) => f.car?.kind === 'police' || f.crew.some((n) => n.tags.includes('cop')))) w.heat.npd = Math.max(0, (w.heat.npd ?? 0) - 2);
     train(c, 'driving', 2);
   } else if (result === 'won') train(c, 'driving', 2);
+  // A cruiser still running when it ends is left where it stopped: hers for the taking, and its driver has the key.
+  if (result === 'caught' || result === 'bailed' || result === 'wrecked') {
+    const left = o.foes.find((f) => f.alive && f.car && f.car.hp > 0);
+    const mk = left?.car && ALL_MAKES.find((m) => m.name === left.car!.name);
+    if (left?.car && mk && !w.strays?.[loc] && !w.flags[`stolen:${loc}`]) (w.strays ??= {})[loc] = { ...vehicleOf(mk, left.car.id), hp: left.car.hp };
+  }
   for (const a of [...h.companions]) if (a.hp <= 0) removeCompanion(c, a, 'lost');
   c.emit('chase_end', result === 'escaped' || result === 'won' ? 'good' : result === 'lost' ? 'mixed' : 'bad', { variant: result, mode: o.mode, taken, car: car.name, rounds, foe: o.foes[0]?.name ?? 'them', state: stateOf(car) });
 }
@@ -279,7 +285,10 @@ export function cruisers(cops: Npc[]): Chaser[] {
   for (let i = 0; i < cops.length; i += 2) {
     const crew = cops.slice(i, i + 2);
     const mk = MAKES.police[i % 2 === 0 ? 0 : 1]!;
-    out.push({ name: `an NPD cruiser (${crew.map((n) => n.name).join(' and ')})`, crew, car: { kind: 'police', name: mk.name, hp: mk.maxHp, maxHp: mk.maxHp, armor: mk.armor }, pace: mk.pace, gap: 3 + i, alive: true });
+    const id = `chase:${crew[0]!.id}`;
+    // Whoever is driving has the key to it.
+    crew[0]!.loadout.push(carKey({ id, name: mk.name }, crew[0]!.tags.includes('ganger')));
+    out.push({ name: `an NPD cruiser (${crew.map((n) => n.name).join(' and ')})`, crew, car: { id, kind: 'police', name: mk.name, hp: mk.maxHp, maxHp: mk.maxHp, armor: mk.armor }, pace: mk.pace, gap: 3 + i, alive: true });
   }
   return out;
 }
