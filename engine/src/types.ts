@@ -87,13 +87,24 @@ export interface Companion {
   home?: Id;
 }
 
-/** A car she is in. It goes with her along the streets and is parked where she walks into a building. See vehicles.ts. */
+/** A car she is in. It goes with her along the streets and is parked where she walks into a building. See vehicles.ts and cars.ts. */
 export interface Vehicle {
   /** Whose it was, and so who comes looking: a civilian's, the NPD's, Atlas's. */
   kind: 'civilian' | 'police' | 'atlas';
   name: string;
   /** How much further it takes her than a civilian car does. */
   speed: number;
+  /** Top speed on the fight-board scale (tiles a round). */
+  pace: number;
+  hp: number;
+  maxHp: number;
+  /** Flat cut from gunfire; also what makes the bang bigger when it goes. */
+  armor: number;
+  /** Everyone aboard, counting Blackbird. */
+  seats: number;
+  /** The companions aboard right now (ids). They get out when she parks. */
+  riders: Id[];
+  mounted?: 'gun' | 'ram';
 }
 
 /** A car she took and left on a street. It is hers until it is towed, recovered or stripped (`until`, a world minute). */
@@ -140,6 +151,8 @@ export interface Hero {
   vehicle?: Vehicle;
   /** Cars of hers parked around the city; she gets back in without hijacking again. */
   parked?: ParkedVehicle[];
+  /** Companions she left behind when she drove off, who chose to wait where they were (`at`). They rejoin when she comes back. */
+  waiting?: (Companion & { at: Id })[];
   /** Rounds on hand by ammo type (see content/ammo.ts). Shooting spends them; no rounds, no shooting. */
   ammo: Record<string, number>;
   buffs: Buff[];

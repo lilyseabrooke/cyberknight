@@ -38,6 +38,7 @@ import {
   hungerTier,
   sleepTier,
   debtOf,
+  carState,
 } from '../engine/src';
 import Lab from './Lab';
 
@@ -81,6 +82,7 @@ interface Snapshot {
   medPacks: string;
   medStock: number;
   armor: string;
+  car: string;
   injuries: string[];
   inventory: string[];
   companions: { name: string; kind: string; hp: number; maxHp: number; loyalty: number }[];
@@ -152,6 +154,7 @@ function snap(w: World): Snapshot {
     medPacks: Object.entries(medPacks(h).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => `${k} ${n}`).join(' · '),
     medStock: medStock(h),
     armor: h.armor?.name ?? 'nothing but attitude',
+    car: h.vehicle ? `${h.vehicle.name} (${carState(h.vehicle)}, ${h.vehicle.hp}/${h.vehicle.maxHp}${h.vehicle.riders?.length ? `, ${h.vehicle.riders.length} aboard` : ''})` : '',
     injuries: [...h.injuries],
     inventory: Object.entries(h.inventory.filter((i) => !i.tags.includes('med')).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => (k > 1 ? `${n} ×${k}` : n)),
     companions: h.companions.map((a) => ({ name: a.name, kind: a.kind, hp: a.hp, maxHp: a.maxHp, loyalty: a.loyalty })),
@@ -529,6 +532,11 @@ export default function NightViewer() {
               <dt>Medical</dt><dd className={status.medStock === 0 ? 'bad' : undefined}>{status.medPacks ? `${status.medPacks} (${status.medStock} HP)` : 'none (she cannot heal)'}</dd>
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
               <dt>Armor</dt><dd>{status.armor}</dd>
+              {status.car && (
+                <>
+                  <dt>Car</dt><dd>{status.car}</dd>
+                </>
+              )}
               {status.satiety > 0.08 && (<><dt>Afterglow</dt><dd>{'♥'.repeat(Math.max(1, Math.round(status.satiety * 5)))} <span className="muted">sated</span></dd></>)}
               {status.sore > 0.08 && (<><dt>Sore</dt><dd>{'▮'.repeat(Math.max(1, Math.round(status.sore * 5)))} <span className="muted">{status.sore > 0.6 ? 'wrecked' : status.sore > 0.3 ? 'aching' : 'tender'}</span></dd></>)}
               {status.sleepDebt > 0 && (<><dt>Sleep debt</dt><dd className="bad">{status.sleepDebt} <span className="muted">(poor beds leave it; a good bed clears it)</span></dd></>)}

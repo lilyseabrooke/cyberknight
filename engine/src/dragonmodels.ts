@@ -1,5 +1,7 @@
 import type { DragonTemper, Flight, Id, World } from './types';
 import type { Rng } from './rng';
+import { normalize, paceOf } from './cars';
+import { skillValue } from './skills';
 
 /**
  * The dragons that fly: which family each belongs to, how fast it goes, and what sets it apart. Hera and Artemis are here
@@ -58,13 +60,22 @@ export const flightModel = (f: Pick<Flight, 'kind' | 'model'>): DragonModel => D
 export const dragonSpeed = (archetype: string): number => DRAGON_MODELS[archetype]?.speed ?? DEFAULT_DRAGON_SPEED;
 export const hasTrait = (archetype: string | undefined, t: DragonTrait): boolean => !!modelOf(archetype)?.traits.includes(t);
 
-/**
- * How fast she gets around, on the same scale. Her legs, for now: the fight board adds her footwork on top for the round
- * itself. This is the seam for vehicles and anything else that makes her quicker.
- */
-export function heroSpeed(w: World): number {
+/** How fast her legs take her, on the same scale. The fight board adds her footwork on top for the round itself. */
+export function legSpeed(w: World): number {
   const h = w.hero;
   return Math.max(1, Math.min(7, 3 + (h.reflex >= 6 ? 1 : 0) + (h.implants.includes('hydraulic_calves') ? 1 : 0) - (h.injuries.includes('broken_leg') ? 1 : 0)));
+}
+
+/**
+ * How fast she gets around, on the same scale: her legs, or the car she is driving (its top speed less what the damage has
+ * cost it, and a good driver gets more out of it). This is the seam vehicles plug into: what makes a Hermes Mk. III
+ * catchable and an Ares Mk. IV escapable.
+ */
+export function heroSpeed(w: World): number {
+  const v = w.hero.vehicle;
+  const legs = legSpeed(w);
+  if (!v) return legs;
+  return Math.max(legs, Math.min(14, paceOf(normalize(v)) + skillValue(w.hero, 'driving') / 10));
 }
 
 /** How far ahead of her a dragon starts when she sets off after it, in tiles. */

@@ -57,6 +57,7 @@ function attack(s: Sim, u: Unit): Technique {
     range: u.reach,
     los: u.reach[1] > 1,
     value(s2, me, from, t) {
+      if (me.reach[1] <= 1 && t!.aboard && s2.sheltered(t!)) return null; // they have to get the door open first
       const p = s2.hitChance(me, t!, from);
       // Foes are after the hero. Her little friends are a distraction, and a hit on one is judged against her health, not theirs.
       if (t!.kind === 'hero') return strikeValue(p, s2.avgDamage(me, t!), t!.ref.hp) * 1.25;
@@ -236,6 +237,105 @@ function overwatch(s: Sim): Technique[] {
   ];
 }
 
+// ------------------------------------------------------------------ cars
+
+/** Climb into her own car from beside it: the best cover there is while the doors hold. */
+function getIn(s: Sim): Technique[] {
+  const mine = s.ownCar();
+  if (!mine || s.hero.aboard || mine.doors !== 'shut' || mine.car.hp / mine.car.maxHp <= 0.25) return [];
+  return [
+    {
+      id: 'get_in',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value(s2, me, from) {
+        if (!s2.carBeside(from)) return null;
+        const foes = s2.enemiesOf(me);
+        const shooters = foes.filter((e) => e.reach[1] > 1).length / Math.max(1, foes.length);
+        const ratio = me.ref.hp / me.ref.maxHp;
+        // Worth it when she is hurt and what is coming is guns; a melee crowd just opens the door.
+        return 0.8 + 7 * (1 - ratio) * shooters + (s2.wield.tags.includes('gun') ? 1 : 0);
+      },
+      run(s2) {
+        s2.board(s2.ownCar()!);
+      },
+    },
+  ];
+}
+
+/** Put her foot down and leave the fight in her own car. */
+function driveOff(s: Sim): Technique[] {
+  const mine = s.ownCar();
+  if (!mine || mine.car.hp <= 0) return [];
+  return [
+    {
+      id: 'drive_off',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value(s2, me, from) {
+        if (!s2.carOf(me) && !s2.carBeside(from)) return null;
+        const ratio = me.ref.hp / me.ref.maxHp;
+        const threat = s2.enemiesOf(me).reduce((a, e) => a + frac(s2.avgDamage(e, me), me.ref.hp), 0);
+        if (ratio < 0.5) return 6 + 20 * (0.5 - ratio);
+        return threat > 0.6 ? 4 * threat : null;
+      },
+      run(s2) {
+        s2.driveOff(s2.ownCar()!);
+      },
+    },
+  ];
+}
+
+/** From inside the car: run somebody down in a straight line with a clear road to them. */
+function runDown(s: Sim): Technique[] {
+  const mine = s.ownCar();
+  if (!mine || s.hero.cd.run_down || !s.hero.aboard || mine.car.hp / mine.car.maxHp <= 0.4) return [];
+  return [
+    {
+      id: 'run_down',
+      targets: 'enemy',
+      range: [2, 5],
+      los: true,
+      value(s2, me, from, t) {
+        const dx = t!.x - from.x;
+        const dy = t!.y - from.y;
+        if (dx !== 0 && dy !== 0 && Math.abs(dx) !== Math.abs(dy)) return null;
+        const n = Math.max(Math.abs(dx), Math.abs(dy));
+        for (let i = 1; i < n; i++) {
+          const x = from.x + Math.sign(dx) * i;
+          const y = from.y + Math.sign(dy) * i;
+          if (terrainAt(s2.grid, x, y) !== 'floor' || s2.occupant({ x, y })) return null;
+        }
+        if (t!.npc?.tags.some((x) => x === 'boss' || x === 'dragon')) return null;
+        return 3 + 12 * frac(s2.hero.ref.hp > 0 ? 40 + s2.w.hero.muscle * 3 : 0, t!.ref.hp);
+      },
+      run(s2, me, t) {
+        me.cd.run_down = 3;
+        s2.runDown(t!);
+      },
+    },
+  ];
+}
+
+/** A foe with no gun and a strong arm: if the target is in a shut car, get the door open. */
+function forceDoor(): Technique {
+  return {
+    id: 'force_door',
+    targets: 'enemy',
+    range: [1, 1],
+    los: false,
+    value(s2, me, from, t) {
+      if (me.reach[1] > 1 || !t!.aboard || !s2.sheltered(t!)) return null;
+      return 9 + (t!.kind === 'hero' ? 4 : 0);
+    },
+    run(s2, me, t) {
+      s2.forceDoor(me, s2.carOf(t!)!);
+    },
+  };
+}
+
 // ------------------------------------------------------------------ leaving
 
 function leave(): Technique {
@@ -275,7 +375,7 @@ function allyAttack(u: Unit): Technique {
 // ------------------------------------------------------------------ the registry
 
 export function techniquesFor(s: Sim, u: Unit): Technique[] {
-  if (u.kind === 'hero') return [attack(s, u), ...throwing(s), ...ambush(s), ...flurry(s), ...shove(s), ...hack(s, u), ...intimidate(s), ...overwatch(s), ...doctrineTechniques(s), leave()];
+  if (u.kind === 'hero') return [attack(s, u), ...throwing(s), ...ambush(s), ...flurry(s), ...shove(s), ...hack(s, u), ...intimidate(s), ...overwatch(s), ...getIn(s), ...driveOff(s), ...runDown(s), ...doctrineTechniques(s), leave()];
   if (u.kind === 'ally') return [allyAttack(u), ...hack(s, u)];
-  return [attack(s, u), leave()];
+  return [attack(s, u), forceDoor(), leave()];
 }

@@ -1,3 +1,4 @@
+import { policeChase } from './chase';
 import type { Ctx, Id, Npc, World } from './types';
 import { addHeat, fight, here, remember } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
@@ -101,6 +102,11 @@ export function npdResponse(c: Ctx): boolean {
   const squad = officers ? spawnGroup(c, 'npd_officer', npd >= 6 ? 3 : 2) : spawnGroup(c, 'npd_drone', npd >= 3 ? 2 : 1);
   if (npd >= 8) squad.push(...spawnGroup(c, 'npd_sergeant', 1));
   if (officers && npd < 8 && rng.chance(0.5)) squad.push(...spawnGroup(c, 'npd_drone', 1));
+  // In a car, the police come after her in theirs.
+  if (officers && w.hero.vehicle && w.hero.vehicle.hp > 0 && rng.chance(0.7)) {
+    policeChase(c, 'ambush', squad);
+    return true;
+  }
   c.emit('ambush', 'bad', { variant: officers ? 'npd' : 'npd_drone', count: squad.length, heat: npd });
   fight(c, squad, { cause: officers ? 'an NPD ambush' : 'an NPD drone sweep', joiners: false });
   return true;

@@ -8,14 +8,16 @@ export interface KindDef {
   abilities: string[];
   /** Combat assist: damage to a foe and/or damage absorbed. */
   assist: { dmg?: number; absorb?: number; disable?: boolean };
+  /** Seats it takes in a car; default 1. */
+  seats?: number;
 }
 
 export const KINDS: Record<string, KindDef> = {
   puppy: { label: 'robot puppy', maxHp: 25, power: 3, abilities: ['sniff', 'charm'], assist: { dmg: 7 } },
   drone: { label: 'hacked drone', maxHp: 40, power: 5, abilities: ['scout', 'hack', 'zap'], assist: { dmg: 13 } },
   kids: { label: 'street kids', maxHp: 18, power: 2, abilities: ['scout', 'distract', 'pickpocket'], assist: { dmg: 5 } },
-  pigeon: { label: 'cyber-pigeon', maxHp: 8, power: 1, abilities: ['scout', 'distract'], assist: { absorb: 7 } },
-  scrapper: { label: 'scrapper-bot', maxHp: 60, power: 5, abilities: ['tank', 'lockpick'], assist: { absorb: 11 } },
+  pigeon: { label: 'cyber-pigeon', maxHp: 8, power: 1, abilities: ['scout', 'distract'], assist: { absorb: 7 }, seats: 0 },
+  scrapper: { label: 'scrapper-bot', maxHp: 60, power: 5, abilities: ['tank', 'lockpick'], assist: { absorb: 11 }, seats: 2 },
   hacker: { label: 'hacker', maxHp: 54, power: 5, abilities: ['hack', 'scout'], assist: { disable: true } },
   courier: { label: 'courier', maxHp: 30, power: 3, abilities: ['scout', 'charm'], assist: { dmg: 5 } },
 };

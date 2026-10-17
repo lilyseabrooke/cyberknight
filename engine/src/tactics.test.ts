@@ -275,7 +275,7 @@ describe('a fight on the grid', () => {
 
   it('allies fight as people: they take real damage, and sometimes do not get up', () => {
     let damage = 0;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 150; i++) {
       const s = stage(`ally-${i}`, { kind: 'artemis', n: 2, hero: { level: 12 }, allies: ['puppy', 'kids'] });
       const before = new Map(s.w.hero.companions.map((a) => [a.id, a.hp]));
       fight({ w: s.w, rng: s.rng, emit: s.emit }, s.foes, { cause: 'test', joiners: false });

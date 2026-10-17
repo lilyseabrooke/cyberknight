@@ -9,6 +9,7 @@ export { createRun, openingEvents, step, advise, runToEnd, TEST_BEAT_CAP } from 
 export { ASK_BEATS, ASK_GAP, askiness } from './advice';
 export { render, hasTemplate, type TextLine, type RenderCtx } from './text';
 export { skillLevel, SKILL_LABELS } from './skills';
+export { stateOf as carState, type CarState } from './cars';
 export { IMPLANTS } from './content/implants';
 export { synergy, skillValue, train, odds as skillOdds, type Part } from './skills';
 export { ODDS } from './hobbies';

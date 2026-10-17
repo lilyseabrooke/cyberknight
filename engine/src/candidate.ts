@@ -6,6 +6,7 @@ import { dangerOf } from './grade';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { enterRoom } from './dungeons';
+import { slotsFree } from './companions';
 
 /**
  * A thing Blackbird could do right now. Everything in Neo advertises these (the Sims model):
@@ -76,6 +77,14 @@ export function arrive(c: Ctx, to: string, variant: string, extra: Record<string
   if (lost.length) {
     w.hero.parked = w.hero.parked!.filter((p) => !lost.includes(p));
     for (const p of lost) c.emit('vehicle', 'bad', { variant: 'gone', car: p.name, kind: p.kind, place: dest.name });
+  }
+  // Whoever she left waiting here is glad to see her.
+  for (const a of w.hero.waiting?.filter((x) => x.at === to) ?? []) {
+    if (!slotsFree(w)) break;
+    w.hero.waiting = w.hero.waiting!.filter((x) => x !== a);
+    delete (a as { at?: string }).at;
+    w.hero.companions.push(a);
+    c.emit('companion_rejoins', 'good', { name: a.name, kind: a.kind, place: dest.name });
   }
   // A room in a dungeon: whatever's in it finds out about her.
   if (dest.dungeon && !w.over) enterRoom(c, dest);

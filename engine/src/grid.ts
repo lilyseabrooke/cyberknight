@@ -1,4 +1,4 @@
-import type { Location } from './types';
+import type { Location, ParkedVehicle, Vehicle } from './types';
 import type { Rng } from './rng';
 
 /**
@@ -18,11 +18,41 @@ export interface Pos {
   y: number;
 }
 
+/** What a car can take and give: a real car's own numbers, or the numbers of one that is only scenery. */
+export interface CarLike {
+  hp: number;
+  maxHp: number;
+  armor: number;
+}
+
+/**
+ * A car on the board. Its cells are `cover` (so movement, sight and shelter work the way they always have); the object
+ * is what takes the damage. A car that is hers keeps its hit points in `ref`, so what happens to it here is still true after.
+ */
+export interface BoardObject {
+  id: string;
+  name: string;
+  cells: Pos[];
+  car: CarLike;
+  /** The real car, when it is hers (driven or parked), so damage and destruction persist. */
+  ref?: Vehicle | ParkedVehicle;
+  kind: Vehicle['kind'];
+  mine: boolean;
+  team: 'hero' | 'foe' | 'neutral';
+  /** Shut doors make a car a place to hide; forced ones are open for the rest of the fight. */
+  doors: 'shut' | 'forced';
+  dents: number;
+  /** Rounds of fire left once it has gone up; after that the shell is cover for good. */
+  burn: number;
+  wrecked: boolean;
+}
+
 export interface Grid {
   w: number;
   h: number;
   cells: Terrain[];
   exits: Pos[];
+  objects?: BoardObject[];
 }
 
 interface Spec {
@@ -57,7 +87,7 @@ export const same = (a: Pos, b: Pos): boolean => a.x === b.x && a.y === b.y;
 
 const DIRS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
-const walkable = (t: Terrain | null): boolean => t === 'floor' || t === 'hazard' || t === 'exit';
+export const walkable = (t: Terrain | null): boolean => t === 'floor' || t === 'hazard' || t === 'exit';
 
 /** Can anything walk through here (flyers go over cover)? */
 export const passable = (g: Grid, x: number, y: number, flying = false): boolean => {
@@ -249,4 +279,48 @@ export function nearestFree(g: Grid, rng: Rng, anchor: Pos, taken: (p: Pos) => b
   }
   tiles.sort((a, b) => a.d - b.d || a.r - b.r);
   return tiles.map((t) => t.p);
+}
+
+// ===================================================================== cars on the board
+
+/** The car (not already a wreck) whose cell is exactly here. */
+export const objectAt = (g: Grid, p: Pos): BoardObject | undefined => g.objects?.find((o) => o.cells.some((c) => same(c, p)));
+
+/** The car a shot at `target` from `from` would run into, if the cover on the line is a car. */
+export function coverObject(g: Grid, from: Pos, target: Pos): BoardObject | undefined {
+  if (!g.objects?.length || dist(from, target) <= 1) return undefined;
+  for (const p of line(from, target)) {
+    const o = objectAt(g, p);
+    if (o && !o.wrecked) return o;
+  }
+  const behind = { x: target.x + Math.sign(from.x - target.x), y: target.y + Math.sign(from.y - target.y) };
+  const o = objectAt(g, behind);
+  return o && !o.wrecked ? o : undefined;
+}
+
+/**
+ * Park cars on a street: each takes two (or three) neighbouring floor tiles away from the doorways, and turns them into cover.
+ * One that would wall somebody off is taken away again. Returns the ones that fit.
+ */
+export function addObjects(g: Grid, rng: Rng, objs: (Omit<BoardObject, 'cells'> & { size: number })[]): BoardObject[] {
+  const placed: BoardObject[] = [];
+  const nearDoor = (p: Pos) => g.exits.some((e) => dist(e, p) <= 1);
+  for (const spec of objs) {
+    const { size, ...rest } = spec;
+    for (let tries = 0; tries < 40; tries++) {
+      const at = { x: rng.int(0, g.w - 1), y: rng.int(0, g.h - 1) };
+      const horizontal = rng.chance(0.5);
+      const cells = Array.from({ length: size }, (_, i) => ({ x: at.x + (horizontal ? i : 0), y: at.y + (horizontal ? 0 : i) }));
+      if (!cells.every((p) => terrainAt(g, p.x, p.y) === 'floor' && !nearDoor(p))) continue;
+      for (const p of cells) g.cells[idx(g, p)] = 'cover';
+      if (connected(g).size === g.cells.filter(walkable).length) {
+        const o: BoardObject = { ...rest, cells };
+        (g.objects ??= []).push(o);
+        placed.push(o);
+        break;
+      }
+      for (const p of cells) g.cells[idx(g, p)] = 'floor';
+    }
+  }
+  return placed;
 }

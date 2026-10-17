@@ -5,6 +5,9 @@ import { skillLevel, skillValue, train } from './skills';
 import { basePower, fightTraining, hpPerLevel, levelCost } from './grade';
 import { perk } from './lab';
 import { CAR_LIFE_MIN } from './clock';
+import { roadsFrom } from './roads';
+import { policeChase } from './chase';
+import { parkIt } from './cars';
 import { addAmmo, wielded } from './arms';
 import { fxOf, rating } from './weapons';
 import { Sim, highlights, type Arrival, type Hooks, type LogEntry, type RoundRecord } from './tactics';
@@ -49,7 +52,7 @@ export function relocate(w: World, to: string): void {
   const dest = w.locations[to];
   if (dest && dest.kind !== 'street' && h.vehicle) {
     // The car stays where she left it, and stays hers for a while; see vehicles.ts.
-    if (w.locations[from]?.kind === 'street') (h.parked ??= []).push({ ...h.vehicle, at: from, until: w.clock + CAR_LIFE_MIN[h.vehicle.kind] });
+    if (w.locations[from]?.kind === 'street') (h.parked ??= []).push(parkIt(h.vehicle, from, w.clock + CAR_LIFE_MIN[h.vehicle.kind]));
     delete h.vehicle;
   }
   if (dest) {
@@ -205,7 +208,7 @@ function crowdJoiners(c: Ctx, foes: Npc[]): Npc[] {
   return joined;
 }
 
-const HOOKS: Hooks = { heroPower, kill, maybeInjure, hasInjury, throwDamage };
+export const HOOKS: Hooks = { heroPower, kill, maybeInjure, hasInjury, throwDamage };
 
 /**
  * The big one. Sets the stage (who is here, who turns up late, who saw), plays the fight out on a small grid
@@ -394,8 +397,14 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
     }
   } else if (result === 'flee') {
     for (const f of foes) f.hostile = false;
-    relocate(w, loc.fleeTo);
-    c.emit('fight_end', 'mixed', { ...base, variant: 'flee', to: w.locations[loc.fleeTo]!.name });
+    // Out in her own car: a couple of streets on rather than the way a person would run, and the cops in a cruiser come after her.
+    const road = res.droveOff ? roadsFrom(w, loc.id, 2).filter((r) => r.hops === 2)[0] : undefined;
+    const chasers = res.droveOff && res.cruiser ? foes.filter((f) => f.alive && f.tags.includes('cop')) : [];
+    if (road) for (const id of road.path) relocate(w, id);
+    else relocate(w, loc.fleeTo);
+    c.emit('fight_end', 'mixed', { ...base, variant: res.droveOff ? 'drove_off' : 'flee', to: w.locations[h.locationId]!.name });
+    for (const f of chasers) f.hostile = true;
+    if (chasers.length && h.vehicle && !w.over) policeChase(c, 'drive_off', chasers);
     if (foes.some((f) => f.tags.includes('security')) && lethal) addHeat(w, foes[0]!.faction, 1);
   } else if (result === 'tossed') {
     for (const f of foes) f.hostile = false;

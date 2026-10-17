@@ -8,7 +8,8 @@ import { gather } from './interactions';
 import { parkedVehicle, roadsFrom, vehicleCandidates } from './vehicles';
 import { always } from './testkit';
 import { perform } from './run';
-import type { Ctx, Id, World } from './types';
+import type { Ctx, Id, Vehicle, World } from './types';
+import { MAKES, vehicleOf } from './cars';
 
 const ctxOf = (w: World, seed = 'v'): { c: Ctx; events: GameEvent[] } => {
   const events: GameEvent[] = [];
@@ -24,6 +25,7 @@ function streetWith(kind: 'civilian' | 'police' | 'atlas'): { w: World; street: 
   throw new Error(`no ${kind} car anywhere`);
 }
 
+const testCar = (): Vehicle => vehicleOf({ ...MAKES.civilian[0]!, name: 'a test car' });
 const hijackOf = (w: World, street: Id) => vehicleCandidates(w).find((x) => x.key === `hijack:${street}`)!;
 
 describe('vehicles', () => {
@@ -80,7 +82,7 @@ describe('vehicles', () => {
       relocate(w, at);
     }
     relocate(w, 'street_main');
-    w.hero.vehicle = { kind: 'civilian', name: 'a test car', speed: 1 };
+    w.hero.vehicle = testCar();
     const roads = roadsFrom(w, 'street_main', 4);
     const far = roads.find((r) => r.hops >= 3);
     expect(far).toBeDefined();
@@ -105,7 +107,7 @@ describe('vehicles', () => {
   it('a car she has taken stays hers: she gets back in without hijacking, until it is gone', () => {
     const { w, street } = streetWith('civilian');
     relocate(w, street);
-    w.hero.vehicle = { kind: 'civilian', name: 'a test car', speed: 1 };
+    w.hero.vehicle = testCar();
     const door = w.locations[street]!.exits.find((e) => !e.gate && w.locations[e.to]!.kind !== 'street' && !w.locations[e.to]!.dungeon)!;
     const { c, events } = ctxOf(w, 'back');
     arrive(c, door.to, 'walk');

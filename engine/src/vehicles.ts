@@ -2,10 +2,13 @@ import { Rng } from './rng';
 import { addHeat, npcsAt, relocate, remember } from './combat';
 import { sneakBonus } from './extras';
 import { clamp, type Candidate } from './candidate';
-import { isShut } from './shutdown';
+import { roadsFrom, driveMinutes, parkedVehicle, isPerson } from './roads';
+import { MAKES, condition, normalize, vehicleOf, type Make } from './cars';
+import { KINDS, removeCompanion } from './companions';
+import { policeChase } from './chase';
 import { skillValue, synergy, train } from './skills';
 import { workingCameras } from './witness';
-import type { Ctx, Id, Location, ParkedVehicle, Vehicle, World } from './types';
+import type { Companion, Ctx, Id, Location, ParkedVehicle, Vehicle, World } from './types';
 
 /**
  * Cars. Simple on purpose: a street may have one parked on it, she can steal it (hijacking), and while she is in it the
@@ -17,68 +20,13 @@ import type { Ctx, Id, Location, ParkedVehicle, Vehicle, World } from './types';
  * police's business whoever saw; an Atlas car is Atlas's.
  */
 
-type Make = Pick<Vehicle, 'kind' | 'name' | 'speed'>;
-
-const CARS: Record<Vehicle['kind'], { names: string[]; speed: number }> = {
-  civilian: {
-    names: ['a dented hatchback with a cracked neon underglow', 'a rust-colored delivery van', 'a hover-sedan that smells of pine and regret', 'a three-wheeled noodle cart with an engine', 'a salvaged taxi with the meter still running', 'a sun-faded coupe with a dragon sticker on the bumper'],
-    speed: 1,
-  },
-  police: {
-    names: ['an NPD patrol cruiser, lights dark', 'an NPD interceptor with the engine ticking', 'an unmarked NPD sedan that fools nobody'],
-    speed: 1.5,
-  },
-  atlas: {
-    names: ['an Atlas security SUV, white and humming', 'an Atlas executive hover-limo with the seat still warm', 'an Atlas fleet van, barcode on every panel'],
-    speed: 1.3,
-  },
-};
-
-const PARKED_CHANCE = 0.45;
-
-const isPerson = (tags: string[], archetype: string): boolean => !tags.includes('robot') && !tags.includes('dragon') && !tags.includes('boss') && archetype !== 'puppy';
-
-/** The car waiting on this street, if any. A pure function of the run and the place, minus ones already taken. */
-export function parkedVehicle(w: World, loc: Location): Make | null {
-  if (loc.kind !== 'street' || w.flags[`stolen:${loc.id}`]) return null;
-  const rng = new Rng(`car:${w.seed}:${loc.id}`);
-  const cop = npcsAt(w, loc.id).some((n) => n.tags.includes('cop'));
-  if (!cop && !rng.chance(PARKED_CHANCE)) return null;
-  const district = loc.gen?.district;
-  const kind: Vehicle['kind'] = cop ? 'police' : rng.chance(district === 'corporate' ? 0.4 : 0.07) ? 'atlas' : rng.chance(0.1) ? 'police' : 'civilian';
-  return { kind, name: rng.pick(CARS[kind].names), speed: CARS[kind].speed };
-}
-
 /** A car of hers that is parked on this street and hasn't been taken away yet. */
 export const ownedHere = (w: World, loc: Location): ParkedVehicle | undefined => w.hero.parked?.find((p) => p.at === loc.id && p.until > w.clock);
 
-/** Streets she can get to from here by road: only street to street, nothing locked, shut or in the way. Fewest hops first. */
-export function roadsFrom(w: World, from: Id, reach: number): { id: Id; hops: number; path: Id[] }[] {
-  const seen = new Map<Id, Id[]>([[from, []]]);
-  const out: { id: Id; hops: number; path: Id[] }[] = [];
-  let ring: Id[] = [from];
-  for (let hop = 1; hop <= reach; hop++) {
-    const next: Id[] = [];
-    for (const id of ring) {
-      for (const e of w.locations[id]?.exits ?? []) {
-        const dest = w.locations[e.to];
-        if (!dest || e.hidden || e.gate || seen.has(e.to) || dest.kind !== 'street' || isShut(w, e.to)) continue;
-        const path = [...seen.get(id)!, e.to];
-        seen.set(e.to, path);
-        next.push(e.to);
-        out.push({ id: e.to, hops: hop, path });
-      }
-    }
-    ring = next;
-  }
-  return out;
-}
-
 /** How many streets one drive covers. Skill and the car both stretch it. */
-export const reachOf = (w: World, v: Vehicle): number => clamp(Math.round((3 + skillValue(w.hero, 'driving') / 2) * v.speed), 3, 10);
+export const reachOf = (w: World, v: Vehicle): number => clamp(Math.round((3 + skillValue(w.hero, 'driving') / 2) * v.speed * (0.6 + 0.4 * condition(v))), 3, 10);
 
-/** World minutes a drive of this many streets takes, past the beat it starts in. Walking costs a whole beat per street. */
-export const driveMinutes = (hops: number): number => Math.ceil(hops / 4);
+export { roadsFrom, driveMinutes, parkedVehicle };
 
 export function vehicleCandidates(w: World): Candidate[] {
   const h = w.hero;
@@ -94,9 +42,11 @@ export function vehicleCandidates(w: World): Candidate[] {
         key: `getin:${loc.id}`, drives: { curiosity: 0.4, greed: 0.2 }, bonus: 0.9,
         run: (c) => {
           const { w } = c;
-          w.hero.vehicle = { kind: mine.kind, name: mine.name, speed: mine.speed };
+          const { at: _at, until: _until, ...car } = mine;
+          w.hero.vehicle = normalize({ ...car, riders: [] });
           w.hero.parked = w.hero.parked!.filter((p) => p !== mine);
           c.emit('vehicle', 'good', { variant: 'back', car: mine.name, place: loc.name });
+          boardParty(c, w.hero.vehicle, loc);
         },
       });
       return out;
@@ -112,7 +62,7 @@ export function vehicleCandidates(w: World): Candidate[] {
     return out;
   }
 
-  const car = h.vehicle;
+  const car = normalize(h.vehicle);
   const here = loc.gen?.district;
   for (const r of roadsFrom(w, loc.id, reachOf(w, car))) {
     if (r.hops < 2) continue; // one street is just a walk
@@ -150,7 +100,7 @@ function hijack(c: Ctx, loc: Location, car: Make): void {
 
   if (ok) {
     w.flags[`stolen:${loc.id}`] = true;
-    h.vehicle = { kind: car.kind, name: car.name, speed: car.speed };
+    h.vehicle = vehicleOf(car);
     train(c, 'driving', 1);
   }
   c.emit('hijack', ok ? (seen ? 'mixed' : 'good') : 'bad', { variant: ok ? 'ok' : 'fail', car: car.name, kind: car.kind, seen, witnesses: people.length, place: loc.name });
@@ -163,6 +113,53 @@ function hijack(c: Ctx, loc: Location, car: Make): void {
   for (const [faction, gain] of heat) {
     addHeat(w, faction, gain);
     c.emit('heat_up', 'bad', { variant: faction, gain, level: w.heat[faction] ?? 0, source: 'hijack', calls: 0 });
+  }
+  if (ok) {
+    boardParty(c, h.vehicle!, loc);
+    // Stealing a cruiser in front of the people it belongs to: they don't let it go.
+    if (car.kind === 'police' && seen && rng.chance(0.5)) policeChase(c, 'hijack');
+  }
+}
+
+// =============================================================== riders
+
+const seatsOf = (comp: Companion): number => KINDS[comp.kind]?.seats ?? 1;
+
+/** What a companion is worth in the car: guns, a guard, a jammer; healthy, and loyal. */
+function riderScore(comp: Companion): number {
+  const a = KINDS[comp.kind]?.assist ?? {};
+  return (a.dmg ?? 0) * 0.6 + (a.absorb ?? 0) * 0.5 + (a.disable ? 6 : 0) + (comp.hp / comp.maxHp) * 3 + comp.loyalty / 25;
+}
+
+/**
+ * She gets in with her party. The car has `seats - 1` seats for them (a few take two, a few none): she brings the ones
+ * worth the most, and each who is left behind decides for itself whether to wait where it is or go home.
+ */
+export function boardParty(c: Ctx, car: Vehicle, street: Location): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  normalize(car);
+  const room = car.seats - 1;
+  let used = 0;
+  const aboard: Companion[] = [];
+  const left: Companion[] = [];
+  for (const comp of [...h.companions].filter((a) => a.hp > 0).sort((a, b) => riderScore(b) - riderScore(a))) {
+    if (used + seatsOf(comp) <= room) {
+      used += seatsOf(comp);
+      aboard.push(comp);
+    } else left.push(comp);
+  }
+  car.riders = aboard.map((a) => a.id);
+  if (!aboard.length && !left.length) return;
+  c.emit('vehicle', left.length ? 'mixed' : 'good', { variant: 'riders', car: car.name, riders: aboard.map((a) => a.name).join(' and '), left: left.map((a) => a.name).join(' and '), count: aboard.length, place: street.name });
+  for (const comp of left) {
+    // Loyal ones, and ones with nowhere to go, wait. The rest go home.
+    const stays = !comp.npcId && !comp.home ? true : rng.chance(0.15 + 0.7 * (comp.loyalty / 100));
+    if (stays) {
+      h.companions = h.companions.filter((a) => a !== comp);
+      (h.waiting ??= []).push(Object.assign(comp, { at: street.id }));
+      c.emit('companion_waits', 'mixed', { name: comp.name, kind: comp.kind, place: street.name });
+    } else removeCompanion(c, comp, 'left');
   }
 }
 

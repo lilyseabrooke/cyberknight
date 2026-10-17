@@ -1,13 +1,16 @@
-import type { Companion, Ctx, Injury, Item, Npc, World } from './types';
+import type { Companion, Ctx, Injury, Item, Location, Npc, ParkedVehicle, World } from './types';
 import type { EventData, Outcome } from './events';
 import { KINDS } from './companions';
 import { foeArmor, fxOf, rating, vsMult } from './weapons';
 import { loaded, spendAmmo, wielded } from './arms';
 import { skillLevel, skillValue, train } from './skills';
-import { dist, hasLos, idx, inCover, makeGrid, nearestFree, passable, pathTo, posOf, reach, same, terrainAt, type Grid, type Pos, type Reach } from './grid';
+import { addObjects, coverObject, dist, hasLos, idx, inCover, makeGrid, nearestFree, objectAt, passable, pathTo, posOf, reach, same, terrainAt, type BoardObject, type CarLike, type Grid, type Pos, type Reach } from './grid';
+import { Rng } from './rng';
+import { MAKES, SPILL, blastInside, blastOutside, hitCar, normalize, paceOf } from './cars';
+import { parkedVehicle } from './roads';
 import { techniquesFor, type Technique } from './techniques';
 import { artsOf } from './lab';
-import { dragonSpeed, hasTrait, heroSpeed } from './dragonmodels';
+import { dragonSpeed, hasTrait, legSpeed } from './dragonmodels';
 import type { ArtBranch } from './content/doctrine';
 import * as D from './doctrine';
 
@@ -68,6 +71,8 @@ export interface Unit extends Pos {
   scared: boolean;
   watching: boolean;
   interposed: boolean;
+  /** The id of the car it is sitting in (see `BoardObject`). Shut doors make that the best cover there is. */
+  aboard?: string;
   cd: Record<string, number>;
 }
 
@@ -133,6 +138,10 @@ export interface SimResult {
   arrived: Npc[];
   wield: Item;
   stats: Sim['stats'];
+  /** She got into her car and left. */
+  droveOff: boolean;
+  /** A police cruiser that was on the board is still in one piece (so it can follow). */
+  cruiser: boolean;
   log: LogEntry[];
   /** One record per round, in order. */
   roundLog: RoundRecord[];
@@ -253,6 +262,9 @@ export class Sim {
   overwatching = false;
   hitExtra = 0;
   private result: TacticalResult | null = null;
+  /** A car went up with her in it: that is death whether or not the fight was meant to be lethal. */
+  private blastKill = false;
+  droveOff = false;
   private lastWield: string;
   private readonly procs = new Set<string>();
   private readonly queue: { unit: Unit; round: number; why: 'joiner' | 'law' | 'backup' }[] = [];
@@ -271,6 +283,7 @@ export class Sim {
     const h = c.w.hero;
     const loc = c.w.locations[h.locationId]!;
     this.grid = makeGrid(c.rng, loc.kind, loc.crowded);
+    this.parkCars(loc);
     this.wield = wielded(h, o.foes);
     this.arts = artsOf(c.w.legacy);
     this.branch = D.branchOf(this.wield);
@@ -292,7 +305,7 @@ export class Sim {
 
   private heroUnit(): Unit {
     const h = this.w.hero;
-    const speed = clamp(heroSpeed(this.w) + Math.floor(D.art(this, 'footwork') / 2), 1, 7);
+    const speed = clamp(legSpeed(this.w) + Math.floor(D.art(this, 'footwork') / 2), 1, 7);
     return this.blank({ id: 'hero', name: 'Blackbird', team: 'hero', kind: 'hero', ref: h, speed, hit: 0.94, reach: weaponReach(this.wield), caution: 4, canFlee: true, alert: true });
   }
 
@@ -377,7 +390,9 @@ export class Sim {
       placed.push(u);
     };
     const entry = rng.pick(g.exits);
-    const start = nearestFree(g, rng, entry, taken)[0] ?? entry;
+    // She is beside her own car if there is one.
+    const mine = this.ownCar();
+    const start = nearestFree(g, rng, mine ? mine.cells[0]! : entry, taken)[0] ?? entry;
     put(this.hero, start);
     for (const u of this.units) if (u.kind === 'ally') put(u, nearestFree(g, rng, start, taken, u.flying)[0] ?? start);
     const far = nearestFree(g, rng, start, taken)
@@ -421,6 +436,7 @@ export class Sim {
     let p = att.hit;
     if (att.reach[1] > 1) {
       if (inCover(this.grid, from, tgt)) p -= 0.25;
+      if (this.sheltered(tgt)) p -= 0.25;
       const far = Math.ceil(att.reach[1] * 0.6);
       const d = dist(from, tgt);
       if (d > far) p -= 0.07 * (d - far);
@@ -504,6 +520,13 @@ export class Sim {
   // ------------------------------------------------------------------ damage and its consequences
 
   damage(att: Unit | null, tgt: Unit, amount: number): number {
+    // Inside a car with the doors shut, gunfire hits the car first and only a share gets through to whoever is sitting in it.
+    if (att && att.reach[1] > 1 && this.sheltered(tgt)) {
+      const o = this.carOf(tgt)!;
+      this.hitObject(o, amount, 'gun');
+      if (tgt.state !== 'active') return 0;
+      amount = Math.round(amount * SPILL);
+    }
     let n = Math.max(0, Math.round(amount));
     if (tgt.kind === 'hero') n = D.taken(this, this.interpose(n));
     if (n > 0 && att) {
@@ -575,7 +598,10 @@ export class Sim {
     }
     const sure = o.sure || this.mirage;
     this.mirage = false;
-    if (!sure && !this.c.rng.chance(this.heroHitChance(t, this.hero, wield))) return 0;
+    if (!sure && !this.c.rng.chance(this.heroHitChance(t, this.hero, wield))) {
+      if (wield.tags.includes('gun')) this.coverShot(this.hero, t, this.heroExpected(t, wield, 1));
+      return 0;
+    }
     const wasStunned = t.stunned;
     const wasUnaware = !t.alert;
     const rng = this.c.rng;
@@ -619,6 +645,7 @@ export class Sim {
   unitStrike(att: Unit, tgt: Unit): void {
     const rng = this.c.rng;
     if (!rng.chance(this.hitChance(att, tgt, att))) {
+      if (att.reach[1] > 1) this.coverShot(att, tgt, this.avgDamage(att, tgt));
       if (tgt.kind === 'hero') D.onFoeMiss(this, att);
       return;
     }
@@ -812,6 +839,191 @@ export class Sim {
     else me.state = 'fled';
   }
 
+  // ------------------------------------------------------------------ cars
+
+  /** Cars on a street: hers beside her, a parked one or two, a police cruiser if there are police, and the shell of anything that has blown up before. */
+  private parkCars(loc: Location): void {
+    if (loc.kind !== 'street') return;
+    const w = this.w;
+    const h = w.hero;
+    const rng = new Rng(`cars:${w.seed}:${w.beat}:${loc.id}`);
+    const specs: Parameters<typeof addObjects>[2] = [];
+    const add = (id: string, name: string, kind: BoardObject['kind'], car: CarLike, seats: number, o: Partial<BoardObject> = {}) =>
+      specs.push({ id, name, kind, car, size: seats >= 6 ? 3 : 2, mine: false, team: 'neutral', doors: 'shut', dents: 0, burn: 0, wrecked: false, ...o });
+    if (h.vehicle) add('own', h.vehicle.name, h.vehicle.kind, normalize(h.vehicle), h.vehicle.seats, { mine: true, team: 'hero', ref: h.vehicle });
+    for (const p of h.parked ?? []) if (p.at === loc.id && p.until > w.clock) add(`own:${p.name}`, p.name, p.kind, normalize(p), p.seats, { mine: true, team: 'hero', ref: p });
+    const parked = parkedVehicle(w, loc);
+    if (parked) add('parked', parked.name, parked.kind, { hp: parked.maxHp, maxHp: parked.maxHp, armor: parked.armor }, parked.seats);
+    if (this.o.foes.some((f) => f.tags.includes('cop'))) {
+      const mk = MAKES.police[0]!;
+      add('cruiser', mk.name, 'police', { hp: mk.maxHp, maxHp: mk.maxHp, armor: mk.armor }, mk.seats, { team: 'foe' });
+    }
+    if (w.flags[`wreck:${loc.id}`]) add('wreck', 'the burnt-out shell of a car', 'civilian', { hp: 0, maxHp: 1, armor: 0 }, 4, { wrecked: true });
+    addObjects(this.grid, rng, specs);
+  }
+
+  ownCar(): BoardObject | undefined {
+    return this.grid.objects?.find((o) => o.mine && !o.wrecked);
+  }
+
+  carOf(u: Unit): BoardObject | undefined {
+    return u.aboard ? this.grid.objects?.find((o) => o.id === u.aboard) : undefined;
+  }
+
+  /** Sitting in a car with its doors shut. */
+  sheltered(u: Unit): boolean {
+    const o = this.carOf(u);
+    return !!o && o.doors === 'shut' && !o.wrecked;
+  }
+
+  /** The car she could climb into from here: hers, in one piece, one step away. */
+  carBeside(from: Pos): BoardObject | undefined {
+    const o = this.ownCar();
+    return o && o.car.hp > 0 && o.cells.some((p) => dist(p, from) <= 1) ? o : undefined;
+  }
+
+  /** She (and whoever of her party fits) gets in. */
+  board(o: BoardObject): void {
+    const room = (o.ref?.seats ?? 4) - 1;
+    let used = 0;
+    this.hero.aboard = o.id;
+    this.hero.x = o.cells[0]!.x;
+    this.hero.y = o.cells[0]!.y;
+    for (const u of this.units) {
+      if (u.kind !== 'ally' || u.state !== 'active') continue;
+      const seats = KINDS[u.comp!.kind]?.seats ?? 1;
+      if (used + seats > room) continue;
+      used += seats;
+      u.aboard = o.id;
+      u.x = o.cells[0]!.x;
+      u.y = o.cells[0]!.y;
+    }
+  }
+
+  /** Put a unit on the nearest free tile to the car it was in. */
+  unseat(u: Unit): void {
+    const o = this.carOf(u);
+    u.aboard = undefined;
+    if (!o) return;
+    const spot = nearestFree(this.grid, this.c.rng, o.cells[0]!, (p) => !!this.occupant(p, u), u.flying)[0];
+    if (spot) {
+      u.x = spot.x;
+      u.y = spot.y;
+    }
+  }
+
+  /** Damage a car. Telling it is for the log; what it takes persists on the real car. */
+  hitObject(o: BoardObject, dmg: number, how: 'gun' | 'ram' | 'fire' = 'gun'): void {
+    if (o.wrecked) return;
+    const hit = hitCar(o.car, dmg, how);
+    if (hit.taken <= 0) return;
+    if (hit.wrecked) this.explode(o);
+    else if (hit.to !== hit.from) this.note('car_hit', o.mine ? 'bad' : 'good', { variant: hit.to, car: o.name, mine: o.mine }, 2.5, `car:${o.id}:${hit.to}`);
+  }
+
+  /** A shot that missed whoever it was aimed at, into the car they were sheltering behind. */
+  private coverShot(att: Unit, tgt: Unit, dmg: number): void {
+    const o = coverObject(this.grid, att, tgt);
+    if (o) this.hitObject(o, dmg * 0.8, 'gun');
+  }
+
+  /**
+   * The bang. Everyone inside takes the same flat damage, bigger the better armoured the car was; everyone beside it takes
+   * a smaller one. The car is gone from her garage and what is left is cover for good.
+   */
+  private explode(o: BoardObject): void {
+    const w = this.w;
+    const h = w.hero;
+    o.wrecked = true;
+    o.burn = 3;
+    o.car.hp = 0;
+    for (const p of o.cells) this.grid.cells[idx(this.grid, p)] = 'hazard';
+    if (o.ref) {
+      if (h.vehicle === o.ref) delete h.vehicle;
+      else h.parked = (h.parked ?? []).filter((p) => p !== o.ref);
+    }
+    const loc = h.locationId;
+    w.flags[`wreck:${loc}`] = true;
+    w.flags[`stolen:${loc}`] = true;
+    if (o.kind === 'police' || o.team === 'foe') w.heat.npd = Math.min(10, (w.heat.npd ?? 0) + 2);
+    else if (o.kind === 'atlas') w.heat.atlas = Math.min(10, (w.heat.atlas ?? 0) + 2);
+    const inside = this.units.filter((u) => u.aboard === o.id && u.state === 'active');
+    const beside = this.units.filter((u) => u.state === 'active' && !u.aboard && o.cells.some((p) => dist(p, u) <= 1));
+    const names = inside.map((u) => u.name).join(' and ');
+    const hurt = (u: Unit, n: number) => {
+      u.ref.hp -= n;
+      u.burning = 3;
+      u.alert = true;
+      if (u.kind === 'hero') {
+        this.hooks.maybeInjure(this.c, n, 1);
+        if (u.ref.hp <= 0) this.blastKill = true;
+      } else if (u.ref.hp <= 0) {
+        u.state = 'dead';
+        if (u.npc) this.hooks.kill(this.c, w, u.npc, 'a car going up');
+      }
+    };
+    const out = [...inside];
+    for (const u of inside) {
+      u.aboard = undefined;
+      hurt(u, blastInside(o.car));
+    }
+    for (const u of beside) hurt(u, blastOutside(o.car));
+    for (const u of out) if (u.state === 'active') this.unseat(u);
+    this.note('car_wreck', inside.some((u) => u.kind === 'hero') ? 'bad' : 'good', { car: o.name, kind: o.kind, inside: names, hero: inside.some((u) => u.kind === 'hero'), count: inside.length, beside: beside.length, mine: o.mine }, 7, `wreck:${o.id}`);
+  }
+
+  /** A foe with strong arms and no gun gets a car open: everyone in it is out on the street and the car is no longer cover. */
+  forceDoor(att: Unit, o: BoardObject): void {
+    const rng = this.c.rng;
+    const p = clamp(0.35 + att.power * 0.003 + o.dents * 0.2 - o.car.armor * 0.08 + (1 - o.car.hp / o.car.maxHp) * 0.2, 0.1, 0.85);
+    if (!rng.chance(p)) {
+      o.dents++;
+      this.note('car_door', 'mixed', { variant: 'dent', foe: att.name, car: o.name }, 2.5, `door:${o.id}:${o.dents}`);
+      return;
+    }
+    o.doors = 'forced';
+    const out = this.units.filter((u) => u.aboard === o.id && u.state === 'active');
+    for (const u of out) {
+      this.unseat(u);
+      u.stagger = Math.max(u.stagger, 1);
+    }
+    this.note('car_door', 'bad', { variant: 'forced', foe: att.name, car: o.name, who: out.map((u) => u.name).join(' and ') }, 5, `door:${o.id}`);
+  }
+
+  /** She gets in her car and goes. */
+  driveOff(o: BoardObject): void {
+    const h = this.w.hero;
+    if (o.ref && h.vehicle !== o.ref) {
+      // It was parked here: it's the one she is driving now.
+      const { at: _at, until: _until, ...car } = o.ref as ParkedVehicle;
+      h.parked = (h.parked ?? []).filter((p) => p !== o.ref);
+      h.vehicle = { ...car, riders: [] };
+      o.ref = h.vehicle;
+      o.car = h.vehicle;
+    }
+    if (h.vehicle) h.vehicle.riders = this.units.filter((u) => u.kind === 'ally' && u.state === 'active').map((u) => u.comp!.id).slice(0, Math.max(0, h.vehicle.seats - 1));
+    this.note('car_drive_off', 'mixed', { car: o.name, hpPct: Math.round((h.hp / h.maxHp) * 100) }, 5, 'driveoff');
+    this.droveOff = true;
+    this.hero.state = 'fled';
+  }
+
+  /** Her car knocks somebody down: speed and weight, and the car pays for it. */
+  runDown(t: Unit): void {
+    const o = this.carOf(this.hero);
+    if (!o) return;
+    const h = this.w.hero;
+    const pace = paceOf(normalize(o.ref ?? { ...o.car, kind: o.kind, name: o.name, speed: 1, pace: 8, seats: 4, riders: [] }));
+    const dmg = Math.round((pace * 3 + h.muscle + skillValue(h, 'driving') * 1.5) * (0.7 + this.c.rng.next() * 0.6));
+    this.damage(this.hero, t, dmg);
+    if (t.state === 'active') {
+      t.stunned = true;
+      t.stagger = 2;
+    }
+    train(this.c, 'driving', 1);
+    this.note('car_run_down', 'good', { foe: t.name, car: o.name, dmg }, 4, `rundown:${t.id}`);
+    this.hitObject(o, o.car.maxHp * 0.07, 'ram');
+  }
+
   // ------------------------------------------------------------------ the round
 
   run(): SimResult {
@@ -845,6 +1057,8 @@ export class Sim {
       arrived: this.arrived,
       wield: this.wield,
       stats: this.stats,
+      droveOff: this.droveOff,
+      cruiser: !!this.grid.objects?.some((o) => o.team === 'foe' && !o.wrecked),
       log: this.log,
       roundLog: this.roundLog,
     };
@@ -877,6 +1091,9 @@ export class Sim {
   private beginRound(): void {
     const rng = this.c.rng;
     for (const u of this.units) u.interposed = false;
+    for (const o of this.grid.objects ?? []) {
+      if (o.wrecked && o.burn > 0 && --o.burn === 0) for (const p of o.cells) if (terrainAt(this.grid, p.x, p.y) === 'hazard') this.grid.cells[idx(this.grid, p)] = 'cover';
+    }
     D.regen(this);
     // Late arrivals come through the doors.
     const now = this.queue.filter((q) => q.round <= this.round);
@@ -1003,7 +1220,7 @@ export class Sim {
     const rng = this.c.rng;
     if (!this.standingFoes().length) this.result = 'win';
     else if (this.hero.state === 'fled') this.result = 'flee';
-    else if (h.hp <= 0 && this.o.lethal) {
+    else if (h.hp <= 0 && (this.o.lethal || this.blastKill)) {
       if (this.w.hero.implants.some((i) => i === 'emergency_defib') && !this.w.flags.defib_used) {
         this.w.flags.defib_used = true;
         h.hp = Math.round(h.maxHp * 0.3);
@@ -1047,6 +1264,7 @@ export class Sim {
       if (gap > this.speedOf(e) + e.reach[1] + (e.flying ? 1 : 0)) continue;
       let p = e.npc?.tags.includes('hera') ? 1 : e.hit;
       if (e.reach[1] > 1 && inCover(this.grid, e, tile)) p -= 0.25;
+      if (e.reach[1] > 1 && this.sheltered(u) && same(tile, u)) p -= 0.25;
       d += Math.min(1, this.avgDamage(e, u) / Math.max(1, u.ref.hp)) * Math.max(0.05, p);
     }
     return d;
@@ -1145,6 +1363,7 @@ export class Sim {
   }
 
   private execute(u: Unit, o: Option): void {
+    if (u.aboard && o.mode !== 'stay') u.aboard = undefined; // she gets out
     u.moved = o.mode !== 'stay';
     if (u.kind === 'hero') this.moved = u.moved;
     if (o.mode === 'leap') {

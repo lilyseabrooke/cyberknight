@@ -1,6 +1,6 @@
 # Fighting from vehicles: schema sketch
 
-Status: **sketch, nothing built**. Feel over balance: every number is a first guess, to be tuned by feel (or not at all).
+Status: **built** (see "As built" at the end for where it differs). Feel over balance: every number is a first guess, to be tuned by feel (or not at all).
 
 Vehicles exist (`engine/src/vehicles.ts`): she can hijack a parked car, drive it several streets a beat, and a car she
 took stays hers, parked where she walked into a building, until it is towed or recovered (`CAR_LIFE_MIN`). This sketch adds
@@ -55,12 +55,14 @@ type CarState = 'sound' | 'scuffed' | 'battered' | 'smoking' | 'wrecked';   // b
   recovered and never towed.
 - **The explosion is what makes a car dangerous to sit in.** A car that reaches 0 hp *explodes* (every kind of car; fuel,
   batteries, a mounted gun's magazine), and **everyone inside takes the same flat damage**: her and every rider. It ignores
-  `armor`, cover, level and how big the car was: `CAR_BLAST = 100` (a first guess; Blackbird starts at 90 max hp and gains
-  about 13 a level, so **it flatlines a level 1 Blackbird outright, a level 2 at full health crawls out with a few hp, and
-  anyone tougher walks out hurt**. A hurt character of any level can still die: it is flat, not a share of max hp). It also
-  sets the occupants `burning` and rolls an injury (`broken_leg`, ribs). Riders are the same: a companion with fewer than
-  100 hp (every kind in `companions.ts` today) is simply killed, which is part of the cost of bringing them. Anyone *outside* the
-  car takes a smaller flat blast, `CAR_BLAST_OUTSIDE = 40`, adjacent cells only (Mode 2). Speed in a chase doesn't change it.
+  `armor` as protection, cover and level, but **the car's armor makes the bang bigger**: `CAR_BLAST = 100` plus
+  `CAR_BLAST_PER_ARMOR = 25` per point of armor (`blastInside` in `cars.ts`). A civilian car (armor 0) is 100: Blackbird starts at
+  90 max hp and gains about 13 a level, so **it flatlines a level 1 outright, a level 2 at full health crawls out with a few hp, and
+  anyone tougher walks out hurt**. A police cruiser (armor 3) is 175 and an NPD riot van (armor 5) is 225: a good car soaks gunfire
+  all night and then takes a level 5 with it. The risk is the price of the reward. A hurt character of any level can still die: it is
+  flat, not a share of max hp. It also sets the occupants `burning` and rolls an injury. A companion with fewer than 100 hp (every
+  kind in `companions.ts` today) is simply killed. Anyone *outside* the car takes a smaller flat blast, `CAR_BLAST_OUTSIDE = 40` plus
+  10 per armor, adjacent cells only (Mode 2). Speed in a chase doesn't change it.
 - **She gets a warning.** `smoking` (below 25% hp) is the cue: text says so, and getting out is a `smart` desire the AI feels
   strongly. Bailing from a smoking car at speed costs fall damage but not the blast, and she can drag riders out only if she
   has a free action for each (`bail` takes one rider per round, the rest stay in and go up with it).
@@ -282,3 +284,26 @@ into her car when a fight starts next to it is the first thing a smart hero does
   verify with `npm test` before and after (see the same note in `DRAGONS_PLAN.md`).
 - **Balance**: the explosion, forced doors and seats are what stop the car being a safe room. It's still the best cover she has
   and Hermes Mk. III is still easy for a skilled driver. Fine for now; note it and carry on.
+
+## As built
+
+Everything above is in, with these differences and choices:
+
+- **Files**: `cars.ts` (makes, damage, `hitCar`, the blast), `roads.ts` (street graph, parked cars), `vehicles.ts` (hijack, drive, riders),
+  `chase.ts` (the running fight, police and dragon chases), and the scene-fight parts in `tactics.ts` / `techniques.ts` / `grid.ts`.
+- **Makes**: each car is a named entry in `MAKES` (`cars.ts`) with its own `pace`, `maxHp`, `armor`, `seats` (4 for most, 6 for taxis,
+  vans and Atlas limos, 8 for the church minibus, the NPD riot van and the Atlas fleet van) and optional `mounted`.
+- **Armor-scaled blast**: `blastInside = 100 + 25 * armor`, outside `40 + 10 * armor`.
+- **Scene fight**: a street fight now has cars on it: hers (driven or parked there), a parked civilian one if the street has one, a police
+  cruiser if there are police, and the shell of anything that blew up before. She starts beside her own car. Techniques: `get_in`,
+  `drive_off`, `run_down` (the foe's `force_door` is in `techniques.ts` too). Shots that miss behind a car hit the car; gunfire at someone in a
+  shut car hits the car first with 30% (`SPILL`) getting through.
+- **Not built**: `ram_cover` (shoving a foe's cruiser out of place) and the car actually moving on the board for `run_down` (the car stays
+  put; the hit and the cost are real). Repair. Companions firing from the car on the board (they ride and take the blast, and add shots in a chase).
+- **Chase**: `runChase` with `pursued` (police) and `pursuer` (a dragon) modes; actions `floor_it`, `swerve`, `shoot`, `ram`, `lose_them`,
+  `bail`, and a dragon or cop at the door (`locked` band) can force it for a `bailed` ending. `caught` hands over to an ordinary fight (the
+  cops, or `engage` for the dragon). Police chases start from `npdResponse` when she is driving at high heat, from a `drive_off` with a
+  cruiser still standing, and half the time a cruiser is hijacked in front of its owners.
+- **Left-behind companions**: `Hero.waiting` rather than a field on `Companion`, so everything that walks `hero.companions` is untouched;
+  they rejoin on arrival at the street (`companion_rejoins`).
+- **Status panel** shows the car, its condition and hp, and how many are aboard.

@@ -1,3 +1,4 @@
+import { dragonChase } from './chase';
 import type { Ctx, DragonTemper, Flight, Id, Location, Npc, Roam, World } from './types';
 import { addHeat, fight, heroPower, npcsAt, relocate, remember } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
@@ -1030,6 +1031,14 @@ export function dragonCandidates(w: World): Candidate[] {
     out.push({
       key: 'chase_flight', drives: { greed: 1.0, pride: 0.6, bravery: 0.5 }, bonus: 0.1, risk: 0.2,
       run: (c) => {
+        // In a car it is a proper chase: gap, road, what she can shoot. On foot it comes down to speed.
+        if (c.w.hero.vehicle && c.w.hero.vehicle.hp > 0) {
+          const result = dragonChase(c, foes[0]!, m.speed, 'a courier dragon');
+          if (c.w.over) return;
+          if (result === 'caught') engage(c);
+          else takeOff(c, f, m);
+          return;
+        }
         const caught = runsDown(c.w, m.speed);
         c.emit('dragon_chase', caught ? 'good' : 'bad', { variant: caught ? 'caught' : 'lost', mark: m.mark, cargo: f.cargo ?? '' });
         if (caught) {
