@@ -401,6 +401,8 @@ export interface Hazards {
 
 export interface Location {
   id: Id;
+  /** Set on highways only. Every other street's class comes from its name: see `roadClass` in roads.ts. */
+  road?: 'highway';
   name: string;
   kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
   exits: Exit[];

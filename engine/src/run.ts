@@ -184,10 +184,10 @@ export function step(w: World): GameEvent[] {
   if (!w.over) avengerTick(c);
   if (!w.over) partnerArrives(c);
   if (!w.over) dungeonAmbient(c);
-  if (!w.over) ambientExtras(c);
+  if (!w.over && w.locations[w.hero.locationId]?.road !== 'highway') ambientExtras(c);
   if (!w.over) ambientDragons(c);
   if (!w.over) tickDying(c);
-  if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);
+  if (!w.over && w.locations[w.hero.locationId]?.road !== 'highway' && !events.some((e) => e.type === 'fight_end')) ambientGraffiti(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambient(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientMind(c);
   if (!w.over) adviceTick(c);
@@ -298,6 +298,8 @@ function ambient(c: Ctx): void {
 
   // Police response: drones at low heat, officers at high. Lying low indoors keeps her out of reach.
   if (npdResponse(c)) return;
+  // On a highway nothing else turns up: no muggers, no raids, no neighbours.
+  if (loc.road === 'highway') return;
   // Atlas retrieval team.
   const atlas = w.heat.atlas ?? 0;
   if (loc.outdoors && atlas >= 5 && rng.chance(0.15)) {

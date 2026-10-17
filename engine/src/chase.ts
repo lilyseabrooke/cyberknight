@@ -250,22 +250,8 @@ function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle, rounds:
   let taken = 0;
   if (result === 'wrecked') {
     // Up it goes, with her in it, and everyone with her.
-    // (A bike throws her as well: a fall on top of the bang.)
-    const blast = blastInside(car) + (car.body === 'bike' ? Math.round(car.pace * 0.8) : 0);
-    taken = blast;
-    h.hp -= blast;
-    maybeInjure(c, blast, car.body === 'bike' ? 0.5 : 1);
-    const riders = h.companions.filter((a) => car.riders.includes(a.id));
-    for (const a of riders) a.hp = 0;
-    delete h.vehicle;
-    w.flags[`wreck:${loc}`] = true;
-    w.flags[`stolen:${loc}`] = true;
-    c.emit('car_wreck', 'bad', { car: car.name, kind: car.kind, body: car.body, inside: ['Blackbird', ...riders.map((a) => a.name)].join(' and '), hero: true, count: 1 + riders.length, mine: true });
-    if (car.kind === 'police') w.heat.npd = Math.min(10, (w.heat.npd ?? 0) + 2);
-    else if (car.kind === 'atlas') w.heat.atlas = Math.min(10, (w.heat.atlas ?? 0) + 2);
-    if (h.hp <= 0 && !(hasImplantFlag(h, 'defib') && !w.flags.defib_used)) {
-      w.over = true;
-      w.ending = 'dead';
+    taken = wreckHeroCar(c, car);
+    if (dead(c)) {
       c.emit('chase_end', 'bad', { variant: result, mode: o.mode, taken, car: car.name, rounds });
       c.emit('death', 'bad', { killer: 'a burning car', place: w.locations[loc]!.name, cause: o.cause, level: h.level });
       return;
@@ -327,7 +313,7 @@ export const cruisers = (cops: Npc[]): Chaser[] => pursuers(cops);
  * The police come after her in cars. If they catch her it ends in the street, with the cops; if she gets away the heat drops;
  * if she wrecks them, they are down and the police take that personally.
  */
-export function policeChase(c: Ctx, why: 'hijack' | 'ambush' | 'drive_off', cops?: Npc[]): ChaseResult | null {
+export function policeChase(c: Ctx, why: 'hijack' | 'ambush' | 'drive_off' | 'crash', cops?: Npc[]): ChaseResult | null {
   const { w } = c;
   const h = w.hero;
   if (!h.vehicle || h.vehicle.hp <= 0) return null;
@@ -351,4 +337,39 @@ export function policeChase(c: Ctx, why: 'hijack' | 'ambush' | 'drive_off', cops
 /** She has been after a dragon in a car: can she get her bumper to it? */
 export function dragonChase(c: Ctx, foe: Npc, speed: number, cause: string): ChaseResult {
   return runChase(c, { mode: 'pursuer', cause, foes: [{ name: foe.name, crew: [foe], pace: speed, gap: 8, alive: true }] });
+}
+
+// =============================================================== the end of her own car
+
+/**
+ * Her car goes up with her in it and everyone with her. A bike throws her as well, a fall on top of the bang. Returns what it did
+ * to her; the caller tells it and sees whether she is dead (`dead`).
+ */
+export function wreckHeroCar(c: Ctx, car: Vehicle): number {
+  const { w } = c;
+  const h = w.hero;
+  const loc = h.locationId;
+  const blast = blastInside(car) + (car.body === 'bike' ? Math.round(car.pace * 0.8) : 0);
+  h.hp -= blast;
+  maybeInjure(c, blast, car.body === 'bike' ? 0.5 : 1);
+  const riders = h.companions.filter((a) => car.riders.includes(a.id));
+  for (const a of riders) a.hp = 0;
+  delete h.vehicle;
+  w.flags[`wreck:${loc}`] = true;
+  w.flags[`stolen:${loc}`] = true;
+  c.emit('car_wreck', 'bad', { car: car.name, kind: car.kind, body: car.body, inside: ['Blackbird', ...riders.map((a) => a.name)].join(' and '), hero: true, count: 1 + riders.length, mine: true });
+  if (car.kind === 'police') w.heat.npd = Math.min(10, (w.heat.npd ?? 0) + 2);
+  else if (car.kind === 'atlas') w.heat.atlas = Math.min(10, (w.heat.atlas ?? 0) + 2);
+  for (const a of [...h.companions]) if (a.hp <= 0) removeCompanion(c, a, 'lost');
+  return blast;
+}
+
+/** She is dead, and nothing is going to bring her back (the defibrillator is for the generic path to handle). Marks the run over. */
+export function dead(c: Ctx): boolean {
+  const { w } = c;
+  const h = w.hero;
+  if (h.hp > 0 || (hasImplantFlag(h, 'defib') && !w.flags.defib_used)) return false;
+  w.over = true;
+  w.ending = 'dead';
+  return true;
 }

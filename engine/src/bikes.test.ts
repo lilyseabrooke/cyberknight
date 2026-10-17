@@ -294,7 +294,7 @@ describe('a bike in a chase', () => {
       return caught;
     };
     const fast = run(vehicleOf(makesOf('atlas', 'bike')[0]!));
-    const slow = run(vehicleOf(makesOf('civilian', 'bike').find((m) => m.pace === 9)!));
+    const slow = run(vehicleOf([...makesOf('civilian', 'bike')].sort((a, b) => a.pace - b.pace)[0]!));
     expect(fast).toBeGreaterThan(slow);
     expect(fast).toBeGreaterThan(0);
   });

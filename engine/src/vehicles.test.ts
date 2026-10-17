@@ -5,7 +5,8 @@ import { relocate } from './combat';
 import { arrive } from './candidate';
 import { liftCordon } from './mapgen';
 import { gather } from './interactions';
-import { parkedVehicle, roadsFrom, vehicleCandidates } from './vehicles';
+import { parkedVehicle, vehicleCandidates } from './vehicles';
+import { routesFrom } from './drivefx';
 import { always } from './testkit';
 import { perform } from './run';
 import type { Ctx, Id, Vehicle, World } from './types';
@@ -70,25 +71,28 @@ describe('vehicles', () => {
   });
 
   it('driving covers several streets in one go, faster than walking, and a building leaves the car at the kerb', () => {
-    const w = createWorld({ seed: 'drive', competence: 0.5 });
-    liftCordon(w);
-    // Walk out a few streets so there is a road to drive.
-    let at = 'street_main';
-    relocate(w, at);
-    for (let i = 0; i < 6; i++) {
-      const next = w.locations[at]!.exits.find((e) => !e.gate && w.locations[e.to]!.kind === 'street' && w.locations[e.to]!.visits === 0);
-      if (!next) break;
-      at = next.to;
+    // A world with a drivable road three streets long (alleys are no road for a car), found by walking out and looking.
+    let w!: World;
+    let far!: { id: Id; hops: number };
+    for (let i = 0; i < 40 && !far; i++) {
+      w = createWorld({ seed: `drive-${i}`, competence: 0.5 });
+      liftCordon(w);
+      let at = 'street_main';
       relocate(w, at);
+      for (let k = 0; k < 14; k++) {
+        const next = w.locations[at]!.exits.find((e) => !e.gate && e.to.includes('~') && w.locations[e.to]!.kind === 'street' && w.locations[e.to]!.visits === 0);
+        if (!next) break;
+        at = next.to;
+        relocate(w, at);
+      }
+      relocate(w, 'street_main');
+      w.hero.vehicle = testCar();
+      far = routesFrom(w, 'street_main', 6).find((r) => r.hops >= 3)!;
     }
-    relocate(w, 'street_main');
-    w.hero.vehicle = testCar();
-    const roads = roadsFrom(w, 'street_main', 4);
-    const far = roads.find((r) => r.hops >= 3);
     expect(far).toBeDefined();
     const { c, events } = ctxOf(w, 'go');
     const before = w.clock;
-    const cand = gather(w).find((x) => x.key === `drive:${far!.id}`)!;
+    const cand = gather(w).find((x) => x.key.startsWith(`drive:${far!.id}:`))!;
     expect(cand).toBeDefined();
     perform(c, cand);
     expect(w.hero.locationId).toBe(far!.id);

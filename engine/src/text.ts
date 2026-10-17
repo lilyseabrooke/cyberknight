@@ -37,6 +37,8 @@ const named = (d: EventData): string => (d.name ? ` Stencilled on its flank: ${d
 const ago = (n: unknown): string => (Number(n) <= 0 ? 'earlier tonight' : Number(n) === 1 ? 'last night' : `${n} nights ago`);
 /** Which way something that just went through went. */
 const heads = (d: EventData): string => (d.heading ? ` It went toward ${d.heading}.` : '');
+/** How a road class reads in a sentence about something going wrong on it. */
+const ROADS: Record<string, string> = { highway: 'The highway', street: 'The street', small: 'A tight little street', pedestrian: 'A pedestrian way full of people', alley: 'An alley' };
 const roman = (n: unknown): string => ['', 'I', 'II', 'III', 'IV', 'V'][Number(n)] ?? String(n);
 
 /** The second batch of dragons in a fight (docs/DRAGONS_PLAN.md): how they open it, how it goes, keyed by archetype. */
@@ -121,7 +123,7 @@ const T: Record<string, Entry> = {
     ['Borrowing. Indefinitely.', 'Never leave your keys in a city that has me in it.'],
   ),
   'hijack:fail': e((d) => [`${d.car}'s alarm shrieks the second Blackbird touches the handle. Every head on the street turns. She leaves it where it is.`, `The ignition on ${d.car} bites back with a jolt and a siren. Blackbird withdraws with as much dignity as she can find.`], ['That car had a better lock than I deserved to meet.']),
-  'drive:along': e((d) => [`Blackbird takes ${d.car} down ${d.hops} streets at speed and pulls up at ${d.to}.`, `${d.hops} streets slide past the windows. ${d.to}.`], ['Faster than walking. Louder, too.', 'Drive, she said. So I did.']),
+  'drive:along': e((d) => [`Blackbird takes ${d.car} down ${d.hops} streets${d.highway ? ', most of them on the highway,' : ''} at ${Number(d.speed) > 85 ? 'a speed that would make a lawyer wince' : Number(d.speed) < 50 ? 'a careful crawl' : 'speed'} and pulls up at ${d.to}.`, `${d.hops} streets slide past the windows. ${d.to}.`], ['Faster than walking. Louder, too.', 'Drive, she said. So I did.']),
   'drive:across': e((d) => [`Blackbird takes ${d.car} out of ${d.from} and across the district line, ${d.hops} streets in what feels like a long blink. ${d.to}.`, `The neon changes colour somewhere around the third street. Blackbird pulls ${d.car} up at ${d.to}, in a different part of the city.`], ['A whole other district, and my tank is full of somebody else\'s gas.', 'Neo is smaller from a car.']),
   'vehicle:keyed': e(
     (d) => [d.kind === 'police' ? `The key from the officer's pocket turns in ${d.car} like it was made for it, which it was. Blackbird is behind the wheel of an NPD car with nobody to say otherwise.` : d.kind === 'atlas' ? `The key opens ${d.car} with a polite chirp. Blackbird gets in. The seat adjusts itself to her, which is unnerving.` : `The key slides into ${d.car} and turns. No wire, no alarm, no hurry. Blackbird gets in and shuts the door behind her like she owns it. She does now.`],
@@ -160,6 +162,20 @@ const T: Record<string, Entry> = {
   'chase_end:bailed:bike': e((d) => [`Blackbird comes off in a skid and a lot of road. ${d.car} goes on for a while without her, then lies down. (Down ${d.taken}.)`], ['Get up. Get up. Get up.']),
   'chase_end:wrecked:bike': e((d) => [`${d.car} is gone, and Blackbird has been thrown a very long way from it.`], ['I am so sorry about that bike.']),
   'tactic:ride_by': e((d) => [`Blackbird comes through at speed and hits ${d.foe} on the way past with ${d.weapon}${Number(d.dmg) ? ` for ${d.dmg}` : ', and misses'}. By the time anyone turns round she is gone.`, `A ride-by: in, ${d.foe}, out.`], ['Hit and run. Mostly run.', 'Never stand still.']),
+  'accident:scrape': e(
+    (d) => [`${ROADS[String(d.road)] ?? 'The road'} takes a bite out of ${d.car} at ${d.speed}% of everything it has: a wall, a bin, a very surprised parked car. Paint and pride, nothing worse.`, `${d.car} meets a corner it was not expecting${Number(d.speed) > 80 ? ', flat out' : ''}. A long scrape, a lot of noise, and a wing mirror in a gutter.`],
+    ['That was not my fault. That was the road.', 'Ease off. Ease off. Ease off.'],
+  ),
+  'accident:collision': e(
+    (d) => [`${d.road === 'pedestrian' ? 'A crowd, a kiosk and a stall full of noodles' : d.road === 'alley' ? 'A skip' : d.road === 'highway' ? 'A barrier' : 'A delivery van'} comes out of nowhere and ${d.car} does not stop in time. A proper crash: glass, a bent frame, and a long silence afterwards.`, `Blackbird takes ${ROADS[String(d.road)]?.toLowerCase() ?? 'the road'} too fast, and it ends against something solid.`],
+    ['Brakes. Brakes are a thing, apparently.'],
+  ),
+  'accident:chase': e((d) => [`Blackbird clips something, and somebody who saw is already talking into a phone. ${d.car} is hurt, and sirens are coming from every direction at once.`], ['Of course there is a cop. There is always a cop. There is a cop for everything.']),
+  'accident:thrown': e((d) => [`${d.car} goes out from under Blackbird at ${d.speed}% and she goes over the front of it. Sky, road, sky, road. (Down ${d.fall}.) The ${d.body === 'bike' ? 'bike' : 'car'} slides on without her and comes to rest against a wall, still running.`], ['I would like to file a complaint with gravity.']),
+  'accident:wreck': e((d) => [`That is the end of ${d.car}.`]),
+  'accident:thrown:bike': e((d) => [`The front wheel of ${d.car} finds something at ${d.speed}% and the rest of the bike goes on without her. Blackbird skates a very long way down ${ROADS[String(d.road)]?.toLowerCase() ?? 'the road'} on her coat. (Down ${d.fall}.)`], ['Gravel. So much gravel. In places.']),
+  'accident:scrape:bike': e((d) => [`${d.car} lays a footpeg on ${ROADS[String(d.road)]?.toLowerCase() ?? 'the road'} and shows sparks, and Blackbird saves it by about the width of a tyre. A mirror is gone. So is a little of her composure.`], ['I meant to do that. I did not mean to do that.']),
+  'accident:collision:bike': e((d) => [`${d.car} goes into ${d.road === 'pedestrian' ? 'a noodle stall' : 'the back of a van'} at ${d.speed}% and Blackbird goes into whatever is next. It is going to hurt for a week.`], ['Helmets. People keep saying helmets.']),
   'vehicle:riders': e(
     (d) => [d.left ? `Blackbird counts seats. ${d.riders ? `${d.riders} pile${String(d.riders).includes(' and ') ? '' : 's'} in` : 'Nobody fits'}; ${d.left} will have to find another way.` : `${d.riders} climb${String(d.riders).includes(' and ') ? '' : 's'} into ${d.car} with Blackbird. Every seat has an opinion.`],
     ['A full car is a loud car.', 'Seatbelts are mandatory. Nobody has told the seatbelts.'],
@@ -574,7 +590,7 @@ const T: Record<string, Entry> = {
   'bystander:cheer': e((d) => [`${d.npc} whoops. Somebody is clearly in her corner. ${d.victim} had it coming, apparently.`, `${d.npc} raises a glass. A small crowd forms. A very small crowd.`], ['Fans. I have fans. Remember the name.']),
   'bystander:shun': e((d) => [`${d.npc} watches Blackbird hit ${d.victim} and quietly rearranges {their} opinion of her. It does not go well for her.`], ["{They} {is} just jealous."]),
   'bystander:crowd': e((d) => [`${d.count} more ${Number(d.count) === 1 ? 'person has' : 'people have'} an opinion about this. All of them are taking notes.`], ['A tough crowd. They will come around.']),
-  'heat_up:npd': e((d) => [d.source === 'hijack' ? `A stolen-vehicle report goes out with Blackbird's description on it. Police heat +${d.gain}, now ${d.level}.` : d.source === 'bodies' ? `The bodies change the paperwork. Police heat is ${d.level}.` : `Someone files a report. Police heat +${d.gain}, now ${d.level}.`, d.source === 'bodies' ? `A dead body in front of witnesses is a different sort of file. Police heat ${d.level}.` : `The NPD logs Blackbird's name against the incident. Heat: ${d.level}.`], ['They are going to write me a ticket. A big one.']),
+  'heat_up:npd': e((d) => [d.source === 'crash' ? `Somebody calls in the crash, and what Blackbird was driving. Police heat +${d.gain}, now ${d.level}.` : d.source === 'hijack' ? `A stolen-vehicle report goes out with Blackbird's description on it. Police heat +${d.gain}, now ${d.level}.` : d.source === 'bodies' ? `The bodies change the paperwork. Police heat is ${d.level}.` : `Someone files a report. Police heat +${d.gain}, now ${d.level}.`, d.source === 'bodies' ? `A dead body in front of witnesses is a different sort of file. Police heat ${d.level}.` : `The NPD logs Blackbird's name against the incident. Heat: ${d.level}.`], ['They are going to write me a ticket. A big one.']),
   'heat_up:atlas': e((d) => [d.source === 'hijack' ? `The Atlas fleet tracker pings a new, unauthorized driver. Atlas heat +${d.gain}, now ${d.level}.` : d.source === 'bodies' ? `Atlas security finds the bodies. Atlas heat is ${d.level}.` : `Somebody at Atlas pulls the footage. Atlas heat +${d.gain}, now ${d.level}.`], ['Corporate footage. They love me up there.']),
 
 

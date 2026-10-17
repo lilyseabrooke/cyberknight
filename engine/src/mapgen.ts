@@ -79,6 +79,14 @@ const STREET_SUFFIX_BY: Partial<Record<District, string[]>> = {
   industrial: ['Yard', 'Freightway', 'Run', 'Wharf'],
   corporate: ['Plaza', 'Boulevard', 'Concourse', 'Avenue'],
 };
+const HIGHWAY_SUFFIX = ['Expressway', 'Freeway', 'Causeway', 'Skyway', 'Beltway', 'Flyover'];
+const HIGHWAY_BLURB = [
+  '{name}: a raised highway of grey concrete and sodium light, six lanes wide and empty, with the whole city going by underneath. No doors. No stops. Nothing here wants her.',
+  '{name}: a long straight run of tarmac between crash barriers, lit by one orange lamp in every ten, and a wind that has come a very long way.',
+  '{name}: an elevated road with no buildings, no corners and no reasons to slow down. Far below, the city hums.',
+];
+/** Chance a street has an on-ramp, so one of its roads onward is a highway, by district. (Its own stream, so no other street changes.) */
+const RAMP_CHANCE: Record<District, number> = { market: 0.06, nightlife: 0.04, tenement: 0.05, industrial: 0.16, corporate: 0.14, slum: 0.03 };
 const STREET_TAIL = ['running off east', 'heading west under the sodium lights', 'bending away out of sight', 'where the signs get louder', 'where the lights get fewer', 'sloping down toward the water', 'climbing between the stacks', 'that Blackbird has never noticed before'];
 
 const CLINIC_NAME = ['Walk-In Patch & Stitch', 'Sutures & Suds', 'No Questions Clinic', 'Cut-Rate Chrome Repair', 'The Back-Alley Infirmary', 'Cash-Only Care', 'Stitch in Time', 'Ward 9½', 'Dr. Pho\'s Patch Shop', 'Last Resort Medical', 'Bleed-Through Urgent Care', 'The Mending Room'];
@@ -252,7 +260,8 @@ export function expand(w: MapWorld, loc: Location): void {
         g.cordon = true;
         loc.blurb = `${loc.blurb ?? ''} The street ends at an Atlas lockdown cordon: barriers, drones, and a sign saying the district is closed until further notice. Nobody has been through in weeks.`.trim();
       }
-      const lots = rng.int(2, 4);
+      const highway = loc.road === 'highway';
+      const lots = highway ? (rng.int(2, 4), 0) : rng.int(2, 4); // (a highway has no buildings; the draw is kept so nothing else shifts)
       const taken: Lot[] = [];
       const fronts: Location[] = [];
       const roads: Location[] = [];
@@ -262,24 +271,28 @@ export function expand(w: MapWorld, loc: Location): void {
         taken.push(role);
         fronts.push(add(role, here, g.depth));
       }
+      const ramp = new Rng(`ramp:${w.worldSeed}:${loc.id}`);
       for (let i = 0; i < onward; i++) {
         const next = rng.chance(0.7) ? here : pick(rng, NEXT_TO[here]);
-        roads.push(add('street', next, g.depth + 1, { label: `{name}, ${pick(rng, STREET_TAIL)}` }));
+        // A highway runs on as a highway, mostly; any street might have an on-ramp to one.
+        const onto = i === 0 && (highway ? ramp.chance(0.75) : g.depth >= 1 && ramp.chance(RAMP_CHANCE[here]));
+        const tail = highway && !onto ? `an off-ramp down to {name}` : onto ? `the on-ramp up to {name}` : `{name}, ${pick(rng, STREET_TAIL)}`;
+        roads.push(add('street', next, g.depth + 1, { label: tail, ...(onto ? { highway: true } : {}) }));
       }
       // Somebody has opened a clinic. (Its own stream, and its slot comes after everything else, so the street looks as it did before.)
-      if (new Rng(`clinic:${w.worldSeed}:${loc.id}`).chance(CLINIC_CHANCE[here])) add('clinic', here, g.depth);
+      if (!highway && new Rng(`clinic:${w.worldSeed}:${loc.id}`).chance(CLINIC_CHANCE[here])) add('clinic', here, g.depth);
       // And somewhere on it, something small is going on: a drop, a den, a repair bay. (Also its own stream, and after the clinic, for the same reason.)
       const spotRng = new Rng(`spots:${w.worldSeed}:${loc.id}`);
-      for (let i = 0, p = SPOT_CHANCE[here]; i < 2 && spotRng.chance(p); i++, p = SPOT_AGAIN) {
+      for (let i = 0, p = SPOT_CHANCE[here]; !highway && i < 2 && spotRng.chance(p); i++, p = SPOT_AGAIN) {
         add('spot', here, g.depth, { spot: pickSpot(spotRng, here).key });
       }
       // And, now and then, a gym. (Its own stream and its slot after all of those, for the same reason.)
-      if (new Rng(`gymchance:${w.worldSeed}:${loc.id}`).chance(GYM_CHANCE[here])) add('gym', here, g.depth);
+      if (!highway && new Rng(`gymchance:${w.worldSeed}:${loc.id}`).chance(GYM_CHANCE[here])) add('gym', here, g.depth);
       // And, a little less often, a pawn shop. (Its own stream, and its slot after the gym's, for the same reason.)
-      if (new Rng(`pawnchance:${w.worldSeed}:${loc.id}`).chance(PAWN_CHANCE[here])) add('pawn', here, g.depth);
+      if (!highway && new Rng(`pawnchance:${w.worldSeed}:${loc.id}`).chance(PAWN_CHANCE[here])) add('pawn', here, g.depth);
       // Loops. Everything here is decided now, from this street's own stream, between places that
       // already exist, so the shortcuts are the same whichever end of them she finds first.
-      if (roads.length === 2 && rng.chance(LOOP_ROADS)) join(roads[0]!, roads[1]!, `a cut-through to ${roads[1]!.name}`, `a cut-through to ${roads[0]!.name}`);
+      if (roads.length === 2 && rng.chance(LOOP_ROADS) && !highway) join(roads[0]!, roads[1]!, `a cut-through to ${roads[1]!.name}`, `a cut-through to ${roads[0]!.name}`);
       for (let i = 0; i + 1 < fronts.length; i++) {
         const a = fronts[i]!;
         const b = fronts[i + 1]!;
@@ -407,6 +420,8 @@ interface ChildOpts {
   gymRoom?: { main: Id; room: string };
   /** Rooms of a pawn shop: which shop, and which room. */
   pawnRoom?: { main: Id; room: string };
+  /** A street that is a highway: no buildings, no people, and a road a car can really use. */
+  highway?: boolean;
 }
 
 const KIND: Record<GenRole, Location['kind']> = {
@@ -447,12 +462,12 @@ function sketch(
   const rolledPawn = role === 'pawn' ? rollPawn(new Rng(`pawn:${w.worldSeed}:${id}`), district, depth) : undefined;
   const tier = spot ? o.tier ?? rollSpotTier(drng!, spot, danger) : entrance ? o.tier ?? rollTier(drng!, role as 'outpost' | 'hideout', danger, district) : undefined;
   // (An entrance is named once it's known whose it is, below.)
-  let name = o.name ?? rolled?.name ?? rolledPawn?.name ?? (entrance ? '' : nameFor(rng, role, district, parent, o.rank));
+  let name = o.name ?? rolled?.name ?? rolledPawn?.name ?? (entrance ? '' : o.highway ? `${rng.chance(0.5) ? pick(rng, STREET_ADJ) : pick(rng, STREET_NOUN)} ${pick(rng, HIGHWAY_SUFFIX)}` : nameFor(rng, role, district, parent, o.rank));
   const deep = Math.min(2, Math.floor(depth / 4));
 
   let security: number;
   switch (role) {
-    case 'street': security = STREET_SECURITY[district] + rng.int(0, 1) + (deep > 1 ? 1 : 0); break;
+    case 'street': security = o.highway ? 1 : STREET_SECURITY[district] + rng.int(0, 1) + (deep > 1 ? 1 : 0); break;
     case 'clinic': security = 2 + (district === 'corporate' ? 1 : 0) + rng.int(0, 1); break;
     case 'shop': security = 1 + (district === 'market' ? 1 : 0) + (district === 'corporate' ? 1 : 0) + rng.int(0, 1); break;
     case 'bar': security = 1 + (district === 'nightlife' ? 1 : 0) + rng.int(0, 1); break;
@@ -475,7 +490,7 @@ function sketch(
   }
   security = clampSec(Math.min(security, role === 'unit' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom' ? 9 : role === 'corp' || role === 'backroom' || role === 'vip' ? 9 : 6));
 
-  const crowded = role === 'gym' ? rolled!.crowded : role === 'pawn' ? rolledPawn!.crowded : role === 'bar' ? rng.chance(0.3 + (district === 'nightlife' ? 0.3 : 0)) : role === 'club' || role === 'vip' ? true : street ? rng.chance(CROWDED[district]) : false;
+  const crowded = role === 'gym' ? rolled!.crowded : role === 'pawn' ? rolledPawn!.crowded : role === 'bar' ? rng.chance(0.3 + (district === 'nightlife' ? 0.3 : 0)) : role === 'club' || role === 'vip' ? true : street ? (o.highway ? false : rng.chance(CROWDED[district])) : false;
   const noCameras = role === 'flat' || (role === 'unit' && o.cameras === undefined) || role === 'tunnel' || role === 'cellar' || role === 'backroom' || entrance || role === 'chamber';
 
   // Its own corner of the city: a whiff of whoever is round about, and the owners where there are owners.
@@ -507,7 +522,7 @@ function sketch(
     faction = `v:${id}`;
     w.factions[faction] ??= { id: faction, name, kind: 'venue', relations: {} };
   } else if (role === 'backroom' || role === 'vip' || role === 'cellar' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom') faction = parent.faction;
-  const blurbs = street ? [`${name}. ${pick(rng, MOOD[district])}`] : rolled ? [rolled.blurb] : rolledPawn ? [rolledPawn.blurb] : spot ? spot.blurbs : entrance ? ENTRANCE_BLURB[role as 'outpost' | 'hideout'] : BLURB[role as Exclude<GenRole, 'street'>];
+  const blurbs = o.highway ? HIGHWAY_BLURB : street ? [`${name}. ${pick(rng, MOOD[district])}`] : rolled ? [rolled.blurb] : rolledPawn ? [rolledPawn.blurb] : spot ? spot.blurbs : entrance ? ENTRANCE_BLURB[role as 'outpost' | 'hideout'] : BLURB[role as Exclude<GenRole, 'street'>];
 
   const toStreet = streetOf(w, parent);
   const loc: Location = {
@@ -521,7 +536,7 @@ function sketch(
     tossTo: toStreet,
     fleeTo: parent.id,
     visits: 0,
-    cameras: noCameras ? 0 : o.cameras ?? clampSec(security / 2),
+    cameras: noCameras ? 0 : o.cameras ?? (o.highway ? 1 : clampSec(security / 2)),
     graffiti: 0,
     territory: gang && (influence[gang] ?? 0) >= 0.5 ? gang : null,
     influence,
@@ -530,6 +545,7 @@ function sketch(
     gen: { role, parent: parent.id, slot, depth, district, danger, expanded: false, ...(o.rank !== undefined ? { rank: o.rank } : {}), ...(o.max !== undefined ? { max: o.max } : {}), ...(tier !== undefined ? { tier } : {}), ...(spot ? { spot: spot.key } : {}) },
   };
   if (faction) loc.faction = faction;
+  if (o.highway) loc.road = 'highway';
   if (rolled) {
     loc.gym = rolled.info;
     loc.graffiti = CONDITIONS[rolled.info.condition]?.graffiti ?? 0;

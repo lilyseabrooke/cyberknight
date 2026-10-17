@@ -75,7 +75,7 @@ export function heroSpeed(w: World): number {
   const v = w.hero.vehicle;
   const legs = legSpeed(w);
   if (!v) return legs;
-  return Math.max(legs, Math.min(14, paceOf(normalize(v)) + skillValue(w.hero, 'driving') / 10));
+  return Math.max(legs, Math.min(20, paceOf(normalize(v)) + skillValue(w.hero, 'driving') / 10));
 }
 
 /** How far ahead of her a dragon starts when she sets off after it, in tiles. */

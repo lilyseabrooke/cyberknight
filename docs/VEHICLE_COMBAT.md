@@ -323,3 +323,34 @@ Everything above is in, with these differences and choices:
   its owners were gangers: those are hunted or somebody's to take back, key or no key.
 - A car on the board is the same car: the police car at a spot with officers is the squad car the officers shelter behind, and a stray
   from a chase keeps the damage it took.
+
+## Routing
+
+How hard a street is to drive, how fast she goes, what goes wrong, and which way she goes. (`roads.ts`, `drivefx.ts`, `vehicles.ts`.)
+
+- **Road classes** (`roadClass`, `ROAD`): a street is a `highway`, a `street`, a `small` street, a `pedestrian` way or an `alley`. The class
+  comes from the last word of its name (the city names its streets for what they are: Alley and Passage are alleys; Walk, Arcade, Plaza,
+  Concourse, Bazaar and Market are pedestrian; Lane, Row, Terrace, Run, Way and Yard are small; Street, Avenue, Boulevard, Freightway and
+  Wharf are streets), except highways, which are marked (`Location.road`). Each class has a difficulty, a crossing time, how much of a
+  drive's reach it uses up, how much going fast matters on it, and its base odds of an accident. **Alleys are no road for a car**: cars
+  never route down one. Bikes can.
+- **Accidents** (`hopChance`): every street she drives through is a chance. The odds rise with the street's difficulty and climb steeply
+  toward top speed (a quartic in the share of top speed: a small street flat out is about five times the ordinary pace), fall with driving
+  skill, rise with drink, a damaged car and acid rain. A bike has a smaller chance, especially at speed and on the hard streets. A highway
+  barely cares how fast she goes.
+- **What goes wrong** (`accident`): a scrape (some damage), a collision (more damage, a little to her, and heat if anyone could have seen),
+  somebody calls it in (heat and a police chase), being thrown (a fall and an injury roll; the vehicle is left on the street as a stray),
+  or the end of the vehicle (the same bang as in a fight). The faster she was going, the worse it is; the more people about, the likelier a
+  call. A drive stops where it goes wrong.
+- **Speed** (`chooseSpeed`): she picks what share of top speed to use, per drive. About 55 to 65 percent when nothing is pressing; up with a
+  hurry (the law after her, a body that needs mending) and with daring (`reckless`, `thrill`, `impulsive`), down on hard streets, up on a
+  highway. **Every make is a quarter faster than it was** (`SPEED_BOOST`) so there is room above the ordinary pace.
+- **Which way** (`routesFrom`): two Dijkstra runs, one on time and one on difficulty. Each destination offers the quick way and the careful
+  way (when they differ); each is a candidate (`drive:<street>:fast` / `:safe`), scored on where it goes, how much time it saves against
+  walking weighed by how much of a hurry she is, how daring she is, and its accident risk through the usual risk term.
+- **The highway**: a `highway` street is generated as an on-ramp from some streets (more often industrial and corporate ones), runs on as
+  a highway most of the time, and lets off by off-ramps. It has no buildings (no clinic, spot, gym or pawn shop), no people, no parked
+  cars, and no events but the police: on one she can walk on or drive, nothing else. It is cheap to reach along (half a street's worth of
+  reach) and its accident odds are tiny even at speed.
+- **Not built**: weather other than acid rain, speed choices as separate candidates (she picks speed herself), a way to pick the highway on
+  foot, and the chase engine using road class (a chase still has its own `Stretch`).

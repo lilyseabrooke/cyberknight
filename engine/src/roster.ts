@@ -121,6 +121,7 @@ function pool(w: World, role: string, faction: Id | null): Npc[] {
 export function populate(w: World, loc: Location): Npc[] {
   if (loc.populated) return [];
   loc.populated = true;
+  if (loc.road === 'highway') return []; // nobody lives on a highway
   const info = loc.gym ?? (loc.gymRoom ? w.locations[loc.gymRoom.main]?.gym : undefined);
   const pinfo = loc.pawn ?? (loc.pawnRoom ? w.locations[loc.pawnRoom.main]?.pawn : undefined);
   const roster = loc.kind === 'gym' ? (info ? gymRoster(loc, info) : []) : loc.kind === 'pawn' ? (pinfo ? pawnRoster(loc, pinfo) : []) : ROSTERS[loc.kind] ?? [];

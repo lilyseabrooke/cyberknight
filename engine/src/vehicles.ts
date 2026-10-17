@@ -2,7 +2,11 @@ import { Rng } from './rng';
 import { addHeat, npcsAt, relocate, remember } from './combat';
 import { sneakBonus } from './extras';
 import { clamp, type Candidate } from './candidate';
-import { roadsFrom, driveMinutes, parkedVehicle, isPerson } from './roads';
+import { roadsFrom, driveMinutes, parkedVehicle, isPerson, roadClass } from './roads';
+import { chooseSpeed, daringOf, driveAlong, routeChance, routeMinutes, routesFrom, rushOf } from './drivefx';
+import { bankPull } from './bank';
+import { needsUrge } from './rest';
+import { supplyUrge } from './supply';
 import { condition, keyTo, normalize } from './cars';
 import { KINDS, removeCompanion } from './companions';
 import { policeChase } from './chase';
@@ -24,7 +28,7 @@ import type { Companion, Ctx, Id, Location, ParkedVehicle, Vehicle, World } from
 export const ownedHere = (w: World, loc: Location): ParkedVehicle | undefined => w.hero.parked?.find((p) => p.at === loc.id && p.until > w.clock);
 
 /** How many streets one drive covers. Skill and the car both stretch it. */
-export const reachOf = (w: World, v: Vehicle): number => clamp(Math.round((3 + skillValue(w.hero, 'driving') / 2) * v.speed * (0.6 + 0.4 * condition(v))), 3, 10);
+export const reachOf = (w: World, v: Vehicle): number => clamp(Math.round((3 + skillValue(w.hero, 'driving') / 2) * v.speed * (0.6 + 0.4 * condition(v))), 3, 12);
 
 export { roadsFrom, driveMinutes, parkedVehicle };
 
@@ -77,15 +81,32 @@ export function vehicleCandidates(w: World): Candidate[] {
 
   const car = normalize(h.vehicle);
   const here = loc.gen?.district;
-  for (const r of roadsFrom(w, loc.id, reachOf(w, car), car.body)) {
+  const rush = rushOf(w);
+  for (const r of routesFrom(w, loc.id, reachOf(w, car), car.body)) {
     if (r.hops < 2) continue; // one street is just a walk
     const dest = w.locations[r.id]!;
     const crossing = !!dest.gen?.district && dest.gen.district !== here;
-    out.push({
-      key: `drive:${r.id}`, drives: { curiosity: 0.5, bravery: 0.1 },
-      bonus: 0.4 + (dest.visits === 0 ? 0.35 : 0) + (crossing ? 0.4 : 0) + 0.1 * r.hops,
-      run: (c) => drive(c, r.path),
-    });
+    // Where she wants to be: somewhere new, somewhere else, and wherever she needs something.
+    const supply = supplyUrge(w, r.id);
+    const need = needsUrge(w, r.id);
+    const pull = bankPull(w, r.id);
+    // Two ways there (the quick one and the careful one, often the same road), weighed on what each costs her and risks.
+    for (const style of ['fast', 'safe'] as const) {
+      const route = r[style];
+      if (style === 'safe' && route.path.join() === r.fast.path.join()) continue;
+      const s = chooseSpeed(w, route.path);
+      const chance = routeChance(w, car, route.path, s);
+      const minutes = routeMinutes(w, car, route.path, s);
+      // What being quick is worth to her, against walking it, when she is in a hurry.
+      const saved = Math.max(0, 3 * route.path.length - minutes);
+      out.push({
+        key: `drive:${r.id}:${style}`, drives: { curiosity: 0.5, bravery: 0.1 },
+        bonus: 0.4 + (dest.visits === 0 ? 0.35 : 0) + (crossing ? 0.4 : 0) + 0.1 * r.hops + 0.05 * saved * rush + 0.25 * Math.max(0, daringOf(w)) * s + supply.bonus + need.bonus + pull.bonus,
+        smart: supply.smart + need.smart + pull.smart,
+        risk: chance * 8,
+        run: (c) => drive(c, route.path, s, style),
+      });
+    }
   }
   return out;
 }
@@ -182,21 +203,15 @@ export function boardParty(c: Ctx, car: Vehicle, street: Location): void {
   }
 }
 
-function drive(c: Ctx, path: Id[]): void {
+function drive(c: Ctx, path: Id[], s: number, style: 'fast' | 'safe'): void {
   const { w } = c;
   const h = w.hero;
   const from = w.locations[h.locationId]!;
   const car = h.vehicle!;
-  // Each street she passes through is arrived at properly, so the city grows ahead of her and the road keeps going.
-  for (const id of path) {
-    // (A bike goes through a tunnel without leaving itself behind in it.)
-    const through = car.body === 'bike' && w.locations[id]?.kind === 'tunnel';
-    relocate(w, id);
-    if (through && !h.vehicle) {
-      h.parked = (h.parked ?? []).filter((p) => p.id !== car.id);
-      h.vehicle = car;
-    }
-  }
+  // Each street she passes through is arrived at properly, so the city grows ahead of her and the road keeps going. Any of them might be where it goes wrong.
+  const { done, over } = driveAlong(c, path, s);
+  w.clock += routeMinutes(w, car, path.slice(0, done), s);
+  if (over || !h.vehicle) return; // an accident has told its own story
   const last = w.locations[h.locationId]!;
   c.emit('drive', 'good', {
     variant: from.gen?.district && last.gen?.district && from.gen.district !== last.gen.district ? 'across' : 'along',
@@ -206,9 +221,11 @@ function drive(c: Ctx, path: Id[]): void {
     to: last.name,
     toId: last.id,
     hops: path.length,
+    style,
+    speed: Math.round(s * 100),
+    highway: path.some((id) => roadClass(w.locations[id]!) === 'highway'),
     first: last.visits === 1,
     ...(last.visits === 1 && last.blurb ? { blurb: last.blurb } : {}),
   });
-  train(c, 'driving', 1);
-  w.clock += driveMinutes(path.length, car.body);
+  train(c, 'driving', 1 + (s > 0.85 ? 1 : 0));
 }

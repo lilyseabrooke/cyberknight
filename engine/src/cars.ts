@@ -30,7 +30,15 @@ export type Body = Vehicle['body'];
 const b = (kind: Make['kind'], name: string, o: Partial<Make> = {}): Make =>
   m(kind, name, { body: 'bike', speed: kind === 'police' ? 1.6 : kind === 'atlas' ? 1.7 : 1.4, pace: 11, maxHp: 30, armor: 0, seats: 2, ...(kind === 'police' ? { mounted: 'ram' as const } : {}), ...o });
 
-const m = (kind: Make['kind'], name: string, o: Partial<Make> = {}): Make => ({
+/** Every car and bike goes a quarter faster than it used to, to leave room for it to be dangerous to drive flat out. */
+export const SPEED_BOOST = 1.25;
+
+const m = (kind: Make['kind'], name: string, o: Partial<Make> = {}): Make => {
+  const r = base(kind, name, o);
+  return { ...r, pace: Math.round(r.pace * SPEED_BOOST), speed: Math.round(r.speed * SPEED_BOOST * 100) / 100 };
+};
+
+const base = (kind: Make['kind'], name: string, o: Partial<Make> = {}): Make => ({
   name,
   kind,
   speed: kind === 'police' ? 1.5 : kind === 'atlas' ? 1.3 : 1,

@@ -245,8 +245,12 @@ export function gather(w: World): Candidate[] {
       run: (c) => moveThrough(c, e),
     });
   }
+  // A highway is a road and nothing else: no one to talk to, nothing to buy, nowhere to loiter. She goes on, or she drives.
+  if (loc.road === 'highway') return out.filter((x) => HIGHWAY_OK.has(x.key.split(':')[0]!));
   return out;
 }
+
+const HIGHWAY_OK = new Set(['go', 'drive', 'getin', 'usekey', 'hijack']);
 
 // =============================================================== resolvers
 
