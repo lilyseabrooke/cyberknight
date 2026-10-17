@@ -27,7 +27,7 @@ import type { Ctx, Hero, World } from './types';
  *       ok / run      extra availability; what it does
  */
 
-/** `kind:id`, e.g. `skill:lockpicking`, `stat:hack`, `drive:greed`, `item:vintage_guitar`, `goal:kill`. */
+/** `kind:id`, e.g. `skill:lockpicking`, `stat:int`, `drive:greed`, `item:vintage_guitar`, `goal:kill`. */
 export type Need = `${'skill' | 'stat' | 'drive' | 'item' | 'implant' | 'tag' | 'goal'}:${string}`;
 
 export interface Where {
@@ -114,7 +114,7 @@ export function capabilityPull(h: Hero, needs: readonly Need[]): number {
 export function knownCapabilities(): Need[] {
   const out: Need[] = [];
   for (const s of SKILL_IDS) out.push(`skill:${s}`);
-  for (const s of ['muscle', 'reflex', 'hack', 'charm']) out.push(`stat:${s}`);
+  for (const s of ['muscle', 'reflex', 'int', 'charm']) out.push(`stat:${s}`);
   for (const d of DRIVES) out.push(`drive:${d}`);
   return out;
 }

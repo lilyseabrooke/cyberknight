@@ -62,7 +62,7 @@ export function ambientDragons(c: Ctx): void {
     if (!w.flags.hera_seen && rng.chance(0.004)) {
       w.flags.hera_seen = true;
       spawnFlight(c, 'hera', 1);
-    } else if (rng.chance(0.022 + (w.counters.skywatch === w.beat - 1 ? 0.1 + 0.01 * h.hack : 0))) {
+    } else if (rng.chance(0.022 + (w.counters.skywatch === w.beat - 1 ? 0.1 + 0.01 * h.int : 0))) {
       spawnFlight(c, 'artemis', rng.weighted([1, 2, 3], (n) => (n === 3 ? 0.2 : 0.4)));
     }
   }

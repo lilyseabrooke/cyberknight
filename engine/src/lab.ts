@@ -143,7 +143,7 @@ const xpForLevel = skillXp;
  * (`makeHero`); this adds to it.
  */
 export function applyUpgrades(h: Hero, l: Owned): void {
-  const stat = { muscle: 0, reflex: 0, hack: 0, charm: 0 };
+  const stat = { muscle: 0, reflex: 0, int: 0, charm: 0 };
   const lvl: Partial<Record<SkillId, number>> = {};
   const traits: Partial<Record<(typeof TRAITS)[number], number>> = {};
   let hp = 0, cash = 0, comp = 0, level = 0, fame = 0;
@@ -171,11 +171,11 @@ export function applyUpgrades(h: Hero, l: Owned): void {
   for (let i = 0; i < level; i++) {
     h.level++;
     h.maxHp += hpPerLevel(h.level);
-    h[(['muscle', 'reflex', 'charm', 'hack'] as const)[h.level % 4]!]++;
+    h[(['muscle', 'reflex', 'charm', 'int'] as const)[h.level % 4]!]++;
   }
   h.maxHp += hp;
   h.hp = h.maxHp;
-  for (const k of ['muscle', 'reflex', 'hack', 'charm'] as const) h[k] += stat[k];
+  for (const k of ['muscle', 'reflex', 'int', 'charm'] as const) h[k] += stat[k];
   h.cash += cash;
   h.fame += fame;
   h.competence = Math.max(0, Math.min(0.95, h.competence + comp));

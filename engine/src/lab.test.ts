@@ -175,7 +175,7 @@ describe('the body that walks out', () => {
     applyUpgrades(h, legacy(0, { 'rebuild.1': 2 }));
     expect(h.level).toBe(3);
     expect(h.maxHp).toBe(90 + hpPerLevel(2) + hpPerLevel(3));
-    expect(h.muscle + h.reflex + h.hack + h.charm).toBe(3 + 3 + 2 + 3 + 2);
+    expect(h.muscle + h.reflex + h.int + h.charm).toBe(3 + 3 + 2 + 3 + 2);
   });
 
   it('starts with the skills, kit, weapon and armor it paid for, and never a worse one than she had', () => {
@@ -195,7 +195,7 @@ describe('the body that walks out', () => {
     const h = fresh();
     applyUpgrades(h, legacy(0, own('grafts.1', 'grafts.2', 'grafts.3', 'grafts.4', 'grafts.5', 'grafts.6')));
     expect(h.implants).toHaveLength(4);
-    expect(h.hack).toBe(2 + IMPLANTS.third_thumb!.stats!.hack!);
+    expect(h.int).toBe(2 + IMPLANTS.third_thumb!.stats!.int!);
   });
 
   it('can tone a flaw down, in a copy, and leave the backup alone', () => {

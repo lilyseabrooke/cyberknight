@@ -249,7 +249,7 @@ function jack(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   n.flags.push('jacked');
-  const p = clamp(0.25 + h.hack * 0.06 + skillLevel(h, 'tinkering') * 0.05 + (hasAlly(w, 'hack') ? 0.08 : 0) - n.level * 0.03, 0.08, 0.85);
+  const p = clamp(0.25 + h.int * 0.06 + skillLevel(h, 'tinkering') * 0.05 + (hasAlly(w, 'hack') ? 0.08 : 0) - n.level * 0.03, 0.08, 0.85);
   if (rng.chance(p)) {
     const kind = n.archetype === 'scrapper' ? 'scrapper' : 'drone';
     moveNpc(w, n, '_companion');
@@ -316,7 +316,7 @@ function settleTab(c: Ctx, bartender: Npc): void {
 function hackBillboard(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.hack * 0.06 + skillLevel(h, 'tinkering') * 0.03, 0.1, 0.85);
+  const p = clamp(0.3 + h.int * 0.06 + skillLevel(h, 'tinkering') * 0.03, 0.1, 0.85);
   if (rng.chance(p)) {
     // Each hijack is less of a story, and Atlas gets angrier about it.
     const hacks = w.counters.billboard_hacks ?? 0;
@@ -401,7 +401,7 @@ function buyIntel(c: Ctx, madame: Npc): void {
 function hackTerminal(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.25 + h.hack * 0.07 + skillLevel(h, 'tinkering') * 0.03 + (hasAlly(w, 'hack') ? 0.1 : 0), 0.1, 0.85);
+  const p = clamp(0.25 + h.int * 0.07 + skillLevel(h, 'tinkering') * 0.03 + (hasAlly(w, 'hack') ? 0.1 : 0), 0.1, 0.85);
   if (rng.chance(p)) {
     w.flags.dragon_weak = true;
     w.flags.dragon_known = true;
@@ -419,7 +419,7 @@ function poker(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const madame = w.npcs.madame;
-  const cheat = h.hack >= 3 && rng.chance(0.45);
+  const cheat = h.int >= 3 && rng.chance(0.45);
   const p = clamp(0.3 + h.charm * 0.012 + 0.05 * synergy(h, ['cards', ['stat:charm', 0.5]]) + (cheat ? 0.05 + 0.04 * synergy(h, ['cards', 'sleight']) : 0) - h.drunk * 0.02, 0.1, 0.88);
   train(c, 'cards', 2);
   if (cheat) train(c, 'sleight', 1);

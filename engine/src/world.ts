@@ -230,7 +230,7 @@ export function makeHero(personality: Personality, realName: string, competence 
     sleep: 100,
     muscle: 3,
     reflex: 3,
-    hack: 2,
+    int: 2,
     charm: 3,
     injuries: [],
     weapon: makeItem('excalibur'),

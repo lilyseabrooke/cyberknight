@@ -63,7 +63,7 @@ function mighty(w: World): void {
   h.level = 14;
   h.maxHp = h.hp = 400;
   h.muscle = 9;
-  h.hack = 9;
+  h.int = 9;
   h.weapon = genWeapon(new Rng('mighty'), { tier: 6.5, cls: 'blade' });
   h.armor = null;
 }

@@ -68,4 +68,4 @@ export const GENERIC_TITLES = [
 ] as const;
 
 /** Stats usable as factors alongside skills. */
-export type StatId = 'muscle' | 'reflex' | 'hack' | 'charm';
+export type StatId = 'muscle' | 'reflex' | 'int' | 'charm';

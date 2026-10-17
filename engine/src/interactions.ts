@@ -426,7 +426,7 @@ function hackNpc(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   n.flags.push('hacked');
-  const p = clamp(0.3 + h.hack * 0.06 + (hasAlly(w, 'hack') ? 0.08 : 0) + skillLevel(h, 'tinkering') * 0.02 - n.level * 0.04, 0.05, 0.85);
+  const p = clamp(0.3 + h.int * 0.06 + (hasAlly(w, 'hack') ? 0.08 : 0) + skillLevel(h, 'tinkering') * 0.02 - n.level * 0.04, 0.05, 0.85);
   const corp = n.tags.includes('monitored') || n.tags.includes('corp');
   if (!rng.chance(p)) {
     h.hp -= 8;
@@ -491,7 +491,7 @@ function getPatched(c: Ctx, n: Npc): void {
   h.cash -= cost;
   h.hp = h.maxHp;
   if (rng.chance(0.2)) {
-    const stats = ['muscle', 'reflex', 'hack', 'charm'] as const;
+    const stats = ['muscle', 'reflex', 'int', 'charm'] as const;
     const up = rng.pick(stats);
     const down = rng.pick(stats.filter((s) => s !== up));
     h[up] += 2;
@@ -516,7 +516,7 @@ function stealPuppy(c: Ctx, pup: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   const dutch = dutchHere(w);
-  const p = clamp(0.4 + h.hack * 0.05 + h.charm * 0.03 - (dutch ? 0.15 : 0), 0.1, 0.85);
+  const p = clamp(0.4 + h.int * 0.05 + h.charm * 0.03 - (dutch ? 0.15 : 0), 0.1, 0.85);
   if (!rng.chance(p)) {
     h.hp -= 6;
     pup.affinity -= 10;

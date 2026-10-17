@@ -29,8 +29,14 @@ export interface Witnessing {
 
 const isPerson = (n: Npc): boolean => !n.tags.includes('robot') && !n.tags.includes('dragon') && !n.tags.includes('boss') && n.archetype !== 'puppy';
 
-/** Working cameras here. A blackout takes them down with everything else. */
-export const workingCameras = (w: World, locId: string): number => (w.flags.blackout ? 0 : (w.locations[locId]?.cameras ?? 0));
+/** Working cameras here. A blackout takes them down with everything else; an Override takes down a few. */
+export const workingCameras = (w: World, locId: string): number => {
+  if (w.flags.blackout) return 0;
+  const loc = w.locations[locId];
+  if (!loc) return 0;
+  const off = loc.camsDown && w.beat < loc.camsDown.until ? loc.camsDown.n : 0;
+  return Math.max(0, loc.cameras - off);
+};
 
 /** What a bystander does when they watch Blackbird start something. */
 export function reactionWeights(w: World, n: Npc, victim: Npc): Record<Reaction, number> {

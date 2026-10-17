@@ -164,32 +164,78 @@ function shove(s: Sim): Technique[] {
   ];
 }
 
+/**
+ * Hacks are for people, Overrides are for systems. A Hack needs somebody with chrome in their head; an Override needs
+ * something that runs on a processor (a robot, a camera). A hacker friend's jam works on either.
+ */
 function hack(s: Sim, u: Unit): Technique[] {
   const isHero = u.kind === 'hero';
-  if (u.cd.hack) return [];
-  if (isHero && s.w.hero.hack < 2) return [];
-  if (!isHero && !u.assist?.disable) return [];
-  return [
-    {
-      id: 'hack',
+  const out: Technique[] = [];
+  if (isHero && !u.cd.optic_reset) {
+    out.push({
+      id: 'optic_reset',
+      targets: 'enemy',
+      range: [2, 6],
+      los: false,
+      value(s2, me, from, t) {
+        if (!t!.npc || !personOnly(t!) || !t!.npc.tags.includes('augmented') || t!.blind > 0) return null;
+        const p = s2.opticChance(t!);
+        const threat = frac(s2.avgDamage(t!, s2.hero), s2.hero.ref.hp);
+        return (4 + 12 * threat) * p;
+      },
+      run(s2, me, t) {
+        me.cd.optic_reset = 4;
+        s2.doOpticReset(t!);
+      },
+    });
+  }
+  const jam = (kind: 'hack' | 'override'): Technique | null => {
+    if (u.cd[kind]) return null;
+    if (isHero && s.w.hero.int < 2) return null;
+    if (!isHero && !u.assist?.disable) return null;
+    return {
+      id: kind,
       targets: 'enemy',
       range: [2, 6],
       los: false,
       value(s2, me, from, t) {
         if (!t!.npc || t!.npc.tags.some((x) => x === 'boss' || x === 'dragon')) return null;
+        const robot = t!.npc.tags.includes('robot');
+        if (robot !== (kind === 'override')) return null;
         // Blackbird's own hacking needs something with chrome in it; a hacker friend can jam anybody's gun.
-        if (isHero && !t!.npc.tags.some((x) => x === 'robot' || x === 'augmented')) return null;
+        if (isHero && !robot && !t!.npc.tags.includes('augmented')) return null;
         if (t!.stunned || t!.disabled) return null;
         const p = s2.hackChance(me, t!);
         const threat = frac(s2.avgDamage(t!, s2.hero), s2.hero.ref.hp);
         return (5 + 14 * threat) * p;
       },
       run(s2, me, t) {
-        me.cd.hack = isHero ? 3 : 2;
+        me.cd[kind] = isHero ? 3 : 2;
         s2.doHack(me, t!);
       },
-    },
-  ];
+    };
+  };
+  for (const k of ['hack', 'override'] as const) {
+    const t = jam(k);
+    if (t) out.push(t);
+  }
+  if (isHero && !u.cd.blackout && s.camerasUp() > 0) {
+    out.push({
+      id: 'blackout',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value(s2) {
+        // A free-moment move: worth it when she started it and has nothing better to do with the action than be filmed.
+        return s2.o.assault ? 1.5 : null;
+      },
+      run(s2, me) {
+        me.cd.blackout = 99;
+        s2.doBlackout();
+      },
+    });
+  }
+  return out;
 }
 
 function intimidate(s: Sim): Technique[] {

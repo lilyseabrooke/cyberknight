@@ -216,7 +216,7 @@ function laserTag(c: Ctx): void {
 function crackSafe(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.15 + h.hack * 0.04 + 0.05 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]), 0.05, 0.85);
+  const p = clamp(0.15 + h.int * 0.04 + 0.05 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]), 0.05, 0.85);
   train(c, 'lockpicking', 2);
   if (rng.chance(p)) {
     const take = rng.int(200, 450);
@@ -393,7 +393,7 @@ function scrapPile(c: Ctx, f: Feature): void {
 function relay(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.hack * 0.05 + skillLevel(h, 'tinkering') * 0.05, 0.1, 0.85);
+  const p = clamp(0.3 + h.int * 0.05 + skillLevel(h, 'tinkering') * 0.05, 0.1, 0.85);
   if (rng.chance(p)) {
     const drop = rng.int(1, 3);
     w.heat.atlas = Math.max(0, (w.heat.atlas ?? 0) - drop);
@@ -457,7 +457,7 @@ function vault(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const hasCreds = h.inventory.some((i) => i.id === 'corp_creds');
-  const p = clamp(0.2 + h.hack * 0.07 + (hasCreds ? 0.3 : 0), 0.1, 0.85);
+  const p = clamp(0.2 + h.int * 0.07 + (hasCreds ? 0.3 : 0), 0.1, 0.85);
   addHeat(w, 'atlas', 3);
   if (rng.chance(p)) {
     w.flags.vault_robbed = true;

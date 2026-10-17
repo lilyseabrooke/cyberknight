@@ -229,7 +229,7 @@ export function cross(c: Ctx, who: Crosser, leg: Leg): Crossing {
 /** How well she works out where somebody is going: Calculate, helped by the Hack stat. */
 export function readingOf(w: World): number {
   const h = w.hero;
-  return clamp(0.3 + 0.06 * synergy(h, ['calculate', ['stat:hack', 0.5]]) + 0.01 * h.hack, 0.15, 0.92);
+  return clamp(0.3 + 0.06 * synergy(h, ['calculate', ['stat:int', 0.5]]) + 0.01 * h.int, 0.15, 0.92);
 }
 
 export interface Cut {

@@ -454,10 +454,10 @@ export const INTEL: Affordance<GymView>[] = [
   }),
   row({
     id: 'robot-spotter-hijack', where: { feature: 'robot_spotter' }, pace: 'session',
-    needs: ['stat:hack', 'skill:rapport', 'skill:tinkering', 'drive:curiosity'],
+    needs: ['stat:int', 'skill:rapport', 'skill:tinkering', 'drive:curiosity'],
     sees: 'A hovering spotter that says "you have got this" to everyone.', stakes: 'An ally for the evening; a bad alarm.', consequence: '—',
     drives: { curiosity: 0.7, pride: 0.2 }, bonus: 0.1, intent: ['Blackbird looks at the spotter. It says "You have got this" at her.'],
-    check: { parts: [['stat:hack', 1], ['tinkering', 0.5], ['rapport', 0.3]], base: 0.3, per: 0.06,
+    check: { parts: [['stat:int', 1], ['tinkering', 0.5], ['rapport', 0.3]], base: 0.3, per: 0.06,
       win: R(['Blackbird convinces the spotter at {gym} that she is its favourite customer. It hovers by her shoulder for hours, calling every move "optimal".'], { buff: { id: 'spotted', power: 3, beats: 35 }, train: [['tinkering', 1]], xp: 3 } as Result),
       lose: R(['The spotter at {gym} decides she is a hazard and sounds an alarm in a calm, reassuring voice.'], { heat: ['gym', 1], affinity: -3, hp: -1 }) },
   }),

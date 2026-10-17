@@ -69,7 +69,7 @@ export interface Buff {
   until: number;
   power: number;
   /** Stimulants that raise a stat: applied on use, taken back off when the buff lapses. */
-  stat?: 'muscle' | 'reflex' | 'hack' | 'charm';
+  stat?: 'muscle' | 'reflex' | 'int' | 'charm';
   amount?: number;
   /** Power penalty she eats once it wears off. */
   crash?: number;
@@ -141,14 +141,14 @@ export interface Hero {
   /** The world minute her hunger and sleep were last brought up to date. */
   needsAt?: number;
   /** What hunger and tiredness are taking off her right now: power in a fight, and points off each stat (already deducted from the stat itself). See needs.ts. */
-  needsFx?: { power: number; muscle: number; reflex: number; hack: number; charm: number };
+  needsFx?: { power: number; muscle: number; reflex: number; int: number; charm: number };
   /** The tier each meter was last announced at, so a slide down the bar is remarked on once per step. */
   needTier?: { hunger: string; sleep: string };
   /** Stacks of lingering tiredness from poor beds: poor nights add them, good ones take them off, and they don't wear off with time. See needs.ts. */
   sleepDebt?: number;
   muscle: number;
   reflex: number;
-  hack: number;
+  int: number;
   charm: number;
   injuries: Injury[];
   weapon: Item;
@@ -435,6 +435,8 @@ export interface Location {
   doings?: number;
   /** Security cameras. They see everything she does, unless the power is out. */
   cameras: number;
+  /** Cameras Blackbird has shut down for now (Blackout), and the beat they come back on. */
+  camsDown?: { n: number; until: number };
   /** How tired this place's crowd is of her, per skill she performs with (singing, guitar...). Recovers with time. */
   fatigue?: Record<string, number>;
   /** How wary this place is of tricks she's pulled here (scams, fake goods, fortune-telling). Fades. */

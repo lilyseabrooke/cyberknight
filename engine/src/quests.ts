@@ -248,7 +248,7 @@ export function appraise(w: World, giver: Npc, q: Quest): Appraisal {
   const dist = Math.min(14, routeTo(w, h.locationId, q.site)?.dist ?? 8);
   const p = d ? typicalPressure(w, d) : entrance?.gen ? estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1) : 1;
   const dread = Math.max(0, p / tolerance(w) - 0.5) * 0.9;
-  const task = q.kind === 'flatline' ? 0.15 - 0.2 * (t.courage - 0.5) : q.kind === 'hack' ? 0.18 - 0.03 * h.hack - 0.3 * (t.techy - 0.5) : 0.1;
+  const task = q.kind === 'flatline' ? 0.15 - 0.2 * (t.courage - 0.5) : q.kind === 'hack' ? 0.18 - 0.03 * h.int - 0.3 * (t.techy - 0.5) : 0.1;
   const work = Math.max(0, 0.05 * dist + dread + task + 0.15 * (0.5 - t.thrill));
   const score = 0.9 * liking + 1.2 * want - work;
   return {
@@ -356,7 +356,7 @@ function hackSystem(c: Ctx, d: Dungeon, loc: Id, giver: Npc, q: Quest): void {
   const h = w.hero;
   const room = roomOf(d, loc)!;
   const watched = standing(w, d, loc).length > 0;
-  const p = clamp(0.38 + h.hack * 0.055 + skillLevel(h, 'tinkering') * 0.03 + (hasAlly(w, 'hack') ? 0.08 : 0) - 0.04 * d.tier - (watched ? 0.12 : 0), 0.08, 0.92);
+  const p = clamp(0.38 + h.int * 0.055 + skillLevel(h, 'tinkering') * 0.03 + (hasAlly(w, 'hack') ? 0.08 : 0) - 0.04 * d.tier - (watched ? 0.12 : 0), 0.08, 0.92);
   train(c, 'tinkering', 2);
   const data = { ...jobData(w, giver, q), watched };
   if (rng.chance(p)) {

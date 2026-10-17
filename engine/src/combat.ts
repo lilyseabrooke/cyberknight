@@ -130,7 +130,7 @@ export function gainXp(c: Ctx, amount: number): void {
     h.xp -= levelCost(h.level);
     h.level++;
     h.maxHp += hpPerLevel(h.level); // a bigger tank, not a refill: healing costs a med pack or a street doc
-    const stat = (['muscle', 'reflex', 'charm', 'hack'] as const)[h.level % 4]!;
+    const stat = (['muscle', 'reflex', 'charm', 'int'] as const)[h.level % 4]!;
     h[stat]++;
     c.w.stats.maxLevel = Math.max(c.w.stats.maxLevel, h.level);
     c.emit('level_up', 'good', { level: h.level, stat });

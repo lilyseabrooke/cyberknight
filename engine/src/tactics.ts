@@ -13,6 +13,7 @@ import { artsOf } from './lab';
 import { dragonSpeed, hasTrait, legSpeed } from './dragonmodels';
 import type { ArtBranch } from './content/doctrine';
 import * as D from './doctrine';
+import { workingCameras } from './witness';
 
 /**
  * A fight, played out on a small grid. Nobody watches it: the player gets a report of the interesting bits and the result.
@@ -59,6 +60,8 @@ export interface Unit extends Pos {
   pinned: number;
   marked: number;
   supp: number;
+  /** Rounds left blind (Optic Reset): it can barely hit anything. */
+  blind: number;
   stagger: number;
   /** Broken limbs, a fraction of armor stripped, a weapon taken, and whether it moved on its last turn. */
   leg: boolean;
@@ -252,7 +255,7 @@ export class Sim {
   readonly down = new Set<string>();
   readonly fled = new Set<string>();
   readonly arrived: Npc[] = [];
-  readonly stats = { ammoSpent: 0, backfires: 0, crits: 0, ambushes: 0, hacks: 0, scares: 0, shoves: 0, threw: 0, overwatch: 0, leaps: 0, flurries: 0, assists: 0 };
+  readonly stats = { ammoSpent: 0, backfires: 0, crits: 0, ambushes: 0, hacks: 0, overrides: 0, scares: 0, shoves: 0, threw: 0, overwatch: 0, leaps: 0, flurries: 0, assists: 0 };
   /** Her combat routines (see `doctrine.ts`), and the branch of the weapon in her hand. */
   readonly arts: Record<string, number>;
   branch: ArtBranch | null;
@@ -365,6 +368,7 @@ export class Sim {
       pinned: 0,
       marked: 0,
       supp: 0,
+      blind: 0,
       stagger: 0,
       leg: false,
       arm: false,
@@ -450,6 +454,7 @@ export class Sim {
     }
     if (this.flanked(att, tgt, from)) p += 0.08;
     p += D.foeHit(this, att, tgt, from);
+    if (att.blind > 0) p -= 0.5;
     return clamp(p, 0.1, 0.97);
   }
 
@@ -802,7 +807,7 @@ export class Sim {
   hackChance(me: Unit, t: Unit): number {
     if (me.kind !== 'hero') return 0.6;
     const h = this.w.hero;
-    return clamp(0.35 + h.hack * 0.07 + skillValue(h, 'tinkering') * 0.03 - ((t.npc?.level ?? 1) - h.level) * 0.04, 0.1, 0.9);
+    return clamp(0.35 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.03 - ((t.npc?.level ?? 1) - h.level) * 0.04, 0.1, 0.9);
   }
 
   doHack(me: Unit, t: Unit): void {
@@ -811,13 +816,42 @@ export class Sim {
     t.disabled = true;
     if (me.kind === 'hero') {
       this.stats.hacks++;
-      const dmg = t.npc?.tags.includes('robot') ? Math.round(this.w.hero.hack * 2.2) : 0;
+      const dmg = t.npc?.tags.includes('robot') ? Math.round(this.w.hero.int * 2.2) : 0;
       if (dmg) this.damage(me, t, dmg);
       train(this.c, 'tinkering', 1);
       this.note('tactic', 'good', { variant: 'hack', foe: t.name, robot: !!t.npc?.tags.includes('robot') }, 3, `hack:${t.id}`);
     } else {
       this.note('ally_assist', 'good', { name: me.name, kind: me.comp!.kind, dmg: 0, absorb: 0, foe: t.name }, 2, `assist:${me.id}`);
     }
+  }
+
+  /** Optic Reset, a Hack: a burst down the optic nerve that leaves somebody with chrome in their head blind for a few rounds. */
+  opticChance(t: Unit): number {
+    const h = this.w.hero;
+    return clamp(0.4 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.02 - ((t.npc?.level ?? 1) - h.level) * 0.04, 0.1, 0.92);
+  }
+
+  doOpticReset(t: Unit): void {
+    if (!this.c.rng.chance(this.opticChance(t))) return;
+    t.blind = 2 + Math.ceil(this.w.hero.int / 3);
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'optic_reset', foe: t.name }, 3, `optic:${t.id}`);
+  }
+
+  /** Blackout, an Override: drops a camera she can see for a while, so what happens next is nobody's footage. */
+  camerasUp(): number {
+    return workingCameras(this.w, this.w.hero.locationId);
+  }
+
+  doBlackout(): void {
+    const loc = this.w.locations[this.w.hero.locationId]!;
+    if (!this.c.rng.chance(clamp(0.45 + this.w.hero.int * 0.08, 0.1, 0.95))) return;
+    const down = loc.camsDown && this.w.beat < loc.camsDown.until ? loc.camsDown.n : 0;
+    loc.camsDown = { n: down + 1, until: this.w.beat + 12 };
+    this.stats.overrides++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'blackout', place: loc.name, left: this.camerasUp() }, 3, 'blackout');
   }
 
   scareChance(t: Unit): number {

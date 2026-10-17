@@ -6,7 +6,7 @@ export interface ImplantDef {
   pitch: string;
   /** What actually happens. */
   catch: string;
-  stats?: Partial<Record<'muscle' | 'reflex' | 'hack' | 'charm', number>>;
+  stats?: Partial<Record<'muscle' | 'reflex' | 'int' | 'charm', number>>;
   skills?: Partial<Record<SkillId, number>>;
   power?: number;
   /** Special-case behaviour keyed on in code. */
@@ -16,7 +16,7 @@ export interface ImplantDef {
 
 /** Black-market chrome. Every upgrade has a catch. */
 export const IMPLANTS: Record<string, ImplantDef> = {
-  third_thumb: { name: 'third thumb', pitch: 'Better grip, better hacking.', catch: 'Cannot be unseen. Handshakes are awkward.', stats: { hack: 2, charm: -1 }, cost: 90 },
+  third_thumb: { name: 'third thumb', pitch: 'Better grip, better hacking.', catch: 'Cannot be unseen. Handshakes are awkward.', stats: { int: 2, charm: -1 }, cost: 90 },
   chrome_larynx: { name: 'chrome larynx', pitch: 'Perfect pitch. Perfect beats.', catch: 'It speaks in a voice that is not hers when startled.', stats: { charm: 1 }, skills: { music: 3 }, cost: 120 },
   neon_liver: { name: 'neon liver', pitch: 'Filters anything.', catch: 'Glows through her shirt.', skills: { tolerance: 4 }, cost: 100, flag: 'glow' },
   mantis_blades: { name: 'mantis blades', pitch: 'Retractable. Deadly.', catch: 'Retract is more of a suggestion.', stats: { charm: -1 }, power: 6, cost: 160 },
@@ -26,7 +26,7 @@ export const IMPLANTS: Record<string, ImplantDef> = {
   sonic_ear: { name: 'sonic ear', pitch: 'Hears trouble coming.', catch: 'Also hears everything about everybody.', skills: { sneak: 2 }, cost: 100, flag: 'sonic_ear' },
   bounty_scanner: { name: 'bounty-grade scanner', pitch: 'Sees the paper on anyone. Even the ones who paid to hide it.', catch: 'Also sees how little most people are worth.', cost: 140, flag: 'bounty_scan' },
   address_scanner: { name: 'address scanner', pitch: 'Reads a home address off anyone she looks at.', catch: 'Cannot be told to look away.', cost: 150, flag: 'home_scan' },
-  ad_blocker: { name: 'Atlas ad-blocker', pitch: 'Mute the propaganda.', catch: 'Suppresses her own sense of irony, slightly.', stats: { hack: 1 }, cost: 60, flag: 'ad_blocker' },
+  ad_blocker: { name: 'Atlas ad-blocker', pitch: 'Mute the propaganda.', catch: 'Suppresses her own sense of irony, slightly.', stats: { int: 1 }, cost: 60, flag: 'ad_blocker' },
   emergency_defib: { name: 'emergency defibrillator', pitch: 'Cheat death. Once.', catch: 'Once. Only once. Do not test it.', cost: 220, flag: 'defib' },
 };
 

@@ -238,7 +238,7 @@ function frame(c: Ctx, n: Npc, bad: boolean): void {
   const { w, rng } = c;
   const h = w.hero;
   const framed = w.counters.frames ?? 0;
-  const p = clamp(0.22 + skillLevel(h, 'grifting') * 0.05 + skillLevel(h, 'sleight') * 0.03 + h.hack * 0.012 - framed * 0.08 - h.drunk * 0.03, 0.1, 0.85);
+  const p = clamp(0.22 + skillLevel(h, 'grifting') * 0.05 + skillLevel(h, 'sleight') * 0.03 + h.int * 0.012 - framed * 0.08 - h.drunk * 0.03, 0.1, 0.85);
   remember(n, 'was fingered by Blackbird for something they did not do');
   if (rng.chance(p)) {
     w.counters.frames = framed + 1;

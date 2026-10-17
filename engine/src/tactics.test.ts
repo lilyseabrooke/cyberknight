@@ -178,7 +178,7 @@ describe('a fight on the grid', () => {
         implants: i % 5 === 0 ? ['mantis_blades', 'hydraulic_calves'] : [],
         inventory: i % 2 ? ['cocktail_molotov', 'switchblade'] : [],
       });
-      s.w.hero.hack = 3 + (i % 4);
+      s.w.hero.int = 3 + (i % 4);
       fight({ w: s.w, rng: s.rng, emit: s.emit }, s.foes, { cause: 'test', joiners: i % 2 === 0, assault: i % 3 !== 1 });
       for (const e of s.events) {
         seen.add(`${e.type}:${e.data.variant ?? ''}`);

@@ -57,12 +57,12 @@ export interface Penalty {
   power: number;
   muscle: number;
   reflex: number;
-  hack: number;
+  int: number;
   charm: number;
 }
 
-const NONE: Penalty = { power: 0, muscle: 0, reflex: 0, hack: 0, charm: 0 };
-const pen = (power: number, muscle = 0, reflex = 0, hack = 0, charm = 0): Penalty => ({ power, muscle, reflex, hack, charm });
+const NONE: Penalty = { power: 0, muscle: 0, reflex: 0, int: 0, charm: 0 };
+const pen = (power: number, muscle = 0, reflex = 0, int = 0, charm = 0): Penalty => ({ power, muscle, reflex, int, charm });
 
 /** Hunger starts to cost her the moment she is below this. */
 export const HUNGER_FREE = 90;
@@ -109,7 +109,7 @@ export function settleDebt(h: Hero, quality: number, fraction: number): number {
   return h.sleepDebt - before;
 }
 
-const KEYS = ['power', 'muscle', 'reflex', 'hack', 'charm'] as const;
+const KEYS = ['power', 'muscle', 'reflex', 'int', 'charm'] as const;
 
 /** What she is losing at these levels, after the lab's softening. */
 export function penaltyFor(h: Hero, l: Owned): Penalty {
@@ -132,7 +132,7 @@ export function refreshFx(w: Pick<World, 'hero' | 'legacy'>): void {
   const want = penaltyFor(h, w.legacy);
   const have = h.needsFx ?? NONE;
   const next = { ...have, power: want.power };
-  for (const k of ['muscle', 'reflex', 'hack', 'charm'] as const) {
+  for (const k of ['muscle', 'reflex', 'int', 'charm'] as const) {
     const base = h[k] + have[k];
     next[k] = Math.min(want[k], Math.max(0, base - 1));
     h[k] = base - next[k];
