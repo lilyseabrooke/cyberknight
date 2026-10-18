@@ -1,11 +1,12 @@
-import { Rng } from './rng';
+import { Rng, hashString } from './rng';
 import type { Ctx, Ent, Id, Location, Npc, PlaceBoard, World } from './types';
 import { dist, hasLos, idx, passable, type Pos } from './grid';
 import { everyoneAt } from './population';
-import { layoutOf, type Door, type Fixture, type Layout, type Zones } from './layout';
+import { layoutOf, type CamMount, type Door, type Fixture, type Layout, type Zones } from './layout';
 import { PROPS, type PropKind } from './content/props';
-import { dirOf, angDiff, holdsPost, makeUnit, sensors, sightGain, type Board, type PUnit } from './prowl';
+import { dirOf, angDiff, camFacing, camView, coneFactor, holdsPost, makeUnit, sensors, sightGain, type Board, type PUnit } from './prowl';
 import { V, awareness, npcPerception, stir } from './stealth';
+import { workingCameras } from './witness';
 
 /**
  * The one board a place has. Whatever she is doing in a place (walking about, sneaking, fighting) it is this: where she is,
@@ -23,8 +24,6 @@ export interface Placed {
   board: PlaceBoard;
   layout: Layout;
 }
-
-const layouts = new WeakMap<PlaceBoard, Layout>();
 
 /** The board for the place she is in (or the one given), made the first time it's wanted. Null for a place with none (the streets). */
 export function placeOf(w: World, loc: Location | undefined = w.locations[w.hero.locationId]): Placed | null {
@@ -46,7 +45,6 @@ export function placeOf(w: World, loc: Location | undefined = w.locations[w.hero
       placedAt: -999,
     };
   }
-  layouts.set(board, layout);
   return { board, layout };
 }
 
@@ -193,8 +191,18 @@ export function syncPlace(w: World, p: Placed): void {
 /** Once a beat, for the place she is in. */
 export function tickPlace(w: World): void {
   const p = placeOf(w);
-  if (p) syncPlace(w, p);
+  if (!p) return;
+  syncPlace(w, p);
+  // Those standing a post look about, so where they are looking changes from beat to beat.
+  for (const [id, e] of Object.entries(p.board.ents)) {
+    if (e.behavior && e.behavior !== 'post') continue;
+    if (w.npcs[id]?.hostile) continue;
+    e.facing = ((e.homeFacing ?? e.facing) + LOOK[(w.beat + hashString(id)) % 8]!) % 8;
+  }
 }
+
+/** A quarter turn one way, then the other, then back. */
+const LOOK = [0, 1, 1, 0, 0, 7, 7, 0];
 
 /** She has come in by `from`'s door: she is in the doorway, and everyone is where they were. */
 export function enterPlace(w: World, from: Id, to: Id): void {
@@ -211,23 +219,45 @@ export function enterPlace(w: World, from: Id, to: Id): void {
 // ------------------------------------------------------------------ who can see her
 
 /**
- * Whether this person has a line to her, from where each of them stands on the room's board: nothing solid in the way. With `ranged`,
- * also near enough to make her out, which depends on how sharp they are and how well lit she is. With no board to say, or nobody
- * placed, it is anyone in the room.
+ * Whether this person can see her, from where each of them stands and facing the way they face on the room's board: nothing solid or
+ * big in the way, and she is inside their cone. With `turn`, they have turned to look (something loud happened), so only the line
+ * matters. With `ranged`, she is also near enough to make out, which depends on how sharp they are and how well lit she is. With no
+ * board to say, or nobody placed, it is anyone in the room.
  */
-export function seesHer(w: World, n: Npc, ranged = false): boolean {
+export function seesHer(w: World, n: Npc, o: { ranged?: boolean; turn?: boolean } = {}): boolean {
   const h = w.hero;
   if (n.locationId !== h.locationId) return false;
   const board = w.boards?.[h.locationId];
-  const layout = board ? layouts.get(board) : undefined;
+  const layout = board ? layoutOf(w, w.locations[h.locationId]!) : undefined;
   const e = board?.ents[n.id];
   if (!board || !layout || !e) return true;
   if (e.x === board.hero.x && e.y === board.hero.y) return true;
   if (!hasLos(layout.grid, e, board.hero)) return false;
-  if (!ranged) return true;
+  if (!o.turn && coneFactor({ x: e.x, y: e.y, facing: e.facing, wide: sensors(n) }, board.hero) <= 0) return false;
+  if (!o.ranged) return true;
   const lit = w.flags.blackout ? 0 : layout.light[idx(layout.grid, board.hero)] ?? 1;
   const range = Math.max(1, Math.min(9, 2 + 0.4 * npcPerception(n) + (sensors(n) ? 1 : 0) + (lit === 2 ? 2 : lit === 0 ? -1.5 : 0)));
   return dist(e, board.hero) <= range;
+}
+
+/** The cameras here that are working: not the ones a Blackout took, and none at all in a power cut. */
+export function workingCams(w: World, loc: Location): CamMount[] {
+  if (w.flags.blackout) return [];
+  const layout = layoutOf(w, loc);
+  if (!layout) return [];
+  const down = loc.camsDown && w.beat < loc.camsDown.until ? loc.camsDown.n : 0;
+  return layout.cams.slice(down);
+}
+
+/** Whether a camera has her right now, from where it is and the way it is turned. Where there is no board to say, any working camera does. */
+export function camerasSeeHer(w: World): boolean {
+  const loc = w.locations[w.hero.locationId];
+  if (!loc || !workingCameras(w, loc.id)) return false;
+  const board = w.boards?.[loc.id];
+  const layout = board ? layoutOf(w, loc) : undefined;
+  if (!board || !layout) return true;
+  const lit = w.flags.blackout ? 0 : (layout.light[idx(layout.grid, board.hero)] ?? 1);
+  return workingCams(w, loc).some((cam) => camView(layout.grid, { x: cam.x, y: cam.y, facing: camFacing(cam, w.beat) }, board.hero, lit as 0 | 1 | 2) > 0);
 }
 
 // ------------------------------------------------------------------ where she is
@@ -371,6 +401,7 @@ export function viewOf(w: World, p: Placed, o: { foes?: Npc[]; near?: number; ex
     round: 0,
     dark: board.dark,
     role: layout.role,
+    cams: workingCams(w, w.locations[board.loc]!),
   };
 }
 

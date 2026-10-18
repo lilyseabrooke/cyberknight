@@ -8,7 +8,7 @@ import { skillOf, statsOf } from './npcstats';
 import { hasImplantFlag, skillLevel, skillValue, train } from './skills';
 import { knowsTechnique } from './techniques';
 import { workingCameras } from './witness';
-import { seesHer } from './placeboard';
+import { camerasSeeHer, seesHer } from './placeboard';
 
 /**
  * Stealth. While Blackbird sneaks, everyone who could notice her (a person, a drone, a dog, a camera) carries an
@@ -162,7 +162,7 @@ export function enterStealth(c: Ctx): void {
     a.seenAt = h.locationId;
   }
   const loc = w.locations[h.locationId]!;
-  loc.camAware = 1;
+  if (camerasSeeHer(w)) loc.camAware = 1;
   h.stealth = true;
   const dropped = slip(c);
   const cover = coverAt(w, h.locationId);
@@ -181,7 +181,7 @@ export function exitStealth(c: Ctx, why: 'step' | 'noisy' = 'step'): void {
     a.seenAt = h.locationId;
   }
   const loc = w.locations[h.locationId];
-  if (loc) loc.camAware = 1;
+  if (loc && camerasSeeHer(w)) loc.camAware = 1;
   c.emit('stealth', 'mixed', { variant: why === 'noisy' ? 'blown' : 'exit', place: loc?.name ?? '' });
 }
 
@@ -225,7 +225,7 @@ export function tickStealth(c: Ctx): void {
         continue;
       }
       // Nobody gets any of her from where they cannot see her, and anyone who had her has lost her.
-      if (!seesHer(w, n, true)) {
+      if (!seesHer(w, n, { ranged: true })) {
         if (a.fix) lose(w, n);
         fade(w, a);
         continue;
@@ -248,8 +248,11 @@ export function tickStealth(c: Ctx): void {
     if (watched.length && w.beat % 4 === 0 && !watched.some((n) => bucketOf(w, n) === 'aware')) train(c, 'sneak', 1);
     if (loc && workingCameras(w, loc.id) > 0) {
       const before = loc.camAware ?? 0;
-      loc.camAware = Math.min(1, before + BASE_GAIN * 1.2 * prof * (0.7 + 0.6 * rng.next()));
-      if (before < V.aware && loc.camAware >= V.aware) c.emit('stealth_notice', 'bad', { variant: 'camera', place: loc.name });
+      // Only a camera that is looking her way gets any of her.
+      if (camerasSeeHer(w)) {
+        loc.camAware = Math.min(1, before + BASE_GAIN * 1.2 * prof * (0.7 + 0.6 * rng.next()));
+        if (before < V.aware && loc.camAware >= V.aware) c.emit('stealth_notice', 'bad', { variant: 'camera', place: loc.name });
+      } else if (before > 0) loc.camAware = Math.max(0, before - FADE);
     }
   }
 
@@ -280,8 +283,8 @@ export function tickStealth(c: Ctx): void {
 
 /** Whether the cameras here have her. Out of stealth, if there are any working, they do. */
 export function camerasSee(w: World, locId: Id): boolean {
-  if (!workingCameras(w, locId)) return false;
-  if (!w.hero.stealth || locId !== w.hero.locationId) return !w.hero.stealth;
+  if (!workingCameras(w, locId) || locId !== w.hero.locationId) return false;
+  if (!w.hero.stealth) return camerasSeeHer(w);
   return (w.locations[locId]?.camAware ?? 0) >= V.aware;
 }
 
@@ -292,9 +295,9 @@ export function camerasSee(w: World, locId: Id): boolean {
 export function stir(c: Ctx, amount: number, skip: Npc[] = []): Npc[] {
   const { w } = c;
   const h = w.hero;
-  const out = glimpse(c, observersAt(w, h.locationId).filter((n) => !skip.includes(n) && seesHer(w, n)), amount);
+  const out = glimpse(c, observersAt(w, h.locationId).filter((n) => !skip.includes(n) && seesHer(w, n, { turn: amount >= 0.5 })), amount);
   const loc = w.locations[h.locationId];
-  if (loc && workingCameras(w, loc.id) > 0) loc.camAware = Math.min(1, (loc.camAware ?? 0) + amount * 1.2 * (h.stealth ? profile(w) : 1));
+  if (loc && workingCameras(w, loc.id) > 0 && camerasSeeHer(w)) loc.camAware = Math.min(1, (loc.camAware ?? 0) + amount * 1.2 * (h.stealth ? profile(w) : 1));
   return out;
 }
 

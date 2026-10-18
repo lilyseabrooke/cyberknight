@@ -57,6 +57,8 @@ export interface Grid {
   cells: Terrain[];
   exits: Pos[];
   objects?: BoardObject[];
+  /** Tiles (by index) of things big enough to block sight but not walls: a speaker tower, a rack, a pillar. A crate or a table is cover and does not. */
+  tall?: number[];
 }
 
 interface Spec {
@@ -184,7 +186,16 @@ export function line(a: Pos, b: Pos): Pos[] {
   return out;
 }
 
-export const hasLos = (g: Grid, a: Pos, b: Pos): boolean => line(a, b).every((p) => terrainAt(g, p.x, p.y) !== 'wall');
+export const isTall = (g: Grid, p: Pos): boolean => !!g.tall && g.tall.includes(p.y * g.w + p.x);
+export const hasLos = (g: Grid, a: Pos, b: Pos): boolean => line(a, b).every((p) => terrainAt(g, p.x, p.y) !== 'wall' && !isTall(g, p));
+
+/** The direction (0..7, clockwise from north) that points most nearly from `a` at `b`. */
+export function dirOf(a: Pos, b: Pos): number {
+  const ang = Math.atan2(b.x - a.x, -(b.y - a.y));
+  return ((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8;
+}
+/** How far apart two directions are: 0 (the same) to 4 (opposite). */
+export const angDiff = (a: number, b: number): number => Math.min((a - b + 8) % 8, (b - a + 8) % 8);
 
 /** Is `target` sheltered from `from`? Cover on the line of fire, or right in front of them. */
 export function inCover(g: Grid, from: Pos, target: Pos): boolean {

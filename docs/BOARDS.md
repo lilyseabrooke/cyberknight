@@ -37,6 +37,10 @@ She **arrives in the doorway** of the door she came in by (`relocate` calls `ent
 
 So a sneak that goes wrong carries straight on into the fight from the same positions, and a body dropped in the dark is there when the shooting starts.
 
+## Sight on the board
+
+Who can see her is worked out from the board (`seesHer`, `camerasSeeHer`): a line across the room with nothing solid or `large` in the way, inside the person's cone (their facing, set when they were placed and swung a little each beat for those at posts), and for a camera inside its sweep. See `STEALTH.md`. A layout gives each room its cameras (`Layout.cams`) and marks the big things (`Grid.tall`, `Fixture.large`).
+
 ## Being seen
 
 Pickpocketing asks who could actually see it (`spatialStir`): people facing her, near enough, in good enough light, with nothing in the way. Someone turned away or too far off does not notice. (In a place with no board, everyone in the room gets a little.)

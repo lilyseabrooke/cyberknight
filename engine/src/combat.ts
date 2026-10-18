@@ -261,7 +261,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   if (placed) {
     syncPlace(w, placed);
     // (Only a place with something in it to be next to has anything to say about where she is.)
-    if (placed.layout.fixtures.length) {
+    if (placed.layout.role === 'club') {
       const where = describeSpot(placed, w);
       c.emit('place_spot', 'mixed', { variant: 'fight', spot: where.variant, label: where.label, place: loc.name });
     }

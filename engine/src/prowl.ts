@@ -1,10 +1,11 @@
-import { Rng } from './rng';
+import { Rng, hashString } from './rng';
 import type { Awareness, Ctx, Dungeon, Id, Location, Npc, World } from './types';
 import { clamp } from './candidate';
-import { dist, hasLos, idx, inCover, line, neighbors, passable, posOf, reach, terrainAt, makeGrid, type Grid, type Pos } from './grid';
+import { angDiff, dirOf, dist, hasLos, idx, inCover, line, neighbors, passable, posOf, reach, terrainAt, type Grid, type Pos } from './grid';
 import { V, atLeast, awareness, bucketOf, callForHelp, callWeight, heroPerception, heroStealth, keenness, npcPerception } from './stealth';
 import { PROPS, type PropKind } from './content/props';
 import { commitBoard, placeOf, syncPlace, viewOf } from './placeboard';
+import type { CamMount } from './layout';
 import { overrideChance } from './override';
 import { skillLevel, train, hasImplantFlag } from './skills';
 import { gainXp } from './combat';
@@ -35,13 +36,7 @@ export type ProwlOutcome = 'cleared' | 'detected' | 'stalled';
 /** Eight directions, clockwise from north. */
 const DIRS: Pos[] = [{ x: 0, y: -1 }, { x: 1, y: -1 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: -1, y: 1 }, { x: -1, y: 0 }, { x: -1, y: -1 }];
 
-/** The direction (0..7) that points most nearly from `a` at `b`. */
-export function dirOf(a: Pos, b: Pos): number {
-  const ang = Math.atan2(b.x - a.x, -(b.y - a.y));
-  return (((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8);
-}
-/** How far apart two directions are: 0 (same) to 4 (opposite). */
-export const angDiff = (a: number, b: number): number => Math.min((a - b + 8) % 8, (b - a + 8) % 8);
+export { angDiff, dirOf };
 
 export interface PUnit {
   npc: Npc;
@@ -97,6 +92,8 @@ export interface Board {
   dark: { x: number; y: number; r: number; until: number }[];
   /** The room's role in the dungeon (picks the lights and the props). */
   role: string;
+  /** The cameras that are working, bolted where they are. They sweep (see `camFacing`). */
+  cams?: CamMount[];
 }
 
 // ------------------------------------------------------------------ the board
@@ -161,6 +158,46 @@ export function viewRange(b: Board, u: PUnit, at: Pos): number {
 /** Is `at` sheltered from this unit: behind cover, so only someone right up to it would find her. */
 export const sheltered = (b: Board, u: Pos, at: Pos): boolean => inCover(b.grid, u, at);
 
+/** How much of the way someone's eyes cover a point: 1 in front of them, less to the side when it is close, nothing behind. */
+export function coneFactor(u: Pick<PUnit, 'x' | 'y' | 'facing' | 'wide'>, at: Pos): number {
+  const d = dist(u, at);
+  if (d === 0) return 1;
+  const ang = angDiff(u.facing, dirOf(u, at));
+  const cone = u.wide ? 2 : 1;
+  let f = ang <= cone ? 1 : d <= 2 && ang <= cone + 1 ? 0.4 : 0;
+  if (d <= 1) f = Math.max(f, 0.5);
+  return f;
+}
+
+/** A camera turns a little either way as it goes, so it covers a wider patch of the room over time. */
+const SWEEP = [0, 1, 1, 0, 0, 7, 7, 0];
+export const camFacing = (cam: Pick<CamMount, 'id' | 'facing'>, t: number): number => (cam.facing + SWEEP[(t + hashString(cam.id)) % 8]!) % 8;
+
+/**
+ * How well a camera at this facing covers a point (0 if it doesn't: out of its cone, too far, or something in the way). Cameras
+ * see further than people and are not fooled by a dark room as much, but they have a cone like anyone's and cannot see round a thing.
+ */
+export function camView(g: Grid, cam: Pos & { facing: number }, at: Pos, lit: Light): number {
+  const d = dist(cam, at);
+  const range = clamp(8 + (lit === 2 ? 1 : lit === 0 ? -3 : 0), 4, 10);
+  if (d > range || !hasLos(g, cam, at)) return 0;
+  // (A slice of the room about a camera's width; the sweep is what moves it.)
+  if (angDiff(cam.facing, dirOf(cam, at)) > 0) return 0;
+  return 1 - 0.5 * (d / range);
+}
+
+/** How much more a camera makes of her this round, in the same terms as a person's. */
+export function camGain(b: Board, cam: CamMount, at: Pos, posture: Posture, t: number): number {
+  const lit = lightAt(b, at);
+  const c = camView(b.grid, { x: cam.x, y: cam.y, facing: camFacing(cam, t) }, at, lit);
+  if (!c) return 0;
+  // Crouched behind a crate, a camera on the ceiling doesn't see her.
+  if (posture === 'hold' && sheltered(b, cam, at)) return 0;
+  const h = b.w.hero;
+  const mine = (1 - 0.05 * Math.min(10, skillLevel(h, 'sneak'))) * (hasImplantFlag(h, 'glow') ? 1.3 : 1);
+  return 0.3 * c * POSTURE_SHOWS[posture] * (lit === 2 ? 1.2 : lit === 1 ? 0.8 : 0.4) * mine * 1.1;
+}
+
 /**
  * How much more aware of her this unit gets in a round if she stands at `at` doing `posture`. Nothing if she is out of
  * their sight; otherwise more the nearer, the more she moves, the better lit she is and the sharper they are.
@@ -171,10 +208,7 @@ export function sightGain(b: Board, u: Pick<PUnit, 'x' | 'y' | 'facing' | 'wide'
   const range = viewRange(b, u as PUnit, at);
   if (d > range) return 0;
   if (!hasLos(b.grid, u, at)) return 0;
-  const ang = angDiff(u.facing, dirOf(u, at));
-  const cone = u.wide ? 2 : 1;
-  let facing = ang <= cone ? 1 : d <= 2 && ang <= cone + 1 ? 0.4 : 0;
-  if (d <= 1) facing = Math.max(facing, 0.5);
+  const facing = coneFactor(u, at);
   if (!facing) return 0;
   // Behind something, only someone close enough to look round it, or searching for exactly that, finds her.
   let hidden = 1;
@@ -285,6 +319,8 @@ export function exposure(b: Board, at: Pos, posture: Posture): number {
     const next = Math.max(0, ...predict(b, u).map((p) => sightGain(b, p, at, posture)));
     s += Math.max(now, next * 0.8);
   }
+  const t = b.w.beat + b.round;
+  for (const cam of b.cams ?? []) s += Math.max(camGain(b, cam, at, posture, t), camGain(b, cam, at, posture, t + 1) * 0.8);
   return s;
 }
 
@@ -294,6 +330,12 @@ function nearlyCaught(b: Board, at: Pos, posture: Posture): boolean {
     const v = u.npc.aware?.v ?? 0;
     const gain = Math.max(sightGain(b, u, at, posture), ...predict(b, u).map((p) => sightGain(b, p, at, posture)));
     if (gain > 0 && v + gain >= V.aware - 0.05) return true;
+  }
+  const seen = b.w.locations[b.w.hero.locationId]?.camAware ?? 0;
+  const t = b.w.beat + b.round;
+  for (const cam of b.cams ?? []) {
+    const gain = Math.max(camGain(b, cam, at, posture, t), camGain(b, cam, at, posture, t + 1));
+    if (gain > 0 && seen + gain >= V.aware - 0.05) return true;
   }
   return false;
 }
@@ -736,6 +778,20 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
       say('prowl_body', 'bad', { variant: 'found', npc: w.npcs[body.npcId]?.name ?? 'somebody', finder: finder.npc.name });
     }
 
+    // And the cameras.
+    if (b.cams?.length) {
+      const loc = w.locations[h.locationId];
+      let g = 0;
+      for (const cam of b.cams) g = Math.max(g, camGain(b, cam, b.hero, b.posture, w.beat + b.round));
+      if (loc && g > 0) {
+        const before = loc.camAware ?? 0;
+        loc.camAware = Math.min(1, before + g * (0.85 + 0.3 * rng.next()));
+        if (before < V.aware && loc.camAware >= V.aware) {
+          say('stealth_notice', 'bad', { variant: 'camera', place: loc.name });
+          return 'detected';
+        }
+      } else if (loc) loc.camAware = Math.max(0, (loc.camAware ?? 0) - 0.03);
+    }
     if (live(b).some((u) => atLeast(bucketOf(w, u.npc), 'aware'))) return 'detected';
     if (state.holds >= 9) return 'stalled';
   }

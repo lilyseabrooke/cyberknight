@@ -79,13 +79,13 @@ describe('who can see her', () => {
     const { w, p, hidden } = room('range');
     p.board.hero = { x: 4, y: 0 };
     p.board.ents[hidden.id] = { x: 4, y: 4, facing: 0 };
-    expect(seesHer(w, hidden, true)).toBe(true);
+    expect(seesHer(w, hidden, { ranged: true })).toBe(true);
     p.layout.light.fill(0);
     w.hero.level = 1;
     hidden.level = 1;
     p.board.hero = { x: 0, y: 4 };
-    p.board.ents[hidden.id] = { x: 5, y: 4, facing: 0 };
-    expect(seesHer(w, hidden, true)).toBe(false);
+    p.board.ents[hidden.id] = { x: 5, y: 4, facing: 6 };
+    expect(seesHer(w, hidden, { ranged: true })).toBe(false);
     expect(seesHer(w, hidden)).toBe(true); // a line is a line; it is range that fails
   });
 });
@@ -135,7 +135,7 @@ describe('stealth needs no cover from those who cannot see her', () => {
     p.layout.grid.cells[idx(p.layout.grid, { x: 2, y: 4 })] = 'wall';
     p.layout.grid.cells[idx(p.layout.grid, { x: 3, y: 3 })] = 'wall';
     p.layout.grid.cells[idx(p.layout.grid, { x: 3, y: 2 })] = 'wall';
-    expect(seesHer(w, open, true)).toBe(false);
+    expect(seesHer(w, open, { ranged: true })).toBe(false);
     tickStealth(c);
     expect(awareness(w, open).fix).toBe(false);
     expect(bucketOf(w, open)).toBe('alert');

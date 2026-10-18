@@ -2,7 +2,7 @@ import type { Ctx, Npc, World } from './types';
 import { GANGS } from './content/archetypes';
 import { addHeat, npcsAt, remember } from './combat';
 import { V, isSneaking, makeNoise, stir } from './stealth';
-import { seesHer } from './placeboard';
+import { camerasSeeHer, seesHer } from './placeboard';
 import { clamp } from './candidate';
 import { hasBounty } from './bounty';
 import { isFairGame } from './people';
@@ -140,9 +140,11 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { noise: number }): Wi
     droneSees = drones.some((d) => aware.includes(d));
   } else {
     // In plain view everyone who can see her has her.
-    seenBy = bystanders.filter((n) => isPerson(n) && seesHer(w, n)).slice(0, 6);
-    camSees = cams > 0;
-    droneSees = drones.some((d) => seesHer(w, d));
+    // (Anything loud turns heads; a quiet blow has to be seen.)
+    const turn = opts.noise >= 0.25;
+    seenBy = bystanders.filter((n) => isPerson(n) && seesHer(w, n, { turn })).slice(0, 6);
+    camSees = cams > 0 && camerasSeeHer(w);
+    droneSees = drones.some((d) => seesHer(w, d, { turn }));
   }
 
   if (!camSees && !seenBy.length && !droneSees) {

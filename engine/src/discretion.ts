@@ -9,7 +9,7 @@ import { isHunted } from './pursuit';
 import { skillLevel } from './skills';
 import { workingCameras } from './witness';
 import { atLeast, bucketOf, isSneaking, awareness, V, profile } from './stealth';
-import { seesHer } from './placeboard';
+import { camerasSeeHer, seesHer } from './placeboard';
 import { moveNpc } from './population';
 
 /**
@@ -36,10 +36,11 @@ export interface Exposure {
 export function exposure(w: World, locId: Id, targets: Npc[]): Exposure {
   const h = w.hero;
   // (Where she is now, those who can't see her don't count; a room she isn't in yet, everyone might.)
-  const around = npcsAt(w, locId).filter((n) => !targets.includes(n) && !h.companions.some((a) => a.npcId === n.id) && n.archetype !== 'puppy' && !n.hostile && (locId !== h.locationId || seesHer(w, n)));
+  const around = npcsAt(w, locId).filter((n) => !targets.includes(n) && !h.companions.some((a) => a.npcId === n.id) && n.archetype !== 'puppy' && !n.hostile && (locId !== h.locationId || seesHer(w, n, { turn: true })));
   const people = around.filter(isPerson);
   const drones = around.filter((n) => n.tags.includes('robot') && !n.tags.includes('dragon')).length;
-  const cams = workingCameras(w, locId);
+  // (Cameras count if one is looking her way; in a room she isn't in, if there are any.)
+  const cams = locId === h.locationId && !camerasSeeHer(w) ? 0 : workingCameras(w, locId);
   if (isSneaking(w) && locId === h.locationId) {
     // Sneaking: it is how far along each of them already is, and how much one more thing would tip them over.
     const next = 0.25 * profile(w);

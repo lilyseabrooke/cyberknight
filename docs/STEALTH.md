@@ -14,10 +14,10 @@ While Blackbird sneaks, everyone who could notice her (a person, a drone, a dog,
 | Alert | .5 up | she is here somewhere; they don't know where |
 | Aware | .75 up **and a fix** | they know where she is |
 
-- Gain per beat, for those who can see her (a line on the board, and near enough to make her out in that light), is `0.16 x profile x keenness`, with a little noise. Those who can't see her gain nothing, and anyone who had a fix on her loses it and drops to Alert. `profile` is how noticeable she is (sneak skill, cover, a glowing implant, a vehicle); `keenness` is the observer's perception over 5. See `profile`, `coverAt`, `npcPerception`.
+- Gain per beat, for those who can see her (a line on the board, and near enough to make her out in that light), is `0.16 x profile x keenness`, with a little noise. Those who can't see her gain nothing, and anyone who had a fix on her loses it and drops to Alert. People at their posts look about as the beats go by (a quarter turn each way), so where she can stand unseen changes. `profile` is how noticeable she is (sneak skill, cover, a glowing implant, a vehicle); `keenness` is the observer's perception over 5. See `profile`, `coverAt`, `npcPerception`.
 - **Losing her** (she leaves the room, or slips out of sight): they drop to Alert, stay at least Alert for 12 beats while they search, then fade by .03 a beat. `loseContact` is called from `relocate`.
 - **Arrivals** start at 0 even in a room whose people already have her.
-- Out of stealth nobody is tracked: `bucketOf` says everyone in her room **who can see her** is Aware. Seeing is a line on the room's board (`seesHer` in `placeboard.ts`): somebody behind a wall isn't, whatever room it is. Where a place has no board to say (the streets), it's everyone in the room.
+- Out of stealth nobody is tracked: `bucketOf` says everyone in her room **who can see her** is Aware. Seeing is a line on the room's board *and* being inside their cone (`seesHer` in `placeboard.ts`): somebody behind a wall, or behind something big, or with their back turned, isn't, whatever room it is. Right beside her they always are; a loud thing (a gunshot, a brawl) makes them turn, so only the line matters then. Where a place has no board to say (the streets), it's everyone in the room.
 - She can only read the small shifts if she's paying attention (Perception 4 or better for Suspicious); she trains Perception doing so and Sneak by staying unnoticed.
 
 ## Stealth is a mode
@@ -47,6 +47,14 @@ Sneaking into a dungeon room plays it round by round on the room's one board (`B
 - **Props and distractions** (`content/props.ts`). Rooms have things she can get into with an Override: a PA speaker, a terminal, a vending machine, a jukebox, a wall screen, a fuse box (which also darkens the area). Within six tiles, `overrideChance`; it makes a noise where it stands that draws whoever hears it (they go to look, without suspecting her; officers and turrets only turn). A fail pings softly. Charges are limited and are kept on the room's board for the night. Her planner uses one when the only way at someone is in their face and a lure would draw them off.
 - **Going in.** At a dungeon's door she chooses quiet or loud by what she is like (thrill, courage, temper, justice, as for a job's style); quiet enters stealth, so the rooms inside are played as boards. A place she judges too much for her either way she still gives up on.
 - **Hand-off.** If anyone has a fix the board stops and the existing alarm and fight take over. If she puts all of them down, the room is cleared (the dungeon is cleared if that was the last), with no heat. If it stalls she stays in the room unseen, as before.
+
+## Cameras
+
+Cameras are bolted up in the layout (`Layout.cams`: corners first, then the middles of the walls, as many as the place has) and turn a little either way as they go (`camFacing`), so each covers one slice of the room at a time. A camera has her only if she is in its slice at that moment, near enough (it sees further than a person and is less fooled by the dark) and nothing big is in the way; crouched behind a crate it doesn't. `camerasSeeHer` says whether any working camera does: a Blackout takes cameras down in order, a power cut all of them. Witnessing, the per-beat gain on the cameras (`Location.camAware`) and planning all use it, and the sneaking board counts the cameras in what a tile costs and in whether she is about to be caught, so she routes round their cones and times her moves to the sweep. Where there is no board (the streets) any working camera counts, as before.
+
+## Big things
+
+Some of what stands in a room is big enough to hide behind and some is not. A fixture or a cover tile can be `large` (`Grid.tall`): a speaker tower or a pillar in a club, and some of the rest of any room's cover; a crate, a table, the bar and the DJ booth are not. A big thing blocks sight (and shots, since a line is a line) without being a wall, so even a room with no interior walls has somewhere to stand unseen.
 
 ## Calling for help
 
