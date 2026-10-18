@@ -16,7 +16,8 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { behindOf, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
-import { TILES_PER_PACE, localSqueeze, openBoard, outsFrom, pinches, runOn, type ChaseBoard, type Out } from './chaseboard';
+import { TILES_PER_PACE, chaserSees, leaveSearching, localSqueeze, openBoard, outsFrom, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
+import type { Pos } from './grid';
 
 /**
  * A chase: a fight at speed. There is no board, only how far apart everybody is, what the road is like, and what each side
@@ -79,6 +80,9 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   let rounds = 0;
   // Where she went to lose them, if she went somewhere (through a door, into an alley, up onto a roof): she is there, not a few streets on.
   let hid = false;
+  // Rounds in a row that none of them could see her, and the last place they could.
+  let unseen = 0;
+  let lastSeen: Pos | null = null;
   // People she knocked into who are coming after her when this is over.
   const owed: Npc[] = [];
   // The vehicle she is riding on the outside of (or the inside of, once she is in), and how much door is left between her and the driver.
@@ -751,6 +755,21 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         }
       }
       if (!result && o.foes.every((f) => !f.alive)) result = 'won';
+      // Out of sight for a couple of rounds with nobody on her heels: she has lost them. (They look for her where they last had her.)
+      if (!result && board && !boarded && round > 1) {
+        const seen = live.some((f) => chaserSees(w, board!, f.gap, wings(f)));
+        if (seen) {
+          unseen = 0;
+          lastSeen = tileAt(board, board.s);
+        } else if (++unseen >= 2) {
+          result = o.mode === 'pursued' ? 'escaped' : 'lost';
+          told.push('lost:sight');
+          if (o.mode === 'pursued') {
+            hid = true;
+            leaveSearching(w, board, live, lastSeen ?? tileAt(board, 0));
+          }
+        }
+      }
       const caughtOnFoot = foot && o.mode === 'pursued' && live.some((f) => bandOf(f.gap) === 'locked') && rng.chance(0.7);
       if (!result && o.mode === 'pursued' && live.every((f) => f.gap >= ESCAPE_GAP)) result = 'escaped';
       else if (!result && o.mode === 'pursuer' && live.every((f) => f.gap >= ESCAPE_GAP)) result = 'lost';

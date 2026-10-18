@@ -1,8 +1,10 @@
-import { dist, idx, passable, pathTo, reach, type Pos } from './grid';
+import { dist, hasLos, idx, passable, pathTo, reach, type Pos } from './grid';
+import { moveNpc } from './population';
+import { lose } from './stealth';
 import { placeOf, syncPlace, type Placed } from './placeboard';
 import { roadClass } from './roads';
 import { isClosed } from './hours';
-import type { Id, World } from './types';
+import type { Id, Npc, World } from './types';
 
 /**
  * A chase on the street she is running down. The chase is still the chase (`chase.ts`): a gap to each chaser, a round at a time. The
@@ -182,4 +184,50 @@ export function outsFrom(w: World, cb: ChaseBoard, reachTiles = 10): Out[] {
   const knot = people.find((e) => people.filter((o) => dist(o, e) <= 2).length >= 3);
   if (knot) outs.push({ kind: 'crowd', at: { x: knot.x, y: knot.y }, label: 'the crowd', d: dist(knot, here) });
   return outs.sort((a, b) => a.d - b.d || a.kind.localeCompare(b.kind));
+}
+
+// ------------------------------------------------------------------ who can see her
+
+/** How far a runner can be made out: less in the dark. */
+const SIGHT = 14;
+
+/**
+ * Whether a chaser, that many tiles back along her line, can see her: a line between them that nothing solid or big is in the way of, and
+ * near enough for the light. Those right behind her need no line (they hear her and are on her heels), and things with wings see
+ * over all of it.
+ */
+export function chaserSees(w: World, cb: ChaseBoard, gap: number, wings = false): boolean {
+  if (gap < 3) return true;
+  const g = cb.placed.layout.grid;
+  const her = tileAt(cb, cb.s);
+  const them = chaserTile(cb, gap).at;
+  const lit = w.flags.blackout ? 0 : cb.placed.layout.light[idx(g, her)] ?? 1;
+  const range = lit === 0 ? SIGHT * 0.55 : lit === 2 ? SIGHT * 1.15 : SIGHT;
+  if (dist(them, her) > range) return false;
+  return wings || hasLos(g, them, her);
+}
+
+/**
+ * They lost her, and they are still on the street: alert and looking, from where they last had her. If she comes back this way they are
+ * still here.
+ */
+export function leaveSearching(w: World, cb: ChaseBoard, foes: { crew: Npc[]; gap: number }[], lastSeen: Pos): void {
+  const { board } = cb.placed;
+  for (const f of foes) {
+    const at = chaserTile(cb, f.gap).at;
+    for (const n of f.crew) {
+      if (!n.alive || n.downUntil > w.beat) continue;
+      if (n.locationId !== cb.loc) moveNpc(w, n, cb.loc);
+      lose(w, n);
+      syncPlace(w, cb.placed);
+      const e = board.ents[n.id];
+      if (!e) continue;
+      e.x = at.x;
+      e.y = at.y;
+      e.behavior = 'search';
+      e.last = { ...lastSeen };
+      e.sceneAt = undefined;
+      e.calm = 0;
+    }
+  }
 }

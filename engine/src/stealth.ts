@@ -120,7 +120,7 @@ const hides = (c: Ctx, n: Npc, cover: number): boolean => {
 };
 
 /** They had her and now they don't: Alert, and they look for a while. */
-function lose(w: World, n: Npc): void {
+export function lose(w: World, n: Npc): void {
   const a = awareness(w, n);
   a.v = Math.min(Math.max(a.v, V.alert), ALERT_V);
   a.fix = false;

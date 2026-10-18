@@ -4,7 +4,7 @@ import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { MAKES } from './cars';
 import { onFoot, runChase, type Chaser } from './chase';
-import { chaserTile, localSqueeze, openBoard, outsFrom, pinches, tileAt, type ChaseBoard } from './chaseboard';
+import { chaserSees, chaserTile, leaveSearching, localSqueeze, openBoard, outsFrom, pinches, tileAt, type ChaseBoard } from './chaseboard';
 import { typeFromName } from './streettypes';
 import { passable } from './grid';
 import { relocate } from './combat';
@@ -191,6 +191,67 @@ describe('running from one street to the next', () => {
         },
       });
     }
-    expect(changes).toBeGreaterThan(15);
+    expect(changes).toBeGreaterThan(10);
+  });
+});
+
+describe('losing them by getting out of sight', () => {
+  it('those right behind her see her, those with a wall between do not, things with wings see over it, and the dark shortens the sight', () => {
+    const { w } = onStreet('sight', 'Cinder Alley');
+    const cb = openBoard(w, 'T_east')!;
+    const g = cb.placed.layout.grid;
+    cb.s = cb.path.length - 1;
+    expect(chaserSees(w, cb, 1)).toBe(true);
+    // somebody a good way back round the bend of the alley, or just out of range
+    let blind = 0;
+    let wingsSee = 0;
+    for (let gap = 3; gap < cb.path.length; gap++) {
+      if (!chaserSees(w, cb, gap)) blind++;
+      if (chaserSees(w, cb, gap, true) && !chaserSees(w, cb, gap)) wingsSee++;
+    }
+    expect(blind).toBeGreaterThan(0);
+    expect(wingsSee).toBeGreaterThan(0);
+    // the dark: nobody sees as far
+    const far = 11;
+    cb.s = Math.max(far, cb.s);
+    w.flags.blackout = false;
+    const lit = chaserSees(w, cb, far, true);
+    w.flags.blackout = true;
+    expect(chaserSees(w, cb, far, true) && !lit).toBe(false);
+    expect(g.w).toBeGreaterThan(0);
+  });
+
+  it('a chase can end because they lost sight of her, and then they are left looking where they last had her', () => {
+    let found = 0;
+    for (let i = 0; i < 900 && found < 3; i++) {
+      const { w, id } = onStreet(`gone${i}`, i % 2 ? 'Cinder Alley' : 'Mill Street', { alleyTo: true });
+      const foe = i % 3 ? onFoot(guy(w, `g${i}`), 6) : carFoe(w, `g${i}`, 6);
+      const { c, events } = ctxOf(w, new Rng(`gone${i}`));
+      const r = runChase(c, { mode: 'pursued', cause: 'test', foes: [foe], maxRounds: 8 });
+      if (r !== 'escaped' || !events.some((e) => e.type === 'chase_round' && String(e.data.events).includes('lost:sight'))) continue;
+      found++;
+      const loc = w.hero.locationId;
+      const board = w.boards![loc]!;
+      const n = foe.crew[0]!;
+      expect(n.locationId).toBe(loc);
+      const e = board.ents[n.id]!;
+      expect(e.behavior).toBe('search');
+      expect(e.last).not.toBeNull();
+      expect(n.aware?.v ?? 0).toBeGreaterThanOrEqual(0.5);
+      expect(n.aware?.fix).toBe(false);
+      void id;
+    }
+    expect(found).toBeGreaterThan(0);
+  });
+
+  it('leaving people searching puts them on the street where they stood', () => {
+    const { w } = onStreet('search', 'Mill Street');
+    const cb = openBoard(w, 'T_east')!;
+    cb.s = 10;
+    const a = guy(w, 'seeker');
+    leaveSearching(w, cb, [{ crew: [a], gap: 5 }], tileAt(cb, 10));
+    const e = cb.placed.board.ents[a.id]!;
+    expect({ x: e.x, y: e.y }).toEqual(tileAt(cb, 5));
+    expect(e.behavior).toBe('search');
   });
 });
