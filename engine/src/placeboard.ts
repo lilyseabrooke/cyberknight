@@ -1,11 +1,11 @@
 import { Rng } from './rng';
 import type { Ctx, Ent, Id, Location, Npc, PlaceBoard, World } from './types';
-import { dist, passable, type Pos } from './grid';
+import { dist, hasLos, idx, passable, type Pos } from './grid';
 import { everyoneAt } from './population';
 import { layoutOf, type Door, type Fixture, type Layout, type Zones } from './layout';
 import { PROPS, type PropKind } from './content/props';
 import { dirOf, angDiff, holdsPost, makeUnit, sensors, sightGain, type Board, type PUnit } from './prowl';
-import { V, awareness, stir } from './stealth';
+import { V, awareness, npcPerception, stir } from './stealth';
 
 /**
  * The one board a place has. Whatever she is doing in a place (walking about, sneaking, fighting) it is this: where she is,
@@ -23,6 +23,8 @@ export interface Placed {
   board: PlaceBoard;
   layout: Layout;
 }
+
+const layouts = new WeakMap<PlaceBoard, Layout>();
 
 /** The board for the place she is in (or the one given), made the first time it's wanted. Null for a place with none (the streets). */
 export function placeOf(w: World, loc: Location | undefined = w.locations[w.hero.locationId]): Placed | null {
@@ -44,6 +46,7 @@ export function placeOf(w: World, loc: Location | undefined = w.locations[w.hero
       placedAt: -999,
     };
   }
+  layouts.set(board, layout);
   return { board, layout };
 }
 
@@ -203,6 +206,28 @@ export function enterPlace(w: World, from: Id, to: Id): void {
     p.board.hero = { ...door.at };
     p.board.at = `door:${door.exit}`;
   }
+}
+
+// ------------------------------------------------------------------ who can see her
+
+/**
+ * Whether this person has a line to her, from where each of them stands on the room's board: nothing solid in the way. With `ranged`,
+ * also near enough to make her out, which depends on how sharp they are and how well lit she is. With no board to say, or nobody
+ * placed, it is anyone in the room.
+ */
+export function seesHer(w: World, n: Npc, ranged = false): boolean {
+  const h = w.hero;
+  if (n.locationId !== h.locationId) return false;
+  const board = w.boards?.[h.locationId];
+  const layout = board ? layouts.get(board) : undefined;
+  const e = board?.ents[n.id];
+  if (!board || !layout || !e) return true;
+  if (e.x === board.hero.x && e.y === board.hero.y) return true;
+  if (!hasLos(layout.grid, e, board.hero)) return false;
+  if (!ranged) return true;
+  const lit = w.flags.blackout ? 0 : layout.light[idx(layout.grid, board.hero)] ?? 1;
+  const range = Math.max(1, Math.min(9, 2 + 0.4 * npcPerception(n) + (sensors(n) ? 1 : 0) + (lit === 2 ? 2 : lit === 0 ? -1.5 : 0)));
+  return dist(e, board.hero) <= range;
 }
 
 // ------------------------------------------------------------------ where she is

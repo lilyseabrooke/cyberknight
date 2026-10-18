@@ -8,6 +8,7 @@ import { skillOf, statsOf } from './npcstats';
 import { hasImplantFlag, skillLevel, skillValue, train } from './skills';
 import { knowsTechnique } from './techniques';
 import { workingCameras } from './witness';
+import { seesHer } from './placeboard';
 
 /**
  * Stealth. While Blackbird sneaks, everyone who could notice her (a person, a drone, a dog, a camera) carries an
@@ -63,7 +64,8 @@ export function awareness(w: World, n: Npc): Awareness {
 /** Where somebody stands with her right now. Out of stealth, anyone in the room is Aware. */
 export function bucketOf(w: World, n: Npc): Bucket {
   if (n.hostile) return 'aware';
-  if (!w.hero.stealth && n.locationId === w.hero.locationId) return 'aware';
+  // Out of stealth, everyone who can see her has her. (Somebody round a corner or behind a wall doesn't, whatever room it is.)
+  if (!w.hero.stealth && n.locationId === w.hero.locationId && seesHer(w, n)) return 'aware';
   const a = n.aware;
   if (!a) return 'unaware';
   if (a.v >= V.aware && a.fix) return 'aware';
@@ -151,8 +153,9 @@ export function enterStealth(c: Ctx): void {
   const { w } = c;
   const h = w.hero;
   if (h.stealth) return;
-  // Until now every one of them has had her in plain sight.
-  for (const n of observersAt(w, h.locationId)) {
+  // Until now everyone who could see her has had her in plain sight; the ones who couldn't haven't known she was there.
+  const watching = observersAt(w, h.locationId).filter((n) => seesHer(w, n));
+  for (const n of watching) {
     const a = awareness(w, n);
     a.v = 1;
     a.fix = true;
@@ -161,10 +164,9 @@ export function enterStealth(c: Ctx): void {
   const loc = w.locations[h.locationId]!;
   loc.camAware = 1;
   h.stealth = true;
-  const seen = observersAt(w, h.locationId).length;
   const dropped = slip(c);
   const cover = coverAt(w, h.locationId);
-  c.emit('stealth', 'mixed', { variant: 'enter', place: loc.name, cover: cover >= 0.7 ? 'plenty' : cover >= 0.3 ? 'some' : 'none', watching: seen, dropped, left: seen - dropped });
+  c.emit('stealth', 'mixed', { variant: 'enter', place: loc.name, cover: cover >= 0.7 ? 'plenty' : cover >= 0.3 ? 'some' : 'none', watching: watching.length, dropped, left: watching.length - dropped });
 }
 
 export function exitStealth(c: Ctx, why: 'step' | 'noisy' = 'step'): void {
@@ -172,7 +174,7 @@ export function exitStealth(c: Ctx, why: 'step' | 'noisy' = 'step'): void {
   const h = w.hero;
   if (!h.stealth) return;
   h.stealth = false;
-  for (const n of observersAt(w, h.locationId)) {
+  for (const n of observersAt(w, h.locationId).filter((x) => seesHer(w, x))) {
     const a = awareness(w, n);
     a.v = 1;
     a.fix = true;
@@ -197,6 +199,13 @@ export function loseContact(w: World, from: Id): void {
 
 const WORDS: Partial<Record<Bucket, string>> = { suspicious: 'suspicious', alert: 'alert', aware: 'aware' };
 
+/** Without a fix, awareness holds as an Alert while they search, then fades. */
+function fade(w: World, a: Awareness): void {
+  if (a.fix) return;
+  if (w.beat < a.floorUntil) a.v = Math.max(a.v, V.alert);
+  else a.v = Math.max(0, a.v - FADE);
+}
+
 /** Awareness climbs for everyone who can see her and falls for everyone who can't. */
 export function tickStealth(c: Ctx): void {
   const { w, rng } = c;
@@ -213,6 +222,12 @@ export function tickStealth(c: Ctx): void {
         a.v = 1;
         a.fix = true;
         a.seenAt = h.locationId;
+        continue;
+      }
+      // Nobody gets any of her from where they cannot see her, and anyone who had her has lost her.
+      if (!seesHer(w, n, true)) {
+        if (a.fix) lose(w, n);
+        fade(w, a);
         continue;
       }
       a.v = Math.min(1, a.v + BASE_GAIN * prof * keenness(n) * (0.7 + 0.6 * rng.next()));
@@ -245,11 +260,11 @@ export function tickStealth(c: Ctx): void {
       w.watchers = w.watchers!.filter((x) => x !== id);
       continue;
     }
-    if (n.locationId === h.locationId) continue; // handled above, or in plain view
-    if (!a.fix) {
-      if (w.beat < a.floorUntil) a.v = Math.max(a.v, V.alert);
-      else a.v = Math.max(0, a.v - FADE);
+    if (n.locationId === h.locationId) {
+      if (h.stealth || seesHer(w, n)) continue; // handled above, or in plain view
+      if (a.fix) lose(w, n);
     }
+    fade(w, a);
     if (a.v <= 0 && !a.calledAt && !a.hushUntil) {
       delete n.aware;
       w.watchers = w.watchers!.filter((x) => x !== id);
@@ -277,7 +292,7 @@ export function camerasSee(w: World, locId: Id): boolean {
 export function stir(c: Ctx, amount: number, skip: Npc[] = []): Npc[] {
   const { w } = c;
   const h = w.hero;
-  const out = glimpse(c, observersAt(w, h.locationId).filter((n) => !skip.includes(n)), amount);
+  const out = glimpse(c, observersAt(w, h.locationId).filter((n) => !skip.includes(n) && seesHer(w, n)), amount);
   const loc = w.locations[h.locationId];
   if (loc && workingCameras(w, loc.id) > 0) loc.camAware = Math.min(1, (loc.camAware ?? 0) + amount * 1.2 * (h.stealth ? profile(w) : 1));
   return out;

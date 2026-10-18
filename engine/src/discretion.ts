@@ -9,6 +9,7 @@ import { isHunted } from './pursuit';
 import { skillLevel } from './skills';
 import { workingCameras } from './witness';
 import { atLeast, bucketOf, isSneaking, awareness, V, profile } from './stealth';
+import { seesHer } from './placeboard';
 import { moveNpc } from './population';
 
 /**
@@ -34,7 +35,8 @@ export interface Exposure {
 /** How likely an attack at `locId` on `targets` is to be seen. Mirrors witness.ts. */
 export function exposure(w: World, locId: Id, targets: Npc[]): Exposure {
   const h = w.hero;
-  const around = npcsAt(w, locId).filter((n) => !targets.includes(n) && !h.companions.some((a) => a.npcId === n.id) && n.archetype !== 'puppy' && !n.hostile);
+  // (Where she is now, those who can't see her don't count; a room she isn't in yet, everyone might.)
+  const around = npcsAt(w, locId).filter((n) => !targets.includes(n) && !h.companions.some((a) => a.npcId === n.id) && n.archetype !== 'puppy' && !n.hostile && (locId !== h.locationId || seesHer(w, n)));
   const people = around.filter(isPerson);
   const drones = around.filter((n) => n.tags.includes('robot') && !n.tags.includes('dragon')).length;
   const cams = workingCameras(w, locId);

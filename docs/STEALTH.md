@@ -14,21 +14,21 @@ While Blackbird sneaks, everyone who could notice her (a person, a drone, a dog,
 | Alert | .5 up | she is here somewhere; they don't know where |
 | Aware | .75 up **and a fix** | they know where she is |
 
-- Gain per beat is `0.16 x profile x keenness`, with a little noise. `profile` is how noticeable she is (sneak skill, cover, a glowing implant, a vehicle); `keenness` is the observer's perception over 5. See `profile`, `coverAt`, `npcPerception`.
+- Gain per beat, for those who can see her (a line on the board, and near enough to make her out in that light), is `0.16 x profile x keenness`, with a little noise. Those who can't see her gain nothing, and anyone who had a fix on her loses it and drops to Alert. `profile` is how noticeable she is (sneak skill, cover, a glowing implant, a vehicle); `keenness` is the observer's perception over 5. See `profile`, `coverAt`, `npcPerception`.
 - **Losing her** (she leaves the room, or slips out of sight): they drop to Alert, stay at least Alert for 12 beats while they search, then fade by .03 a beat. `loseContact` is called from `relocate`.
 - **Arrivals** start at 0 even in a room whose people already have her.
-- Out of stealth nobody is tracked: `bucketOf` says everyone in her room is Aware.
+- Out of stealth nobody is tracked: `bucketOf` says everyone in her room **who can see her** is Aware. Seeing is a line on the room's board (`seesHer` in `placeboard.ts`): somebody behind a wall isn't, whatever room it is. Where a place has no board to say (the streets), it's everyone in the room.
 - She can only read the small shifts if she's paying attention (Perception 4 or better for Suspicious); she trains Perception doing so and Sneak by staying unnoticed.
 
 ## Stealth is a mode
 
 `hero.stealth`. She chooses it (`stealth:enter` is a candidate; pickpocketing and quiet jobs enter it themselves) and any action that isn't quiet ends it (`gate`, listed in `stealthActions`). A goal in `sneak` mode holds it all the way through.
 
-**Going in with people watching** is decided by cover (0 to 1: the place, the crowd, a blackout, fog, a distraction): none and they all stay Aware, full and they all drop to Alert, otherwise each one rolls her stealth against their perception. Alert is always the floor. The same roll (`slip`) is meant for disappearing mid-fight.
+**Going in** only matters for the ones who can see her: those who can't never knew she was there, so nobody-can-see-her needs no cover at all. **Going in with people watching** is decided by cover (0 to 1: the place, the crowd, a blackout, fog, a distraction): none and they all stay Aware, full and they all drop to Alert, otherwise each one rolls her stealth against their perception. Alert is always the floor. The same roll (`slip`) is meant for disappearing mid-fight.
 
 ## Where it is used
 
-- **Witnessing** (`witness.ts`): out of stealth everyone in the room and every working camera sees an assault. Sneaking, the fight is a stir (`0.35 + 0.8 x noise`) and only the ones it tips into Aware saw it.
+- **Witnessing** (`witness.ts`): out of stealth everyone who can see her and every working camera sees an assault. Sneaking, the fight is a stir (`0.35 + 0.8 x noise`) and only the ones it tips into Aware saw it.
 - **Planning** (`discretion.ts`): sneaking, exposure is how far along each watcher already is.
 - **Pickpocketing**: only from someone below Alert. Out of stealth it needs cover to slip into stealth first. Their Perception pushes back on the roll, Suspicious makes it worse, and a hit brushes awareness up.
 - **Dungeons**: sneaking into a room with people in it plays the room as a board (below). Walking in openly keeps the room's general watchfulness roll. Quests in `sneak` mode enter stealth; going loud ends it.
