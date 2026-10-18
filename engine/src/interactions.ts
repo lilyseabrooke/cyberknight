@@ -38,7 +38,7 @@ import { isBadGuy } from './traits';
 import { isShut } from './shutdown';
 import { moveNpc } from './population';
 import { cooling } from './mind';
-import { analyze, perceived, readQuality, skillOf, statsOf } from './npcstats';
+import { analyze, perceived, perceivedRatio, ratio, readQuality, skillOf, statsOf } from './npcstats';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -102,7 +102,7 @@ export function gather(w: World): Candidate[] {
     const spare = n.tags.includes('doc') && n.affinity > -20;
     if (!spare && !n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
       out.push({
-        key: `pickpocket:${n.id}`, drives: { greed: 0.95, curiosity: 0.2 }, risk: 0.6 + levelRisk(w, n), intent: { npc: n.name },
+        key: `pickpocket:${n.id}`, drives: { greed: 0.95, curiosity: 0.2 }, risk: 0.6 + levelRisk(w, n) + clamp((perceivedRatio(w, n, 'reflex') + perceivedRatio(w, n, 'int') / 2 - 1.5) * 0.5, 0, 1), intent: { npc: n.name },
         run: (c) => pickpocket(c, n),
       });
     }
@@ -111,14 +111,14 @@ export function gather(w: World): Candidate[] {
       const paper = n.bounty && knowsBounty(w, n.id) ? Math.min(1.2, n.bounty.amount / 250) : 0;
       out.push({
         key: `challenge:${n.id}`, drives: { bravery: 1.0, pride: 0.8, greed: paper ? 0.6 : 0 }, bonus: (n.affinity < -10 ? 0.4 : 0) + paper + fightWorth(w, n),
-        risk: 0.4 + levelRisk(w, n) + (n.power > heroPower(w) * 1.5 ? 1 : 0),
+        risk: 0.4 + levelRisk(w, n) + (n.power > heroPower(w) * 1.5 ? 1 : 0) + clamp((perceivedRatio(w, n, 'muscle') - 1) * 0.5, 0, 0.8),
         run: (c) => {
           c.emit('challenge', 'mixed', { npc: n.name, role: n.role, variant: String(c.rng.int(1, 6)) });
           fight(c, [n], { cause: `picking a fight with ${n.name}`, assault: true });
         },
       });
       out.push({
-        key: `threaten:${n.id}`, drives: { bravery: 0.5, pride: 0.6, greed: 0.6 }, risk: 0.5 + levelRisk(w, n), intent: { npc: n.name },
+        key: `threaten:${n.id}`, drives: { bravery: 0.5, pride: 0.6, greed: 0.6 }, risk: 0.5 + levelRisk(w, n) + clamp((perceivedRatio(w, n, 'muscle') - 1) * 0.8, 0, 1.2), intent: { npc: n.name },
         run: (c) => threaten(c, n),
       });
     }
@@ -324,7 +324,7 @@ function chat(c: Ctx, n: Npc): void {
 function flirt(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08 + romanceMod(w, n), 0.03, 0.9);
+  const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08 + romanceMod(w, n) - 0.1 * (ratio(n, 'charm') - 1), 0.03, 0.9);
   train(c, 'romance', 1);
   kindle(h, 0.05);
   if (rng.chance(p)) {
@@ -366,7 +366,7 @@ function kiss(c: Ctx, n: Npc): void {
 function pickpocket(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.reflex * 0.02 + 0.045 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + (n.flags.includes('marked') ? 0.15 : 0) - n.level * 0.05 - h.drunk * 0.02, 0.08, 0.88);
+  const p = clamp(0.3 + h.reflex * 0.02 + 0.045 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + (n.flags.includes('marked') ? 0.15 : 0) - n.level * 0.02 - 0.03 * (statsOf(n).reflex + statsOf(n).int / 2) - h.drunk * 0.02, 0.08, 0.88);
   train(c, 'sleight', 1);
   if (!rng.chance(p)) {
     n.affinity -= 30;
@@ -394,7 +394,8 @@ function pickpocket(c: Ctx, n: Npc): void {
 function threaten(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.22 + h.muscle * 0.02 + 0.05 * synergy(h, ['intimidation', ['stat:muscle', 0.5]]) + h.level * 0.03 - n.level * 0.07, 0.05, 0.88);
+  const st = statsOf(n);
+  const p = clamp(0.22 + h.muscle * 0.02 + 0.05 * synergy(h, ['intimidation', ['stat:muscle', 0.5]]) + h.level * 0.03 - n.level * 0.03 - 0.03 * (st.muscle + st.int / 2), 0.05, 0.88);
   train(c, 'intimidation', 1);
   if (rng.chance(p)) {
     const take = Math.round(n.cash * 0.8);

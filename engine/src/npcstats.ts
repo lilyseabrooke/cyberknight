@@ -65,6 +65,30 @@ export function skillOf(n: Npc, id: SkillId): number {
   return Math.max(0, Math.round(n.level * (0.6 + 0.8 * r)));
 }
 
+/** One stat against the average for their level: 1 is typical, 2 is twice what a person of that level usually has in it. */
+export const ratio = (n: Npc, stat: NpcStat): number => clamp(statsOf(n)[stat] / (statTotal(n.level) / 4), 0.25, 3);
+
+/** The same, as far as she can tell: 1 until she has read them. */
+export const perceivedRatio = (w: World, n: Npc, stat: NpcStat): number => clamp(perceived(w, n, stat) / (statTotal(n.level) / 4), 0.25, 3);
+
+/**
+ * How well somebody does at something she would roll skills and stats for: the same weighted geometric mean as her
+ * `synergy`, over their stats and their skills (which sit near their level). Used to let a check push back.
+ */
+export function opposed(n: Npc, parts: (string | [string, number])[]): number {
+  const st = statsOf(n);
+  let log = 0;
+  let total = 0;
+  for (const p of parts) {
+    const [id, wt] = Array.isArray(p) ? p : [p, 1];
+    const v = id.startsWith('stat:') ? Math.min(10, st[id.slice(5) as NpcStat]) : skillOf(n, id as SkillId);
+    if (v <= 0) return 0;
+    log += wt * Math.log(v);
+    total += wt;
+  }
+  return total ? Math.exp(log / total) : 0;
+}
+
 /** 0 for an even spread, 1 for everything in one stat. */
 export function lopsided(s: Stats): number {
   const total = STAT_KEYS.reduce((a, k) => a + s[k], 0);

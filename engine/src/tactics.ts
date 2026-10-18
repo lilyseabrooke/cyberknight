@@ -13,7 +13,7 @@ import { artsOf } from './lab';
 import { dragonSpeed, hasTrait, legSpeed } from './dragonmodels';
 import type { ArtBranch } from './content/doctrine';
 import * as D from './doctrine';
-import { perceived, statsOf } from './npcstats';
+import { perceived, ratio, statsOf } from './npcstats';
 
 /**
  * A fight, played out on a small grid. Nobody watches it: the player gets a report of the interesting bits and the result.
@@ -201,7 +201,12 @@ export function foeProfile(n: Npc): FoeProfile {
   const big = t.includes('boss') || t.includes('dragon');
   // A courier dragon with half its plating gone would sooner lose the delivery than the dragon.
   const canFlee = t.includes('skittish') || !t.some((x) => ['robot', 'dragon', 'boss', 'cop', 'security'].includes(x));
-  return { reach, speed, flying, hit: t.includes('hera') ? 1 : 0.8, caution: big ? 1 : t.includes('cop') || t.includes('security') ? 3 : 4.5, canFlee };
+  // What they are made of shows: quick people are quicker and surer, clever ones more careful.
+  const quick = ratio(n, 'reflex');
+  if (!big && speed === 3 && quick >= 1.7) speed = 4;
+  const hit = t.includes('hera') ? 1 : clamp(0.8 + 0.06 * (quick - 1), 0.65, 0.92);
+  const care = big ? 1 : t.includes('cop') || t.includes('security') ? 3 : 4.5;
+  return { reach, speed, flying, hit, caution: big ? care : care * (0.85 + 0.15 * ratio(n, 'int')), canFlee };
 }
 
 const ALLY_SHAPE: Record<string, { reach: [number, number]; speed: number; flying?: boolean }> = {
@@ -468,6 +473,7 @@ export class Sim {
     else if (weapon.tags.includes('melee')) p += skillValue(h, 'melee') * 0.008;
     if (this.hooks.hasInjury(this.w, 'concussion')) p -= 0.05;
     if (ranged && this.hooks.hasInjury(this.w, 'fried_optics')) p -= 0.12;
+    if (t.npc && t.kind === 'foe') p -= clamp(0.06 * (ratio(t.npc, 'reflex') - 1), -0.05, 0.15);
     const d = dist(from, t);
     if (ranged) {
       const max = thrown ? 4 : weaponReach(weapon)[1];
@@ -670,6 +676,7 @@ export class Sim {
     }
     if (tgt.kind === 'hero' && D.deflected(this, att)) return;
     let fp = (att.power - (att.disabled ? 3 : 0)) * D.foePower(att);
+    if (att.npc && att.kind === 'foe') fp *= clamp(1 + 0.2 * (ratio(att.npc, 'muscle') - 1), 0.75, 1.5);
     if (att.npc?.tags.includes('apollo') && this.w.flags.dragon_weak) fp *= 0.65;
     let d = Math.max(1, Math.round(fp * (0.2 + rng.next() * 0.4)) - this.armorOf(tgt));
     if (tgt.kind === 'ally') d = Math.round(d * 0.6);
@@ -849,7 +856,7 @@ export class Sim {
     const h = this.w.hero;
     const lvl = t.npc?.level ?? 1;
     const hurt = t.ref.hp / t.ref.maxHp < 0.5 ? 0.2 : 0;
-    return clamp(0.1 + skillValue(h, 'intimidation') * 0.06 + (h.level - lvl) * 0.05 + h.fame * 0.004 + hurt + this.lostFraction() * 0.2, 0.02, 0.7);
+    return clamp(0.1 + skillValue(h, 'intimidation') * 0.06 + (h.level - lvl) * 0.05 + h.fame * 0.004 + hurt + this.lostFraction() * 0.2 - (t.npc ? 0.08 * (ratio(t.npc, 'muscle') - 1) + 0.04 * (ratio(t.npc, 'int') - 1) : 0), 0.02, 0.7);
   }
 
   doIntimidate(t: Unit): void {
