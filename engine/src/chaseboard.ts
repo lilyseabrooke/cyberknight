@@ -53,7 +53,8 @@ export function openBoard(w: World, exitTo: Id | null): ChaseBoard | null {
   if (exitTo) pick(doors.filter((d) => d.exit === exitTo));
   if (!target) {
     // No way of her own choosing: the way off that is farthest from where she came on.
-    const far = doors.filter((d) => reachable(d.at) && dist(d.at, from) >= 3).sort((a, b) => dist(b.at, from) - dist(a.at, from) || a.exit.localeCompare(b.exit))[0];
+    const away = doors.filter((d) => reachable(d.at) && dist(d.at, from) >= 3);
+    const far = (away.some((d) => w.locations[d.exit]?.kind === 'street') ? away.filter((d) => w.locations[d.exit]?.kind === 'street') : away).sort((a, b) => dist(b.at, from) - dist(a.at, from) || a.exit.localeCompare(b.exit))[0];
     if (far) {
       target = far.at;
       to = far.exit;

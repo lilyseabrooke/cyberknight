@@ -159,3 +159,38 @@ describe('how the street is round her', () => {
     expect(through + alleys).toBeGreaterThan(0);
   });
 });
+
+describe('running from one street to the next', () => {
+  it('she turns off at the end of the line, comes onto the next street by the way she left the last, and the chasers are still on the one behind', () => {
+    let changes = 0;
+    for (let i = 0; i < 60; i++) {
+      const w = world(`turn${i}`);
+      const { c } = ctxOf(w, new Rng(`turn${i}`));
+      const foes = i % 2 ? [onFoot(guy(w, `f${i}`), 5)] : [carFoe(w, `c${i}`, 6)];
+      let prev: { cb: ChaseBoard; s: number } | null = null;
+      runChase(c, {
+        mode: 'pursued', cause: 'test', foes, maxRounds: 10,
+        watch: (cb) => {
+          if (!cb) return;
+          // (A cut across, a spill, a duck into a door: those are other ways of changing street.)
+          if (prev && prev.cb.loc !== cb.loc && prev.s >= prev.cb.path.length - 1) {
+            // she had run the line to its end, and the next street is the way it led (unless a cut across took her somewhere else)
+            if (![...w.locations[prev.cb.loc]!.exits, ...(w.locations[prev.cb.loc]!.links ?? [])].some((e) => e.to === cb.loc)) {
+              prev = { cb, s: cb.s };
+              return;
+            }
+            changes++;
+            // and she is standing in the door of the street she came from
+            const door = cb.placed.layout.doors.find((d) => d.exit === prev!.cb.loc);
+            if (door) expect(cb.path[0]).toEqual(door.at);
+            // the ones behind her are not on this street yet, unless they are close
+            for (const f of foes) if (f.gap > cb.s + 1) expect(chaserTile(cb, f.gap).off).toBe(true);
+          }
+          if (!prev || prev.cb !== cb) prev = { cb, s: cb.s };
+          else prev.s = cb.s;
+        },
+      });
+    }
+    expect(changes).toBeGreaterThan(15);
+  });
+});

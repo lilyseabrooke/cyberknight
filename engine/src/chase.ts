@@ -101,10 +101,23 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   let board: ChaseBoard | null = null;
   const nextOnRoute = (): string | null => (route && route.i < route.path.length - 1 ? route.path[route.i + 1]! : null);
   let boardTried = false;
+  // Where the street she is on lets out, when no route says: by the old rule, a runner takes an alley as soon as there is a car behind her.
+  const chooseExit = (): string | null => {
+    const mine = mounted();
+    const adj = streetsFrom(w, h.locationId);
+    const alleys = adj.filter((id) => roadClass(w.locations[id]!) === 'alley');
+    const carless = !!mine && mine.body !== 'bike';
+    const driveable = carless ? adj.filter((id) => !alleys.includes(id)) : adj;
+    const lead = o.foes.find((f) => f.alive);
+    const runnerEscapes = o.mode === 'pursuer' && !!lead?.foot && carless && alleys.length > 0;
+    const fleeing = o.mode === 'pursued' && !mine && o.foes.some((f) => f.alive && !!f.car && f.car.body !== 'bike') && alleys.length > 0;
+    if ((runnerEscapes || fleeing) && rng.chance(0.75)) return rng.pick(alleys);
+    return driveable.length ? rng.pick(driveable) : adj.length ? rng.pick(adj) : null;
+  };
   const boardNow = (): ChaseBoard | null => {
     if (!board && !boardTried) {
       boardTried = true;
-      board = openBoard(w, nextOnRoute());
+      board = openBoard(w, nextOnRoute() ?? chooseExit());
     }
     return board;
   };
@@ -321,24 +334,18 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         relocate(w, route.path[route.i]!);
         refresh();
       }
-      // The chase goes on down the road. A runner will go where a car cannot, and if she follows on wheels she has to get out.
-      if (!result && !boarded) {
-        const mine = mounted();
-        const adj = streetsFrom(w, h.locationId);
-        const alleys = adj.filter((id) => roadClass(w.locations[id]!) === 'alley');
-        const carless = !!mine && mine.body !== 'bike'; // an alley is no road for a car
-        const driveable = carless ? adj.filter((id) => !alleys.includes(id)) : adj;
-        const leadNow = live[0];
-        const runnerEscapes = o.mode === 'pursuer' && !!leadNow?.foot && carless && alleys.length > 0;
-        const fleeing = o.mode === 'pursued' && !mine && o.foes.some((f) => f.alive && !!f.car && f.car.body !== 'bike') && alleys.length > 0;
-        // (A runner ducks into an alley as soon as there is a car behind them; otherwise the chase only turns after the first round.)
-        // On a route they go the way it goes, a longer street taking longer to get down.
-        const onward = route && route.i < route.path.length - 1 ? route.path[route.i + 1]! : null;
-        const turn = onward ? (round > 1 ? 0.9 / (here.hex?.cells.length ?? 1) : 0) : runnerEscapes ? 0.6 : fleeing ? 0.5 : round > 1 ? 0.4 : 0;
-        if (rng.chance(turn)) {
-          const to = onward ?? ((runnerEscapes || fleeing) && rng.chance(0.75) ? rng.pick(alleys) : (driveable.length ? rng.pick(driveable) : adj.length ? rng.pick(adj) : null));
-          if (to) {
-            if (onward && route) route.i++;
+      // On the street: she runs on along it.
+      if (!boarded) {
+        const cb0 = boardNow();
+        if (cb0) runOn(cb0, heroSpeed(w) * TILES_PER_PACE);
+        // The chase goes on down the road. A runner will go where a car cannot, and if she follows on wheels she has to get out.
+        if (!result) {
+          const mine = mounted();
+          const adj = streetsFrom(w, h.locationId);
+          const alleys = adj.filter((id) => roadClass(w.locations[id]!) === 'alley');
+          const carless = !!mine && mine.body !== 'bike'; // an alley is no road for a car
+          const leadNow = live[0];
+          const go = (to: string): void => {
             const from = h.locationId;
             const intoAlley = roadClass(w.locations[to]!) === 'alley';
             if (mine && carless && intoAlley) {
@@ -350,14 +357,34 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             refresh();
             // And cars can't follow her into one either.
             if (intoAlley) for (const f of o.foes) if (f.alive && f.car && f.car.body !== 'bike') getOut(c, f, from);
+          };
+          const onward = route && route.i < route.path.length - 1 ? route.path[route.i + 1]! : null;
+          if (cb0) {
+            // She turns off where the street runs out: at the way on she was running for. (After the first round, so a chase is at least a street long.)
+            const dest = onward ?? cb0.exitTo;
+            if (round > 1 && cb0.s >= cb0.path.length - 1 && dest && w.locations[dest]?.kind === 'street') {
+              if (onward && route) route.i++;
+              go(dest);
+            }
+          } else {
+            // (A place with no board to run along: it turns now and then.)
+            const driveable = carless ? adj.filter((id) => !alleys.includes(id)) : adj;
+            const runnerEscapes = o.mode === 'pursuer' && !!leadNow?.foot && carless && alleys.length > 0;
+            const fleeing = o.mode === 'pursued' && !mine && o.foes.some((f) => f.alive && !!f.car && f.car.body !== 'bike') && alleys.length > 0;
+            // (A runner ducks into an alley as soon as there is a car behind them; otherwise the chase only turns after the first round.)
+            // On a route they go the way it goes, a longer street taking longer to get down.
+            const turn = onward ? (round > 1 ? 0.9 / (here.hex?.cells.length ?? 1) : 0) : runnerEscapes ? 0.6 : fleeing ? 0.5 : round > 1 ? 0.4 : 0;
+            if (rng.chance(turn)) {
+              const to = onward ?? ((runnerEscapes || fleeing) && rng.chance(0.75) ? rng.pick(alleys) : (driveable.length ? rng.pick(driveable) : adj.length ? rng.pick(adj) : null));
+              if (to) {
+                if (onward && route) route.i++;
+                go(to);
+              }
+            }
           }
         }
-      }
-      // On the street: she runs on along it.
-      if (!boarded) {
         const cb = boardNow();
         if (cb) {
-          runOn(cb, heroSpeed(w) * TILES_PER_PACE);
           // How tight it is is what is round her now, as well as what sort of street it is.
           squeeze = clamp(0.6 * streetSqueeze + 0.4 * localSqueeze(cb), 0, 1);
           tight = squeeze >= 0.45;
