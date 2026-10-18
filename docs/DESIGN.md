@@ -634,4 +634,4 @@ Tuning notes: with competence 0.4, simulated heroes sleep about a third of the t
 
 ## Stealth (`stealth.ts`)
 
-Stealth is one system: while she sneaks, everyone who could notice her has an awareness that climbs and falls through four buckets (Unaware, Suspicious, Alert, Aware), calling for help is an ordinary action anyone can weigh, and Hush (a Hack) takes it away. Pickpocketing, dungeon sneaking, witnessing and ambushes all read the same state. See [`STEALTH.md`](STEALTH.md) for the rules and what isn't built yet.
+Stealth is one system: while she sneaks, everyone who could notice her has an awareness that climbs and falls through four buckets (Unaware, Suspicious, Alert, Aware), calling for help is an ordinary action anyone can weigh, and Hush (a Hack) takes it away. Pickpocketing, dungeon sneaking, witnessing and ambushes all read the same state. Sneaking into a dungeon room plays it as a small board (`prowl.ts`): facings and cones, light, noise, patrols, silent takedowns, bodies, and Override-able props to draw people away. See [`STEALTH.md`](STEALTH.md) for the rules and what isn't built yet.

@@ -637,6 +637,8 @@ export interface DungeonRoom {
   cache?: Cache;
   /** What a job needs doing in here: a thing to take or a system to get into (flatline jobs are a person, not a fixture). */
   objective?: { kind: 'item' | 'terminal'; done: boolean; fails: number };
+  /** What is left of her passing through, for this run: who she has put down where, and what she has used. See prowl.ts. */
+  prowl?: { bodies: { id: Id; x: number; y: number; found: boolean }[]; props: { kind: string; charges: number }[] };
 }
 
 /**

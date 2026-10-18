@@ -82,7 +82,7 @@ export function npcPerception(n: Npc): number {
   return 1 + 0.7 * skillOf(n, 'perception') + 0.5 * statsOf(n).reflex + sharp;
 }
 /** How much faster than average this one notices things. */
-const keenness = (n: Npc): number => clamp(npcPerception(n) / 5, 0.4, 2.2);
+export const keenness = (n: Npc): number => clamp(npcPerception(n) / 5, 0.4, 2.2);
 
 // ------------------------------------------------------------------ cover and profile
 
@@ -451,7 +451,7 @@ export function stealthCandidates(w: World): Candidate[] {
   return out;
 }
 
-export const stealthActions = new Set(['stealth', 'hush', 'go', 'pickpocket', 'challenge', 'sweep', 'camera_blackout', 'power_cut', 'alarm_spoof', 'lay_low', 'hot_wire']);
+export const stealthActions = new Set(['stealth', 'hush', 'go', 'pickpocket', 'challenge', 'sweep', 'raid_loot', 'camera_blackout', 'power_cut', 'alarm_spoof', 'lay_low', 'hot_wire']);
 
 /** Before she does something: if it isn't something done quietly, she isn't sneaking any more. */
 export function gate(c: Ctx, key: string): void {
