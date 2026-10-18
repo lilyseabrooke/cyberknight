@@ -15,8 +15,9 @@ import { skillValue, train } from './skills';
 import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
+import { camerasSeeHer } from './placeboard';
 import { behindOf, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
-import { TILES_PER_PACE, chaserSees, leaveSearching, localSqueeze, openBoard, outsFrom, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
+import { TILES_PER_PACE, blockIn, chaserSees, setBlock, leaveSearching, localSqueeze, openBoard, outsFrom, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
 import type { Pos } from './grid';
 
 /**
@@ -122,6 +123,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     if (!board && !boardTried) {
       boardTried = true;
       board = openBoard(w, nextOnRoute() ?? chooseExit());
+      // The law reads the road as well as she does. Now and then they are already there, across the way on.
+      if (board && o.mode === 'pursued' && board.exitTo && o.foes.some((f) => f.alive && (f.car?.kind === 'police' || f.car?.kind === 'atlas' || f.crew.some((n) => n.tags.includes('cop'))))) {
+        const heat = Math.max(w.heat.npd ?? 0, w.heat.atlas ?? 0);
+        if (new Rng(`block:${w.worldSeed}:${w.beat}:${board.loc}:${rounds}`).chance(Math.min(0.45, 0.12 + 0.04 * heat))) setBlock(board);
+      }
     }
     return board;
   };
@@ -440,7 +446,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         scores.swerve = 1.5 + (band !== 'far' ? 2 : 0);
         // Somewhere to duck into: a doorway, a side street, a way up, or a crowd or a tight street to lose herself in.
         outs = board ? outsFrom(w, board) : [];
-        scores.lose_them = (tight || outs.some((x) => x.kind !== 'crowd')) && lead.gap >= 3 ? (foot ? 7.5 : 6.5) + (outs.some((x) => x.kind === 'door' || x.kind === 'up') ? 1 : 0) : 0;
+        scores.lose_them = (tight || outs.some((x) => x.kind !== 'crowd')) && lead.gap >= 3 ? (foot ? 7.5 : 6.5) + (outs.some((x) => x.kind === 'door' || x.kind === 'up') ? 1 : 0) + (board && blockIn(board) !== null && outs.some((x) => x.kind !== 'crowd') ? 3 : 0) : 0;
         scores.shoot = armedBack && (band === 'near' || band === 'close') ? 4 : 0;
         if (band === 'locked' && lead.car && hpRatio > 0.5) scores.board = 2;
         if (foot && ride && faster) scores.grab = 8;
@@ -542,6 +548,34 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         lead.gap += 1.5;
         train(c, 'athletics', 1);
         told.push('board_failed');
+      }
+
+      // Cruisers across the way on: seen from a way off, and run at when it comes to it.
+      if (board?.block && !board.block.done) {
+        const ahead = blockIn(board)!;
+        if (!board.block.told && ahead <= 14) {
+          board.block.told = true;
+          c.emit('chase_block', 'bad', { variant: 'ahead', place: here.name, car: car?.name ?? 'on foot', body: car?.body ?? 'foot' });
+        }
+        if (ahead <= 0) {
+          board.block.done = true;
+          const br = new Rng(`blockrun:${w.worldSeed}:${w.beat}:${board.loc}:${round}`);
+          const p = car ? clamp(0.4 + 0.04 * skill + (bike ? 0.25 : 0) - 0.3 * squeeze, 0.1, 0.85) : clamp(0.6 + 0.03 * skillValue(h, 'athletics') + 0.01 * h.reflex - 0.2 * squeeze, 0.2, 0.9);
+          if (br.chance(p)) {
+            if (car) hitCar(car, car.maxHp * 0.03, 'ram');
+            told.push('block:through');
+            c.emit('chase_block', 'good', { variant: 'through', place: here.name, car: car?.name ?? 'on foot', body: car?.body ?? 'foot' });
+          } else {
+            for (const f of live) f.gap = Math.min(f.gap, 0.5);
+            if (car) hurt += hitCar(car, car.maxHp * 0.18, 'ram').taken;
+            else {
+              h.hp -= 4;
+              hurt += 4;
+            }
+            told.push('block:stopped');
+            c.emit('chase_block', 'bad', { variant: 'stopped', place: here.name, car: car?.name ?? 'on foot', body: car?.body ?? 'foot' });
+          }
+        }
       }
 
       // The road moves everybody: the faster closes on the slower, skill matters when it is tight, and speed when it is open.
@@ -757,7 +791,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       if (!result && o.foes.every((f) => !f.alive)) result = 'won';
       // Out of sight for a couple of rounds with nobody on her heels: she has lost them. (They look for her where they last had her.)
       if (!result && board && !boarded && round > 1) {
-        const seen = live.some((f) => chaserSees(w, board!, f.gap, wings(f)));
+        const eyes = camerasSeeHer(w);
+        const seen = live.some((f) => chaserSees(w, board!, f.gap, wings(f)) || (eyes && (f.car?.kind === 'police' || f.car?.kind === 'atlas' || f.crew.some((n) => n.tags.includes('cop')))));
         if (seen) {
           unseen = 0;
           lastSeen = tileAt(board, board.s);

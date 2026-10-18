@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Rng, createWorld, type GameEvent, type World } from './index';
+import { Rng, createWorld, hasTemplate, type GameEvent, type World } from './index';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { MAKES } from './cars';
@@ -253,5 +253,55 @@ describe('losing them by getting out of sight', () => {
     const e = cb.placed.board.ents[a.id]!;
     expect({ x: e.x, y: e.y }).toEqual(tileAt(cb, 5));
     expect(e.behavior).toBe('search');
+  });
+});
+
+describe('the law gets ahead of her', () => {
+  it('police who read the road put cruisers across the way on, she sees them from a way off, and it either holds her or she gets through', () => {
+    const told: Record<string, number> = {};
+    for (let i = 0; i < 500; i++) {
+      const w = world(`block${i}`);
+      w.heat.npd = 6;
+      const cops = [spawnNpc(new Rng(`cop${i}`), `cop${i}`, 'cop', w.hero.locationId), spawnNpc(new Rng(`cop2${i}`), `cop2${i}`, 'cop', w.hero.locationId)];
+      for (const n of cops) addNpc(w, n);
+      const { c, events } = ctxOf(w, new Rng(`block${i}`));
+      const foes = i % 2 ? [onFoot(cops[0]!, 6)] : [{ ...carFoe(w, `pc${i}`, 6), crew: cops, car: { ...carFoe(w, `pc2${i}`, 6).car!, kind: 'police' as const } }];
+      runChase(c, { mode: 'pursued', cause: 'an NPD pursuit', foes, maxRounds: 10 });
+      for (const e of events) {
+        if (e.type !== 'chase_block') continue;
+        told[String(e.data.variant)] = (told[String(e.data.variant)] ?? 0) + 1;
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+      }
+    }
+    expect(told.ahead).toBeGreaterThan(5);
+    expect(told.through).toBeGreaterThan(0);
+    expect(told.stopped).toBeGreaterThan(0);
+  });
+
+  it('nobody else sets up ahead of her', () => {
+    for (let i = 0; i < 100; i++) {
+      const w = world(`noblock${i}`);
+      w.heat.npd = 8;
+      const { c, events } = ctxOf(w, new Rng(`noblock${i}`));
+      runChase(c, { mode: 'pursued', cause: 'test', foes: [carFoe(w, `g${i}`, 5)], maxRounds: 8 });
+      expect(events.some((e) => e.type === 'chase_block')).toBe(false);
+    }
+  });
+
+  it('a flyer cannot see into a street with a roof on it', () => {
+    const { w } = onStreet('roofed', 'Glass Arcade');
+    const cb = openBoard(w, 'T_east')!;
+    cb.s = cb.path.length - 1;
+    const open = onStreet('open', 'Mill Street');
+    const cbo = openBoard(open.w, 'T_east')!;
+    cbo.s = cbo.path.length - 1;
+    let covered = 0;
+    let uncovered = 0;
+    for (let gap = 3; gap < 12; gap++) {
+      if (chaserSees(w, cb, gap, true)) covered++;
+      if (chaserSees(open.w, cbo, gap, true)) uncovered++;
+    }
+    expect(covered).toBe(0);
+    expect(uncovered).toBeGreaterThan(0);
   });
 });

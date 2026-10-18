@@ -25,6 +25,24 @@ export interface ChaseBoard {
   exitTo: Id | null;
   /** How far along it she is, in tiles. */
   s: number;
+  /** Whoever got ahead of her has put something across the way on: where, and whether it has been told or dealt with. */
+  block?: { at: Pos[]; told: boolean; done: boolean };
+}
+
+/** Cruisers across the street ahead, the last stretch before the way on. */
+export function setBlock(cb: ChaseBoard): void {
+  const g = cb.placed.layout.grid;
+  const k = Math.max(1, cb.path.length - 5);
+  const mid = cb.path[Math.min(cb.path.length - 1, k)]!;
+  const at: Pos[] = [];
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (passable(g, mid.x + dx, mid.y + dy)) at.push({ x: mid.x + dx, y: mid.y + dy });
+  cb.block = { at, told: false, done: false };
+}
+
+/** How many tiles along the line it is from where she is to the block, if there is one still ahead. */
+export function blockIn(cb: ChaseBoard): number | null {
+  if (!cb.block || cb.block.done) return null;
+  return Math.max(0, cb.path.length - 5 - Math.round(cb.s));
 }
 
 /** The tile at this distance along the line (the ends if it is off either). */
@@ -198,6 +216,8 @@ const SIGHT = 14;
  */
 export function chaserSees(w: World, cb: ChaseBoard, gap: number, wings = false): boolean {
   if (gap < 3) return true;
+  // (Nothing flying sees into a street with a roof on it.)
+  if (wings && ['arcade', 'passage', 'concourse'].includes(w.locations[cb.loc]?.street ?? '')) return false;
   const g = cb.placed.layout.grid;
   const her = tileAt(cb, cb.s);
   const them = chaserTile(cb, gap).at;

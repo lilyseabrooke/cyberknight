@@ -1,6 +1,6 @@
 # Streets as boards, and how chases run on them (plan)
 
-Status: phase 0 (street layouts and boards) is built; the chase phases are not. Decisions taken: 12 tiles to a hex cell; no movement in the log except when something spatial happens; off-screen chases stay on the abstract engine; new rolls use their own `Rng`s so existing seeds keep their stories; and every kind of street has its own layout (below). Builds on `BOARDS.md` (persistent place boards, clock-driven positions, sight), `STEALTH.md` (awareness, cones, losing them) and `VEHICLE_COMBAT.md` (the chase engine, `chase.ts`).
+Status: all five phases are built (see "As built" at the end). Decisions taken: 12 tiles to a hex cell; no movement in the log except when something spatial happens; off-screen chases stay on the abstract engine; new rolls use their own `Rng`s so existing seeds keep their stories; and every kind of street has its own layout (below). Builds on `BOARDS.md` (persistent place boards, clock-driven positions, sight), `STEALTH.md` (awareness, cones, losing them) and `VEHICLE_COMBAT.md` (the chase engine, `chase.ts`).
 
 ## What a chase is today
 
@@ -82,3 +82,16 @@ Several of the others have a raised part now and then (loading docks, a gantry o
 ## Things still to decide
 
 - **Plazas that span several hex cells** are bigger squares (14 + 5 per cell). If that is too small a space to run across, scale up.
+
+## As built
+
+Phases 1 to 5 are in (`chaseboard.ts`, with the chase itself in `chase.ts`). Where the plan above and this differ, this is what the code does.
+
+- **The line.** A chase on a street has a `ChaseBoard`: the line she runs along the street's board from where she came on (the door of the street she came from) to the way off she is making for, and how far along it she is. Each round she runs `pace x 2.2` tiles along it (`TILES_PER_PACE`), so a street is a round or two. A chaser is `gap` tiles back along the same line, or still on the street before if the gap is more than she has run (`chaserTile`). `gap` is still what the rolls use; the board is where it is.
+- **How tight it is** is partly the street and partly what is round the line over the next dozen tiles (walls, stalls, parked cars, people): `squeeze` is 0.6 of the first and 0.4 of the second (`localSqueeze`). Where the line pinches between things (`pinches`), a crash or a stumble is a quarter more likely for each pinch, to two.
+- **Ways out** (`outsFrom`): within ten tiles, a doorway into a building (a place that is open), an alley mouth, a way up (steps, a ladder, a pipe), or a knot of people to lose herself in. `lose_them` is on offer when the street is tight or there is a door, mouth or way up, and a doorway or a way up is a little more attractive. When it works she is where she went: inside the building, in the alley, up on the roof; she is not taken a few streets on as she was before. Cars cannot follow into either of the first two.
+- **Turning off.** With a board, she turns off the street where the line runs out (after the first round), onto the street the route says or the one the old rule picks (an alley as soon as a car is behind her), and arrives in the door she left the last street by, with the chasers behind her on the street she left. A place with no board turns now and then as it did.
+- **Shortcuts** stay abstract (`cutAcross`): the board does not draw the fences and ducts, but where the cut ends the next street's board starts from the door she would have come in by.
+- **Sight** (`chaserSees`): a chaser sees her if they are within three tiles of her, or there is a line between them and she is within range for the light (a flyer sees over everything but a roof). If none can for two rounds, she has lost them (`escaped` when pursued, `lost` when she was the pursuer); the ones who lost her are left on the street alert and searching from where they last had her (`leaveSearching`), and stay there for the board to play out. Cameras that have her are eyes for the police.
+- **The law ahead.** Police and Atlas chasers on a street she is running down sometimes (12 per cent, plus 4 for each point of heat, to 45) are already across the way on: when she is within fourteen tiles she sees it (`chase_block:ahead`), and at the block she gets through (a scrape) or is stopped (the chasers close to half a tile, and a car takes a heavy hit). A way out within reach makes `lose_them` much more attractive.
+- **Not done**: the cut-across fences and ducts as tiles; bystanders as things to run down (the existing stumble still picks them from the street); catching a runner with a stealth takedown during a chase.
