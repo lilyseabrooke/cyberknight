@@ -1,5 +1,7 @@
 import { Rng } from './rng';
 import { shapeFor } from './shapes';
+import { markTall, mountCams, pt, reachable, same } from './layoutkit';
+import { madeLayout } from './layouts';
 import type { Id, Location, World } from './types';
 import { dirOf, dist, idx, makeGrid, neighbors, passable, walkable, type Grid, type Pos, type Terrain } from './grid';
 import { PROPS, PROPS_BY_ROOM, type PropKind } from './content/props';
@@ -13,7 +15,7 @@ import { PROPS, PROPS_BY_ROOM, type PropKind } from './content/props';
  * each one is, and zones: the sorts of spot a person might be standing in (behind the bar, on the floor, in a booth).
  */
 
-export type FixtureKind = 'bar' | 'dj_booth' | 'speaker' | 'booth' | 'dancefloor' | 'pillar' | 'tower';
+export type FixtureKind = 'bar' | 'dj_booth' | 'speaker' | 'booth' | 'dancefloor' | 'pillar' | 'tower' | 'counter' | 'shelf' | 'table' | 'machine' | 'desk' | 'bed' | 'bench' | 'rack' | 'locker' | 'ring' | 'server' | 'crate' | 'safe' | 'vehicle' | 'sofa' | 'bunk' | 'console' | 'screen' | 'pipe';
 
 export interface Fixture {
   id: string;
@@ -84,6 +86,10 @@ export interface Layout {
   light: LightLevel[];
   /** Which side the bar is on, for the places that have one. */
   bar: 'east' | 'west' | null;
+  /** The people who work here have posts (the staff side of a counter, a deck, the door) and the customers sit and stand about, as against being scattered. */
+  stations?: boolean;
+  /** Which way each sort of station faces. */
+  faces?: Partial<Record<keyof Zones, number>>;
 }
 
 /** Which places have a board: every one indoors. (Streets are laid out on the hex grid and will get strips of their own.) */
@@ -104,60 +110,14 @@ export function layoutOf(w: Seeded, loc: Location): Layout | null {
   const key = `${w.worldSeed}:${loc.id}:${occupied}:${loc.cameras}:${visible.map((e) => e.to).join(',')}`;
   let l = cache.get(key);
   if (!l) {
-    l = isClub(loc) ? clubLayout(w, loc) : plainLayout(w, loc);
+    const role = (loc.dungeon ? w.dungeons?.[loc.dungeon]?.rooms.find((r) => r.id === loc.id)?.role : undefined) ?? loc.gen?.role ?? loc.kind;
+    l = isClub(loc) ? clubLayout(w, loc) : madeLayout(loc, role, `${w.worldSeed}:${occupied}`) ?? plainLayout(w, loc);
     cache.set(key, l);
   }
   return l;
 }
 
 export const cloneGrid = (g: Grid): Grid => ({ w: g.w, h: g.h, cells: g.cells.slice(), exits: g.exits.map((p) => ({ ...p })), ...(g.tall ? { tall: g.tall.slice() } : {}) });
-
-/** Cameras go up in the corners first, then the middles of the walls, facing into the room. */
-function mountCams(g: Grid, n: number): CamMount[] {
-  const cx = Math.floor(g.w / 2);
-  const cy = Math.floor(g.h / 2);
-  const spots: Pos[] = [{ x: 0, y: 0 }, { x: g.w - 1, y: g.h - 1 }, { x: g.w - 1, y: 0 }, { x: 0, y: g.h - 1 }, { x: cx, y: 0 }, { x: cx, y: g.h - 1 }];
-  // In a room that is not a rectangle the corner may be outside the map: the camera goes on the nearest tile that is not.
-  const onRoom = (p: Pos): Pos => {
-    let best = p;
-    let bd = Infinity;
-    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
-      const t = g.cells[y * g.w + x];
-      if (t === 'void' || t === 'wall') continue;
-      const d = dist(p, { x, y });
-      if (d < bd) { bd = d; best = { x, y }; }
-    }
-    return best;
-  };
-  return spots.slice(0, Math.max(0, Math.min(n, spots.length))).map((q, i) => {
-    const p = onRoom(q);
-    return { id: `cam${i}`, x: p.x, y: p.y, facing: dirOf(p, { x: cx, y: cy }) };
-  });
-}
-
-/** Mark the tiles of the big things on the grid, so sight stops at them. */
-function markTall(g: Grid, fixtures: Fixture[]): void {
-  g.tall = fixtures.filter((f) => f.large).flatMap((f) => f.tiles.map((t) => idx(g, t)));
-}
-
-const pt = (x: number, y: number): Pos => ({ x, y });
-const same = (a: Pos, b: Pos): boolean => a.x === b.x && a.y === b.y;
-
-function reachable(g: Grid, from: Pos): Set<number> {
-  const seen = new Set<number>([idx(g, from)]);
-  const open = [from];
-  while (open.length) {
-    const p = open.pop()!;
-    for (const n of neighbors(g, p)) {
-      const i = idx(g, n);
-      if (!seen.has(i)) {
-        seen.add(i);
-        open.push(n);
-      }
-    }
-  }
-  return seen;
-}
 
 /** A club: the DJ booth at the back, the bar down one side, booths down the other, the dance floor between, the door at the front. */
 function clubLayout(w: Seeded, loc: Location): Layout {
@@ -267,7 +227,7 @@ function clubLayout(w: Seeded, loc: Location): Layout {
 
   const props: PropSpec[] = fixtures.filter((f) => f.kind === 'speaker').map((f) => ({ kind: 'speaker', x: f.tiles[0]!.x, y: f.tiles[0]!.y }));
   markTall(g, fixtures);
-  return { grid: g, role: 'club', props, cams: mountCams(g, loc.cameras), fixtures, doors, zones: { floor: dancing, behindBar, stools, seats, stage, deck, wall, front }, light, bar: east ? 'east' : 'west' };
+  return { grid: g, role: 'club', props, cams: mountCams(g, loc.cameras), fixtures, doors, zones: { floor: dancing, behindBar, stools, seats, stage, deck, wall, front }, light, bar: east ? 'east' : 'west', stations: true, faces: east ? { behindBar: 6, stools: 2, seats: 2, deck: 4, front: 4 } : { behindBar: 2, stools: 6, seats: 6, deck: 4, front: 4 } };
 }
 
 /** How lit a room usually is, by kind, for the rooms that have a say. */

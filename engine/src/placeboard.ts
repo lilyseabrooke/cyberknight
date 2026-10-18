@@ -137,21 +137,34 @@ const slotOf = (id: Id, beat: number): number => {
 /** World minutes after a scene left someone in the middle of something before they give up and go back to their rounds. */
 const RESUME = 10;
 
-/** Those who stay where they work. */
-const fixedStation = (n: Npc): boolean => n.archetype === 'bartender' || n.archetype === 'dj' || n.archetype === 'bouncer' || n.role === 'DJ' || /bartender|barkeep/i.test(n.role) || n.tags.includes('security') || n.tags.includes('cop');
+const COUNTER = /bartender|barkeep|shopkeeper|broker|clerk|desk|barista|cook|owner|reception/i;
+const POSTED = /\bdoc\b|physio|surgeon|scientist|pit_boss|\bdj\b/i;
+const GUARD = /security|bouncer|guard|\bcop\b|turret|\bdog\b|bark|atlas_rep|helix|sentry/i;
+const FIGHTER = /sparr|fighter|trainer|coach/i;
+const describe = (n: Npc): string => `${n.archetype} ${n.role}`;
 
-/** Where someone of this sort is when nothing is happening, in a club. */
+/** Those who stay where they work: they have a post, and do not wander off to a booth. */
+const fixedStation = (n: Npc, loc?: Id): boolean => {
+  if (n.ephemeral || /dancer/i.test(n.role)) return false;
+  const t = describe(n);
+  return COUNTER.test(t) || POSTED.test(t) || GUARD.test(t) || FIGHTER.test(t) || n.tags.includes('security') || n.tags.includes('cop') || (!!loc && n.home === loc);
+};
+
+/** Where someone of this sort is when nothing is happening, in a place with stations. */
 function stationOf(n: Npc, rng: Rng): Station {
-  const arch = n.archetype;
-  if (arch === 'bartender' || /bartender|barkeep/i.test(n.role)) return 'behindBar';
-  if (arch === 'dj' || n.role === 'DJ') return 'deck';
-  if (n.tags.includes('security') || n.tags.includes('cop') || arch === 'bouncer') return 'front';
+  const t = describe(n);
+  if (COUNTER.test(t)) return 'behindBar';
+  if (POSTED.test(t)) return 'deck';
+  if (GUARD.test(t) || n.tags.includes('security') || n.tags.includes('cop')) return 'front';
+  if (FIGHTER.test(t)) return 'stage';
   if (/dancer/i.test(n.role)) return 'floor';
   const r = rng.next();
   return r < 0.5 ? 'floor' : r < 0.75 ? 'stools' : 'seats';
 }
 
 const facingFor = (l: Layout, station: Station, at: Pos): number => {
+  const set = l.faces?.[station];
+  if (set !== undefined) return set;
   switch (station) {
     case 'behindBar': return l.bar === 'east' ? 6 : 2;
     case 'stools': return l.bar === 'east' ? 2 : 6;
@@ -235,7 +248,7 @@ function scatterAssign(l: Layout, b: PlaceBoard, n: Npc): void {
 }
 
 function assign(l: Layout, b: PlaceBoard, n: Npc, rng: Rng): void {
-  if (l.role === 'club') stationAssign(l, b, n, rng);
+  if (l.stations) stationAssign(l, b, n, rng);
   else scatterAssign(l, b, n);
 }
 
@@ -270,15 +283,15 @@ export function syncPlace(w: World, p: Placed): void {
   const rng = new Rng(`board:${board.loc}:${tickOf(w)}`);
   // After a long while away, those who were on a post are back on it.
   const away = tickOf(w) - board.placedAt;
-  if (away > 60 && layout.role !== 'club') for (const e of Object.values(board.ents)) standDown(e);
+  if (away > 60 && !layout.stations) for (const e of Object.values(board.ents)) standDown(e);
   board.placedAt = tickOf(w);
   for (const n of here) if (!board.ents[n.id]) assign(layout, board, n, rng);
 
-  // In a club, the patrons move on to somewhere else when their stretch is up.
-  if (layout.role === 'club') {
+  // Where people have stations (a club, a shop, a gym), the customers move on to somewhere else when their stretch is up.
+  if (layout.stations) {
     for (const n of here) {
       const e = board.ents[n.id];
-      if (!e || n.hostile || fixedStation(n)) continue;
+      if (!e || n.hostile || fixedStation(n, board.loc)) continue;
       const slot = slotOf(n.id, tickOf(w));
       if (e.slot === undefined) e.slot = slot;
       else if (e.slot !== slot) {
@@ -399,7 +412,7 @@ export function describeSpot(p: Placed, w: World): { variant: string; label: str
   }
   if (kind === 'fixture') {
     const f = p.layout.fixtures.find((x: Fixture) => x.id === id);
-    const v = f?.kind === 'bar' ? 'bar' : f?.kind === 'dj_booth' ? 'deck' : f?.kind === 'booth' ? 'booth' : f?.kind === 'dancefloor' ? 'floor' : 'cover';
+    const v = f?.kind === 'bar' ? 'bar' : f?.kind === 'counter' ? 'counter' : f?.kind === 'dj_booth' ? 'deck' : f?.kind === 'booth' ? 'booth' : f?.kind === 'dancefloor' ? 'floor' : 'cover';
     return { variant: v, label: f?.label ?? 'somewhere' };
   }
   if (kind === 'near') return { variant: 'near', label: w.npcs[id ?? '']?.name ?? 'somebody' };
@@ -449,6 +462,7 @@ export function goTo(c: Ctx, p: Placed, spot: Spot, o: { tell?: boolean } = {}):
   return moved;
 }
 
+const COUNTER_ACTS = new Set(['buy_ware', 'buy_stim', 'buy_med', 'buy_info', 'buy_gear', 'buy_ammo', 'pawn', 'pawndeal', 'fence']);
 const NEAR = new Set(['chat', 'flirt', 'kiss', 'pickpocket', 'threaten', 'armwrestle', 'analyze', 'ask_work']);
 
 /** Before she does something that needs her somewhere: put her there. (A fight, which she starts from where she stands, is left alone.) */
@@ -461,7 +475,8 @@ export function positionFor(c: Ctx, key: string): void {
     if (n) goTo(c, p, { kind: 'near', npc: n, behind: family === 'pickpocket' });
   } else if (family === 'dj_booth') goTo(c, p, { kind: 'fixture', fixture: 'dj_booth' });
   else if (family === 'dancefloor') goTo(c, p, { kind: 'fixture', fixture: 'dancefloor' });
-  else if (family === 'settle_tab') goTo(c, p, { kind: 'fixture', fixture: 'bar' });
+  else if (family === 'settle_tab' || family === 'order_drink') goTo(c, p, { kind: 'fixture', fixture: 'bar' });
+  else if (COUNTER_ACTS.has(family)) goTo(c, p, { kind: 'fixture', fixture: 'counter' });
 }
 
 // ------------------------------------------------------------------ the sneaking board is this one

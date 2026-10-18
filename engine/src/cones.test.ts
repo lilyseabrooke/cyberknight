@@ -33,6 +33,7 @@ const flat = (seed: string) => {
   for (const n of Object.values(w.npcs)) if (n.locationId === 'halo_floor') moveNpc(w, n, '_gone');
   w.locations.halo_floor!.cameras = 0;
   const guard = person(w, 'guard');
+  guard.home = 'halo_floor';
   const p = placeOf(w)!;
   syncPlace(w, p);
   const g = p.layout.grid;

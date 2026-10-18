@@ -1,13 +1,21 @@
 # Places as boards
 
-Every indoor place is a grid whatever she is doing there, and it is one grid: the same layout and the same people on it whether she is walking about, sneaking or fighting. Clubs are the first with a made layout; every other indoor place has a plain room of the right kind, and the streets (laid out on the hex grid) will get strips of their own. The city above is still the graph of locations and the hex grid under the streets; this is the layer below it.
+Every indoor place is a grid whatever she is doing there, and it is one grid: the same layout and the same people on it whether she is walking about, sneaking or fighting. Most kinds of place have a made layout of their own (below), the rest have a plain room of the right kind, and the streets (laid out on the hex grid) will get strips of their own. The city above is still the graph of locations and the hex grid under the streets; this is the layer below it.
 
 ## The layout (`layout.ts`)
 
 A place's layout is worked out from its id and the world's seed alone, so it is the same every time and is never stored.
 
 - **A club** (`isClub`) gets a made one, about 12 to 14 by 9 to 10 tiles: the **DJ booth** at the back with the decks behind it and a **speaker stack** either side; the **bar** down one side (the counter is cover; stools on the floor side, the bartender's side behind it) and **booths** down the other; a **dance floor** between, with pillars and a strobe, with the booths dark and the bar and the door bright.
-- **Everywhere else indoors** gets a plain room (`plainLayout`): a board of the right kind for the place with a few lamps and dark corners and, in a dungeon, the machines that kind of room keeps (`content/props.ts`). A dungeon's rooms are seeded from the garrisoning too, so a re-garrisoned dungeon is a new set of rooms.
+- **Every other kind of place** has a builder in `layouts.ts` (drawn on a `Draft`, `layoutkit.ts`; mirrored left to right half the time): 
+  - a **bar**: the counter down one side with the bartender behind it and stools in front, a back bar, tables with seats, a pool table, a jukebox;
+  - a **shop**: shelving in aisles (big enough to hide behind), a counter by the door with the keeper's side behind it, wall stock; a **pawn shop** adds a back room with the safe, behind a wall with a door, and glass cases;
+  - a **clinic**: exam rooms off the back through doorways (where the doctors work), a reception desk and a waiting area with benches;
+  - a **gym**: a front desk, weight racks, lockers, benches and a sparring ring; its pit, locker room and office have their own;
+  - a **flat**: a bedroom walled off at the back, a sofa, a kitchenette; an **office floor**: reception with a guard, rows of desks, a server room walled in the corner with its racks; a **boss's hall**: the desk on a dais, pillars, monitors; a **tunnel**: a dark run with pipes and junction boxes;
+  - a dungeon's rooms by what they are (gate, barracks, garage, armory, data core, command post; door, common room, bunks, chop shop, stash, den) and the backroom, cellar and VIP room of a venue, furnished at random with room left to walk round.
+  Like the club's, these have *stations*: the keeper, the doctor, the bartender and the guards have posts, and customers move about (see below). A made room's furniture is cover; the big pieces (shelf units, racks, server stacks, lockers, vehicles) block sight.
+- **Anything else** gets a plain room (`plainLayout`): a board of the right kind for the place with a few lamps and dark corners and, in a dungeon, the machines that kind of room keeps (`content/props.ts`). A dungeon's rooms are seeded from the garrisoning too, so a re-garrisoned dungeon is a new set of rooms.
 - Both give **a door tile for each visible exit** (the front way in first), each tied to the real exit it is; hidden exits have no door until found. Every walkable tile is reachable from the front door.
 - A layout also hands back **fixtures** (named things with the tiles they take and the tiles someone stands on to use them), **zones** (behind the bar, the stools, the seats, the stage, the deck, the floor, the walls, by the door), the **light** and its **props**: machines an Override can set off, which in a club are the speaker stacks.
 
@@ -23,7 +31,7 @@ A place's layout is worked out from its id and the world's seed alone, so it is 
 Between scenes it is deliberately coarse and none of it is in the log:
 
 - **Where anyone is, when no scene is on, is a function of the world clock** (`tickOf`: one tick per world minute, not per beat, so an hour-long odd job moves the room on far more than a word does) (`routeAt`, `walkRounds`, `slotOf`): nobody is stepped from beat to beat, so skipping ahead and watching every beat give the same answer. A round is a path between two tiles with a pause at each end (the pauses and a starting offset are fixed per person), and it comes round again every `patrolPeriod` minutes, so a patrol can be learned and timed. At an end they look about; walking, they face the way they go.
-- In a club people have **stations** by what they are: the bartender works up and down behind the bar, security walk a round of the floor from the door, the DJ stays on the decks, and patrons move on to another spot (bar, floor, booth) every twenty to forty-five minutes, never onto each other or her.
+- Where a layout has **stations** (the club and every made layout above), people have them by what they are: counter staff (bartender, shopkeeper, broker, front desk) work their side of the counter, doctors, scientists and the DJ keep a post of their own (`deck`), security and guards walk a round of the floor from the door, trainers and sparrers are in the ring, and customers move on to another spot (bar, floor, booth) every twenty to forty-five minutes, never onto each other or her.
 - Elsewhere they stand scattered away from the doors, a guard on a post or walking a round. People who turn up in the middle of something (a mugging) start a few tiles from her and stay put.
 - A scene can leave someone mid-search or mid-chase; after `RESUME` (10) quiet minutes they give it up and go back to their round (`standDown`).
 - The fallen stay where they fell until they get up or are taken away.
@@ -58,7 +66,7 @@ Pickpocketing asks who could actually see it (`spatialStir`): people facing her,
 
 ## Not done yet
 
-- Other places having more than a plain room: layouts with fixtures for bars, shops, homes, clinics, corp floors, gyms and pawn shops (gyms and pawn shops already have the rooms and features to build them from). Rooms of one venue (an upstairs lounge, restrooms) each get their own board but have no templates, and nothing crosses between boards: noise through a door, people following her through one.
+- Lairs, pits and a dungeon's corridors are still plain (or shaped) rooms. Rooms of one venue (an upstairs lounge, restrooms) each get their own board but have no templates, and nothing crosses between boards: noise through a door, people following her through one.
 - Sneaking in a club (it would run on the club's board with the speaker stacks as props, but nothing starts it there) and sneaking at all outside a dungeon.
 - Crowds: only the people present are on the board; a crowd mass for the rest (blocks sight, counts as cover, supplies joiners) is not done.
 - Streets as strips on the hex grid, with chases running across them.
