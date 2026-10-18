@@ -1,6 +1,6 @@
 # Streets as boards, and how chases run on them (plan)
 
-Status: plan only, nothing built. Builds on `BOARDS.md` (persistent place boards, clock-driven positions, sight), `STEALTH.md` (awareness, cones, losing them) and `VEHICLE_COMBAT.md` (the chase engine, `chase.ts`).
+Status: phase 0 (street layouts and boards) is built; the chase phases are not. Decisions taken: 12 tiles to a hex cell; no movement in the log except when something spatial happens; off-screen chases stay on the abstract engine; new rolls use their own `Rng`s so existing seeds keep their stories; and every kind of street has its own layout (below). Builds on `BOARDS.md` (persistent place boards, clock-driven positions, sight), `STEALTH.md` (awareness, cones, losing them) and `VEHICLE_COMBAT.md` (the chase engine, `chase.ts`).
 
 ## What a chase is today
 
@@ -54,10 +54,27 @@ Principle: **the board makes the existing chase concrete, it does not replace it
 4. **Sight-based escape and search**: awareness drives losing a tail; search/hide/takedown; hand-off to the stealth board.
 5. **Setting up ahead** (roadblocks, cutters, drones) and the dragon and crowd cases.
 
-## Things to decide
+## Street types (phase 0, built: `streets.ts`)
 
-- **Tiles per hex cell** (suggest ~10 along the street): too long and a chase is a long walk; too short and there is nowhere to hide. Highways can be long and mostly straight; alleys short.
-- **How much of the chase is shown.** Suggested: no movement in the log, but a line when something spatial matters (ducks into the doorway, swings round the stall, the cruiser across the lane).
-- **Do off-screen chases (NPC vs NPC, a dragon after a rival) stay on the abstract engine?** Suggested yes: boards only for chases involving her.
-- **RNG compatibility.** New rolls draw from derived `Rng`s per concern, as in `VEHICLE_COMBAT.md`, so existing seeds keep their stories until a phase deliberately changes them; phase 1 is where that is checked.
-- **Streets that are several hex cells wide** (plazas) might want a 2D plaza rather than a strip.
+A street's layout is chosen by what kind of street it is, from the last word of its name (the city names streets for what they are), a highway by its flag, and it varies with the seed. Size is 12 tiles to a hex cell along the way it runs.
+
+| Kind | Layout |
+|---|---|
+| street, avenue, boulevard | strip with pavements, kerbside parked cars, lamps; the avenue has trees and kiosks, the boulevard a planted median with gaps to cross by |
+| freightway | wide industrial strip with loading yards of container stacks either side |
+| wharf | strip with a quay edge, the water beyond (off the map), bollards, a crane, containers against the warehouses |
+| lane, row, run | narrow strips: parked cars and junk; a row has front steps; a run is two tiles wide and dark |
+| walk, arcade | a broad promenade with trees, benches and kiosks; a covered arcade with rows of columns and lit shopfronts |
+| plaza, concourse | open squares: fountain or statue with benches, trees and kiosks; a station hall with a grid of pillars and counters |
+| bazaar, market | a maze of stall blocks with one-tile aisles and canopy that blocks sight |
+| yard | a walled courtyard with one way in, a tree, crates and wrecks |
+| alley, passage | cut out of solid building: a narrow dogleg with dumpsters and fire escapes, back doors in the walls; a passage is the same, dark, with pools of light |
+| roof | a rooftop with a water tank, vents and aerials, and the stairheads for ways down |
+| highway | lanes either side of a concrete barrier with gaps, wrecks, dark |
+| crossing | when a street meets three or more others, usually: two strips crossing in a wider open space, an arm out to each side, blocks of building in the corners with doors in them |
+
+The neighbouring streets on the hex grid become the ways on and off, on the side that faces them relative to the way the street runs: at an end, an open edge (every walkable tile is the exit); to the side, a mouth in the frontage. The doors of the places on the street are in the frontage. Cameras are on poles looking down the street. A street's people and parked cars are the same entities as everywhere else; positions follow the clock.
+
+## Things still to decide
+
+- **Plazas that span several hex cells** are bigger squares (14 + 5 per cell). If that is too small a space to run across, scale up.

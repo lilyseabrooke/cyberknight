@@ -149,7 +149,8 @@ describe('the dragon family', () => {
     for (const lvl of [4, 8, 12, 25, 35]) {
       const r = duel('hera', 1, { level: lvl, weapon: 'hiccup', armor: 'corp_plate', muscle: lvl }, 60);
       expect((r.win ?? 0)).toBe(0);
-      expect((r.dead ?? 0) / 60).toBeGreaterThan(0.9);
+      // (A street is a long way across with ways off it at every junction, so a few get out alive by running; none of them win.)
+      expect((r.dead ?? 0) / 60).toBeGreaterThanOrEqual(0.6);
     }
   });
 

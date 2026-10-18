@@ -15,7 +15,7 @@ import { PROPS, PROPS_BY_ROOM, type PropKind } from './content/props';
  * each one is, and zones: the sorts of spot a person might be standing in (behind the bar, on the floor, in a booth).
  */
 
-export type FixtureKind = 'bar' | 'dj_booth' | 'speaker' | 'booth' | 'dancefloor' | 'pillar' | 'tower' | 'counter' | 'shelf' | 'table' | 'machine' | 'desk' | 'bed' | 'bench' | 'rack' | 'locker' | 'ring' | 'server' | 'crate' | 'safe' | 'vehicle' | 'sofa' | 'bunk' | 'console' | 'screen' | 'pipe';
+export type FixtureKind = 'bar' | 'dj_booth' | 'speaker' | 'booth' | 'dancefloor' | 'pillar' | 'tower' | 'counter' | 'shelf' | 'table' | 'machine' | 'desk' | 'bed' | 'bench' | 'rack' | 'locker' | 'ring' | 'server' | 'crate' | 'safe' | 'vehicle' | 'sofa' | 'bunk' | 'console' | 'screen' | 'pipe' | 'lamp' | 'tree' | 'container' | 'stall' | 'column' | 'statue' | 'fountain' | 'barrier';
 
 export interface Fixture {
   id: string;
@@ -93,7 +93,7 @@ export interface Layout {
 }
 
 /** Which places have a board: every one indoors. (Streets are laid out on the hex grid and will get strips of their own.) */
-export const hasBoard = (loc: Location): boolean => !loc.outdoors && loc.kind !== 'street';
+export const hasBoard = (loc: Location): boolean => !loc.outdoors || loc.kind === 'street';
 
 /** The clubs with a made layout. */
 export const isClub = (loc: Location): boolean => loc.kind === 'club' && !loc.dungeon && (loc.gen?.role === 'club' || loc.id === 'neon_pharaoh');
@@ -111,7 +111,7 @@ export function layoutOf(w: Seeded, loc: Location): Layout | null {
   let l = cache.get(key);
   if (!l) {
     const role = (loc.dungeon ? w.dungeons?.[loc.dungeon]?.rooms.find((r) => r.id === loc.id)?.role : undefined) ?? loc.gen?.role ?? loc.kind;
-    l = isClub(loc) ? clubLayout(w, loc) : madeLayout(loc, role, `${w.worldSeed}:${occupied}`) ?? plainLayout(w, loc);
+    l = isClub(loc) ? clubLayout(w, loc) : madeLayout(loc, role, `${w.worldSeed}:${occupied}`, w) ?? plainLayout(w, loc);
     cache.set(key, l);
   }
   return l;

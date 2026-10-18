@@ -1,6 +1,6 @@
 # Places as boards
 
-Every indoor place is a grid whatever she is doing there, and it is one grid: the same layout and the same people on it whether she is walking about, sneaking or fighting. Most kinds of place have a made layout of their own (below), the rest have a plain room of the right kind, and the streets (laid out on the hex grid) will get strips of their own. The city above is still the graph of locations and the hex grid under the streets; this is the layer below it.
+Every indoor place is a grid whatever she is doing there, and it is one grid: the same layout and the same people on it whether she is walking about, sneaking or fighting. Most kinds of place have a made layout of their own (below), the rest have a plain room of the right kind, and the streets have boards of their own too (below). The city above is still the graph of locations and the hex grid under the streets; this is the layer below it.
 
 ## The layout (`layout.ts`)
 
@@ -48,6 +48,10 @@ A room is not always a rectangle. `shapeFor` draws a shape from the room's own d
 
 Doorways in interior walls (and the tiles beside them) are kept clear of furniture, and if a crate would seal anything off it is the crate that goes, not the wall. Cameras in the corners of an odd room go on the nearest tile that is on the map. Clubs are still rectangles. Big shaped rooms are bigger than the plain ones (7 to 12 tiles a side).
 
+## Streets (`streets.ts`)
+
+Streets have boards too, a different layout for each kind of street (boulevards, markets, plazas, alleys, wharves, crossings...); see `STREETS_PLAN.md` for the catalogue and for how chases are meant to run on them. A street's neighbouring streets are its ways on and off the board, on the side that faces them, and a fight, a sneak or an ambush on a street now happens on the street rather than on a throwaway grid.
+
 ## The three ways of using it
 
 - **Walking about** is the above.
@@ -69,7 +73,7 @@ Pickpocketing asks who could actually see it (`spatialStir`): people facing her,
 - Lairs, pits and a dungeon's corridors are still plain (or shaped) rooms. Rooms of one venue (an upstairs lounge, restrooms) each get their own board but have no templates, and nothing crosses between boards: noise through a door, people following her through one.
 - Sneaking in a club (it would run on the club's board with the speaker stacks as props, but nothing starts it there) and sneaking at all outside a dungeon.
 - Crowds: only the people present are on the board; a crowd mass for the rest (blocks sight, counts as cover, supplies joiners) is not done.
-- Streets as strips on the hex grid, with chases running across them.
+- Chases running across the street boards (see `STREETS_PLAN.md` phases 1 to 5).
 - Fixtures doing more in a fight (the counter as cover is there; bottles, the jukebox and the speakers are not yet).
 
 ## Hours and crowds (`hours.ts`)

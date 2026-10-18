@@ -3,6 +3,7 @@ import { Rng, type World, type GameEvent, type Npc } from './index';
 import { createWorld } from './world';
 import { spawnNpc } from './content/archetypes';
 import { gather } from './interactions';
+import { besideHer } from './testkit';
 import { addNpc, moveNpc } from './population';
 import { relocate } from './combat';
 import { fight } from './combat';
@@ -280,7 +281,7 @@ describe('fights', () => {
     const w = room(0.3, seed);
     const watcher = person(w, 'watcher', 'patron');
     const victim = person(w, 'victim', 'mugger');
-    void watcher;
+    besideHer(w, watcher.id);
     w.hero.stealth = sneaking;
     const r = ctxFor(w, seed);
     fight(r.c, [victim], { cause: 'test', joiners: false, assault: true });

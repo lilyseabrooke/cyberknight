@@ -246,7 +246,9 @@ describe('a fight on the grid', () => {
       const r = fight({ w: s.w, rng: s.rng, emit: s.emit }, s.foes, { cause: 'test', joiners: false });
       if (r === 'flee') {
         retreats++;
-        expect(s.w.hero.locationId).toBe(s.w.locations['street_main']!.fleeTo);
+        // Out through whichever way she reached: a door onto the next street, a building, or the usual flee destination.
+        const street = s.w.locations['street_main']!;
+        expect([street.fleeTo, ...street.exits.map((e) => e.to), ...(street.links ?? []).map((e) => e.to)]).toContain(s.w.hero.locationId);
       }
     }
     expect(retreats).toBeGreaterThan(10);

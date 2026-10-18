@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { always, never, scenario, search, slow } from './testkit';
+import { always, inCameraView, never, scenario, search, slow } from './testkit';
 import { Rng, createRun, step, runToEnd, render, hasTemplate, rollPersonality, personalityFrom, TRAITS, synergy, skillValue, train, ODDS, heroPower, throwDamage, type World, type GameEvent } from './index';
 import { gather } from './interactions';
 import { pieceFame, paintCharges, makeCan, graffitiCandidates, FAME_DECAY, vandalCops, ambientGraffiti } from './graffiti';
@@ -554,6 +554,7 @@ describe('resources and consequences', () => {
     it('a camera is enough: it sees, and the police hear', () => {
       const w = at('street_main');
       empty(w);
+      inCameraView(w);
       const evs = assault(w);
       expect(evs.find((e) => e.type === 'crime_seen')?.data.variant).toBe('camera');
       expect(w.heat.npd).toBeGreaterThanOrEqual(1);
@@ -618,10 +619,12 @@ describe('resources and consequences', () => {
       for (let i = 0; i < 20; i++) {
         const a = at('street_main', `g${i}`);
         empty(a);
+        inCameraView(a);
         assault(a, `g${i}`);
         melee += a.heat.npd!;
         const b = at('street_main', `g${i}`);
         empty(b);
+        inCameraView(b);
         assault(b, `g${i}`, { gun: true });
         gun += b.heat.npd!;
       }

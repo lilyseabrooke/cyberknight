@@ -59,6 +59,14 @@ type ZoneName = keyof Zones;
  * A room being drawn. Put walls and furniture on it, name the things people use, say where the staff stand and the customers
  * wait, then `finish` it: doors, a way through to everything, the light, the cameras and the machines.
  */
+/** A way on or off the board that is more than one tile wide: all of its tiles are the exit, the middle one first. */
+export interface DoorPlan {
+  exit: Id;
+  label: string;
+  front: boolean;
+  tiles: Pos[];
+}
+
 export class Draft {
   readonly g: Grid;
   readonly fixtures: Fixture[] = [];
@@ -135,6 +143,21 @@ export class Draft {
     }
     return out;
   }
+  /** Every tile of the grid. */
+  cells(): Pos[] { return this.g.cells.map((_, i) => pt(i % this.W, Math.floor(i / this.W))); }
+  /** Everything outside the room until it is carved. */
+  fillVoid(): void { this.g.cells.fill('void'); }
+  carve(x0: number, y0: number, x1: number, y1: number): void { this.rect(x0, y0, x1, y1, 'floor'); }
+  /** Wall in whatever the carved floor touches, so a room cut out of nothing has walls round it. */
+  seal(): void {
+    const { W, H } = this;
+    const mark: Pos[] = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (this.at(pt(x, y)) !== 'void') continue;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (this.at(pt(x + dx, y + dy)) === 'floor') { mark.push(pt(x, y)); dy = 2; break; }
+    }
+    for (const p of mark) this.put(p, 'wall');
+  }
   zone(name: ZoneName, ps: Pos[]): void { this.zones[name] = ps.filter((p) => this.at(p) !== null); }
   lit(ps: Pos[], l: LightLevel): void { this.lights.push([ps, l]); }
 
@@ -142,7 +165,7 @@ export class Draft {
    * Doors, a way through to every tile, the light, the machines, and a flip left to right now and then so the same sort of room
    * does not always open the same way.
    */
-  finish(loc: Location, role: string, o: { front?: Pos; slots?: Pos[]; base?: LightLevel; flip?: boolean; cams?: number } = {}): Layout {
+  finish(loc: Location, role: string, o: { front?: Pos; slots?: Pos[]; base?: LightLevel; flip?: boolean; cams?: number; doors?: DoorPlan[] } = {}): Layout {
     const { g, W, H, rng } = this;
     const inward = (p: Pos): Pos => (p.y === H - 1 ? pt(p.x, p.y - 1) : p.y === 0 ? pt(p.x, p.y + 1) : p.x === 0 ? pt(p.x + 1, p.y) : pt(p.x - 1, p.y));
     const onEdge = (p: Pos): boolean => p.x === 0 || p.y === 0 || p.x === W - 1 || p.y === H - 1;
@@ -154,19 +177,38 @@ export class Draft {
       g.exits.push(at);
       if (exit) doors.push({ exit, at, label, front });
     };
-    const visible = loc.exits.filter((e) => !e.hidden);
-    const frontExit = visible.find((e) => e.to === loc.tossTo) ?? visible[0];
-    let front = o.front ?? pt(this.cx, H - 1);
-    if (!usable(front)) {
-      const border: Pos[] = [];
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (onEdge(pt(x, y))) border.push(pt(x, y));
-      front = border.filter((p) => this.at(p) === 'floor' && this.at(inward(p)) === 'floor').sort((a, b) => dist(a, front) - dist(b, front))[0] ?? front;
+    if (o.doors) {
+      for (const plan of o.doors) {
+        for (const at of plan.tiles) {
+          this.put(at, 'exit');
+          g.exits.push(at);
+          doors.push({ exit: plan.exit, at, label: plan.label, front: plan.front });
+        }
+      }
+      if (!g.exits.length) {
+        const at = pt(this.cx, this.cy);
+        this.put(at, 'exit');
+        g.exits.push(at);
+      }
+    } else {
+      const visible = loc.exits.filter((e) => !e.hidden);
+      const frontExit = visible.find((e) => e.to === loc.tossTo) ?? visible[0];
+      let front = o.front ?? pt(this.cx, H - 1);
+      if (!usable(front)) {
+        const border: Pos[] = [];
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (onEdge(pt(x, y))) border.push(pt(x, y));
+        front = border.filter((p) => this.at(p) === 'floor' && this.at(inward(p)) === 'floor').sort((a, b) => dist(a, front) - dist(b, front))[0] ?? front;
+      }
+      takeDoor(front, frontExit?.to ?? null, frontExit?.label ?? 'the door', true);
+      for (const e of visible.filter((x) => x !== frontExit)) {
+        const at = (o.slots ?? []).find(usable);
+        if (at) takeDoor(at, e.to, e.label, false);
+      }
     }
-    takeDoor(front, frontExit?.to ?? null, frontExit?.label ?? 'the door', true);
-    for (const e of visible.filter((x) => x !== frontExit)) {
-      const at = (o.slots ?? []).find(usable);
-      if (at) takeDoor(at, e.to, e.label, false);
-    }
+
+    // A door goes where it goes: whatever was standing on it is not any more.
+    for (const f of this.fixtures) f.tiles = f.tiles.filter((q) => !g.exits.some((e) => same(e, q)));
+    for (let i = this.decor.length - 1; i >= 0; i--) if (g.exits.some((e) => same(e, this.decor[i]!))) this.decor.splice(i, 1);
 
     // Never wall anyone in: furniture goes before a person is cut off, and what is still cut off is not part of the room.
     const from = g.exits[0]!;

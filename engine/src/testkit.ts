@@ -2,6 +2,8 @@ import { expect, it } from 'vitest';
 import { Rng } from './rng';
 import { makeCtx, perform, runToEnd, step } from './run';
 import { gather } from './interactions';
+import { camerasSeeHer, placeOf, syncPlace } from './placeboard';
+import { passable } from './grid';
 import { createWorld, type RunOptions } from './world';
 import type { Ctx, GameEvent, Id, World } from './types';
 import type { Personality } from './personality';
@@ -148,4 +150,40 @@ export function search(o: SearchOptions): { seen: Set<string>; missing: string[]
     }
   }
   return { seen, missing: missing(), nights: i, worlds };
+}
+
+// ------------------------------------------------------------------------------------------------ where people stand
+
+/** Put her where a working camera has her, if there is one. (A camera only sees the stretch it is turned on, and where she starts on a long street may not be it.) */
+export function inCameraView(w: World): void {
+  const p = placeOf(w);
+  if (!p) return;
+  syncPlace(w, p);
+  const g = p.layout.grid;
+  for (let y = 0; y < g.h; y++) {
+    for (let x = 0; x < g.w; x++) {
+      if (!passable(g, x, y)) continue;
+      p.board.hero = { x, y };
+      if (camerasSeeHer(w)) return;
+    }
+  }
+}
+
+/** Stand somebody right beside her, in the open, so there is no question of whether they can see. */
+export function besideHer(w: World, id: Id): void {
+  const p = placeOf(w);
+  if (!p) return;
+  syncPlace(w, p);
+  const e = p.board.ents[id];
+  if (!e) return;
+  const h = p.board.hero;
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]] as const) {
+    const q = { x: h.x + dx, y: h.y + dy };
+    if (passable(p.layout.grid, q.x, q.y) && !Object.values(p.board.ents).some((o) => o !== e && o.x === q.x && o.y === q.y)) {
+      e.x = q.x;
+      e.y = q.y;
+      e.facing = (dx > 0 ? 6 : dx < 0 ? 2 : dy > 0 ? 0 : 4) as number;
+      return;
+    }
+  }
 }

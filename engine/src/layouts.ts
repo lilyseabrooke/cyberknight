@@ -1,6 +1,7 @@
 import { Rng } from './rng';
 import type { Location } from './types';
 import { Draft, pt } from './layoutkit';
+import { streetLayout } from './streets';
 import type { Layout } from './layout';
 import type { Pos } from './grid';
 
@@ -290,7 +291,8 @@ function tunnelRoom(loc: Location, rng: Rng): Layout {
 }
 
 /** A made layout for this place, or null if it takes an ordinary room. */
-export function madeLayout(loc: Location, role: string, seed: string): Layout | null {
+export function madeLayout(loc: Location, role: string, seed: string, world?: { locations: Record<string, Location> }): Layout | null {
+  if (loc.kind === 'street') return world ? streetLayout(world, loc, seed) : null;
   const rng = new Rng(`made:${seed}:${loc.id}`);
   if (loc.dungeon) return furnished(loc, rng, role);
   if (loc.gymRoom) return gymSideRoom(loc, rng, loc.gymRoom.room) ?? null;

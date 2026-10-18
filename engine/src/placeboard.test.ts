@@ -107,12 +107,12 @@ describe('a club has a layout', () => {
     }
   });
 
-  it('every indoor place has a board; the streets do not yet', () => {
+  it('every place has a board, streets included', () => {
     const sc = scenario({ seed: 'halo', at: 'halo_floor' });
     expect(placeOf(sc.w)).not.toBeNull();
     expect(hasBoard(sc.w.locations.club_greenroom!)).toBe(true);
-    expect(hasBoard(sc.w.locations.street_main!)).toBe(false);
-    expect(placeOf(sc.w, sc.w.locations.street_main!)).toBeNull();
+    expect(hasBoard(sc.w.locations.street_main!)).toBe(true);
+    expect(placeOf(sc.w, sc.w.locations.street_main!)).not.toBeNull();
   });
 });
 
