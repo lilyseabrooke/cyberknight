@@ -16,6 +16,7 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { behindOf, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
+import { TILES_PER_PACE, openBoard, runOn, type ChaseBoard } from './chaseboard';
 
 /**
  * A chase: a fight at speed. There is no board, only how far apart everybody is, what the road is like, and what each side
@@ -49,6 +50,8 @@ export interface ChaseOpts {
   cause: string;
   foes: Chaser[];
   maxRounds?: number;
+  /** Told each round, with the board as it stands, for tests and tooling. */
+  watch?: (board: ChaseBoard | null, round: number) => void;
 }
 
 const ESCAPE_GAP = 14;
@@ -92,7 +95,19 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   let squeeze = squeezeOf(cls, traffic);
   let tight = squeeze >= 0.45;
   let setting = scene(cls, traffic);
+  let board: ChaseBoard | null = null;
+  const nextOnRoute = (): string | null => (route && route.i < route.path.length - 1 ? route.path[route.i + 1]! : null);
+  let boardTried = false;
+  const boardNow = (): ChaseBoard | null => {
+    if (!board && !boardTried) {
+      boardTried = true;
+      board = openBoard(w, nextOnRoute());
+    }
+    return board;
+  };
   const refresh = (): void => {
+    board = null;
+    boardTried = false;
     here = w.locations[h.locationId]!;
     cls = roadClass(here);
     traffic = trafficAt(w, here);
@@ -333,6 +348,12 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             if (intoAlley) for (const f of o.foes) if (f.alive && f.car && f.car.body !== 'bike') getOut(c, f, from);
           }
         }
+      }
+      // On the street: she runs on along it.
+      if (!boarded) {
+        const cb = boardNow();
+        if (cb) runOn(cb, heroSpeed(w) * TILES_PER_PACE);
+        o.watch?.(cb, round);
       }
       // On their vehicle: a round of its own.
       if (boarded) {
