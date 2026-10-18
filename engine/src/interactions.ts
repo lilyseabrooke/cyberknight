@@ -38,6 +38,7 @@ import { isBadGuy } from './traits';
 import { isShut } from './shutdown';
 import { moveNpc } from './population';
 import { cooling } from './mind';
+import { atLeast, awareness, bucketOf, coverAt, enterStealth, isSneaking, npcPerception, stealthCandidates, stir } from './stealth';
 import { analyze, perceived, perceivedRatio, ratio, readQuality, skillOf, statsOf } from './npcstats';
 
 const DRINKS = [
@@ -100,7 +101,9 @@ export function gather(w: World): Candidate[] {
     }
     // The street doc is the only one who puts her back together for pocket change. She doesn't bite the hand that patches her.
     const spare = n.tags.includes('doc') && n.affinity > -20;
-    if (!spare && !n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
+    // She can only lift from someone who hasn't noticed her: while sneaking, that is someone Unaware or Suspicious; otherwise it takes cover to slip into stealth first.
+    const liftable = isSneaking(w) ? !atLeast(bucketOf(w, n), 'alert') : coverAt(w, h.locationId) >= 0.25;
+    if (!spare && liftable && !n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
       out.push({
         key: `pickpocket:${n.id}`, drives: { greed: 0.95, curiosity: 0.2 }, risk: 0.6 + levelRisk(w, n) + clamp((perceivedRatio(w, n, 'reflex') + perceivedRatio(w, n, 'int') / 2 - 1.5) * 0.5, 0, 1), intent: { npc: n.name },
         run: (c) => pickpocket(c, n),
@@ -204,6 +207,7 @@ export function gather(w: World): Candidate[] {
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));
   out.push(...discretionCandidates(w));
+  out.push(...stealthCandidates(w));
   out.push(...hustleCandidates(w));
   out.push(...gymCandidates(w));
   out.push(...vehicleCandidates(w));
@@ -366,15 +370,27 @@ function kiss(c: Ctx, n: Npc): void {
 function pickpocket(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.reflex * 0.02 + 0.045 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + (n.flags.includes('marked') ? 0.15 : 0) - n.level * 0.02 - 0.03 * (statsOf(n).reflex + statsOf(n).int / 2) - h.drunk * 0.02, 0.08, 0.88);
+  if (!h.stealth) enterStealth(c);
+  // Too many eyes, or theirs are on her: she lets it go.
+  if (atLeast(bucketOf(w, n), 'alert')) {
+    c.emit('pickpocket', 'mixed', { variant: 'abort', npc: n.name });
+    return;
+  }
+  const wary = bucketOf(w, n) === 'suspicious';
+  const p = clamp(0.3 + h.reflex * 0.02 + 0.045 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + (n.flags.includes('marked') ? 0.15 : 0) - n.level * 0.02 - 0.035 * npcPerception(n) - (wary ? 0.15 : 0) - h.drunk * 0.02, 0.08, 0.88);
   train(c, 'sleight', 1);
   if (!rng.chance(p)) {
+    awareness(w, n).v = 1;
+    awareness(w, n).fix = true;
     n.affinity -= 30;
     remember(n, 'caught Blackbird\'s hand in their pocket');
     c.emit('pickpocket', 'bad', { variant: 'caught', npc: n.name });
     fight(c, [n], { cause: `getting caught robbing ${n.name}`, assault: true });
     return;
   }
+  // The mark feels something, and whoever is looking might too.
+  awareness(w, n).v += 0.12;
+  stir(c, 0.05, [n]);
   const items = n.loadout.filter((i) => i.kind !== 'armor' || !h.armor);
   if (items.length && rng.chance(0.55)) {
     const it = rng.pick(items);

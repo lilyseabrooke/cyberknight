@@ -11,6 +11,7 @@ import {
 import { SPOTS, hasPaper, spotRoom, type Crew } from './content/spots';
 import { addChamber } from './mapgen';
 import { addNpc, everyoneAt, moveNpc, removeNpc } from './population';
+import { bucketOf, atLeast, glimpse } from './stealth';
 import { sendAway } from './roster';
 import { rating } from './weapons';
 import { genWeapon } from './weapons';
@@ -323,7 +324,9 @@ export function enterRoom(c: Ctx, loc: Location): void {
     if (d.spot && roomOf(d, loc.id)?.cache && !roomOf(d, loc.id)!.cache!.taken) c.emit('dungeon_quiet', 'good', { kind: d.kind, crew: crewOf(d), place: loc.name, scene: d.scene ?? '', tier: d.tier });
     return;
   }
-  if (d.aware.includes(loc.id) || rng.chance(noticeChance(w, d, foes))) {
+  // Sneaking, each of them has a look as she comes in and the ones who see enough have her; walking in openly, it is the room's general watchfulness.
+  const seen = d.aware.includes(loc.id) || (w.hero.stealth ? glimpse(c, foes, 0.3 + 0.03 * d.tier + 0.1 * d.alert).length > 0 : rng.chance(noticeChance(w, d, foes)));
+  if (seen) {
     raiseAlarm(c, d, loc, 'seen');
     return;
   }
@@ -448,7 +451,8 @@ export function dungeonAmbient(c: Ctx): void {
   if (!loc || !d) return;
   checkCleared(c, d);
   if (!standing(w, d, loc.id).length || d.clearedRun !== null) return;
-  if (rng.chance(0.07 + 0.02 * d.tier + 0.04 * d.alert)) raiseAlarm(c, d, loc, 'lingered');
+  // Sneaking, it is whoever in the room has worked out where she is; otherwise a little more of the room's attention each beat.
+  if (w.hero.stealth ? standing(w, d, loc.id).some((n) => atLeast(bucketOf(w, n), 'aware')) : rng.chance(0.07 + 0.02 * d.tier + 0.04 * d.alert)) raiseAlarm(c, d, loc, 'lingered');
 }
 
 // ===================================================================== what she can do in there

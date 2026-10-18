@@ -8,6 +8,7 @@ import { hasGoal } from './mind';
 import { isHunted } from './pursuit';
 import { skillLevel } from './skills';
 import { workingCameras } from './witness';
+import { atLeast, bucketOf, isSneaking, awareness, V, profile } from './stealth';
 import { moveNpc } from './population';
 
 /**
@@ -37,6 +38,14 @@ export function exposure(w: World, locId: Id, targets: Npc[]): Exposure {
   const people = around.filter(isPerson);
   const drones = around.filter((n) => n.tags.includes('robot') && !n.tags.includes('dragon')).length;
   const cams = workingCameras(w, locId);
+  if (isSneaking(w) && locId === h.locationId) {
+    // Sneaking: it is how far along each of them already is, and how much one more thing would tip them over.
+    const next = 0.25 * profile(w);
+    const eyes = [...people, ...around.filter((n) => !isPerson(n) && n.tags.includes('robot') && !n.tags.includes('dragon'))];
+    const clear = eyes.slice(0, 6).reduce((a, n) => a * (1 - (atLeast(bucketOf(w, n), 'aware') ? 1 : clamp(awareness(w, n).v + next, 0, V.aware + 0.25) / (V.aware + 0.25))), 1);
+    const camP = cams > 0 ? clamp(((w.locations[locId]?.camAware ?? 0) + next) / (V.aware + 0.25), 0, 1) : 0;
+    return { people, p: 1 - clear * (1 - camP), cams, drones };
+  }
   const noticeP = clamp(0.8 - sneakBonus(w), 0.25, 0.97);
   const clear = Math.pow(1 - noticeP, Math.min(6, people.length));
   return { people, p: cams > 0 || drones > 0 ? 1 : 1 - clear, cams, drones };

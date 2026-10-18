@@ -1,3 +1,4 @@
+import { enterStealth, exitStealth } from './stealth';
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
 import type { AskOption, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Location, Npc, Ware, World, GameEvent } from './types';
@@ -696,6 +697,7 @@ const KINDS: Record<GoalKind, Kind> = {
       if (!d) return;
       if (g.mode === 'approach' || g.mode === 'retreat' || g.mode === undefined) {
         g.mode = questStyle(c, d, q.kind, pressureNow());
+        if (g.mode === 'sneak') enterStealth(c); // quiet means quiet
         g.lastProgress = w.beat;
         if (!g.entered) c.emit('goal_note', 'mixed', goalData(w, g, { variant: 'quest_in', dungeon: d.kind }));
         g.entered = true;
@@ -704,6 +706,7 @@ const KINDS: Record<GoalKind, Kind> = {
       // Quiet, and it has gone loud: no point being shy now.
       if (g.mode === 'sneak' && d.alert >= 2) {
         g.mode = 'clear';
+        exitStealth(c, 'noisy');
         c.emit('goal_note', 'bad', goalData(w, g, { variant: 'quest_blown', dungeon: d.kind }));
         return;
       }

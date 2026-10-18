@@ -161,7 +161,7 @@ New systems layered on the same affordance engine:
 
 ### Layered skills (third pass)
 
-About 26 skills across music (music, singing, guitar, DJing, beatboxing), aim and combat (pool, throwing, shooting, melee, athletics), stealth and tech (sneaking, sleight of hand, lockpicking, tinkering), social (romance, dancing, intimidation, streetwise, haggling, cards, animal rapport) and crafts (drinking, mixology, cooking, first aid, graffiti).
+About 27 skills across music (music, singing, guitar, DJing, beatboxing), aim and combat (pool, throwing, shooting, melee, athletics), stealth and tech (sneaking, perception, sleight of hand, lockpicking, tinkering), social (romance, dancing, intimidation, streetwise, haggling, cards, animal rapport) and crafts (drinking, mixology, cooking, first aid, graffiti).
 
 - **Combination rule.** An action lists the skills and stats that feed it. They combine as a **weighted geometric mean on a 0-10 scale** (`synergy()` in `engine/src/skills.ts`), and the result adds to a baseline luck chance (`ODDS` in `engine/src/hobbies.ts`). Any zero factor zeroes the skill part (music 10 + guitar 0 = baseline luck only), while a related skill improves a new one (guitar 3 + music 8 = about 4.9, better than guitar 3 alone). Stats count as factors (`stat:charm`).
 - **Spillover.** Training a skill gives a share of XP to related skills (guitar nudges music; pool nudges throwing), so learning something new carries her old knowledge with it.
@@ -631,3 +631,7 @@ Tuning notes: with competence 0.4, simulated heroes sleep about a third of the t
 **Sleep debt.** Poor beds refill the bar like any other but leave lingering tiredness (`hero.sleepDebt`, stacks 0–10) that doesn't wear off with time. After each sleep, realised quality below 0.8 (a pod, the street, a corner, passing out) adds `(0.8 − q) × 8` stacks, scaled by how much of a night she got; above 0.8 (an average hostel and up) takes off `(q − 0.8) × 12`. Each stack costs a little power, reflex, hack and charm (`debtPenalty`), softened by the lab's tiredness upgrades, and *Orthopedic Spine* makes every bed count as better. It shows as *Sleep debt* in the status panel and in `sleep_debt` log lines.
 
 **Expensive tastes.** Beyond what she needs, she likes a nicer bed because she's human: `wantsBetter` adds a pull toward higher-quality beds, scaled by `luxuryTaste` (from vanity and wanting to impress people, -1..1). Vain, show-off girls feel it strongly and mind the price less; a very unfussy one feels none and just takes whatever she needs (the pod unless sleep debt says otherwise).
+
+## Stealth (`stealth.ts`)
+
+Stealth is one system: while she sneaks, everyone who could notice her has an awareness that climbs and falls through four buckets (Unaware, Suspicious, Alert, Aware), calling for help is an ordinary action anyone can weigh, and Hush (a Hack) takes it away. Pickpocketing, dungeon sneaking, witnessing and ambushes all read the same state. See [`STEALTH.md`](STEALTH.md) for the rules and what isn't built yet.

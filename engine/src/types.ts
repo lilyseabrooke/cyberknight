@@ -122,6 +122,8 @@ export interface ParkedVehicle extends Vehicle {
 
 export interface Hero {
   name: string;
+  /** Sneaking: only then is anyone's awareness of her tracked. Out of stealth everyone in the room knows exactly where she is. See stealth.ts. */
+  stealth?: boolean;
   /** Hack and Override techniques she has picked up beyond the ones she starts with (see `LEARNABLE` in techniques.ts). */
   techniques?: string[];
   /** Randomly generated, astonishingly uncool. */
@@ -344,10 +346,31 @@ export interface Npc {
   bond?: Feelings;
   /** What they know about Blackbird's past runs that she might not expect them to. See universe.ts. */
   knows?: { died?: number; saw?: boolean; reacted?: boolean };
+  /** What they know about Blackbird, tracked while she sneaks. See stealth.ts. */
+  aware?: Awareness;
   /** The dungeon (its entrance's id) they are garrisoned in. Until they have noticed her, she can't deal with them one at a time; see dungeons.ts. */
   post?: Id;
   /** A job they have for Blackbird, once they've told her about it. Persists with them: the world remembers a job even when she doesn't. See quests.ts. */
   quest?: Quest;
+}
+
+/**
+ * How much one person (or camera) knows about Blackbird. `v` runs 0..1; with `fix` (they know where she is) a high `v`
+ * is Aware, without it Alert. Having lost her, they stay Alert until `floorUntil`, then slowly forget. See stealth.ts.
+ */
+export interface Awareness {
+  v: number;
+  fix: boolean;
+  /** Alert is the floor until this beat. */
+  floorUntil: number;
+  /** Where they last had her. */
+  seenAt?: Id;
+  /** When they last called for help, and whether anyone has had her since (if not, they don't call again). */
+  calledAt?: number;
+  calledSince?: boolean;
+  /** Hushed: no communicator or optics link until this beat. Silenced: no call at all, not even a shout. */
+  hushUntil?: number;
+  silenced?: boolean;
 }
 
 export type QuestKind = 'flatline' | 'retrieve' | 'hack';
@@ -441,6 +464,10 @@ export interface Location {
   cameras: number;
   /** Cameras Blackbird has shut down for now (Blackout), and the beat they come back on. */
   camsDown?: { n: number; until: number };
+  /** How much there is to hide behind, 0..1 (the crowd, the dark and the weather add to it). Absent means a little. See stealth.ts. */
+  cover?: number;
+  /** What the cameras here know about Blackbird while she sneaks, 0..1. */
+  camAware?: number;
   /** How tired this place's crowd is of her, per skill she performs with (singing, guitar...). Recovers with time. */
   fatigue?: Record<string, number>;
   /** How wary this place is of tricks she's pulled here (scams, fake goods, fortune-telling). Fades. */
@@ -883,6 +910,8 @@ export interface World {
   recent: string[];
   brawlUntil: number;
   blackoutUntil: number;
+  /** Everyone whose awareness of Blackbird is currently worth tracking, so the beat only has to look at them. */
+  watchers?: Id[];
   stats: { kills: number; fights: number; maxLevel: number; deposited: number; fees: number };
   over: boolean;
   ending: null | 'dead' | 'victory' | 'dawn';

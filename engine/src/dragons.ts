@@ -1,3 +1,4 @@
+import { noiseBoost } from './stealth';
 import { dragonChase } from './chase';
 import type { Ctx, DragonTemper, Flight, Id, Location, Npc, Roam, World } from './types';
 import { addHeat, fight, heroPower, npcsAt, relocate, remember } from './combat';
@@ -317,7 +318,8 @@ function spawnPersistent(c: Ctx, model: string, count: number, at: Id): Npc[] {
 function noticeChance(w: World, f: Flight): number {
   // Sharp-eyed ones notice sooner (a flight made without a temper of its own is average).
   const k = f.temper ? 0.6 + 0.8 * f.temper.alertness : 1;
-  return baseNotice(w, f) * k;
+  // Something loud a moment ago carries a long way, and they are listening.
+  return Math.min(0.95, baseNotice(w, f) * k + noiseBoost(w) * k);
 }
 
 function baseNotice(w: World, f: Flight): number {

@@ -14,6 +14,7 @@ import { dragonSpeed, hasTrait, legSpeed } from './dragonmodels';
 import type { ArtBranch } from './content/doctrine';
 import * as D from './doctrine';
 import { perceived, ratio, statsOf } from './npcstats';
+import { atLeast, bucketOf, callForHelp, channelNow, hush } from './stealth';
 
 /**
  * A fight, played out on a small grid. Nobody watches it: the player gets a report of the interesting bits and the result.
@@ -287,7 +288,6 @@ export class Sim {
   private lastWield: string;
   private readonly procs = new Set<string>();
   private readonly queue: { unit: Unit; round: number; why: 'joiner' | 'law' | 'backup' }[] = [];
-  private backups = 0;
   /** Rounds the doors stay sealed (Door Lock) and the lights stay out (Lights Out). */
   sealed = 0;
   dark = 0;
@@ -317,7 +317,8 @@ export class Sim {
     this.hero = this.heroUnit();
     this.units.push(this.hero);
     for (const a of h.companions) if (a.hp > 0) this.units.push(this.allyUnit(a));
-    for (const f of o.foes) this.units.push(this.foeUnit(f, !o.assault));
+    // Sneaking, whoever she picked a fight with is only ready for it if they already had a sense of her.
+    for (const f of o.foes) this.units.push(this.foeUnit(f, !o.assault || (h.stealth === true && atLeast(bucketOf(c.w, f), 'alert'))));
     this.foeTotal = o.foes.length;
     for (const a of o.arrivals) this.queue.push({ unit: this.foeUnit(a.npc, true, 'pending'), round: a.round, why: a.why === 'law' ? 'law' : 'joiner' });
     this.place();
@@ -839,6 +840,31 @@ export class Sim {
     return clamp(0.35 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.03 - this.firewall(t, perceivedOnly), 0.1, 0.9);
   }
 
+  /** Whether anyone could come if they called. */
+  get backupPossible(): boolean {
+    return !!this.o.backup;
+  }
+
+  /** One of them calls for help. Whoever hears it and would come turns up in a round or two. */
+  callBackup(u: Unit): void {
+    const heard = callForHelp(this.c, u.npc!);
+    u.cd.call = 99;
+    const cap = u.npc && channelNow(this.w, u.npc) === 'shout' ? 1 : 2;
+    const pals = (this.o.backup?.() ?? []).filter((n) => heard.includes(n) && !this.units.some((x) => x.id === n.id) && !this.queue.some((q) => q.unit.id === n.id));
+    for (const pal of pals.slice(0, cap)) this.queue.push({ unit: this.foeUnit(pal, true, 'pending'), round: this.round + 1 + this.c.rng.int(0, 2), why: 'backup' });
+  }
+
+  /** Hush, a Hack: a burst down the comm link that leaves them unable to call out for a while. A very good one leaves them with nothing, not even a shout. */
+  doHush(t: Unit): void {
+    const p = this.hackChance(this.hero, t);
+    const r = this.c.rng.next();
+    if (r >= p) return;
+    hush(this.w, t.npc!, r < p * 0.2);
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'hush', foe: t.name, deep: r < p * 0.2 }, 3, `hush:${t.id}`);
+  }
+
   doHack(me: Unit, t: Unit): void {
     if (!this.c.rng.chance(this.hackChance(me, t))) return;
     t.stunned = true;
@@ -1326,27 +1352,14 @@ export class Sim {
     for (const q of now) {
       this.queue.splice(this.queue.indexOf(q), 1);
       if (this.arriveAt(q.unit)) {
+        if (q.why === 'backup') {
+          q.unit.npc!.hostile = true;
+          q.unit.npc!.affinity -= 15;
+        }
         this.units.push(q.unit);
         this.arrived.push(q.unit.npc!);
         this.foeTotal++;
         groups.set(q.why, [...(groups.get(q.why) ?? []), q.unit]);
-      }
-    }
-    // Friends of the other side hear the noise.
-    if (this.o.backup && this.round >= 3 && this.backups < 2 && this.lostFraction() > 0 && rng.chance(0.22)) {
-      const pals = this.o.backup().filter((n) => !this.units.some((u) => u.id === n.id));
-      const pal = pals.length ? rng.pick(pals) : null;
-      if (pal) {
-        const u = this.foeUnit(pal, true);
-        if (this.arriveAt(u)) {
-          this.backups++;
-          pal.hostile = true;
-          pal.affinity -= 15;
-          this.units.push(u);
-          this.arrived.push(pal);
-          this.foeTotal++;
-          groups.set('backup', [...(groups.get('backup') ?? []), u]);
-        }
       }
     }
     for (const [why, us] of groups) {

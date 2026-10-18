@@ -3,6 +3,7 @@ import type { Pos } from './grid';
 import { dist, terrainAt } from './grid';
 import type { Sim, Unit } from './tactics';
 import { doctrineTechniques } from './doctrine';
+import { callWeight, channelNow } from './stealth';
 
 /**
  * Everything a unit can do with its action, as data plus two small functions. Adding a way to fight is adding an entry
@@ -220,7 +221,7 @@ function hack(s: Sim, u: Unit): Technique[] {
  * Hacks and Overrides she doesn't start with. Nothing hands them out yet: they appear in `hero.techniques` (see
  * `learnTechnique`) when something in the world teaches them, and until then she can't use them.
  */
-export const LEARNABLE = ['gun_jam', 'limb_lock', 'pain_spike', 'rewrite', 'hot_wire', 'overclock', 'door_lock', 'lights_out', 'power_cut', 'turret_takeover', 'alarm_spoof'] as const;
+export const LEARNABLE = ['gun_jam', 'limb_lock', 'pain_spike', 'rewrite', 'hot_wire', 'overclock', 'door_lock', 'lights_out', 'power_cut', 'turret_takeover', 'alarm_spoof', 'hush'] as const;
 export type LearnableId = (typeof LEARNABLE)[number];
 
 export const knowsTechnique = (h: { techniques?: string[] }, id: LearnableId): boolean => !!h.techniques?.includes(id);
@@ -256,6 +257,7 @@ function learned(s: Sim): Technique[] {
   foeHack('gun_jam', 4, (t) => armed(t) && !t.disarmed, (s2, me, t, p, th) => (4 + 12 * th) * p, (s2, t) => s2.doGunJam(t));
   foeHack('limb_lock', 4, (t) => !t.arm && !t.leg && !!t.npc!.tags.some((x) => x === 'augmented' || x === 'robot'), (s2, me, t, p, th) => (3 + 10 * th) * p, (s2, t) => s2.doLimbLock(t));
   foeHack('pain_spike', 3, () => true, (s2, me, t, p) => strikeValue(p, s2.painSpikeDamage(t), t.ref.hp), (s2, t) => s2.doPainSpike(t));
+  foeHack('hush', 3, (t) => !!t.npc && !t.cd.call && s.backupPossible && channelNow(s.w, t.npc) !== null && callWeight(s.w, t.npc, 1, 0) > 0.1, (s2, me, t, p) => (2 + 9 * callWeight(s2.w, t.npc!, 1, 0)) * p, (s2, t) => s2.doHush(t));
   foeHack('rewrite', 6, (t) => !!t.npc!.tags.includes('robot'), (s2, me, t, p, th) => (6 + 16 * th) * Math.max(0.05, p - 0.1), (s2, t) => s2.doRewrite(t));
 
   if (has('hot_wire')) {
@@ -572,10 +574,35 @@ function allyAttack(u: Unit): Technique {
   };
 }
 
+// ------------------------------------------------------------------ calling for help
+
+/** Any of them can call for help; whether they do is a matter of what they have to call with and how much they need it. */
+function callHelp(s: Sim, u: Unit): Technique[] {
+  if (!u.npc || u.cd.call || !s.backupPossible) return [];
+  return [
+    {
+      id: 'call',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value(s2, me) {
+        const foes = s2.standingFoes();
+        const power = foes.reduce((a, f) => a + f.power, 0);
+        const present = foes.filter((f) => f !== me && !!f.npc?.faction && f.npc.faction === me.npc!.faction).length;
+        const k = callWeight(s2.w, me.npc!, s2.hooks.heroPower(s2.w, s2.wield, true) / Math.max(1, power), present);
+        return k > 0.05 ? 12 * k : null;
+      },
+      run(s2, me) {
+        s2.callBackup(me);
+      },
+    },
+  ];
+}
+
 // ------------------------------------------------------------------ the registry
 
 export function techniquesFor(s: Sim, u: Unit): Technique[] {
   if (u.kind === 'hero') return [attack(s, u), ...throwing(s), ...ambush(s), ...flurry(s), ...shove(s), ...hack(s, u), ...(u.kind === 'hero' ? learned(s) : []), ...intimidate(s), ...overwatch(s), ...getIn(s), ...mount(s), ...rideBy(s), ...driveOff(s), ...runDown(s), ...doctrineTechniques(s), leave()];
   if (u.kind === 'ally') return [allyAttack(u), ...hack(s, u)];
-  return [attack(s, u), forceDoor(), leave()];
+  return [attack(s, u), ...callHelp(s, u), forceDoor(), leave()];
 }

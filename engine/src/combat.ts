@@ -25,6 +25,7 @@ import { ensureDungeon } from './dungeons';
 import { afterTakedown, downFor, isShut } from './shutdown';
 import { dropFlights, modelOf } from './dragonmodels';
 import { markKilled } from './dragonlog';
+import { loseContact } from './stealth';
 
 export { npcsAt };
 
@@ -45,6 +46,7 @@ export function relocate(w: World, to: string): void {
   // A shut door stays shut however she came to be at it: thrown, fleeing, or lost.
   for (let i = 0; i < 6 && isShut(w, to); i++) to = w.locations[to]?.tossTo ?? 'street_main';
   const from = h.locationId;
+  if (from !== to) loseContact(w, from); // whoever had her, hasn't
   // Whoever she's looking at stays where she left them for a while; where she's headed catches up on the time she's been away.
   pinAt(w, from, w.clock);
   h.previousLocationId = from;
@@ -282,7 +284,8 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   const names = foes.map((f) => f.name).join(', ');
 
   const factions = new Set(foes.map((f) => f.faction).filter((f): f is string => !!f));
-  const backup = () =>
+  // (A sanctioned bout, with nobody invited, is nobody's cue to call for friends.)
+  const backup = o.joiners === false ? undefined : () =>
     npcsAt(w, loc.id).filter(
       (n) =>
         !foes.includes(n) &&
