@@ -105,7 +105,7 @@ function walkRounds(w: World, p: Placed): void {
     if (e.behavior !== 'patrol' || !e.route || e.route.length < 2 || w.npcs[id]?.hostile) continue;
     const { pauseA, pauseB, offset } = roundOf(id);
     const path = pathBetween(`${w.worldSeed}:${board.loc}`, layout, e.route[0]!, e.route[1]!);
-    const r = routeAt(path, pauseA, pauseB, w.beat + offset);
+    const r = routeAt(path, pauseA, pauseB, tickOf(w) + offset);
     const blocked = occupied(board, r.at, id);
     if (!blocked) {
       e.x = r.at.x;
@@ -130,12 +130,12 @@ export function patrolPeriod(w: World, p: Placed, id: Id): number | null {
 /** Which stretch of the evening a person is in, for those who move about: every so often, a little different for each. */
 const slotOf = (id: Id, beat: number): number => {
   const h = hashString(`slot:${id}`);
-  const stay = 10 + (h % 10);
+  const stay = 20 + (h % 25);
   return Math.floor((beat + ((h >> 4) % stay)) / stay);
 };
 
-/** Beats after a scene left someone in the middle of something before they give up and go back to their rounds. */
-const RESUME = 8;
+/** World minutes after a scene left someone in the middle of something before they give up and go back to their rounds. */
+const RESUME = 10;
 
 /** Those who stay where they work. */
 const fixedStation = (n: Npc): boolean => n.archetype === 'bartender' || n.archetype === 'dj' || n.archetype === 'bouncer' || n.role === 'DJ' || /bartender|barkeep/i.test(n.role) || n.tags.includes('security') || n.tags.includes('cop');
@@ -262,11 +262,11 @@ export function syncPlace(w: World, p: Placed): void {
     const n = w.npcs[x.npcId];
     return !!n && n.locationId === board.loc && (!n.alive || n.downUntil > w.beat);
   });
-  const rng = new Rng(`board:${board.loc}:${w.beat}`);
+  const rng = new Rng(`board:${board.loc}:${tickOf(w)}`);
   // After a long while away, those who were on a post are back on it.
-  const away = w.beat - board.placedAt;
-  if (away > 24 && layout.role !== 'club') for (const e of Object.values(board.ents)) standDown(e);
-  board.placedAt = w.beat;
+  const away = tickOf(w) - board.placedAt;
+  if (away > 60 && layout.role !== 'club') for (const e of Object.values(board.ents)) standDown(e);
+  board.placedAt = tickOf(w);
   for (const n of here) if (!board.ents[n.id]) assign(layout, board, n, rng);
 
   // In a club, the patrons move on to somewhere else when their stretch is up.
@@ -274,7 +274,7 @@ export function syncPlace(w: World, p: Placed): void {
     for (const n of here) {
       const e = board.ents[n.id];
       if (!e || n.hostile || fixedStation(n)) continue;
-      const slot = slotOf(n.id, w.beat);
+      const slot = slotOf(n.id, tickOf(w));
       if (e.slot === undefined) e.slot = slot;
       else if (e.slot !== slot) {
         delete board.ents[n.id];
@@ -288,8 +288,8 @@ export function syncPlace(w: World, p: Placed): void {
   // Somebody a scene left in the middle of something gives it up after a while and goes back to their rounds.
   for (const e of Object.values(board.ents)) {
     if (e.behavior === 'investigate' || e.behavior === 'search' || e.behavior === 'return') {
-      if (e.sceneAt === undefined) e.sceneAt = w.beat;
-      else if (w.beat - e.sceneAt >= RESUME) {
+      if (e.sceneAt === undefined) e.sceneAt = tickOf(w);
+      else if (tickOf(w) - e.sceneAt >= RESUME) {
         e.sceneAt = undefined;
         standDown(e);
       }
@@ -298,6 +298,9 @@ export function syncPlace(w: World, p: Placed): void {
 
   walkRounds(w, p);
 }
+
+/** The tick everything on a board runs on: one per world minute, so an hour-long odd job moves the room along far more than a glance does. */
+export const tickOf = (w: Pick<World, 'clock'>): number => Math.floor(w.clock);
 
 /** Once a beat, for the place she is in. */
 export function tickPlace(w: World): void {
@@ -308,7 +311,7 @@ export function tickPlace(w: World): void {
   for (const [id, e] of Object.entries(p.board.ents)) {
     if (e.behavior && e.behavior !== 'post') continue;
     if (w.npcs[id]?.hostile) continue;
-    e.facing = ((e.homeFacing ?? e.facing) + LOOK[(w.beat + hashString(id)) % 8]!) % 8;
+    e.facing = ((e.homeFacing ?? e.facing) + LOOK[(tickOf(w) + hashString(id)) % 8]!) % 8;
   }
 }
 
@@ -368,7 +371,7 @@ export function camerasSeeHer(w: World): boolean {
   const layout = board ? layoutOf(w, loc) : undefined;
   if (!board || !layout) return true;
   const lit = w.flags.blackout ? 0 : (layout.light[idx(layout.grid, board.hero)] ?? 1);
-  return workingCams(w, loc).some((cam) => camView(layout.grid, { x: cam.x, y: cam.y, facing: camFacing(cam, w.beat) }, board.hero, lit as 0 | 1 | 2) > 0);
+  return workingCams(w, loc).some((cam) => camView(layout.grid, { x: cam.x, y: cam.y, facing: camFacing(cam, tickOf(w)) }, board.hero, lit as 0 | 1 | 2) > 0);
 }
 
 // ------------------------------------------------------------------ where she is

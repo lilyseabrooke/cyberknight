@@ -1,6 +1,6 @@
 import { Rng, hashString } from './rng';
 import { phaseOf } from './clock';
-import { isShut } from './shutdown';
+import { crowdAt, isClosed } from './hours';
 import { AWAY, everyoneAt, hauntersOf, moveNpc } from './population';
 import type { Id, Npc, World } from './types';
 
@@ -29,11 +29,20 @@ export function placeAt(w: World, n: Npc, now: number): Id {
   const stay = STAY + tempo(n.id);
   const slot = Math.floor((now + tempo(n.id) * 7) / stay);
   const rng = new Rng(`at:${w.worldSeed}:${n.id}:${slot}`);
+  const ok = (loc: Id): boolean => loc === AWAY || (!!w.locations[loc] && !isClosed(w, loc));
   const routine = n.routine?.[phaseOf(now)];
-  if (routine && (routine === AWAY || (w.locations[routine] && !isShut(w, routine))) && rng.chance(0.8)) return routine;
-  const options = Object.entries(n.haunts ?? {}).filter(([loc, wt]) => wt > 0 && (loc === AWAY || (w.locations[loc] && !isShut(w, loc))));
-  if (!options.length) return n.locationId;
-  return rng.weighted(options, ([, wt]) => wt)[0];
+  let to: Id | undefined;
+  if (routine && ok(routine) && rng.chance(0.8)) to = routine;
+  else {
+    const options = Object.entries(n.haunts ?? {}).filter(([loc, wt]) => wt > 0 && ok(loc));
+    // With nowhere else to be, they stay put, unless the doors have closed on them.
+    if (!options.length) return isClosed(w, n.locationId) && n.locationId !== AWAY ? AWAY : n.locationId;
+    to = rng.weighted(options, ([, wt]) => wt)[0];
+  }
+  // Bystanders come and go with the hour: a club is empty at six and packed at midnight.
+  const there = w.locations[to];
+  if (n.ephemeral && there && new Rng(`crowd:${w.worldSeed}:${n.id}:${slot}`).next() >= crowdAt(w, there, now)) return AWAY;
+  return to;
 }
 
 const movable = (w: World, n: Npc): boolean =>
@@ -43,7 +52,7 @@ const movable = (w: World, n: Npc): boolean =>
 export function settle(w: World, n: Npc, now: number): boolean {
   if (!movable(w, n) || (!n.haunts && !n.routine)) return false;
   const since = n.settledAt ?? 0;
-  if (now - since < STAY + tempo(n.id)) return false;
+  if (now - since < STAY + tempo(n.id) && !isClosed(w, n.locationId)) return false;
   n.settledAt = now;
   const to = placeAt(w, n, now);
   if (to === n.locationId) return false;

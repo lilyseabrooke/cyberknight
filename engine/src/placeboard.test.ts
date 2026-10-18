@@ -167,7 +167,7 @@ describe('where everyone is', () => {
     const djBefore = dj ? { ...p.board.ents[dj.id]! } : null;
     let moved = 0;
     for (let i = 0; i < 40; i++) {
-      w.beat++;
+      w.clock++;
       tickPlace(w);
       // (always behind the bar)
       expect(p.layout.zones.behindBar.some((q) => q.x === p.board.ents[bar.id]!.x && q.y === p.board.ents[bar.id]!.y), `beat ${i}`).toBe(true);
@@ -356,7 +356,7 @@ describe('the rest of the game is not disturbed', () => {
       const here = npcsAt(w, 'neon_pharaoh');
       expect(placeOf(w)).not.toBeNull();
       for (let b = 0; b < 12; b++) {
-        w.beat++;
+        w.clock++;
         tickPlace(w);
       }
       relocate(w, 'street_main');

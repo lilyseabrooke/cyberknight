@@ -13,7 +13,7 @@ import { flameOf } from './traits';
 import { isFairGame } from './people';
 import { buyGear, supplyUrge } from './supply';
 import { heatUrge } from './laylow';
-import { isShut } from './shutdown';
+import { isClosed } from './hours';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { possessive } from './mapgen';
@@ -775,7 +775,7 @@ const KINDS: Record<GoalKind, Kind> = {
 
 /** Places she has never been that she could walk to: streets and rooms, not other people's homes, dungeons or corp floors. */
 function unexplored(w: World): Location[] {
-  return Object.values(w.locations).filter((l) => l.visits === 0 && !l.dungeon && !['home', 'corp', 'boss', 'lair'].includes(l.kind) && !isShut(w, l.id) && !hasGoal(w, 'explore', l.id));
+  return Object.values(w.locations).filter((l) => l.visits === 0 && !l.dungeon && !['home', 'corp', 'boss', 'lair'].includes(l.kind) && !isClosed(w, l.id) && !hasGoal(w, 'explore', l.id));
 }
 
 /** A new place worth the walk: the nearer the better, streets (which turn up doors) a bit better still. */

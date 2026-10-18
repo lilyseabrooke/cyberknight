@@ -97,7 +97,7 @@ describe('facing and cones', () => {
     e.homeFacing = 6;
     const faced = new Set<number>();
     for (let i = 0; i < 16; i++) {
-      w.beat++;
+      w.clock++;
       tickPlace(w);
       faced.add(p.board.ents[guard.id]!.facing);
     }
@@ -113,7 +113,7 @@ describe('facing and cones', () => {
     w.hero.stealth = true;
     const { c } = ctxOf(w);
     for (let i = 0; i < 4; i++) {
-      w.beat++;
+      w.clock++;
       tickStealth(c);
     }
     expect(awareness(w, guard).v).toBeGreaterThan(0);
@@ -231,7 +231,7 @@ describe('cameras', () => {
     p.board.hero = { x: 3, y: 3 };
     const seen: boolean[] = [];
     for (let t = 0; t < 8; t++) {
-      w.beat = t;
+      w.clock = t;
       seen.push(camerasSeeHer(w));
     }
     expect(seen).toContain(true);
@@ -239,7 +239,7 @@ describe('cameras', () => {
     // And behind a big thing she is never in it.
     layout.grid.tall = [idx(layout.grid, { x: 1, y: 1 }), idx(layout.grid, { x: 1, y: 2 }), idx(layout.grid, { x: 2, y: 1 })];
     for (let t = 0; t < 8; t++) {
-      w.beat = t;
+      w.clock = t;
       expect(camerasSeeHer(w), `beat ${t}`).toBe(false);
     }
   });
@@ -254,11 +254,11 @@ describe('cameras', () => {
       // The beat the camera is on her, and one it is not.
       let beat = -1;
       for (let t = 0; t < 8; t++) {
-        w.beat = t;
+        w.clock = t;
         if (camerasSeeHer(w) === looking) beat = t;
       }
       expect(beat).toBeGreaterThanOrEqual(0);
-      w.beat = beat;
+      w.clock = beat;
       const { c, events } = ctxOf(w, `c${looking}`);
       fight(c, [victim], { cause: 'test', assault: true, joiners: false });
       const seen = events.find((e) => e.type === 'crime_seen')!;
@@ -280,7 +280,7 @@ describe('cameras', () => {
     loc.camAware = 0;
     const { c } = ctxOf(w);
     for (let i = 0; i < 6; i++) {
-      w.beat++;
+      w.clock++;
       tickStealth(c);
     }
     expect(loc.camAware ?? 0).toBe(0);
@@ -290,7 +290,7 @@ describe('cameras', () => {
     const cam = layout.cams[0]!;
     let sawCost = false;
     for (let t = 0; t < 8 && !sawCost; t++) {
-      w.beat = t;
+      w.clock = t;
       if (camGain(b, cam, { x: 3, y: 3 }, 'walk', t) > 0) sawCost = exposure(b, { x: 3, y: 3 }, 'walk') > 0;
     }
     expect(sawCost).toBe(true);

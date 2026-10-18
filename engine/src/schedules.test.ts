@@ -67,7 +67,7 @@ describe('guards on a beat', () => {
     const w0 = walkers[0]!;
     const seen = new Set<string>();
     for (let i = 0; i < 40; i++) {
-      w.beat++;
+      w.clock++;
       tickPlace(w);
       seen.add(at(p.board.ents[w0.id]!));
     }
@@ -91,10 +91,10 @@ describe('guards on a beat', () => {
     if (!walkers.length) return;
     // one steps through every beat and the other jumps
     for (let i = 0; i < 57; i++) {
-      a.w.beat++;
+      a.w.clock++;
       tickPlace(a.w);
     }
-    b.w.beat += 57;
+    b.w.clock += 57;
     syncPlace(b.w, pb);
     for (const n of walkers) {
       const x = pa.board.ents[n.id]!;
@@ -120,9 +120,9 @@ describe('guards on a beat', () => {
         if (c === 'wall' || c === 'cover') continue;
         p.board.hero = { x, y };
         const sees: boolean[] = [];
-        const start = w.beat;
+        const start = w.clock;
         for (let t = 0; t < period * 2; t++) {
-          w.beat = start + t;
+          w.clock = start + t;
           syncPlace(w, p);
           sees.push(seesHer(w, guard));
         }
@@ -141,11 +141,11 @@ describe('guards on a beat', () => {
     if (!walker) return;
     const e = p.board.ents[walker.id]!;
     for (let i = 0; i < 40; i++) {
-      w.beat++;
+      w.clock++;
       tickPlace(w);
       // stand where it was heading
       p.board.hero = { x: e.x, y: e.y };
-      w.beat++;
+      w.clock++;
       tickPlace(w);
       expect(at(e)).not.toBe(at(p.board.hero));
     }
@@ -159,10 +159,10 @@ describe('guards on a beat', () => {
     const e = p.board.ents[g.id]!;
     e.behavior = 'search';
     e.last = { x: e.x, y: e.y };
-    w.beat += 3;
+    w.clock += 3;
     syncPlace(w, p);
     expect(p.board.ents[g.id]!.behavior).toBe('search');
-    w.beat += 10;
+    w.clock += 10;
     syncPlace(w, p);
     expect(['post', 'patrol']).toContain(p.board.ents[g.id]!.behavior);
     expect(p.board.ents[g.id]!.last).toBeNull();
@@ -200,7 +200,7 @@ describe('a club\'s staff and patrons', () => {
     syncPlace(w, p);
     const tiles: Record<string, Set<string>> = { bar: new Set(), guard: new Set(), dj: new Set() };
     for (let i = 0; i < 60; i++) {
-      w.beat++;
+      w.clock++;
       tickPlace(w);
       tiles.bar!.add(at(p.board.ents[bar.id]!));
       tiles.guard!.add(at(p.board.ents[guard.id]!));
@@ -224,7 +224,7 @@ describe('a club\'s staff and patrons', () => {
     const first = Object.fromEntries(crowd.map((n) => [n.id, at(p.board.ents[n.id]!)]));
     const changes = new Set<string>();
     for (let i = 0; i < 120; i++) {
-      w.beat++;
+      w.clock++;
       tickPlace(w);
       const seen = new Set<string>([at(p.board.hero)]);
       for (const n of crowd) {

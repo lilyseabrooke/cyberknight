@@ -153,11 +153,11 @@ describe('sneaking leaves the board as it finds it', () => {
     e.x = home.x + (home.x > 0 ? -1 : 1);
     e.behavior = 'search';
     e.last = { x: home.x, y: home.y };
-    w.beat += 5;
+    w.clock += 5;
     syncPlace(w, p);
     expect(p.board.ents[g.id]!.behavior).toBe('search');
     expect(p.board.ents[g.id]!.last).toEqual(home);
-    w.beat += 40;
+    w.clock += 40;
     syncPlace(w, p);
     expect(p.board.ents[g.id]!.behavior).not.toBe('search');
     expect({ x: p.board.ents[g.id]!.x, y: p.board.ents[g.id]!.y }).toEqual(home);
@@ -251,7 +251,7 @@ describe('between scenes', () => {
     const g = standing(w, d, loc.id)[0]!;
     const at = { x: p.board.ents[g.id]!.x, y: p.board.ents[g.id]!.y };
     for (let i = 0; i < 20; i++) {
-      w.beat++;
+      w.clock++;
       tickPlace(w);
     }
     expect({ x: p.board.ents[g.id]!.x, y: p.board.ents[g.id]!.y }).toEqual(at);

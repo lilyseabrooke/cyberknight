@@ -22,10 +22,10 @@ A place's layout is worked out from its id and the world's seed alone, so it is 
 
 Between scenes it is deliberately coarse and none of it is in the log:
 
-- **Where anyone is, when no scene is on, is a function of the clock** (`routeAt`, `walkRounds`, `slotOf`): nobody is stepped from beat to beat, so skipping ahead and watching every beat give the same answer. A round is a path between two tiles with a pause at each end (the pauses and a starting offset are fixed per person), and it comes round again every `patrolPeriod` beats, so a patrol can be learned and timed. At an end they look about; walking, they face the way they go.
-- In a club people have **stations** by what they are: the bartender works up and down behind the bar, security walk a round of the floor from the door, the DJ stays on the decks, and patrons move on to another spot (bar, floor, booth) every ten to twenty beats, never onto each other or her.
+- **Where anyone is, when no scene is on, is a function of the world clock** (`tickOf`: one tick per world minute, not per beat, so an hour-long odd job moves the room on far more than a word does) (`routeAt`, `walkRounds`, `slotOf`): nobody is stepped from beat to beat, so skipping ahead and watching every beat give the same answer. A round is a path between two tiles with a pause at each end (the pauses and a starting offset are fixed per person), and it comes round again every `patrolPeriod` minutes, so a patrol can be learned and timed. At an end they look about; walking, they face the way they go.
+- In a club people have **stations** by what they are: the bartender works up and down behind the bar, security walk a round of the floor from the door, the DJ stays on the decks, and patrons move on to another spot (bar, floor, booth) every twenty to forty-five minutes, never onto each other or her.
 - Elsewhere they stand scattered away from the doors, a guard on a post or walking a round. People who turn up in the middle of something (a mugging) start a few tiles from her.
-- A scene can leave someone mid-search or mid-chase; after `RESUME` (8) quiet beats they give it up and go back to their round (`standDown`).
+- A scene can leave someone mid-search or mid-chase; after `RESUME` (10) quiet minutes they give it up and go back to their round (`standDown`).
 - The fallen stay where they fell until they get up or are taken away.
 
 She **arrives in the doorway** of the door she came in by (`relocate` calls `enterPlace`). Actions that need her somewhere put her there first (`positionFor`): chatting, flirting, kissing, threatening, arm wrestling and analyzing put her beside the person; pickpocketing, behind them; the DJ booth, the dance floor and settling a tab put her at those. She is not moved to start a fight. A long walk is mentioned now and then (`place_spot`), not every time.
@@ -53,3 +53,8 @@ Pickpocketing asks who could actually see it (`spatialStir`): people facing her,
 - Crowds: only the people present are on the board; a crowd mass for the rest (blocks sight, counts as cover, supplies joiners) is not done.
 - Streets as strips on the hex grid, with chases running across them.
 - Fixtures doing more in a fight (the counter as cover is there; bottles, the jukebox and the speakers are not yet).
+
+## Hours and crowds (`hours.ts`)
+
+- A place can have **opening hours** (`Location.hours`, [open, close] in hours of the day; a close before the open runs past midnight). Clubs keep 20:00 to 06:00 by default; nothing else has any unless it sets its own. `isClosed` (shut for good or outside its hours) hides the door from her choices, keeps wanderers out, and sends the ones inside home (`placeAt`). If she is still inside when it closes she is shown out (`closing`, in `run.ts`).
+- The **crowd** follows the hour (`crowdAt`, a curve per kind: a club is thin at eight, packed from eleven to one, near empty by five). Bystanders (`ephemeral`) are made in that proportion when a place is first looked at, and afterwards come and go with each stretch they spend somewhere.

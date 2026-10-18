@@ -35,7 +35,7 @@ import { knowledgeCandidates, shareFact } from './knowledge';
 import { questCandidates } from './quests';
 import { isFairGame } from './people';
 import { isBadGuy } from './traits';
-import { isShut } from './shutdown';
+import { isClosed } from './hours';
 import { moveNpc } from './population';
 import { cooling } from './mind';
 import { atLeast, awareness, bucketOf, coverAt, enterStealth, isSneaking, npcPerception, stealthCandidates } from './stealth';
@@ -233,7 +233,7 @@ export function gather(w: World): Candidate[] {
   for (const e of loc.exits) {
     if (e.hidden) continue;
     if (e.to === 'overpass' && !w.flags.dragon_known) continue;
-    if (isShut(w, e.to)) continue; // locked up, or taped off by the police
+    if (isClosed(w, e.to)) continue; // locked up, or taped off by the police
     const dest = w.locations[e.to]!;
     const toDragon = e.to === 'overpass';
     const dragonRisk = toDragon && alive(dragon) ? clamp(dragonPower / heroPower(w) - 0.6, 0, 4) : 0;
@@ -261,7 +261,7 @@ export function gather(w: World): Candidate[] {
   // ------------------------------------------------------------------- across the hex grid
   // Not doors: over the fence, along the ducts, through the building next door. On wheels she can only take the ways a vehicle can.
   for (const e of loc.links ?? []) {
-    if (e.hidden || isShut(w, e.to) || !w.locations[e.to]) continue;
+    if (e.hidden || isClosed(w, e.to) || !w.locations[e.to]) continue;
     const mode = h.vehicle ? (h.vehicle.body === 'bike' ? 'bike' : 'car') : 'foot';
     if (!Number.isFinite(VIA[e.via ?? 'open'][mode]) || (h.vehicle && e.via !== 'open' && e.via !== 'ramp')) continue;
     const dest = w.locations[e.to]!;

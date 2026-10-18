@@ -1,3 +1,4 @@
+import { crowdAt } from './hours';
 import { Rng } from './rng';
 import { ARCHETYPES, spawnNpc } from './content/archetypes';
 import { influenceOf, pickFaction } from './factions';
@@ -130,7 +131,8 @@ export function populate(w: World, loc: Location): Npc[] {
     if (slot.minSecurity !== undefined && loc.security < slot.minSecurity) return;
     const rng = new Rng(`slot:${w.worldSeed}:${loc.id}:${si}`);
     if (slot.chance !== undefined && !rng.chance(slot.chance)) return;
-    const n = rng.int(slot.count[0], slot.count[1]);
+    // Bystanders are as many as the hour brings: a club at eight in the evening has a few, at midnight the whole crowd.
+    const n = slot.ephemeral ? Math.round(rng.int(slot.count[0], slot.count[1]) * crowdAt(w, loc, w.clock)) : rng.int(slot.count[0], slot.count[1]);
     for (let j = 0; j < n; j++) {
       const id = slotId(slot.role, loc.id, si, j);
       const existing = w.npcs[id];

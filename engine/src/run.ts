@@ -15,7 +15,8 @@ import { ambientGraffiti } from './graffiti';
 import { hasImplantFlag, skillLevel } from './skills';
 import { expireBuffs, restockShelf } from './supply';
 import { discretion } from './discretion';
-import { closureTick, heavyFor, hiringTick } from './shutdown';
+import { building, closureTick, heavyFor, hiringTick, outside } from './shutdown';
+import { openAt } from './hours';
 import { scanBounties } from './bounty';
 import { scanHomes } from './homes';
 import { recognizeRevenant } from './revenant';
@@ -249,11 +250,22 @@ export function advise(w: World, optionId: string): GameEvent[] {
   return events;
 }
 
+/** Out of hours, whoever is still inside is shown out. */
+function closeUp(c: Ctx): void {
+  const { w } = c;
+  const at = w.locations[w.hero.locationId];
+  if (!at || at.dungeon || openAt(w, at, w.clock)) return;
+  const to = outside(w, at.id, building(w, at.id));
+  c.emit('closing', 'mixed', { place: at.name });
+  relocate(w, to);
+}
+
 function upkeep(c: Ctx): void {
   const { w } = c;
   const h = w.hero;
   expireBuffs(c);
   w.flags.blackout = w.beat < w.blackoutUntil;
+  closeUp(c);
   tickStealth(c);
   tickPlace(w);
   if (w.beat % 10 === 0) for (const k of Object.keys(w.heat)) w.heat[k] = Math.max(0, (w.heat[k] ?? 0) - 1);

@@ -121,7 +121,7 @@ describe('stealth needs no cover from those who cannot see her', () => {
     const { c } = ctxOf(w);
     w.hero.stealth = true;
     for (let i = 0; i < 6; i++) {
-      w.beat++;
+      w.clock++;
       tickStealth(c);
     }
     expect(awareness(w, open).v).toBeGreaterThan(0);

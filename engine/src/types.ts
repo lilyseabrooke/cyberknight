@@ -491,6 +491,8 @@ export interface Location {
   /** Nobody gets in until this beat: the owner's been put down, or the police have taped the door. See shutdown.ts. */
   shutUntil?: number;
   shutBy?: 'owner' | 'police';
+  /** Open from, to (hours of the day; a close before the open runs past midnight). See hours.ts. */
+  hours?: [number, number];
   /** The owner is dead. The whole building stays shut, night after night, until this run, then reopens under somebody new (and maybe a new name). See shutdown.ts. */
   sealed?: { reopenRun: number; main: Id; former: string; faction?: Id; staff: Id[]; muscle: boolean };
   /** Somebody who works here has been laid out and the police are on their way. */
