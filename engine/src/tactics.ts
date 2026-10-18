@@ -13,6 +13,7 @@ import { artsOf } from './lab';
 import { dragonSpeed, hasTrait, legSpeed } from './dragonmodels';
 import type { ArtBranch } from './content/doctrine';
 import * as D from './doctrine';
+import { perceived, statsOf } from './npcstats';
 
 /**
  * A fight, played out on a small grid. Nobody watches it: the player gets a report of the interesting bits and the result.
@@ -803,10 +804,16 @@ export class Sim {
     train(this.c, 'athletics', 1);
   }
 
-  hackChance(me: Unit, t: Unit): number {
+  /** What a target's Intelligence takes off a Hack: the real number, or (for deciding whether to try) what she has read of it. */
+  private firewall(t: Unit, perceivedOnly: boolean): number {
+    if (!t.npc) return 0;
+    return 0.05 * (perceivedOnly ? perceived(this.w, t.npc, 'int') : statsOf(t.npc).int);
+  }
+
+  hackChance(me: Unit, t: Unit, perceivedOnly = false): number {
     if (me.kind !== 'hero') return 0.6;
     const h = this.w.hero;
-    return clamp(0.35 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.03 - ((t.npc?.level ?? 1) - h.level) * 0.04, 0.1, 0.9);
+    return clamp(0.35 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.03 - this.firewall(t, perceivedOnly), 0.1, 0.9);
   }
 
   doHack(me: Unit, t: Unit): void {
@@ -825,9 +832,9 @@ export class Sim {
   }
 
   /** Optic Reset, a Hack: a burst down the optic feed that leaves anything with chrome for eyes blind for a few rounds. */
-  opticChance(t: Unit): number {
+  opticChance(t: Unit, perceivedOnly = false): number {
     const h = this.w.hero;
-    return clamp(0.4 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.02 - ((t.npc?.level ?? 1) - h.level) * 0.04, 0.1, 0.92);
+    return clamp(0.4 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.02 - this.firewall(t, perceivedOnly), 0.1, 0.92);
   }
 
   doOpticReset(t: Unit): void {

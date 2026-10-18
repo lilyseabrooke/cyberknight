@@ -11,6 +11,7 @@ import { addNpc, moveNpc } from './population';
 import { isFairGame } from './people';
 import { feed } from './rest';
 import { blackout, overrideChance } from './override';
+import { statsOf } from './npcstats';
 import { workingCameras } from './witness';
 import { hungerOf } from './needs';
 import { hungerUrge } from './urges';
@@ -256,7 +257,7 @@ function jack(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   n.flags.push('jacked');
-  const p = clamp(0.25 + h.int * 0.06 + skillLevel(h, 'tinkering') * 0.05 + (hasAlly(w, 'hack') ? 0.08 : 0) - n.level * 0.03, 0.08, 0.85);
+  const p = clamp(0.25 + h.int * 0.06 + skillLevel(h, 'tinkering') * 0.05 + (hasAlly(w, 'hack') ? 0.08 : 0) - statsOf(n).int * 0.04, 0.08, 0.85);
   if (rng.chance(p)) {
     const kind = n.archetype === 'scrapper' ? 'scrapper' : 'drone';
     moveNpc(w, n, '_companion');

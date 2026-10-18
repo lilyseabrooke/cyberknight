@@ -298,6 +298,8 @@ export interface Npc {
   level: number;
   power: number;
   tags: string[];
+  /** Muscle, reflex, intelligence and charm, like hers. Rolled from level, tags and archetype the first time anyone looks (see npcstats.ts). */
+  stats?: Record<'muscle' | 'reflex' | 'int' | 'charm', number>;
   faction: string | null;
   /** How they feel about Blackbird, -100..100. Persisted; the world remembers. */
   affinity: number;
@@ -1047,6 +1049,8 @@ export interface Mind {
   passion?: { skill: string; level: number; since: number };
   /** What she expects each kind of act to do for her fame, learned from experience. */
   fame?: Record<string, number>;
+  /** What she has made of people's stat distributions with Analyze: NPC id -> estimated shares of their stats, and how sure she is. See npcstats.ts. */
+  reads?: Record<Id, { shares: Record<'muscle' | 'reflex' | 'int' | 'charm', number>; quality: number }>;
   /** What she has found out about people: NPC id -> ids of their facts. Her side only; this resets with her body. */
   known?: Record<Id, string[]>;
   /** Scores she has agreed to settle. */

@@ -37,6 +37,8 @@ import { isFairGame } from './people';
 import { isBadGuy } from './traits';
 import { isShut } from './shutdown';
 import { moveNpc } from './population';
+import { cooling } from './mind';
+import { analyze, perceived, readQuality, skillOf, statsOf } from './npcstats';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -121,13 +123,16 @@ export function gather(w: World): Candidate[] {
       });
     }
     if (n.tags.includes('strong')) {
-      out.push({ key: `armwrestle:${n.id}`, drives: { pride: 0.9, bravery: 0.2 }, risk: 0.1, intent: { npc: n.name }, run: (c) => armWrestle(c, n) });
+      out.push({ key: `armwrestle:${n.id}`, drives: { pride: 0.9, bravery: 0.2 }, risk: 0.1 + clamp((perceived(w, n, 'muscle') - h.muscle) * 0.1, 0, 1.5), intent: { npc: n.name }, run: (c) => armWrestle(c, n) });
     }
     if ((n.tags.includes('augmented') || n.tags.includes('robot')) && !n.flags.includes('hacked')) {
       out.push({
-        key: `hack:${n.id}`, drives: { curiosity: 0.75, greed: 0.5 }, risk: 0.3 + levelRisk(w, n) * 0.7, intent: { npc: n.name },
+        key: `hack:${n.id}`, drives: { curiosity: 0.75, greed: 0.5 }, risk: 0.3 + levelRisk(w, n) * 0.7 + clamp((perceived(w, n, 'int') - h.int) * 0.1, 0, 1.5), intent: { npc: n.name },
         run: (c) => hackNpc(c, n),
       });
+    }
+    if (talkable(n) && readQuality(w, n) < 0.7 && !cooling(w, `analyze:${n.id}`)) {
+      out.push({ key: `analyze:${n.id}`, drives: { curiosity: 0.45, pride: 0.1 }, smart: 0.3, risk: 0.05, intent: { npc: n.name }, run: (c) => analyze(c, n) });
     }
     if (n.tags.includes('fixer')) {
       if (!w.flags.job_taken) {
@@ -407,7 +412,8 @@ function threaten(c: Ctx, n: Npc): void {
 function armWrestle(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.45 + (h.muscle + h.level - n.level * 1.5) * 0.05 - h.drunk * 0.02, 0.05, 0.9);
+  const st = statsOf(n);
+  const p = clamp(0.45 + (h.muscle - st.muscle) * 0.07 + (h.level - n.level) * 0.02 + (skillLevel(h, 'athletics') - skillOf(n, 'athletics')) * 0.01 - h.drunk * 0.02, 0.05, 0.9);
   if (rng.chance(p)) {
     const prize = rng.int(10, 40);
     h.cash += prize;
@@ -426,7 +432,7 @@ function hackNpc(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   n.flags.push('hacked');
-  const p = clamp(0.3 + h.int * 0.06 + (hasAlly(w, 'hack') ? 0.08 : 0) + skillLevel(h, 'tinkering') * 0.02 - n.level * 0.04, 0.05, 0.85);
+  const p = clamp(0.3 + h.int * 0.06 + (hasAlly(w, 'hack') ? 0.08 : 0) + skillLevel(h, 'tinkering') * 0.02 - statsOf(n).int * 0.05, 0.05, 0.85);
   const corp = n.tags.includes('monitored') || n.tags.includes('corp');
   if (!rng.chance(p)) {
     h.hp -= 8;

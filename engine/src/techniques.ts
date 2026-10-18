@@ -182,7 +182,7 @@ function hack(s: Sim, u: Unit): Technique[] {
       los: false,
       value(s2, me, from, t) {
         if (!hackable(t!) || t!.blind > 0) return null;
-        const p = s2.opticChance(t!);
+        const p = s2.opticChance(t!, true);
         const threat = frac(s2.avgDamage(t!, s2.hero), s2.hero.ref.hp);
         return (1 + 10 * threat) * p;
       },
@@ -201,7 +201,7 @@ function hack(s: Sim, u: Unit): Technique[] {
       value(s2, me, from, t) {
         if (!hackable(t!) || t!.npc!.tags.some((x) => x === 'boss' || x === 'dragon')) return null;
         if (t!.stunned || t!.disabled) return null;
-        const p = s2.hackChance(me, t!);
+        const p = s2.hackChance(me, t!, true);
         const threat = frac(s2.avgDamage(t!, s2.hero), s2.hero.ref.hp);
         return (5 + 14 * threat) * p;
       },
