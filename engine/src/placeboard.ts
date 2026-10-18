@@ -208,7 +208,12 @@ function scatterAssign(l: Layout, b: PlaceBoard, n: Npc): void {
   let pool: Pos[];
   if (n.id.startsWith('tmp_') || n.hostile) {
     pool = floor.filter((p) => dist(p, b.hero) >= 3 && dist(p, b.hero) <= 4);
-    if (!pool.length) pool = floor.filter((p) => dist(p, b.hero) >= 2);
+    if (!pool.length) {
+      // Nothing at that distance (walls, or the outside of an odd-shaped room, are in the way): as near as there is.
+      const rest = floor.filter((p) => dist(p, b.hero) >= 2);
+      const nearest = Math.min(...rest.map((p) => dist(p, b.hero)));
+      pool = rest.filter((p) => dist(p, b.hero) <= nearest + 1);
+    }
   } else {
     pool = floor.filter((p) => apart(p) && spaced(p));
     if (!pool.length) pool = floor.filter(apart);
@@ -219,7 +224,7 @@ function scatterAssign(l: Layout, b: PlaceBoard, n: Npc): void {
   const facing = rng.chance(0.5) ? toward : rng.int(0, 7);
   const e = entAt(at, facing);
   // Some of them walk a beat.
-  if (!holdsPost(n) && (sensors(n) || n.tags.includes('security') || rng.chance(0.35))) {
+  if (!holdsPost(n) && !n.id.startsWith('tmp_') && !n.hostile && (sensors(n) || n.tags.includes('security') || rng.chance(0.35))) {
     const far = floor.filter((p) => dist(p, at) >= 3 && !occupied(b, p, n.id));
     if (far.length) {
       e.route = [{ ...at }, { ...far[rng.int(0, far.length - 1)]! }];

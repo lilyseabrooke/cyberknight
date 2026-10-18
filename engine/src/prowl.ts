@@ -230,7 +230,7 @@ export function makeNoise(b: Board, at: Pos, level: number, from: 'her' | 'objec
   if (level <= 0) return heard;
   for (const u of live(b)) {
     const d = dist(u, at);
-    const walls = line(u, at).filter((p) => terrainAt(b.grid, p.x, p.y) === 'wall').length;
+    const walls = line(u, at).filter((p) => ['wall', 'void'].includes(terrainAt(b.grid, p.x, p.y) ?? '')).length;
     const hear = level * (1 - d / (5 + 6 * level)) * clamp(keenness(u.npc), 0.5, 1.6) - 0.07 * walls;
     if (hear < 0.1) continue;
     const a = awareness(b.w, u.npc);

@@ -24,11 +24,21 @@ Between scenes it is deliberately coarse and none of it is in the log:
 
 - **Where anyone is, when no scene is on, is a function of the world clock** (`tickOf`: one tick per world minute, not per beat, so an hour-long odd job moves the room on far more than a word does) (`routeAt`, `walkRounds`, `slotOf`): nobody is stepped from beat to beat, so skipping ahead and watching every beat give the same answer. A round is a path between two tiles with a pause at each end (the pauses and a starting offset are fixed per person), and it comes round again every `patrolPeriod` minutes, so a patrol can be learned and timed. At an end they look about; walking, they face the way they go.
 - In a club people have **stations** by what they are: the bartender works up and down behind the bar, security walk a round of the floor from the door, the DJ stays on the decks, and patrons move on to another spot (bar, floor, booth) every twenty to forty-five minutes, never onto each other or her.
-- Elsewhere they stand scattered away from the doors, a guard on a post or walking a round. People who turn up in the middle of something (a mugging) start a few tiles from her.
+- Elsewhere they stand scattered away from the doors, a guard on a post or walking a round. People who turn up in the middle of something (a mugging) start a few tiles from her and stay put.
 - A scene can leave someone mid-search or mid-chase; after `RESUME` (10) quiet minutes they give it up and go back to their round (`standDown`).
 - The fallen stay where they fell until they get up or are taken away.
 
 She **arrives in the doorway** of the door she came in by (`relocate` calls `enterPlace`). Actions that need her somewhere put her there first (`positionFor`): chatting, flirting, kissing, threatening, arm wrestling and analyzing put her beside the person; pickpocketing, behind them; the DJ booth, the dance floor and settling a tab put her at those. She is not moved to start a fight. A long walk is mentioned now and then (`place_spot`), not every time.
+
+## Shapes (`shapes.ts`)
+
+A room is not always a rectangle. `shapeFor` draws a shape from the room's own dice (by kind of place, and a dungeon's `hall` is mostly a hall), so a plain room is exactly what it always was:
+
+- **L** and **U**: part of the rectangle is outside the map (`void` terrain). Nobody can stand on it, and nothing is seen or shot through it; noise through it counts as through a wall.
+- **hall**: a corridor along the middle with two or three rooms off each side, each reached by a doorway in its wall. The ways out are at the ends of the corridor.
+- **inner**: a smaller room walled inside the larger one, with one door.
+
+Doorways in interior walls (and the tiles beside them) are kept clear of furniture, and if a crate would seal anything off it is the crate that goes, not the wall. Cameras in the corners of an odd room go on the nearest tile that is on the map. Clubs are still rectangles. Big shaped rooms are bigger than the plain ones (7 to 12 tiles a side).
 
 ## The three ways of using it
 

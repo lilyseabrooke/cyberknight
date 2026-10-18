@@ -1,5 +1,6 @@
 import type { Location, ParkedVehicle, Vehicle } from './types';
 import type { Rng } from './rng';
+import { planShape, type Shape } from './shapes';
 
 /**
  * The board a fight is played on. Small (4x4 up to 8x8), thrown together from the kind of place it happens in, and
@@ -9,9 +10,10 @@ import type { Rng } from './rng';
  * - wall: blocks movement and sight.
  * - cover: crates, cars, pillars. Blocks movement; shots pass over it but the person behind it is harder to hit.
  * - hazard: passable and nasty (live wire, burning barrel, spilled coolant).
+ * - void: not part of the room at all (the outside of an L-shaped room). Nobody stands on it and nothing is seen through it.
  * - exit: a door, a stairwell, the mouth of an alley. The only way off the board, and the way newcomers get on.
  */
-export type Terrain = 'floor' | 'wall' | 'cover' | 'hazard' | 'exit';
+export type Terrain = 'floor' | 'wall' | 'cover' | 'hazard' | 'exit' | 'void';
 
 export interface Pos {
   x: number;
@@ -187,7 +189,7 @@ export function line(a: Pos, b: Pos): Pos[] {
 }
 
 export const isTall = (g: Grid, p: Pos): boolean => !!g.tall && g.tall.includes(p.y * g.w + p.x);
-export const hasLos = (g: Grid, a: Pos, b: Pos): boolean => line(a, b).every((p) => terrainAt(g, p.x, p.y) !== 'wall' && !isTall(g, p));
+export const hasLos = (g: Grid, a: Pos, b: Pos): boolean => line(a, b).every((p) => terrainAt(g, p.x, p.y) !== 'wall' && terrainAt(g, p.x, p.y) !== 'void' && !isTall(g, p));
 
 /** The direction (0..7, clockwise from north) that points most nearly from `a` at `b`. */
 export function dirOf(a: Pos, b: Pos): number {
@@ -233,18 +235,32 @@ function connected(g: Grid): Set<number> {
   return seen;
 }
 
+/** Where a way out could go in an irregular room: a floor tile with the outside (the edge of the map, or void) straight beside it. */
+function shapeEdge(g: Grid, only?: Pos[]): Pos[] {
+  if (only?.length) return only;
+  const out: Pos[] = [];
+  const outside = (x: number, y: number): boolean => terrainAt(g, x, y) === null || terrainAt(g, x, y) === 'void';
+  for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+    if (g.cells[y * g.w + x] !== 'floor') continue;
+    const sides = [outside(x - 1, y), outside(x + 1, y), outside(x, y - 1), outside(x, y + 1)].filter(Boolean).length;
+    if (sides === 1) out.push({ x, y });
+  }
+  return out;
+}
+
 /** A fresh board for a fight in this kind of place. Every walkable tile can be reached from every exit. */
-export function makeGrid(rng: Rng, kind: Location['kind'], crowded = false): Grid {
+export function makeGrid(rng: Rng, kind: Location['kind'], crowded = false, shape: Shape = 'rect'): Grid {
   const s = SPECS[kind];
-  const w = rng.int(...s.w);
-  const h = rng.int(...s.h);
-  const g: Grid = { w, h, cells: Array<Terrain>(w * h).fill('floor'), exits: [] };
+  const plan = shape === 'rect' ? null : planShape(rng.fork(`shape:${shape}`), shape);
+  const w = plan ? plan.w : rng.int(...s.w);
+  const h = plan ? plan.h : rng.int(...s.h);
+  const g: Grid = { w, h, cells: plan ? plan.cells.slice() : Array<Terrain>(w * h).fill('floor'), exits: [] };
 
   if (kind === 'tunnel') {
     const row = rng.int(1, h - 2);
     g.exits.push({ x: 0, y: row }, { x: w - 1, y: rng.int(1, h - 2) });
   } else {
-    const edge = edgeCells(w, h);
+    const edge = plan ? shapeEdge(g, plan.exitCells) : edgeCells(w, h);
     const want = rng.int(...s.exits);
     for (let tries = 0; g.exits.length < want && tries < 60; tries++) {
       const p = rng.pick(edge);
@@ -255,7 +271,7 @@ export function makeGrid(rng: Rng, kind: Location['kind'], crowded = false): Gri
   for (const e of g.exits) g.cells[idx(g, e)] = 'exit';
 
   // Keep the doorways and the two tiles in front of them clear.
-  const clearOf = (p: Pos) => g.exits.some((e) => dist(e, p) <= 1);
+  const clearOf = (p: Pos) => g.exits.some((e) => dist(e, p) <= 1) || !!plan?.keep.some((k) => k.x === p.x && k.y === p.y);
   const spots: Pos[] = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (g.cells[y * w + x] === 'floor' && !clearOf({ x, y })) spots.push({ x, y });
   const drop = (t: Terrain, n: number) => {
@@ -265,8 +281,8 @@ export function makeGrid(rng: Rng, kind: Location['kind'], crowded = false): Gri
       g.cells[idx(g, p)] = t;
     }
   };
-  drop('wall', rng.int(...s.walls));
-  drop('cover', rng.int(...s.cover) + (crowded ? 1 : 0));
+  drop('wall', plan ? 0 : rng.int(...s.walls));
+  drop('cover', rng.int(...s.cover) + (crowded ? 1 : 0) + (plan ? 2 : 0));
   drop('hazard', rng.int(...s.hazards));
 
   // Never wall anyone off: turn obstacles back into floor until the whole board is one piece.
@@ -275,7 +291,9 @@ export function makeGrid(rng: Rng, kind: Location['kind'], crowded = false): Gri
     const reachable = connected(g);
     const stranded = walkables().filter((i) => !reachable.has(i));
     if (!stranded.length) break;
-    const blockers = g.cells.map((c, i) => (c === 'wall' || c === 'cover' ? i : -1)).filter((i) => i >= 0);
+    let blockers = g.cells.map((c, i) => (c === 'wall' || c === 'cover' ? i : -1)).filter((i) => i >= 0);
+    // A room drawn to a plan keeps its walls: it is the furniture that gets moved.
+    if (plan) blockers = blockers.filter((i) => g.cells[i] === 'cover');
     if (!blockers.length) break;
     g.cells[rng.pick(blockers)] = 'floor';
   }

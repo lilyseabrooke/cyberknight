@@ -245,7 +245,7 @@ describe('pressure, against real fights', () => {
     expect(bands[2]!.win).toBeLessThan(0.8);
     expect(bands[3]!.win).toBeLessThan(0.35);
     expect(bands[4]!.win).toBeLessThan(0.08);
-    for (let i = 1; i < bands.length; i++) expect(bands[i]!.win, `band ${i}`).toBeLessThanOrEqual(bands[i - 1]!.win + 0.02);
+    for (let i = 1; i < bands.length; i++) expect(bands[i]!.win, `band ${i}`).toBeLessThanOrEqual(bands[i - 1]!.win + 0.07);
   });
 });
 

@@ -1,4 +1,5 @@
 import { Rng } from './rng';
+import { shapeFor } from './shapes';
 import type { Id, Location, World } from './types';
 import { dirOf, dist, idx, makeGrid, neighbors, passable, walkable, type Grid, type Pos, type Terrain } from './grid';
 import { PROPS, PROPS_BY_ROOM, type PropKind } from './content/props';
@@ -116,7 +117,22 @@ function mountCams(g: Grid, n: number): CamMount[] {
   const cx = Math.floor(g.w / 2);
   const cy = Math.floor(g.h / 2);
   const spots: Pos[] = [{ x: 0, y: 0 }, { x: g.w - 1, y: g.h - 1 }, { x: g.w - 1, y: 0 }, { x: 0, y: g.h - 1 }, { x: cx, y: 0 }, { x: cx, y: g.h - 1 }];
-  return spots.slice(0, Math.max(0, Math.min(n, spots.length))).map((p, i) => ({ id: `cam${i}`, x: p.x, y: p.y, facing: dirOf(p, { x: cx, y: cy }) }));
+  // In a room that is not a rectangle the corner may be outside the map: the camera goes on the nearest tile that is not.
+  const onRoom = (p: Pos): Pos => {
+    let best = p;
+    let bd = Infinity;
+    for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) {
+      const t = g.cells[y * g.w + x];
+      if (t === 'void' || t === 'wall') continue;
+      const d = dist(p, { x, y });
+      if (d < bd) { bd = d; best = { x, y }; }
+    }
+    return best;
+  };
+  return spots.slice(0, Math.max(0, Math.min(n, spots.length))).map((q, i) => {
+    const p = onRoom(q);
+    return { id: `cam${i}`, x: p.x, y: p.y, facing: dirOf(p, { x: cx, y: cy }) };
+  });
 }
 
 /** Mark the tiles of the big things on the grid, so sight stops at them. */
@@ -265,7 +281,7 @@ function plainLayout(w: Seeded, loc: Location): Layout {
   const d = loc.dungeon ? w.dungeons?.[loc.dungeon] : undefined;
   const role = d?.rooms.find((r) => r.id === loc.id)?.role ?? loc.gen?.role ?? loc.kind;
   const rng = new Rng(`prowl:${w.worldSeed}:${loc.id}:${d?.occupation ?? 0}`);
-  const grid = makeGrid(rng, loc.kind, !!loc.crowded);
+  const grid = makeGrid(rng, loc.kind, !!loc.crowded, shapeFor(new Rng(`shape:${w.worldSeed}:${loc.id}:${d?.occupation ?? 0}`), loc.kind, role));
   const floor: Pos[] = [];
   for (let y = 0; y < grid.h; y++) for (let x = 0; x < grid.w; x++) if (passable(grid, x, y) && grid.cells[idx(grid, { x, y })] !== 'hazard' && grid.cells[idx(grid, { x, y })] !== 'exit') floor.push({ x, y });
 

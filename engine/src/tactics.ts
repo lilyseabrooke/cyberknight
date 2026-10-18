@@ -790,7 +790,7 @@ export class Sim {
       const dest = { x: t.x + Math.sign(t.x - me.x), y: t.y + Math.sign(t.y - me.y) };
       if (same(dest, t)) return;
       const terrain = terrainAt(this.grid, dest.x, dest.y);
-      if (terrain === null || terrain === 'wall' || terrain === 'cover' || this.occupant(dest)) {
+      if (terrain === null || terrain === 'wall' || terrain === 'void' || terrain === 'cover' || this.occupant(dest)) {
         this.damage(me, t, Math.max(1, Math.round((h.muscle * 1.2 + h.level) * slam)));
         if (t.state === 'active') {
           t.stunned = true;
@@ -818,7 +818,7 @@ export class Sim {
     const h = this.w.hero;
     const slam = Math.round(h.muscle * 1.2 + h.level);
     const terrain = terrainAt(this.grid, dest.x, dest.y);
-    if (terrain === null || terrain === 'wall' || terrain === 'cover' || this.occupant(dest)) return { kind: 'slam', dmg: slam, dest };
+    if (terrain === null || terrain === 'wall' || terrain === 'void' || terrain === 'cover' || this.occupant(dest)) return { kind: 'slam', dmg: slam, dest };
     if (terrain === 'exit') return { kind: 'out', dmg: 0, dest };
     if (terrain === 'hazard' && !t.flying) return { kind: 'hazard', dmg: hazardDmg(t), dest };
     return { kind: 'push', dmg: 0, dest };
