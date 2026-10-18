@@ -122,6 +122,8 @@ export interface ParkedVehicle extends Vehicle {
 
 export interface Hero {
   name: string;
+  /** Hack and Override techniques she has picked up beyond the ones she starts with (see `LEARNABLE` in techniques.ts). */
+  techniques?: string[];
   /** Randomly generated, astonishingly uncool. */
   realName: string;
   hp: number;

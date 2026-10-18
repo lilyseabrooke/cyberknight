@@ -10,7 +10,8 @@ import { fameFrom, tipScale } from './stage';
 import { addNpc, moveNpc } from './population';
 import { isFairGame } from './people';
 import { feed } from './rest';
-import { blackout, overrideChance } from './override';
+import { alarmSpoof, blackout, overrideChance, powerCut } from './override';
+import { knowsTechnique } from './techniques';
 import { statsOf } from './npcstats';
 import { workingCameras } from './witness';
 import { hungerOf } from './needs';
@@ -136,6 +137,14 @@ export function extraCandidates(w: World): Candidate[] {
   // ---- cameras
   if (workingCameras(w, h.locationId) > 0) {
     out.push({ key: 'camera_blackout', drives: { curiosity: 0.35, pride: 0.2 }, smart: 0.3, risk: 0.2, intent: {}, run: (c) => void blackout(c) });
+  }
+
+  // ---- learned Overrides
+  if (knowsTechnique(h, 'power_cut') && !w.flags.blackout && workingCameras(w, h.locationId) > 0) {
+    out.push({ key: 'power_cut', drives: { curiosity: 0.3, pride: 0.2 }, smart: 0.3, risk: 0.3, run: (c) => void powerCut(c) });
+  }
+  if (knowsTechnique(h, 'alarm_spoof') && ((w.heat.npd ?? 0) > 0 || (w.heat.atlas ?? 0) > 0)) {
+    out.push({ key: 'alarm_spoof', drives: {}, smart: 1.0, bonus: Math.min(1, ((w.heat.npd ?? 0) + (w.heat.atlas ?? 0)) / 8), risk: 0.1, run: (c) => void alarmSpoof(c) });
   }
 
   // ---- implants from the doc

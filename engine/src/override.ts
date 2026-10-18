@@ -31,3 +31,31 @@ export function blackout(c: Ctx): boolean {
   c.emit('camera_blackout', 'good', { variant: 'success', place: loc.name, left: workingCameras(w, loc.id) });
   return true;
 }
+
+/** Power Cut (learned): the whole grid goes down for a while, and every camera with it. */
+export function powerCut(c: Ctx): boolean {
+  const { w, rng } = c;
+  const loc = w.locations[w.hero.locationId]!;
+  if (!rng.chance(overrideChance(w, 0.2))) {
+    c.emit('power_cut', 'bad', { variant: 'fail', place: loc.name });
+    return false;
+  }
+  w.blackoutUntil = Math.max(w.blackoutUntil, w.beat + 12);
+  w.flags.blackout = true;
+  train(c, 'tinkering', 2);
+  c.emit('power_cut', 'good', { variant: 'success', place: loc.name });
+  return true;
+}
+
+/** Alarm Spoof (learned): patrols get sent to the wrong address. Takes some heat off. */
+export function alarmSpoof(c: Ctx): boolean {
+  const { w, rng } = c;
+  if (!rng.chance(overrideChance(w, 0.25))) {
+    c.emit('alarm_spoof', 'bad', { variant: 'fail' });
+    return false;
+  }
+  for (const f of ['npd', 'atlas']) w.heat[f] = Math.max(0, (w.heat[f] ?? 0) - 2);
+  train(c, 'tinkering', 1);
+  c.emit('alarm_spoof', 'good', { variant: 'success' });
+  return true;
+}

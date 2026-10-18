@@ -62,6 +62,10 @@ export interface Unit extends Pos {
   supp: number;
   /** Rounds left blind (Optic Reset): it can barely hit anything. */
   blind: number;
+  /** Rounds left turned (Rewrite, Turret Takeover): it fights for the other side. */
+  turned: number;
+  /** Rounds left overclocked (Overclock): hits harder and moves faster. */
+  over: number;
   stagger: number;
   /** Broken limbs, a fraction of armor stripped, a weapon taken, and whether it moved on its last turn. */
   leg: boolean;
@@ -284,6 +288,9 @@ export class Sim {
   private readonly procs = new Set<string>();
   private readonly queue: { unit: Unit; round: number; why: 'joiner' | 'law' | 'backup' }[] = [];
   private backups = 0;
+  /** Rounds the doors stay sealed (Door Lock) and the lights stay out (Lights Out). */
+  sealed = 0;
+  dark = 0;
   private foeTotal = 0;
   private pw = new Map<string, number>();
   private dmgCache = new Map<string, number>();
@@ -374,6 +381,8 @@ export class Sim {
       marked: 0,
       supp: 0,
       blind: 0,
+      turned: 0,
+      over: 0,
       stagger: 0,
       leg: false,
       arm: false,
@@ -420,16 +429,21 @@ export class Sim {
 
   // ------------------------------------------------------------------ queries (used by techniques too)
 
+  /** Which side a unit is fighting for right now: a turned foe fights for hers. */
+  side(u: Unit): 'hero' | 'foe' | 'neutral' {
+    return u.turned > 0 ? (u.team === 'foe' ? 'hero' : 'foe') : u.team;
+  }
+
   enemiesOf(u: Unit): Unit[] {
-    return this.units.filter((e) => e.state === 'active' && e.team !== u.team);
+    return this.units.filter((e) => e.state === 'active' && this.side(e) !== this.side(u));
   }
 
   private friendsOf(u: Unit): Unit[] {
-    return this.units.filter((e) => e.state === 'active' && e.team === u.team && e !== u);
+    return this.units.filter((e) => e.state === 'active' && this.side(e) === this.side(u) && e !== u);
   }
 
   standingFoes(): Unit[] {
-    return this.units.filter((u) => u.team === 'foe' && u.state === 'active');
+    return this.units.filter((u) => u.team === 'foe' && u.state === 'active' && !(u.turned > 0));
   }
 
   private lostFraction(): number {
@@ -443,7 +457,7 @@ export class Sim {
   /** Is someone else on the same side standing next to the target (so it's being pincered)? */
   flanked(att: Unit, tgt: Unit, from: Pos): boolean {
     if (dist(from, tgt) > 1) return false;
-    return this.units.some((u) => u.state === 'active' && u.team === att.team && u !== att && dist(u, tgt) <= 1);
+    return this.units.some((u) => u.state === 'active' && this.side(u) === this.side(att) && u !== att && dist(u, tgt) <= 1);
   }
 
   /** A foe or an ally's chance to hit. */
@@ -460,6 +474,7 @@ export class Sim {
     if (this.flanked(att, tgt, from)) p += 0.08;
     p += D.foeHit(this, att, tgt, from);
     if (att.blind > 0) p -= 0.5;
+    if (this.dark > 0 && att.reach[1] > 1) p -= 0.2;
     return clamp(p, 0.1, 0.97);
   }
 
@@ -474,6 +489,7 @@ export class Sim {
     if (this.hooks.hasInjury(this.w, 'concussion')) p -= 0.05;
     if (ranged && this.hooks.hasInjury(this.w, 'fried_optics')) p -= 0.12;
     if (t.npc && t.kind === 'foe') p -= clamp(0.06 * (ratio(t.npc, 'reflex') - 1), -0.05, 0.15);
+    if (this.dark > 0 && (gun || thrown)) p -= 0.2;
     const d = dist(from, t);
     if (ranged) {
       const max = thrown ? 4 : weaponReach(weapon)[1];
@@ -604,7 +620,7 @@ export class Sim {
   }
 
   panicIfCan(t: Unit): boolean {
-    if (t.leg || t.pinned > 0) return false;
+    if (t.leg || t.pinned > 0 || (this.sealed > 0 && t.kind === 'foe')) return false;
     const free = this.exitMap(t);
     if (!free.size || !free.has(idx(this.grid, t))) return false;
     t.fleeing = true;
@@ -687,7 +703,7 @@ export class Sim {
   allyStrike(me: Unit, t: Unit, base: number): void {
     const rng = this.c.rng;
     if (!rng.chance(this.hitChance(me, t, me))) return;
-    let d = Math.round(base * (0.6 + rng.next() * 0.5) * 0.9);
+    let d = Math.round(base * (0.6 + rng.next() * 0.5) * 0.9 * (me.over > 0 ? 1.5 : 1));
     if (t.npc) d = Math.max(1, d - Math.round(foeArmor(t.npc) * 0.5));
     this.damage(me, t, d);
     if (!this.firstAssist.has(me.id)) {
@@ -740,7 +756,7 @@ export class Sim {
     if (u.pinned > 0) return 0;
     if (u.speed === 0) return 0;
     const riding = this.carOf(u)?.body === 'bike' ? 3 : 0; // a bike under her
-    return Math.max(1, u.speed + riding - (u.slow > 0 ? 1 : 0) - (u.leg ? 2 : 0));
+    return Math.max(1, u.speed + riding + (u.over > 0 ? 1 : 0) - (u.slow > 0 ? 1 : 0) - (u.leg ? 2 : 0));
   }
 
   /** Throw a foe back up to `n` tiles away from `me`: into a wall or person for damage and a daze, through an exit to be rid of them, onto a hazard for more. */
@@ -852,6 +868,99 @@ export class Sim {
     this.note('tactic', 'good', { variant: 'optic_reset', foe: t.name }, 3, `optic:${t.id}`);
   }
 
+  // ---- the learnable Hacks and Overrides: see techniques.ts
+
+  /** Gun Jam: its weapon locks up for a few rounds. */
+  doGunJam(t: Unit): void {
+    if (!this.c.rng.chance(this.hackChance(this.hero, t))) return;
+    t.disarmed = true;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'gun_jam', foe: t.name }, 3, `gunjam:${t.id}`);
+  }
+
+  /** Limb Lock: a chromed limb stops answering. Slows them and cuts what they hit for. */
+  doLimbLock(t: Unit): void {
+    if (!this.c.rng.chance(this.hackChance(this.hero, t))) return;
+    const arm = this.c.rng.chance(0.5);
+    if (arm) t.arm = true;
+    else t.leg = true;
+    t.slow = Math.max(t.slow, 3);
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'limb_lock', foe: t.name, arm }, 3, `limb:${t.id}`);
+  }
+
+  painSpikeDamage(t: Unit): number {
+    return Math.round(this.w.hero.int * 3 * (t.npc?.tags.includes('robot') ? 1.4 : 1));
+  }
+
+  /** Pain Spike: feedback straight into the nervous system. */
+  doPainSpike(t: Unit): void {
+    if (!this.c.rng.chance(this.hackChance(this.hero, t))) return;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.damage(this.hero, t, this.painSpikeDamage(t));
+    if (t.state === 'active') t.stagger = 2;
+    this.note('tactic', 'good', { variant: 'pain_spike', foe: t.name }, 3, `spike:${t.id}`);
+  }
+
+  /** Rewrite: a robot or drone fights for her for a few rounds. */
+  doRewrite(t: Unit): void {
+    if (!this.c.rng.chance(clamp(this.hackChance(this.hero, t) - 0.1, 0.05, 0.85))) return;
+    t.turned = 3 + Math.floor(this.w.hero.int / 4);
+    t.fleeing = false;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 2);
+    this.note('tactic', 'good', { variant: 'rewrite', foe: t.name }, 4, `rewrite:${t.id}`);
+  }
+
+  /** Hot-Wire: the car a foe was running for won't start. */
+  doHotWire(): void {
+    let any = false;
+    for (const f of this.standingFoes()) {
+      const o = this.keyCar(f);
+      if (!o) continue;
+      any = true;
+      f.carFlee = undefined;
+      o.carId = undefined;
+    }
+    if (!any) return;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'hot_wire' }, 3, 'hotwire');
+  }
+
+  /** Overclock: a drone, hacker or robot ally runs hot for a few rounds. */
+  doOverclock(a: Unit): void {
+    a.over = 3 + Math.floor(this.w.hero.int / 4);
+    this.stats.hacks++;
+    this.note('tactic', 'good', { variant: 'overclock', ally: a.name }, 3, `over:${a.id}`);
+  }
+
+  /** Door Lock: nobody leaves and nobody arrives for a while. */
+  doDoorLock(): void {
+    this.sealed = 3 + Math.floor(this.w.hero.int / 4);
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'door_lock' }, 3, 'doorlock');
+  }
+
+  /** Lights Out: guns and throws miss in the dark. */
+  doLightsOut(): void {
+    this.dark = 4;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'lights_out' }, 3, 'lightsout');
+  }
+
+  /** Turret Takeover: the building's own gun changes sides for good. */
+  doTurretTakeover(t: Unit): void {
+    if (!this.c.rng.chance(this.hackChance(this.hero, t))) return;
+    t.turned = 99;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 2);
+    this.note('tactic', 'good', { variant: 'turret_takeover', foe: t.name }, 4, `turret:${t.id}`);
+  }
+
   scareChance(t: Unit): number {
     const h = this.w.hero;
     const lvl = t.npc?.level ?? 1;
@@ -894,6 +1003,11 @@ export class Sim {
   }
 
   /** The car (not hers, in one piece) a foe has the key to, if it is on the board. */
+  /** Anybody still to come through the doors. */
+  reinforcementsDue(): boolean {
+    return this.queue.length > 0;
+  }
+
   keyCar(u: Unit): BoardObject | undefined {
     const n = u.npc;
     if (u.kind !== 'foe' || !n || n.flags.includes('cornered')) return undefined;
@@ -1205,7 +1319,9 @@ export class Sim {
     }
     D.regen(this);
     // Late arrivals come through the doors.
-    const now = this.queue.filter((q) => q.round <= this.round);
+    if (this.sealed > 0) this.sealed--;
+    if (this.dark > 0) this.dark--;
+    const now = this.sealed > 0 ? [] : this.queue.filter((q) => q.round <= this.round);
     const groups = new Map<string, Unit[]>();
     for (const q of now) {
       this.queue.splice(this.queue.indexOf(q), 1);
@@ -1335,7 +1451,14 @@ export class Sim {
     if (this.result) return;
     const h = this.w.hero;
     const rng = this.c.rng;
-    if (!this.standingFoes().length) this.result = 'win';
+    if (!this.standingFoes().length) {
+      this.result = 'win';
+      // Whatever she had turned is stood down with the rest.
+      for (const u of this.units) if (u.team === 'foe' && u.turned > 0 && u.state === 'active') {
+        u.state = 'down';
+        this.down.add(u.id);
+      }
+    }
     else if (this.hero.state === 'fled') this.result = 'flee';
     else if (h.hp <= 0 && (this.o.lethal || this.blastKill)) {
       if (this.w.hero.implants.some((i) => i === 'emergency_defib') && !this.w.flags.defib_used) {
