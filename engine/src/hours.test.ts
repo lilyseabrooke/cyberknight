@@ -52,16 +52,23 @@ describe('opening hours', () => {
     expect(sc.w.hero.locationId).not.toBe('neon_pharaoh');
   });
 
-  it('nobody who wanders goes into a place that is closed', () => {
+  it('nobody who wanders goes into a place that is closed, and whoever is left inside when it shuts goes home when their stretch is up', () => {
     const w = scenario({ seed: 'hrs5', at: 'street_main' }).w;
     const n = spawnNpc(new Rng('wanderer'), 'wanderer', 'patron', 'street_main');
     addNpc(w, n);
     setHaunts(w, n, { neon_pharaoh: 1, street_main: 0.01 });
-    for (let t = 0; t < 24 * 6; t++) {
+    let before = n.locationId;
+    let closedSince = -1;
+    for (let t = 0; t < 24 * 12; t++) {
       w.clock = at(0) + t * 10;
       settleAt(w, 'street_main', w.clock);
       settleAt(w, 'neon_pharaoh', w.clock);
-      if (isClosed(w, 'neon_pharaoh')) expect(n.locationId, `clock ${w.clock}`).not.toBe('neon_pharaoh');
+      if (n.locationId !== before && n.locationId === 'neon_pharaoh') expect(isClosed(w, 'neon_pharaoh'), `clock ${w.clock}`).toBe(false);
+      before = n.locationId;
+      if (isClosed(w, 'neon_pharaoh') && n.locationId === 'neon_pharaoh') {
+        if (closedSince < 0) closedSince = w.clock;
+        expect(w.clock - closedSince, 'still inside long after closing').toBeLessThanOrEqual(130);
+      } else closedSince = -1;
     }
   });
 });

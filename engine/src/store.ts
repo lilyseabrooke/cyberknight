@@ -49,7 +49,7 @@ export function resume(save: Save, now: number): { universe: Universe; world: Wo
   const target = world ?? ({ clock: save.universe.clock } as World);
   const awayMinutes = catchUp(target, Math.max(0, now - save.savedAt));
   save.universe.clock = target.clock;
-  if (world) settleAt(world, world.hero.locationId, world.clock);
+  if (world && awayMinutes > 0) settleAt(world, world.hero.locationId, world.clock);
   return { universe: save.universe, world, awayMinutes };
 }
 

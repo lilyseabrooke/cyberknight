@@ -52,7 +52,7 @@ const movable = (w: World, n: Npc): boolean =>
 export function settle(w: World, n: Npc, now: number): boolean {
   if (!movable(w, n) || (!n.haunts && !n.routine)) return false;
   const since = n.settledAt ?? 0;
-  if (now - since < STAY + tempo(n.id) && !isClosed(w, n.locationId)) return false;
+  if (now - since < STAY + tempo(n.id)) return false;
   n.settledAt = now;
   const to = placeAt(w, n, now);
   if (to === n.locationId) return false;
