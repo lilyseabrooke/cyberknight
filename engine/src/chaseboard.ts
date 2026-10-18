@@ -1,5 +1,7 @@
 import { dist, idx, passable, pathTo, reach, type Pos } from './grid';
 import { placeOf, syncPlace, type Placed } from './placeboard';
+import { roadClass } from './roads';
+import { isClosed } from './hours';
 import type { Id, World } from './types';
 
 /**
@@ -84,4 +86,99 @@ export function runOn(cb: ChaseBoard, tiles: number): boolean {
 /** Where a chaser is on the street: that many tiles back along her line, or still on the street she came from. */
 export function chaserTile(cb: ChaseBoard, gap: number): { at: Pos; off: boolean } {
   return { at: tileAt(cb, cb.s - gap), off: offBoard(cb, gap) };
+}
+
+// ------------------------------------------------------------------ what the street is like round her
+
+const AHEAD = 12;
+
+/** How many of the eight tiles round this one are in the way: solid, or somebody is standing on them. */
+function blockedAround(cb: ChaseBoard, p: Pos): number {
+  const g = cb.placed.layout.grid;
+  const ents = cb.placed.board.ents;
+  let n = 0;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const x = p.x + dx;
+      const y = p.y + dy;
+      if (!passable(g, x, y) || Object.values(ents).some((e) => e.x === x && e.y === y)) n++;
+    }
+  }
+  return n;
+}
+
+/** The stretch of the line she is about to run. */
+function window(cb: ChaseBoard, ahead = AHEAD): Pos[] {
+  const out: Pos[] = [];
+  for (let k = Math.round(cb.s); k <= Math.min(cb.path.length - 1, Math.round(cb.s) + ahead); k++) out.push(cb.path[k]!);
+  return out;
+}
+
+/**
+ * How tight the street is where she is running, 0 (all the room in the world) to 1 (none): how much of what is round the line over the
+ * next stretch is wall, stalls, cars and people.
+ */
+export function localSqueeze(cb: ChaseBoard, ahead = AHEAD): number {
+  const tiles = window(cb, ahead);
+  if (!tiles.length) return 0;
+  const mean = tiles.reduce((a, p) => a + blockedAround(cb, p), 0) / tiles.length / 8;
+  // A wall down one side is just a street; it takes more than that to squeeze.
+  return Math.max(0, Math.min(1, (mean - 0.25) * 1.7));
+}
+
+/** Places on the line ahead where it pinches: a gap she has to get through, between things. */
+export function pinches(cb: ChaseBoard, ahead = AHEAD): number {
+  return window(cb, ahead).filter((p) => blockedAround(cb, p) >= 5).length;
+}
+
+// ------------------------------------------------------------------ ways out of it
+
+export type OutKind = 'door' | 'mouth' | 'up' | 'crowd';
+
+/** Somewhere to go that is not along the line: a doorway, a side street, a way up onto a roof, a crowd to lose herself in. */
+export interface Out {
+  kind: OutKind;
+  /** Where it is on the board. */
+  at: Pos;
+  /** The place beyond a door or a mouth. */
+  to?: Id;
+  label: string;
+  /** How many tiles away. */
+  d: number;
+  /** For a way up: how it is climbed. */
+  via?: 'stairs' | 'ladder' | 'climb';
+}
+
+/** What she could duck into within a few tiles of where she is. */
+export function outsFrom(w: World, cb: ChaseBoard, reachTiles = 10): Out[] {
+  const { layout, board } = cb.placed;
+  const g = layout.grid;
+  const here = tileAt(cb, cb.s);
+  const r = reach(g, here, reachTiles + 4, () => false);
+  const cost = (p: Pos): number | undefined => r.cost.get(idx(g, p));
+  const outs: Out[] = [];
+  for (const d of layout.doors) {
+    const c = cost(d.at);
+    if (c === undefined || c > reachTiles || d.exit === cb.exitTo) continue;
+    const to = w.locations[d.exit];
+    if (!to || isClosed(w, to.id)) continue;
+    if (to.kind !== 'street') outs.push({ kind: 'door', at: d.at, to: to.id, label: d.label, d: c });
+    else if (roadClass(to) === 'alley') outs.push({ kind: 'mouth', at: d.at, to: to.id, label: d.label, d: c });
+  }
+  if (g.access && g.level) {
+    for (const [k, how] of Object.entries(g.access)) {
+      if (how !== 'stairs' && how !== 'ladder' && how !== 'climb') continue;
+      const at = { x: Number(k) % g.w, y: Math.floor(Number(k) / g.w) };
+      // (Reached from a tile beside it that is lower.)
+      const from = [-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => ({ x: at.x + dx, y: at.y + dy }))).filter((q) => passable(g, q.x, q.y) && g.level![idx(g, q)]! < g.level![Number(k)]! && cost(q) !== undefined);
+      const best = from.sort((a, b) => cost(a)! - cost(b)!)[0];
+      if (best && cost(best)! <= reachTiles) outs.push({ kind: 'up', at, label: how === 'climb' ? 'a drainpipe up to the roofs' : how === 'ladder' ? 'a ladder' : 'a flight of steps', d: cost(best)!, via: how });
+    }
+  }
+  // A knot of people is somewhere to lose herself.
+  const people = Object.values(board.ents).filter((e) => dist(e, here) <= reachTiles);
+  const knot = people.find((e) => people.filter((o) => dist(o, e) <= 2).length >= 3);
+  if (knot) outs.push({ kind: 'crowd', at: { x: knot.x, y: knot.y }, label: 'the crowd', d: dist(knot, here) });
+  return outs.sort((a, b) => a.d - b.d || a.kind.localeCompare(b.kind));
 }

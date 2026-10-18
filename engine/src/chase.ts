@@ -16,7 +16,7 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { behindOf, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
-import { TILES_PER_PACE, openBoard, runOn, type ChaseBoard } from './chaseboard';
+import { TILES_PER_PACE, localSqueeze, openBoard, outsFrom, pinches, runOn, type ChaseBoard, type Out } from './chaseboard';
 
 /**
  * A chase: a fight at speed. There is no board, only how far apart everybody is, what the road is like, and what each side
@@ -77,6 +77,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   const mounted = (): Vehicle | null => (h.vehicle && h.vehicle.hp > 0 ? normalize(h.vehicle) : null);
   let last = mounted();
   let rounds = 0;
+  // Where she went to lose them, if she went somewhere (through a door, into an alley, up onto a roof): she is there, not a few streets on.
+  let hid = false;
   // People she knocked into who are coming after her when this is over.
   const owed: Npc[] = [];
   // The vehicle she is riding on the outside of (or the inside of, once she is in), and how much door is left between her and the driver.
@@ -92,7 +94,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   let here = w.locations[h.locationId]!;
   let cls = roadClass(here);
   let traffic = trafficAt(w, here);
-  let squeeze = squeezeOf(cls, traffic);
+  let streetSqueeze = squeezeOf(cls, traffic);
+  let squeeze = streetSqueeze;
   let tight = squeeze >= 0.45;
   let setting = scene(cls, traffic);
   let board: ChaseBoard | null = null;
@@ -111,7 +114,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     here = w.locations[h.locationId]!;
     cls = roadClass(here);
     traffic = trafficAt(w, here);
-    squeeze = squeezeOf(cls, traffic);
+    streetSqueeze = squeezeOf(cls, traffic);
+    squeeze = streetSqueeze;
     tight = squeeze >= 0.45;
     setting = scene(cls, traffic);
   };
@@ -352,7 +356,12 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       // On the street: she runs on along it.
       if (!boarded) {
         const cb = boardNow();
-        if (cb) runOn(cb, heroSpeed(w) * TILES_PER_PACE);
+        if (cb) {
+          runOn(cb, heroSpeed(w) * TILES_PER_PACE);
+          // How tight it is is what is round her now, as well as what sort of street it is.
+          squeeze = clamp(0.6 * streetSqueeze + 0.4 * localSqueeze(cb), 0, 1);
+          tight = squeeze >= 0.45;
+        }
         o.watch?.(cb, round);
       }
       // On their vehicle: a round of its own.
@@ -382,6 +391,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
 
       // What she does this round.
       const scores: Record<string, number> = {};
+      let outs: Out[] = [];
       if (o.mode === 'pursuer') {
         scores.floor_it = 6;
         scores.shoot = armedBack && (band === 'near' || band === 'close') ? 4.5 : 0;
@@ -397,7 +407,9 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       } else {
         scores.floor_it = 3 + (band === 'close' || band === 'locked' ? 3 : 0);
         scores.swerve = 1.5 + (band !== 'far' ? 2 : 0);
-        scores.lose_them = tight && lead.gap >= 3 ? (foot ? 7.5 : 6.5) : 0;
+        // Somewhere to duck into: a doorway, a side street, a way up, or a crowd or a tight street to lose herself in.
+        outs = board ? outsFrom(w, board) : [];
+        scores.lose_them = (tight || outs.some((x) => x.kind !== 'crowd')) && lead.gap >= 3 ? (foot ? 7.5 : 6.5) + (outs.some((x) => x.kind === 'door' || x.kind === 'up') ? 1 : 0) : 0;
         scores.shoot = armedBack && (band === 'near' || band === 'close') ? 4 : 0;
         if (band === 'locked' && lead.car && hpRatio > 0.5) scores.board = 2;
         if (foot && ride && faster) scores.grab = 8;
@@ -554,6 +566,18 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       } else if (action === 'lose_them' && rng.chance(clamp(0.28 + skill * 0.05 - (squeeze < 0.7 ? 0.1 : 0) + (bike ? 0.12 : 0) + (foot ? 0.1 : 0) - 0.05 * (live.length - 1), 0.1, 0.85))) {
         result = 'escaped';
         told.push('lost');
+        const out = outs.find((x) => x.kind !== 'crowd') ?? outs[0];
+        if (out) {
+          told.push(`lost:${out.kind}`);
+          if ((out.kind === 'door' || out.kind === 'mouth') && out.to) {
+            relocate(w, out.to);
+            refresh();
+            hid = true;
+          } else if (out.kind === 'up' && board) {
+            board.placed.board.hero = { ...out.at };
+            hid = true;
+          }
+        }
       } else if (action === 'bail') {
         unseat('bail');
       } else if (action === 'grab' && ride) {
@@ -572,7 +596,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       if (!result) {
         const pace = action === 'floor_it' ? 1 : action === 'swerve' || action === 'lane_split' ? 0.8 : 0.7;
         if (car && h.vehicle) {
-          if (rng.chance(hopChance(w, car, cls, pace, traffic) * 0.5)) {
+          if (rng.chance(hopChance(w, car, cls, pace, traffic) * 0.5 * (1 + 0.25 * Math.min(2, board ? pinches(board) : 0)))) {
             const crash = accident(c, car, here, cls, pace, true);
             told.push(`crash:${crash.kind}`);
             if (crash.over) {
@@ -582,7 +606,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
               else c.emit('chase_mount', 'mixed', { variant: car.hp > 0 ? 'thrown' : 'wrecked', car: car.name, body: car.body, place: here.name });
             }
           }
-        } else if (foot && rng.chance(footChance(w, cls, pace, traffic) * 0.5)) {
+        } else if (foot && rng.chance(footChance(w, cls, pace, traffic) * 0.5 * (1 + 0.25 * Math.min(2, board ? pinches(board) : 0)))) {
           const st = stumble(c, here, cls, pace);
           for (const f of live) f.gap = Math.max(0, f.gap + (o.mode === 'pursuer' ? st.lost : -st.lost));
           told.push(st.down ? 'down' : 'stumble');
@@ -711,7 +735,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       if (now && now.hp / now.maxHp <= 0.25 && round < maxRounds && !result) c.emit('car_hit', 'bad', { variant: 'smoking', car: now.name, body: now.body, mine: true });
     }
     if (!result) result = o.mode === 'pursuer' ? (o.foes.some((f) => f.alive && !wings(f) && f.gap < 3) ? 'caught' : 'lost') : o.foes.some((f) => f.alive && f.gap < 3) ? 'caught' : 'escaped';
-    finish(c, o, result, last, rounds);
+    finish(c, o, result, last, rounds, hid);
   });
   // Anybody she knocked into on the way, who has had enough.
   if (!w.over && owed.length && result !== 'wrecked') {
@@ -829,7 +853,7 @@ function wreckChaser(c: Ctx, t: Chaser, told: string[]): void {
 }
 
 /** The end of it: what happened to the car, to her, and to where she is. */
-function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle | null, rounds: number): void {
+function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle | null, rounds: number, hid = false): void {
   const { w, rng } = c;
   const h = w.hero;
   const loc = h.locationId;
@@ -864,7 +888,8 @@ function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle | null, 
     train(c, 'athletics', 2);
   } else if (result === 'escaped') {
     // Out of sight: a few streets on.
-    const far = roadsFrom(w, loc, 4, car?.body ?? 'bike').filter((r) => r.hops >= 3);
+    // (Unless she went somewhere to do it, and is there.)
+    const far = hid ? [] : roadsFrom(w, loc, 4, car?.body ?? 'bike').filter((r) => r.hops >= 3);
     if (far.length) for (const id of rng.pick(far).path) relocate(w, id);
     if (o.foes.some((f) => f.car?.kind === 'police' || f.crew.some((n) => n.tags.includes('cop')))) w.heat.npd = Math.max(0, (w.heat.npd ?? 0) - 2);
     train(c, car ? 'driving' : 'athletics', 2);
