@@ -635,3 +635,7 @@ Tuning notes: with competence 0.4, simulated heroes sleep about a third of the t
 ## Stealth (`stealth.ts`)
 
 Stealth is one system: while she sneaks, everyone who could notice her has an awareness that climbs and falls through four buckets (Unaware, Suspicious, Alert, Aware), calling for help is an ordinary action anyone can weigh, and Hush (a Hack) takes it away. Pickpocketing, dungeon sneaking, witnessing and ambushes all read the same state. Sneaking into a dungeon room plays it as a small board (`prowl.ts`): facings and cones, light, noise, patrols, silent takedowns, bodies, and Override-able props to draw people away. See [`STEALTH.md`](STEALTH.md) for the rules and what isn't built yet.
+
+## Places as boards (`layout.ts`, `placeboard.ts`)
+
+Every place is meant to be a grid whatever she is doing there, so a fight starts where she is standing and a sneak can use the room. Clubs are the proof of concept: a stable layout with a bar, booths, decks, speakers, a strobed floor and a door per exit; a coarse board of where everyone is; fights and pickpocketing that use it. See [`BOARDS.md`](BOARDS.md).

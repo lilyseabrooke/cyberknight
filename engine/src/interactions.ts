@@ -38,7 +38,8 @@ import { isBadGuy } from './traits';
 import { isShut } from './shutdown';
 import { moveNpc } from './population';
 import { cooling } from './mind';
-import { atLeast, awareness, bucketOf, coverAt, enterStealth, isSneaking, npcPerception, stealthCandidates, stir } from './stealth';
+import { atLeast, awareness, bucketOf, coverAt, enterStealth, isSneaking, npcPerception, stealthCandidates } from './stealth';
+import { spatialStir } from './placeboard';
 import { analyze, perceived, perceivedRatio, ratio, readQuality, skillOf, statsOf } from './npcstats';
 
 const DRINKS = [
@@ -390,7 +391,7 @@ function pickpocket(c: Ctx, n: Npc): void {
   }
   // The mark feels something, and whoever is looking might too.
   awareness(w, n).v += 0.12;
-  stir(c, 0.05, [n]);
+  spatialStir(c, 0.05, [n]);
   const items = n.loadout.filter((i) => i.kind !== 'armor' || !h.armor);
   if (items.length && rng.chance(0.55)) {
     const it = rng.pick(items);

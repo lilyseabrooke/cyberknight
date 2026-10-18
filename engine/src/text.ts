@@ -386,6 +386,29 @@ const T: Record<string, Entry> = {
   prowl_body: e((d) => (d.variant === 'hidden' ? [`Blackbird drags ${d.npc} behind a crate, out of everyone's line of sight.`, `${d.npc} gets tucked into a dark corner, where a person of average habits will not look.`] : [`${d.finder} finds ${d.npc} on the floor and stops dead. Then ${d.finder} starts looking around, very carefully.`, `${d.finder} trips over ${d.npc}. This is not good for anyone, mostly ${d.finder}.`]), (d) => [d.variant === 'hidden' ? 'Housekeeping.' : 'And that is why you hide the bodies.']),
   prowl_distract: e((d) => (d.variant === 'ok' ? [Number(d.count) ? `Blackbird gets into ${d.label} from across the room and sets it off. ${d.count === 1 ? 'Somebody turns' : `${d.count} of them turn`} toward the noise, and she's got a clear path.` : `Blackbird sets off ${d.label}. Nobody is close enough to care, which is also information.`, `${cap(String(d.label))} goes off like it has been waiting its whole life to. Heads go toward it.`] : [`Blackbird tries to get into ${d.label}. It beeps at her, loudly, and then thinks better of it.`, `${cap(String(d.label))} refuses her. It makes a small, offended noise.`]), (d) => [d.variant === 'ok' ? 'Look at that, over there. Not at me.' : 'Rude machine.']),
   prowl_end: e((d) => (d.variant === 'cleared' ? [`The last of them goes down. ${cap(String(d.place))} is quiet, and nobody outside knows she was ever there.`, `${cap(String(d.place))} is hers: nobody awake, nobody called in.`] : d.variant === 'detected' ? [`That is it: somebody has her, and ${d.place} turns into a fight.`] : [`She can't find a way through without being seen, so Blackbird stays put in ${d.place}, unseen, with ${d.count === 1 ? 'one of them' : `${d.count} of them`} still about.`, `The room stays as it is: ${d.count} of them, none the wiser.`]), (d) => [d.variant === 'cleared' ? 'That was nice. Do it again.' : d.variant === 'detected' ? 'I did say there was a plan B.' : 'Not the worst result.']),
+  place_spot: e((d) => {
+    const fight: Record<string, string[]> = {
+      door: [`Blackbird has not even finished coming through ${d.label}. Everyone inside is exactly where they were.`, `It starts in the doorway: Blackbird still half in the street, the whole room in front of her.`],
+      back_door: [`Blackbird is by ${d.label}, with a way out right behind her.`],
+      bar: [`Blackbird is at the bar when it starts, a glass in front of her and the bartender close enough to hear.`, `It kicks off at the bar, with stools, bottles and a long counter between her and the room.`],
+      deck: [`Blackbird is up by the DJ booth, with the speakers right at her back.`],
+      booth: [`Blackbird is tucked into a booth, the table between her and everything else.`],
+      floor: [`Blackbird is out on the floor, in the thick of the crowd.`, `It starts on the dance floor, in the dark between strobes.`],
+      cover: [`Blackbird is standing by ${d.label}.`],
+      near: [`Blackbird is right beside ${d.label}.`],
+    };
+    const walk: Record<string, string[]> = {
+      door: [`Blackbird drifts back towards ${d.label}.`],
+      back_door: [`Blackbird works her way over to ${d.label}.`],
+      bar: [`Blackbird makes her way over to the bar.`, `Blackbird cuts across the room to the bar.`],
+      deck: [`Blackbird threads through the crowd to the DJ booth.`],
+      booth: [`Blackbird slides into a booth.`],
+      floor: [`Blackbird pushes out onto the dance floor.`],
+      cover: [`Blackbird crosses to ${d.label}.`],
+      near: [`Blackbird weaves across the room to ${d.label}.`],
+    };
+    return (d.variant === 'walk' ? walk : fight)[String(d.spot)] ?? [`Blackbird is somewhere in ${d.place}.`];
+  }),
   'stealth:enter': e((d) => (Number(d.watching) === 0 ? [`Blackbird shrinks into the background at ${d.place}. Nobody is looking, so it is very easy.`] : Number(d.left) === 0 ? [`Blackbird slips out of sight at ${d.place}. Every eye in the room drifts off. There is a lot to hide behind.`] : Number(d.dropped) > 0 ? [`Blackbird tries to melt into ${d.place}. ${d.dropped} of ${d.watching} lose her; ${d.left} still have her in sight.`] : [`Blackbird goes quiet at ${d.place}, but there is ${d.cover === 'none' ? 'nothing' : 'not enough'} to hide behind. Everyone who was watching still is.`]), ['Shh. Even to myself.', 'Invisible. Mostly.']),
   'stealth:exit': e((d) => [`Blackbird stops creeping about at ${d.place}. She is just a person in a room now, and everyone in it knows it.`], ['Hello. Yes. Me.']),
   'stealth:blown': e((d) => [`Whatever she was doing, it was not quiet. Blackbird is no longer sneaking at ${d.place}; everyone has her in sight.`], ['That was not stealthy. That was a lot of other things.']),

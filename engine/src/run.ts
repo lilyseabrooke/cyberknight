@@ -37,6 +37,7 @@ import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
 import { art } from './lab';
 import { gate, tickStealth } from './stealth';
+import { positionFor, tickPlace } from './placeboard';
 
 /** Only for headless loops and tests (runToEnd, sims). The game itself never caps a run: it ends when Blackbird does. */
 export const TEST_BEAT_CAP = 600;
@@ -206,6 +207,7 @@ export function step(w: World): GameEvent[] {
       }
       if (w.recent.length > 14) w.recent.shift();
       gate(c, pick.key);
+      positionFor(c, pick.key);
       perform(c, pick);
       w.clock += Math.max(0, actionMinutes(pick.key) - BASE_MIN_PER_BEAT);
     }
@@ -253,6 +255,7 @@ function upkeep(c: Ctx): void {
   expireBuffs(c);
   w.flags.blackout = w.beat < w.blackoutUntil;
   tickStealth(c);
+  tickPlace(w);
   if (w.beat % 10 === 0) for (const k of Object.keys(w.heat)) w.heat[k] = Math.max(0, (w.heat[k] ?? 0) - 1);
   // The Halo's grudge fades faster than the police's.
   if (w.beat % 5 === 0 && (w.heat.halo ?? 0) > 0) w.heat.halo!--;

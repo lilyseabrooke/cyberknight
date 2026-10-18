@@ -58,7 +58,7 @@ How it goes out depends on what they carry (`channelOf`): a **shout** (nearby al
 
 ## Not built yet
 
-- Boards for places other than dungeon rooms (bars, streets, lobbies); the code is generic, so it is a matter of when one is made.
+- Sneaking on boards for places other than dungeon rooms: clubs now have a layout (see `BOARDS.md`) but the prowl board does not run on it yet.
 - On the board: moving on through another exit (she only clears or stalls), Hush and camera Overrides, cameras at all, a fight that goes back to hiding mid-way, and the "evaded" result.
 - The dungeon as an ecosystem: patrols between rooms, calls that make other rooms respond, defend or flee, a derived alert level (`d.alert` and `d.aware` still exist), and bodies being missed by roll call.
 - Perception finding hidden things (exits, ambushers, traps), and the blur on what she reads at low Perception.

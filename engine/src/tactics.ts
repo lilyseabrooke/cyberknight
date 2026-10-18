@@ -15,6 +15,8 @@ import type { ArtBranch } from './content/doctrine';
 import * as D from './doctrine';
 import { perceived, ratio, statsOf } from './npcstats';
 import { atLeast, bucketOf, callForHelp, channelNow, hush } from './stealth';
+import type { Placed } from './placeboard';
+import { cloneGrid } from './layout';
 
 /**
  * A fight, played out on a small grid. Nobody watches it: the player gets a report of the interesting bits and the result.
@@ -110,6 +112,8 @@ export interface SimOpts {
   maxRounds: number;
   /** Same-faction friends of the other side who might wade in. */
   backup?: () => Npc[];
+  /** The place has a layout and everyone has somewhere to be on it: fight there, from where they are. */
+  board?: Placed;
 }
 
 export interface LogEntry {
@@ -139,6 +143,10 @@ export interface RoundRecord {
 
 export interface SimResult {
   result: TacticalResult;
+  /** The tile she left by, if she ran for it. */
+  fledAt?: Pos;
+  /** Where everyone was at the end, for the place's board. */
+  ended: { hero: Pos; others: Record<string, Pos> };
   rounds: number;
   /** Knocked out, in a fight where nobody dies. */
   down: Set<string>;
@@ -282,6 +290,7 @@ export class Sim {
   /** A car went up with her in it: that is death whether or not the fight was meant to be lethal. */
   private blastKill = false;
   droveOff = false;
+  fledAt: Pos | null = null;
   readonly getaways: { npc: Npc; carId: string }[] = [];
   /** A hit at the end of a ride-by: momentum. */
   private rideBonus = 0;
@@ -304,7 +313,7 @@ export class Sim {
     this.o = o;
     const h = c.w.hero;
     const loc = c.w.locations[h.locationId]!;
-    this.grid = makeGrid(c.rng, loc.kind, loc.crowded);
+    this.grid = o.board ? cloneGrid(o.board.layout.grid) : makeGrid(c.rng, loc.kind, loc.crowded);
     this.parkCars(loc);
     this.wield = wielded(h, o.foes);
     this.arts = artsOf(c.w.legacy);
@@ -415,6 +424,20 @@ export class Sim {
       u.y = p.y;
       placed.push(u);
     };
+    const bd = this.o.board;
+    if (bd) {
+      // She is where she was and so is everyone else.
+      const spot = (p: Pos | undefined): Pos | null => (p && passable(g, p.x, p.y) && !taken(p) ? p : null);
+      const start = spot(bd.board.hero) ?? nearestFree(g, rng, bd.board.hero, taken)[0] ?? g.exits[0]!;
+      put(this.hero, start);
+      for (const u of this.units) if (u.kind === 'ally') put(u, nearestFree(g, rng, start, taken, u.flying)[0] ?? start);
+      for (const u of this.units) {
+        if (u.kind !== 'foe') continue;
+        const mine = spot(bd.board.pos[u.id]);
+        put(u, mine ?? nearestFree(g, rng, bd.board.hero, taken, u.flying).find((p) => dist(p, start) >= 2) ?? nearestFree(g, rng, start, taken, u.flying)[0] ?? start);
+      }
+      return;
+    }
     const entry = rng.pick(g.exits);
     // She is beside her own car if there is one.
     const mine = this.ownCar();
@@ -1025,7 +1048,10 @@ export class Sim {
       for (const p of o.cells) this.grid.cells[idx(this.grid, p)] = 'floor';
       this.grid.objects = (this.grid.objects ?? []).filter((x) => x !== o);
     } else if (me.kind === 'foe') this.eject(me, me.scared ? 'scared' : 'ran');
-    else me.state = 'fled';
+    else {
+      me.state = 'fled';
+      if (me.kind === 'hero') this.fledAt = { x: me.x, y: me.y };
+    }
   }
 
   /** The car (not hers, in one piece) a foe has the key to, if it is on the board. */
@@ -1297,8 +1323,12 @@ export class Sim {
       // Whoever she crept up on has noticed her by the second round.
       if ((this.round >= 2 && this.round >= this.hush) || !this.o.assault) for (const f of this.units) if (f.team === 'foe') f.alert = true;
     }
+    const ended = { hero: { x: this.hero.x, y: this.hero.y }, others: {} as Record<string, Pos> };
+    for (const u of this.units) if (u.kind === 'foe') ended.others[u.id] = { x: u.x, y: u.y };
     return {
       result: this.result ?? 'flee',
+      ...(this.fledAt ? { fledAt: this.fledAt } : {}),
+      ended,
       rounds: this.round,
       down: this.down,
       fled: this.fled,

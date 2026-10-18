@@ -866,6 +866,21 @@ export interface RunReport {
   after: number;
 }
 
+/**
+ * Where everyone is inside a place she has been to this run (see placeboard.ts). The layout itself is worked out from the place's
+ * id and never stored; this is only what moves: her, the people, and what she has used.
+ */
+export interface PlaceBoard {
+  loc: Id;
+  hero: { x: number; y: number };
+  /** Where she is, coarsely: `door:<place>`, `fixture:<id>`, `near:<person>`, or `floor`. */
+  at: string;
+  pos: Record<Id, { x: number; y: number }>;
+  facing: Record<Id, number>;
+  /** The beat everyone was last put at their stations. */
+  placedAt: number;
+}
+
 export interface World {
   /** This run's seed: the stream of luck Blackbird's night draws on. */
   seed: string;
@@ -912,6 +927,8 @@ export interface World {
   recent: string[];
   brawlUntil: number;
   blackoutUntil: number;
+  /** Where everyone is in the places she has been, this run. See placeboard.ts. */
+  boards?: Record<Id, PlaceBoard>;
   /** Everyone whose awareness of Blackbird is currently worth tracking, so the beat only has to look at them. */
   watchers?: Id[];
   stats: { kills: number; fights: number; maxLevel: number; deposited: number; fees: number };
