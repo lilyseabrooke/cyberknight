@@ -637,8 +637,6 @@ export interface DungeonRoom {
   cache?: Cache;
   /** What a job needs doing in here: a thing to take or a system to get into (flatline jobs are a person, not a fixture). */
   objective?: { kind: 'item' | 'terminal'; done: boolean; fails: number };
-  /** What is left of her passing through, for this run: who she has put down where, and what she has used. See prowl.ts. */
-  prowl?: { bodies: { id: Id; x: number; y: number; found: boolean }[]; props: { kind: string; charges: number }[] };
 }
 
 /**
@@ -867,16 +865,43 @@ export interface RunReport {
 }
 
 /**
- * Where everyone is inside a place she has been to this run (see placeboard.ts). The layout itself is worked out from the place's
- * id and never stored; this is only what moves: her, the people, and what she has used.
+ * Somebody on a place's board: where they are, which way they are facing, and what they were last doing about her (a post, a patrol
+ * route, a search). It lasts as long as the board does, so a guard who was halfway round a patrol when she left is still on it.
+ */
+export interface Ent {
+  x: number;
+  y: number;
+  facing: number;
+  home?: { x: number; y: number };
+  homeFacing?: number;
+  route?: { x: number; y: number }[];
+  leg?: number;
+  pause?: number;
+  behavior?: string;
+  last?: { x: number; y: number } | null;
+  looked?: number;
+  searched?: number[];
+  calm?: number;
+  sweep?: 1 | -1;
+}
+
+/**
+ * The one board a place has, for the run (see placeboard.ts). Whatever she is doing there (walking about, sneaking, fighting) it is
+ * this: where she is, where everyone else is, what is lying on the floor and what has been used. The layout itself is worked out from
+ * the place's id and never stored.
  */
 export interface PlaceBoard {
   loc: Id;
   hero: { x: number; y: number };
   /** Where she is, coarsely: `door:<place>`, `fixture:<id>`, `near:<person>`, or `floor`. */
   at: string;
-  pos: Record<Id, { x: number; y: number }>;
-  facing: Record<Id, number>;
+  ents: Record<Id, Ent>;
+  /** People who are down or dead, where they fell, and whether anyone has found them. */
+  bodies: { npcId: Id; x: number; y: number; found: boolean }[];
+  /** Things in the room she can get into, and how many goes they have left. */
+  props: { kind: string; x: number; y: number; charges: number }[];
+  /** Lights out around a point until a round of a scene. */
+  dark: { x: number; y: number; r: number; until: number }[];
   /** The beat everyone was last put at their stations. */
   placedAt: number;
 }

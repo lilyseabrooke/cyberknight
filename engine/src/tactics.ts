@@ -433,7 +433,7 @@ export class Sim {
       for (const u of this.units) if (u.kind === 'ally') put(u, nearestFree(g, rng, start, taken, u.flying)[0] ?? start);
       for (const u of this.units) {
         if (u.kind !== 'foe') continue;
-        const mine = spot(bd.board.pos[u.id]);
+        const mine = spot(bd.board.ents[u.id]);
         put(u, mine ?? nearestFree(g, rng, bd.board.hero, taken, u.flying).find((p) => dist(p, start) >= 2) ?? nearestFree(g, rng, start, taken, u.flying)[0] ?? start);
       }
       return;

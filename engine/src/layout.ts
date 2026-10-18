@@ -1,10 +1,12 @@
 import { Rng } from './rng';
 import type { Id, Location, World } from './types';
-import { dist, idx, neighbors, walkable, type Grid, type Pos, type Terrain } from './grid';
+import { dist, idx, makeGrid, neighbors, passable, walkable, type Grid, type Pos, type Terrain } from './grid';
+import { PROPS, PROPS_BY_ROOM, type PropKind } from './content/props';
 
 /**
  * What a place is like inside, as a board. The layout is worked out from the place's id and the world's seed alone, so it is
- * the same every time and is never stored: only what moves on it is (see placeboard.ts). Today it covers clubs.
+ * the same every time and is never stored: only what moves on it is (see placeboard.ts). Every indoor place has one; clubs have a
+ * made one (a bar, booths, decks) and everywhere else a plain room of the right kind, which the dungeons' rooms also use.
  *
  * A layout is a grid, the named things on it (the bar, the DJ booth, the booths), where the doors are and which exit
  * each one is, and zones: the sorts of spot a person might be standing in (behind the bar, on the floor, in a booth).
@@ -51,29 +53,45 @@ export interface Zones {
   front: Pos[];
 }
 
+/** A machine on the board that an Override can set off: where it is and what it is. */
+export interface PropSpec {
+  kind: PropKind;
+  x: number;
+  y: number;
+}
+
 export interface Layout {
   grid: Grid;
+  /** What sort of room it is (a dungeon's `barracks`, a `club`...): picks the light and the machines. */
+  role: string;
+  props: PropSpec[];
   fixtures: Fixture[];
   doors: Door[];
   zones: Zones;
   light: LightLevel[];
-  /** Which side the bar is on. */
-  bar: 'east' | 'west';
+  /** Which side the bar is on, for the places that have one. */
+  bar: 'east' | 'west' | null;
 }
 
-/** Which places have a layout. */
-export const hasLayout = (loc: Location): boolean => loc.kind === 'club' && !loc.dungeon && (loc.gen?.role === 'club' || loc.id === 'neon_pharaoh');
+/** Which places have a board: every one indoors. (Streets are laid out on the hex grid and will get strips of their own.) */
+export const hasBoard = (loc: Location): boolean => !loc.outdoors && loc.kind !== 'street';
+
+/** The clubs with a made layout. */
+export const isClub = (loc: Location): boolean => loc.kind === 'club' && !loc.dungeon && (loc.gen?.role === 'club' || loc.id === 'neon_pharaoh');
 
 const cache = new Map<string, Layout>();
 
-/** The layout of a place that has one: always the same for the same place. */
-export function layoutOf(w: Pick<World, 'worldSeed' | 'locations'>, loc: Location): Layout | null {
-  if (!hasLayout(loc)) return null;
+type Seeded = Pick<World, 'worldSeed' | 'locations' | 'dungeons'>;
+
+/** The layout of a place: always the same for the same place (and, in a dungeon, the same garrisoning of it). */
+export function layoutOf(w: Seeded, loc: Location): Layout | null {
+  if (!hasBoard(loc)) return null;
   const visible = loc.exits.filter((e) => !e.hidden);
-  const key = `${w.worldSeed}:${loc.id}:${visible.map((e) => e.to).join(',')}`;
+  const occupied = loc.dungeon ? w.dungeons?.[loc.dungeon]?.occupation ?? 0 : 0;
+  const key = `${w.worldSeed}:${loc.id}:${occupied}:${visible.map((e) => e.to).join(',')}`;
   let l = cache.get(key);
   if (!l) {
-    l = clubLayout(w, loc);
+    l = isClub(loc) ? clubLayout(w, loc) : plainLayout(w, loc);
     cache.set(key, l);
   }
   return l;
@@ -101,7 +119,7 @@ function reachable(g: Grid, from: Pos): Set<number> {
 }
 
 /** A club: the DJ booth at the back, the bar down one side, booths down the other, the dance floor between, the door at the front. */
-function clubLayout(w: Pick<World, 'worldSeed' | 'locations'>, loc: Location): Layout {
+function clubLayout(w: Seeded, loc: Location): Layout {
   const rng = new Rng(`layout:${w.worldSeed}:${loc.id}`);
   const W = 12 + rng.int(0, 2);
   const H = 9 + rng.int(0, 1);
@@ -206,5 +224,52 @@ function clubLayout(w: Pick<World, 'worldSeed' | 'locations'>, loc: Location): L
   lit(dancing.filter(() => rng.chance(0.4)), 0);
   lit(dancing.filter((p) => light[idx(g, p)] === 1 && rng.chance(0.35)), 2);
 
-  return { grid: g, fixtures, doors, zones: { floor: dancing, behindBar, stools, seats, stage, deck, wall, front }, light, bar: east ? 'east' : 'west' };
+  const props: PropSpec[] = fixtures.filter((f) => f.kind === 'speaker').map((f) => ({ kind: 'speaker', x: f.tiles[0]!.x, y: f.tiles[0]!.y }));
+  return { grid: g, role: 'club', props, fixtures, doors, zones: { floor: dancing, behindBar, stools, seats, stage, deck, wall, front }, light, bar: east ? 'east' : 'west' };
+}
+
+/** How lit a room usually is, by kind, for the rooms that have a say. */
+const LIT: Record<string, LightLevel> = { hall: 2, gate: 2, command: 2, door: 2, hangout: 2, core: 1, pit: 2 };
+
+/**
+ * An ordinary room: a board of the right kind for the place, seeded from its id so it is always the same, with a few lamps and
+ * dark corners, the machines a dungeon room keeps, and a door tile for each way out that fits.
+ */
+function plainLayout(w: Seeded, loc: Location): Layout {
+  const d = loc.dungeon ? w.dungeons?.[loc.dungeon] : undefined;
+  const role = d?.rooms.find((r) => r.id === loc.id)?.role ?? loc.gen?.role ?? loc.kind;
+  const rng = new Rng(`prowl:${w.worldSeed}:${loc.id}:${d?.occupation ?? 0}`);
+  const grid = makeGrid(rng, loc.kind, !!loc.crowded);
+  const floor: Pos[] = [];
+  for (let y = 0; y < grid.h; y++) for (let x = 0; x < grid.w; x++) if (passable(grid, x, y) && grid.cells[idx(grid, { x, y })] !== 'hazard' && grid.cells[idx(grid, { x, y })] !== 'exit') floor.push({ x, y });
+
+  // Light: a base by kind of room, with a few lamps and a few dark corners.
+  const light: LightLevel[] = Array<LightLevel>(grid.w * grid.h).fill(LIT[role] ?? 1);
+  const patch = (n: number, lvl: LightLevel, r: number) => {
+    for (let i = 0; i < n && floor.length; i++) {
+      const c = floor[rng.int(0, floor.length - 1)]!;
+      for (const p of floor) if (dist(p, c) <= r) light[idx(grid, p)] = lvl;
+    }
+  };
+  patch(rng.int(1, 2), 2, 1);
+  patch(rng.int(1, 2), 0, 1);
+
+  // The machines, on tiles away from the doors.
+  const away = floor.filter((p) => grid.exits.every((e) => dist(e, p) >= 3));
+  const spots = (away.length >= 3 ? away : floor).slice();
+  for (let i = spots.length - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    [spots[i], spots[j]] = [spots[j]!, spots[i]!];
+  }
+  const props: PropSpec[] = (PROPS_BY_ROOM[role] ?? []).slice(0, spots.length).map((kind, i) => ({ kind, x: spots[i]!.x, y: spots[i]!.y }));
+  void PROPS;
+
+  // Doors: the way out to the street (or back the way you came) first, then the others, onto the exit tiles there are.
+  const visible = loc.exits.filter((e) => !e.hidden);
+  const front = visible.find((e) => e.to === loc.tossTo) ?? visible[0];
+  const ordered = front ? [front, ...visible.filter((e) => e !== front)] : [];
+  const doors: Door[] = ordered.slice(0, grid.exits.length).map((e, i) => ({ exit: e.to, at: grid.exits[i]!, label: e.label, front: e === front }));
+
+  const empty: Pos[] = [];
+  return { grid, role, props, fixtures: [], doors, zones: { floor, behindBar: empty, stools: empty, seats: empty, stage: empty, deck: empty, wall: empty, front: empty }, light, bar: null };
 }

@@ -8,7 +8,7 @@ import { spawnNpc } from './content/archetypes';
 import { addNpc, moveNpc, npcsAt } from './population';
 import { Sim } from './tactics';
 import { dist, passable, walkable, idx, neighbors, type Pos } from './grid';
-import { hasLayout, layoutOf, type Layout } from './layout';
+import { hasBoard, isClub, layoutOf, type Layout } from './layout';
 import { describeSpot, enterPlace, goTo, placeOf, positionFor, spatialStir, syncPlace, tickPlace } from './placeboard';
 import { angDiff, dirOf } from './prowl';
 import { awareness, bucketOf } from './stealth';
@@ -39,7 +39,7 @@ const clubs = (n: number): { w: World; club: Location }[] => {
   for (let s = 0; out.length < n && s < 60; s++) {
     const w = createWorld({ seed: `clubs${s}`, competence: 0.5 });
     for (let round = 0; round < 2; round++) for (const l of Object.values(w.locations)) if (l.outdoors && l.gen && !l.gen.expanded) expand(w, l);
-    for (const l of Object.values(w.locations)) if (hasLayout(l) && l.id !== 'neon_pharaoh') out.push({ w, club: l });
+    for (const l of Object.values(w.locations)) if (isClub(l) && l.id !== 'neon_pharaoh') out.push({ w, club: l });
   }
   return out.slice(0, n);
 };
@@ -107,10 +107,12 @@ describe('a club has a layout', () => {
     }
   });
 
-  it('other places do not have one yet, and still work as before', () => {
+  it('every indoor place has a board; the streets do not yet', () => {
     const sc = scenario({ seed: 'halo', at: 'halo_floor' });
-    expect(placeOf(sc.w)).toBeNull();
-    expect(hasLayout(sc.w.locations.club_greenroom!)).toBe(false);
+    expect(placeOf(sc.w)).not.toBeNull();
+    expect(hasBoard(sc.w.locations.club_greenroom!)).toBe(true);
+    expect(hasBoard(sc.w.locations.street_main!)).toBe(false);
+    expect(placeOf(sc.w, sc.w.locations.street_main!)).toBeNull();
   });
 });
 
@@ -140,14 +142,14 @@ describe('where everyone is', () => {
     const dj = Object.values(w.npcs).find((n) => n.locationId === 'neon_pharaoh' && n.role === 'DJ');
     const p = placeOf(w)!;
     syncPlace(w, p);
-    const at = (n: Npc) => p.board.pos[n.id]!;
+    const at = (n: Npc) => p.board.ents[n.id]!;
     const has = (zone: Pos[], q: Pos) => zone.some((z) => z.x === q.x && z.y === q.y);
     expect(has(p.layout.zones.behindBar, at(bar))).toBe(true);
     expect(has(p.layout.zones.front, at(guard)) || has(p.layout.zones.floor, at(guard)) || has(p.layout.zones.wall, at(guard))).toBe(true);
     if (dj) expect(has(p.layout.zones.deck, at(dj))).toBe(true);
     // And nobody is standing on anybody, or on a wall.
     const seen = new Set<string>();
-    for (const [id, q] of Object.entries(p.board.pos)) {
+    for (const [id, q] of Object.entries(p.board.ents)) {
       expect(passable(p.layout.grid, q.x, q.y), id).toBe(true);
       expect(seen.has(`${q.x},${q.y}`), `${id} shares a tile`).toBe(false);
       seen.add(`${q.x},${q.y}`);
@@ -160,16 +162,16 @@ describe('where everyone is', () => {
     const regulars = Array.from({ length: 6 }, (_, i) => person(w, `pat${i}`, 'patron'));
     const p = placeOf(w)!;
     syncPlace(w, p);
-    const before = Object.fromEntries(regulars.map((n) => [n.id, { ...p.board.pos[n.id]! }]));
-    const barBefore = { ...p.board.pos[bar.id]! };
+    const before = Object.fromEntries(regulars.map((n) => [n.id, { ...p.board.ents[n.id]! }]));
+    const barBefore = { ...p.board.ents[bar.id]! };
     let moved = 0;
     for (let i = 0; i < 24; i++) {
       w.beat++;
       tickPlace(w);
     }
-    for (const n of regulars) if (dist(before[n.id]!, p.board.pos[n.id]!) > 0) moved++;
+    for (const n of regulars) if (dist(before[n.id]!, p.board.ents[n.id]!) > 0) moved++;
     expect(moved).toBeGreaterThan(0);
-    expect(p.board.pos[bar.id]).toEqual(barBefore);
+    expect(p.board.ents[bar.id]).toEqual(barBefore);
   });
 
   it('loses people who have gone and places newcomers', () => {
@@ -177,10 +179,10 @@ describe('where everyone is', () => {
     const p = placeOf(w)!;
     const a = person(w, 'a', 'patron');
     syncPlace(w, p);
-    expect(p.board.pos[a.id]).toBeDefined();
+    expect(p.board.ents[a.id]).toBeDefined();
     moveNpc(w, a, '_gone');
     syncPlace(w, p);
-    expect(p.board.pos[a.id]).toBeUndefined();
+    expect(p.board.ents[a.id]).toBeUndefined();
   });
 });
 
@@ -193,11 +195,11 @@ describe('getting to where she needs to be', () => {
     syncPlace(w, p);
     const { c } = ctxOf(w);
     positionFor(c, `chat:${a.id}`);
-    expect(dist(p.board.hero, p.board.pos[a.id]!)).toBe(1);
+    expect(dist(p.board.hero, p.board.ents[a.id]!)).toBe(1);
     expect(p.board.at).toBe(`near:${a.id}`);
     positionFor(c, `pickpocket:${b.id}`);
-    expect(dist(p.board.hero, p.board.pos[b.id]!)).toBe(1);
-    const behind = angDiff(p.board.facing[b.id] ?? 0, dirOf(p.board.pos[b.id]!, p.board.hero));
+    expect(dist(p.board.hero, p.board.ents[b.id]!)).toBe(1);
+    const behind = angDiff(p.board.ents[b.id]!.facing, dirOf(p.board.ents[b.id]!, p.board.hero));
     expect(behind).toBeGreaterThanOrEqual(3);
   });
 
@@ -284,10 +286,10 @@ describe('where a fight starts', () => {
     const { c } = ctxOf(w, 'after');
     const p = placeOf(w)!;
     syncPlace(w, p);
-    const start = { ...p.board.pos[goon.id]! };
+    const start = { ...p.board.ents[goon.id]! };
     fight(c, [goon], { cause: 'test', assault: true, joiners: false });
     const q = placeOf(w, w.locations[w.hero.locationId]);
-    if (q && q.board.loc === 'neon_pharaoh') expect(q.board.pos[goon.id]).toBeDefined();
+    if (q && q.board.loc === 'neon_pharaoh') expect(q.board.ents[goon.id]).toBeDefined();
     void start;
   });
 
@@ -326,10 +328,8 @@ describe('being seen', () => {
     // Put her on the floor with one of them looking at her and the other looking away.
     const spot = p.layout.zones.floor.find((q) => q.x > 4 && q.y > 3)!;
     p.board.hero = { ...spot };
-    p.board.pos[watching.id] = { x: spot.x + 1, y: spot.y };
-    p.board.facing[watching.id] = 6;
-    p.board.pos[turned.id] = { x: spot.x + 3, y: spot.y };
-    p.board.facing[turned.id] = 2;
+    p.board.ents[watching.id] = { x: spot.x + 1, y: spot.y, facing: 6 };
+    p.board.ents[turned.id] = { x: spot.x + 3, y: spot.y, facing: 2 };
     p.layout.light.fill(2);
     w.hero.stealth = true;
     const { c } = ctxOf(w);

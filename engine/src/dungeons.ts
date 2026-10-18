@@ -222,7 +222,6 @@ export function tickDungeons(u: Realm): Dungeon[] {
   for (const d of Object.values(u.dungeons)) {
     d.alert = 0;
     d.aware = [];
-    for (const r of d.rooms) delete r.prowl;
     if (d.quest) nightfall(u, d);
     if (d.clearedRun !== null && d.returnsRun !== null && u.legacy.runs >= d.returnsRun) {
       regarrison(u, d);

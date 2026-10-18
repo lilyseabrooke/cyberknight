@@ -26,7 +26,7 @@ import { afterTakedown, downFor, isShut } from './shutdown';
 import { dropFlights, modelOf } from './dragonmodels';
 import { markKilled } from './dragonlog';
 import { loseContact } from './stealth';
-import { enterPlace, placeOf, syncPlace, describeSpot, keepPositions } from './placeboard';
+import { enterPlace, placeOf, syncPlace, describeSpot, keepPositions, layBodies } from './placeboard';
 import { cloneGrid } from './layout';
 
 export { npcsAt };
@@ -260,8 +260,11 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   const placed = placeOf(w, loc);
   if (placed) {
     syncPlace(w, placed);
-    const where = describeSpot(placed, w);
-    c.emit('place_spot', 'mixed', { variant: 'fight', spot: where.variant, label: where.label, place: loc.name });
+    // (Only a place with something in it to be next to has anything to say about where she is.)
+    if (placed.layout.fixtures.length) {
+      const where = describeSpot(placed, w);
+      c.emit('place_spot', 'mixed', { variant: 'fight', spot: where.variant, label: where.label, place: loc.name });
+    }
   }
   // Whoever she fights starts to matter: they get a character, and people who care about them.
   for (const f of foes) ensureDeep(w, f);
@@ -460,6 +463,8 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   }
 
   for (const f of foes) f.flags = f.flags.filter((x) => x !== 'disabled');
+  // Whoever she left on the floor stays where they fell.
+  if (placed) layBodies(placed, w, foes.filter((f) => !res.fled.has(f.id) && (!f.alive || res.down.has(f.id))).map((f) => f.id), res.ended.others);
   const style = weaponStyle(wield.tags);
   // What a fight teaches depends on who she was fighting: nothing from the trivial, the most from people a little ahead of her.
   const foeGrade = foes.length ? foes.reduce((a, f) => a + f.level, 0) / foes.length : 0;

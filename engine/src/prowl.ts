@@ -3,7 +3,8 @@ import type { Awareness, Ctx, Dungeon, Id, Location, Npc, World } from './types'
 import { clamp } from './candidate';
 import { dist, hasLos, idx, inCover, line, neighbors, passable, posOf, reach, terrainAt, makeGrid, type Grid, type Pos } from './grid';
 import { V, atLeast, awareness, bucketOf, callForHelp, callWeight, heroPerception, heroStealth, keenness, npcPerception } from './stealth';
-import { PROPS, PROPS_BY_ROOM, type PropKind } from './content/props';
+import { PROPS, type PropKind } from './content/props';
+import { commitBoard, placeOf, syncPlace, viewOf } from './placeboard';
 import { overrideChance } from './override';
 import { skillLevel, train, hasImplantFlag } from './skills';
 import { gainXp } from './combat';
@@ -105,8 +106,6 @@ const SPEED: Record<Posture, number> = { hold: 0, sneak: 2, walk: 3, dash: 5 };
 const STEP_NOISE: Record<Posture, number> = { hold: 0, sneak: 0.04, walk: 0.14, dash: 0.4 };
 /** How much of her shows, by what she is doing. */
 const POSTURE_SHOWS: Record<Posture, number> = { hold: 0.3, sneak: 0.65, walk: 1, dash: 2 };
-/** How lit a room usually is, by kind. */
-const LIT: Record<string, Light> = { hall: 2, gate: 2, command: 2, door: 2, hangout: 2, core: 1, pit: 2 };
 const MAX_ROUNDS = 30;
 /** How far she can reach into a machine from where she stands. */
 const JACK_RANGE = 6;
@@ -115,12 +114,13 @@ const posKey = (g: Grid, p: Pos): number => idx(g, p);
 const same = (a: Pos, b: Pos): boolean => a.x === b.x && a.y === b.y;
 
 export function lightAt(b: Board, p: Pos): Light {
+  if (b.w.flags.blackout) return 0;
   for (const d of b.dark) if (b.round < d.until && dist(d, p) <= d.r) return 0;
   return b.light[posKey(b.grid, p)] ?? 1;
 }
 
-const holdsPost = (n: Npc): boolean => n.tags.includes('commander') || /turret/i.test(n.role) || n.tags.includes('boss');
-const sensors = (n: Npc): boolean => n.tags.includes('robot');
+export const holdsPost = (n: Npc): boolean => n.tags.includes('commander') || /turret/i.test(n.role) || n.tags.includes('boss');
+export const sensors = (n: Npc): boolean => n.tags.includes('robot');
 
 /** A person on the board. */
 export function makeUnit(npc: Npc, at: Pos, facing: number, o: { route?: Pos[] } = {}): PUnit {
@@ -147,72 +147,6 @@ export function makeUnit(npc: Npc, at: Pos, facing: number, o: { route?: Pos[] }
 }
 
 const walkableFor = (g: Grid, p: Pos): boolean => passable(g, p.x, p.y) && terrainAt(g, p.x, p.y) !== 'hazard';
-
-/** Lay out the room: the same every visit in a night, so a room she has been in is the room she comes back to. */
-export function buildBoard(w: World, d: Dungeon, loc: Location, foes: Npc[]): Board {
-  const room = d.rooms.find((r) => r.id === loc.id);
-  const role = room?.role ?? 'spot';
-  const seed = new Rng(`prowl:${w.worldSeed}:${loc.id}:${d.occupation}`);
-  const grid = makeGrid(seed, 'lair', !!loc.crowded);
-  const hero = { ...grid.exits[0]! };
-
-  // Light: a base by kind of room, with a few lamps and a few dark corners.
-  const base = LIT[role] ?? 1;
-  const light: Light[] = Array<Light>(grid.w * grid.h).fill(base);
-  const floor: Pos[] = [];
-  for (let y = 0; y < grid.h; y++) for (let x = 0; x < grid.w; x++) if (walkableFor(grid, { x, y })) floor.push({ x, y });
-  const patch = (n: number, lvl: Light, r: number) => {
-    for (let i = 0; i < n && floor.length; i++) {
-      const c = floor[seed.int(0, floor.length - 1)]!;
-      for (const p of floor) if (dist(p, c) <= r) light[posKey(grid, p)] = lvl;
-    }
-  };
-  patch(seed.int(1, 2), 2, 1);
-  patch(seed.int(1, 2), 0, 1);
-  if (w.flags.blackout) for (let i = 0; i < light.length; i++) light[i] = 0;
-
-  const away = (p: Pos) => grid.exits.every((e) => dist(e, p) >= 3);
-  const spots = floor.filter(away).concat(floor.filter((p) => !away(p) && !grid.exits.some((e) => same(e, p))));
-  for (let i = spots.length - 1; i > 0; i--) {
-    const j = seed.int(0, i);
-    [spots[i], spots[j]] = [spots[j]!, spots[i]!];
-  }
-  const taken: Pos[] = [];
-  const spot = (): Pos => {
-    const free = spots.find((p) => !taken.some((t) => dist(t, p) < 2)) ?? spots.find((p) => !taken.some((t) => same(t, p))) ?? spots[0]!;
-    taken.push(free);
-    return free;
-  };
-
-  const units: PUnit[] = [];
-  for (const n of foes) {
-    const at = spot();
-    const mobile = !holdsPost(n);
-    const walks = mobile && (sensors(n) || n.tags.includes('security') || seed.chance(0.35));
-    let route: Pos[] | undefined;
-    if (walks) {
-      const far = spots.filter((p) => dist(p, at) >= 3 && !taken.some((t) => same(t, p)));
-      if (far.length) route = [at, far[seed.int(0, far.length - 1)]!];
-    }
-    const facing = seed.chance(0.5) ? dirOf(at, grid.exits[0]!) : seed.int(0, 7);
-    const u = makeUnit(n, at, facing, route ? { route } : {});
-    // Whatever they knew from before, they don't know where she is now.
-    const a = n.aware;
-    if (a) a.fix = false;
-    units.push(u);
-  }
-
-  // What she can get into.
-  const kinds = PROPS_BY_ROOM[role] ?? [];
-  const kept = room?.prowl?.props;
-  const props: Prop[] = kinds.map((kind, i) => {
-    const at = spot();
-    return { kind, x: at.x, y: at.y, charges: kept?.[i]?.charges ?? PROPS[kind].charges };
-  });
-  const bodies: Body[] = (room?.prowl?.bodies ?? []).map((x) => ({ npcId: x.id, x: x.x, y: x.y, found: x.found }));
-
-  return { w, grid, light, units, hero, posture: 'sneak', props, bodies, round: 0, dark: [], role };
-}
 
 // ------------------------------------------------------------------ what they can see and hear
 
@@ -836,31 +770,18 @@ function hideTile(b: Board, body: Body): Pos | null {
   return best?.p ?? null;
 }
 
-/** Keep what lasts: where the bodies are and what has been used. */
-export function saveBoard(d: Dungeon, loc: Location, b: Board): void {
-  const room = d.rooms.find((r) => r.id === loc.id);
-  if (!room) return;
-  room.prowl = { bodies: b.bodies.map((x) => ({ id: x.npcId, x: x.x, y: x.y, found: x.found })), props: b.props.map((p) => ({ kind: p.kind, charges: p.charges })) };
-}
-
-/** Make the stored bodies back into the shape the board uses. */
-export const bodyOf = (x: { id: Id; x: number; y: number; found: boolean }): Body => ({ npcId: x.id, x: x.x, y: x.y, found: x.found });
-
-/** Give back the board's own copy of a stored room. */
-export function restoreBodies(b: Board, d: Dungeon, loc: Location): void {
-  const room = d.rooms.find((r) => r.id === loc.id);
-  b.bodies = (room?.prowl?.bodies ?? []).map(bodyOf);
-}
-
-/** The whole of it, from the door: lay the room out, play it, keep what lasts and tell how it ended. */
+/** The whole of it, from the door: take the room's board as it stands, play it, keep what lasts and tell how it ended. */
 export function prowlRoom(c: Ctx, d: Dungeon, loc: Location, foes: Npc[], o: ProwlOpts = {}): ProwlOutcome {
+  void d;
   const { w } = c;
-  const b = buildBoard(w, d, loc, foes);
+  const placed = placeOf(w, loc)!;
+  syncPlace(w, placed);
+  const b = viewOf(w, placed, { foes });
   const say: Sink = (type, outcome, data) => c.emit(type, outcome, data);
   let out: ProwlOutcome = 'stalled';
   nested(c, 'prowl_start', 'mixed', { place: loc.name, count: foes.length, foes: o.describe ? o.describe(foes) : `${foes.length} of them`, lit: b.light.reduce<number>((a, x) => a + x, 0) / b.light.length > 1.3 }, () => {
     out = prowlBoard(c, b, say);
-    saveBoard(d, loc, b);
+    commitBoard(b, placed);
     w.clock += Math.ceil(b.round / 4);
     say('prowl_end', out === 'detected' ? 'bad' : out === 'cleared' ? 'good' : 'mixed', { variant: out, place: loc.name, count: live(b).length });
   });
