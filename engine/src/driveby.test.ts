@@ -32,8 +32,8 @@ describe('a vehicle attack', () => {
   it('cannot come down an alley, a highway or into a building', () => {
     const { w, loc } = onStreet('db-chance');
     expect(drivable(loc)).toBe(true);
-    expect(drivable({ ...loc, name: 'Back Alley' })).toBe(false);
-    expect(driveByChance(w, { ...loc, name: 'Back Alley' })).toBe(0);
+    expect(drivable({ ...loc, name: 'Back Alley', street: 'alley' as const })).toBe(false);
+    expect(driveByChance(w, { ...loc, name: 'Back Alley', street: 'alley' as const })).toBe(0);
     expect(driveByChance(w, { ...loc, road: 'highway' })).toBe(0);
     expect(driveByChance(w, { ...loc, outdoors: false })).toBe(0);
   });

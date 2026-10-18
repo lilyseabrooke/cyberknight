@@ -2,6 +2,7 @@ import type { Rng } from './rng';
 import type { Personality } from './personality';
 import type { EventData, GameEvent, Outcome } from './events';
 import type { Phase } from './clock';
+import type { StreetType } from './streettypes';
 import type { Trait } from './personality';
 import type { Faction } from './factions';
 
@@ -440,8 +441,10 @@ export interface Hazards {
 
 export interface Location {
   id: Id;
-  /** Set on highways only. Every other street's class comes from its name: see `roadClass` in roads.ts. */
+  /** Set on highways only. (Their `street` type is 'highway' too.) */
   road?: 'highway';
+  /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
+  street?: StreetType;
   name: string;
   kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
   exits: Exit[];

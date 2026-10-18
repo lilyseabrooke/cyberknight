@@ -9,6 +9,7 @@ import { idx, passable } from './grid';
 import { layoutOf, hasBoard, type Layout } from './layout';
 import { madeLayout } from './layouts';
 import { streetLayout, streetType } from './streets';
+import { typeFromName } from './streettypes';
 import { expand } from './mapgen';
 import { createWorld } from './index';
 import { reachable } from './layoutkit';
@@ -142,7 +143,7 @@ describe('street layouts', () => {
         for (let i = 0; i < 6; i++) {
           const locations: Record<string, Location> = {};
           const exits = [] as Location['exits'];
-          const here: Location = { ...base, id: `s${wi}`, name, hex: { q: 0, r: 0, dir: i % 6, cells: Array.from({ length: 1 + (i % 4) }, (_, k) => [k, 0] as [number, number]) }, road: name === 'Route 9' ? 'highway' : undefined, cameras: 2, exits, links: [], gen: undefined };
+          const here: Location = { ...base, id: `s${wi}`, name, street: name === 'Route 9' ? 'highway' : typeFromName(name, false), hex: { q: 0, r: 0, dir: i % 6, cells: Array.from({ length: 1 + (i % 4) }, (_, k) => [k, 0] as [number, number]) }, road: name === 'Route 9' ? 'highway' : undefined, cameras: 2, exits, links: [], gen: undefined };
           locations[here.id] = here;
           for (let k = 0; k < neighbours; k++) {
             const nb: Location = { ...base, id: `n${k}`, name: 'Next Street', hex: { q: Math.round(4 * Math.cos((k * 2 * Math.PI) / 5)), r: Math.round(4 * Math.sin((k * 2 * Math.PI) / 5)), dir: 0, cells: [[0, 0]] }, exits: [] };
@@ -176,7 +177,7 @@ describe('street layouts', () => {
     for (const name of WORDS) {
       const locations: Record<string, Location> = {};
       const exits = [] as Location['exits'];
-      const here: Location = { ...base, id: 'h', name, hex: { q: 0, r: 0, dir: 0, cells: [[0, 0], [1, 0]] }, cameras: 0, exits, links: [], gen: undefined };
+      const here: Location = { ...base, id: 'h', name, street: typeFromName(name, false), hex: { q: 0, r: 0, dir: 0, cells: [[0, 0], [1, 0]] }, cameras: 0, exits, links: [], gen: undefined };
       locations.h = here;
       for (let k = 0; k < 2; k++) {
         const b: Location = { ...base, id: `b${k}`, name: 'A bar', kind: 'bar', outdoors: false, exits: [] };

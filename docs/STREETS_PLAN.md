@@ -56,7 +56,7 @@ Principle: **the board makes the existing chase concrete, it does not replace it
 
 ## Street types (phase 0, built: `streets.ts`)
 
-A street's layout is chosen by what kind of street it is, from the last word of its name (the city names streets for what they are), a highway by its flag, and it varies with the seed. Size is 12 tiles to a hex cell along the way it runs.
+A street's layout is chosen by what kind of street it is. That is data on the street (`Location.street`, a `StreetType`, `streettypes.ts`), set when the street is made (a made street gets the type its name says, a highway its flag; the hand-built ones are written out in `world.ts`) and read from there by everything that cares: how a car takes the street (`roadClass`, through `CLASS_OF`) and what its board looks like. Renaming a street does not change what it is, and a save from before streets had types is given them when it is brought forward. Two of the layouts below, the crossing and the shanty, are not types: a street of any of the long kinds turns into a crossing when it meets several others, and the slums turn some lanes into shanties. The layout varies with the seed. Size is 12 tiles to a hex cell along the way it runs.
 
 | Kind | Layout |
 |---|---|

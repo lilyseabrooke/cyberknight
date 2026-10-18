@@ -4,6 +4,7 @@ import { isShut } from './shutdown';
 import { npcsAt } from './population';
 import { carKey, makesOf, vehicleOf, type Body } from './cars';
 import type { District, Id, Location, Npc, Vehicle, World } from './types';
+import { CLASS_OF, streetTypeOf } from './streettypes';
 
 /**
  * How a street takes a car. A highway is the easy road even at speed; a street is ordinary; a small street is harder; a pedestrian
@@ -11,18 +12,9 @@ import type { District, Id, Location, Npc, Vehicle, World } from './types';
  */
 export type RoadClass = 'highway' | 'street' | 'small' | 'pedestrian' | 'alley';
 
-const BY_SUFFIX: Record<string, RoadClass> = {
-  alley: 'alley', passage: 'alley',
-  walk: 'pedestrian', arcade: 'pedestrian', plaza: 'pedestrian', concourse: 'pedestrian', bazaar: 'pedestrian', market: 'pedestrian',
-  lane: 'small', row: 'small', terrace: 'small', run: 'small', way: 'small', yard: 'small',
-  street: 'street', avenue: 'street', boulevard: 'street', freightway: 'street', wharf: 'street',
-};
-
-/** What a street is, for driving: a highway if it is one, else by the last word of its name (the city names its streets for what they are). */
-export function roadClass(loc: Pick<Location, 'name' | 'road' | 'gen'>): RoadClass {
-  if (loc.road) return loc.road;
-  const last = loc.name.split(/[\s,]+/).filter(Boolean).pop()?.toLowerCase() ?? '';
-  return BY_SUFFIX[last] ?? (loc.gen ? 'street' : 'small');
+/** What a street is, for driving: by its type (see streettypes.ts). */
+export function roadClass(loc: Pick<Location, 'name' | 'road' | 'gen' | 'street'>): RoadClass {
+  return loc.road ?? CLASS_OF[streetTypeOf(loc)];
 }
 
 /** Per class: how hard it is (0 easy to 1 hopeless), minutes a car takes to cross it flat out, how much of a drive's reach it uses up, how much going faster matters on it, and the odds of a mishap at an ordinary pace. */

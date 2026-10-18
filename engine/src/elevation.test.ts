@@ -4,6 +4,7 @@ import { hasLos, idx, inCover, neighbors, passable, reach, stepOf, type Access, 
 import { layoutOf, hasBoard } from './layout';
 import { reachable } from './layoutkit';
 import { streetLayout, streetType } from './streets';
+import { typeFromName } from './streettypes';
 import { scenario } from './testkit';
 import { relocate, fight } from './combat';
 import { spawnNpc } from './content/archetypes';
@@ -113,7 +114,7 @@ describe('raised streets', () => {
   const make = (name: string, district: Location['gen'] extends infer G ? (G extends { district: infer D } ? D : never) : never, neighbours: number, i: number): { loc: Location; locations: Record<string, Location> } => {
     const locations: Record<string, Location> = {};
     const exits = [] as Location['exits'];
-    const here: Location = { ...base, id: `s${i}`, name, hex: { q: 0, r: 0, dir: i % 6, cells: Array.from({ length: 1 + (i % 3) }, (_, k) => [k, 0] as [number, number]) }, cameras: 1, exits, links: [], road: undefined, gen: { role: 'street', parent: 'x', slot: 0, depth: 1, district, expanded: true } };
+    const here: Location = { ...base, id: `s${i}`, name, street: typeFromName(name, true), hex: { q: 0, r: 0, dir: i % 6, cells: Array.from({ length: 1 + (i % 3) }, (_, k) => [k, 0] as [number, number]) }, cameras: 1, exits, links: [], road: undefined, gen: { role: 'street', parent: 'x', slot: 0, depth: 1, district, expanded: true } };
     locations[here.id] = here;
     for (let k = 0; k < neighbours; k++) {
       const nb: Location = { ...base, id: `n${k}`, name: 'Other Street', hex: { q: Math.round(4 * Math.cos((k * 2 * Math.PI) / 3)), r: Math.round(4 * Math.sin((k * 2 * Math.PI) / 3)), dir: 0, cells: [[0, 0]] }, exits: [] };
@@ -214,6 +215,7 @@ describe('fighting on raised ground', () => {
     for (let i = 0; i < 8; i++) {
       const sc = scenario({ seed: `terr${i}`, at: 'street_main' });
       sc.w.locations.street_main!.name = 'Hill Terrace';
+      sc.w.locations.street_main!.street = 'terrace';
       relocate(sc.w, 'street_main');
       const foes = Array.from({ length: 3 }, (_, k) => {
         const n = spawnNpc(new Rng(`f${i}${k}`), `f${i}_${k}`, 'ganger', 'street_main');

@@ -4,6 +4,7 @@ import { Draft, pt, type DoorPlan } from './layoutkit';
 import type { FixtureKind, Layout, LightLevel } from './layout';
 import { dist, idx, type Pos } from './grid';
 import { DIRS } from './hex';
+import { streetTypeOf, type StreetType } from './streettypes';
 
 /**
  * Streets as boards. What a street is like inside depends on what kind of street it is, and there is a different layout for
@@ -15,25 +16,10 @@ import { DIRS } from './hex';
  * doors of the places on it are in the frontage. See docs/STREETS_PLAN.md.
  */
 
-export type StreetType =
-  | 'highway' | 'avenue' | 'boulevard' | 'street' | 'freightway' | 'wharf'
-  | 'lane' | 'row' | 'run' | 'yard'
-  | 'walk' | 'arcade' | 'plaza' | 'concourse' | 'bazaar'
-  | 'alley' | 'passage' | 'roof' | 'crossing' | 'terrace' | 'shanty';
+/** The kinds of street that are one of the stored types, and the two layouts a street can turn into when it meets several others or is in the slums. */
+type Form = StreetType | 'crossing' | 'shanty';
 
-const BY_WORD: Record<string, StreetType> = {
-  avenue: 'avenue', boulevard: 'boulevard', street: 'street', freightway: 'freightway', wharf: 'wharf',
-  lane: 'lane', row: 'row', terrace: 'terrace', run: 'run', way: 'run', yard: 'yard',
-  walk: 'walk', arcade: 'arcade', plaza: 'plaza', concourse: 'concourse', bazaar: 'bazaar', market: 'bazaar',
-  alley: 'alley', passage: 'passage', roof: 'roof',
-};
-
-/** What sort of street this is: a highway if it is one, else by the last word of its name (the city names its streets for what they are). */
-export function streetType(loc: Pick<Location, 'name' | 'road' | 'gen'>): StreetType {
-  if (loc.road === 'highway') return 'highway';
-  const last = loc.name.split(/[\s,]+/).filter(Boolean).pop()?.toLowerCase() ?? '';
-  return BY_WORD[last] ?? (loc.gen ? 'street' : 'lane');
-}
+export const streetType = streetTypeOf;
 
 type Side = 'W' | 'E' | 'N' | 'S';
 type Role = 'wall' | 'pav' | 'lane' | 'verge' | 'median' | 'water';
@@ -673,7 +659,7 @@ function landDoors(site: Site, d: Draft): void {
 
 // ===================================================================== entry
 
-const strips: Partial<Record<StreetType, { roles: Role[]; furnish: (site: Site, d: Draft, roles: Role[]) => void; dark?: boolean; base?: LightLevel }>> = {
+const strips: Partial<Record<Form, { roles: Role[]; furnish: (site: Site, d: Draft, roles: Role[]) => void; dark?: boolean; base?: LightLevel }>> = {
   street: { roles: ['wall', 'pav', 'lane', 'lane', 'pav', 'wall'], furnish: street },
   avenue: { roles: ['wall', 'pav', 'pav', 'lane', 'lane', 'lane', 'lane', 'pav', 'pav', 'wall'], furnish: avenue },
   boulevard: { roles: ['wall', 'pav', 'pav', 'lane', 'lane', 'median', 'lane', 'lane', 'pav', 'pav', 'wall'], furnish: boulevard },
@@ -693,10 +679,10 @@ export function streetLayout(w: Locs, loc: Location, seed: string): Layout {
   const ways = waysOf(w, loc, rng);
   const n = Math.max(1, Math.min(6, loc.hex?.cells.length ?? 1));
   const L = 12 * n;
-  let type = streetType(loc);
+  let type: Form = streetType(loc);
   const district = loc.gen?.district;
   // Streets that meet several others at once are often a crossing: two strips making a wider open space.
-  const longWay: StreetType[] = ['street', 'avenue', 'boulevard', 'lane', 'row'];
+  const longWay: Form[] = ['street', 'avenue', 'boulevard', 'lane', 'row'];
   if (ways.streets.length >= 3 && longWay.includes(type) && rng.chance(0.7)) type = 'crossing';
   // In the slums the lanes and rows are shacks on shacks.
   if (district === 'slum' && ['lane', 'row', 'run', 'street', 'alley'].includes(type) && rng.chance(0.45)) type = 'shanty';
