@@ -427,7 +427,7 @@ function act(b: Board, u: PUnit, rng: Rng): void {
     if (!same(u, to)) walkTo(b, u, to, 1);
     if (same(u, to)) {
       u.leg = (u.leg + 1) % u.route.length;
-      u.pause = rng.int(1, 3);
+      u.pause = 1 + (hashString(`${u.npc.id}:${u.leg}`) % 3); // (the same every time round, so a patrol can be learned)
     }
     return;
   }

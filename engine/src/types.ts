@@ -883,6 +883,10 @@ export interface Ent {
   searched?: number[];
   calm?: number;
   sweep?: 1 | -1;
+  /** Which stretch of a club patron's evening they are in (see placeboard.ts), so they move on when it changes. */
+  slot?: number;
+  /** When a scene last left them in the middle of something (a search, a look), so they go back to their rounds after a while. */
+  sceneAt?: number;
 }
 
 /**

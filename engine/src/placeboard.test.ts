@@ -156,22 +156,25 @@ describe('where everyone is', () => {
     }
   });
 
-  it('keeps them there between beats; the staff stay put and some patrons drift now and then', () => {
+  it('keeps them there between beats; the DJ stays on the decks, the bartender stays behind the bar, and the patrons move on now and then', () => {
     const { w } = pharaoh('drift');
     const bar = person(w, 'barry', 'bartender');
     const regulars = Array.from({ length: 6 }, (_, i) => person(w, `pat${i}`, 'patron'));
+    const dj = Object.values(w.npcs).find((n) => n.locationId === 'neon_pharaoh' && n.role === 'DJ');
     const p = placeOf(w)!;
     syncPlace(w, p);
     const before = Object.fromEntries(regulars.map((n) => [n.id, { ...p.board.ents[n.id]! }]));
-    const barBefore = { ...p.board.ents[bar.id]! };
+    const djBefore = dj ? { ...p.board.ents[dj.id]! } : null;
     let moved = 0;
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 40; i++) {
       w.beat++;
       tickPlace(w);
+      // (always behind the bar)
+      expect(p.layout.zones.behindBar.some((q) => q.x === p.board.ents[bar.id]!.x && q.y === p.board.ents[bar.id]!.y), `beat ${i}`).toBe(true);
     }
     for (const n of regulars) if (dist(before[n.id]!, p.board.ents[n.id]!) > 0) moved++;
     expect(moved).toBeGreaterThan(0);
-    expect(p.board.ents[bar.id]).toEqual(barBefore);
+    if (dj && djBefore) expect({ x: p.board.ents[dj.id]!.x, y: p.board.ents[dj.id]!.y }).toEqual({ x: djBefore.x, y: djBefore.y });
   });
 
   it('loses people who have gone and places newcomers', () => {
@@ -197,6 +200,9 @@ describe('getting to where she needs to be', () => {
     positionFor(c, `chat:${a.id}`);
     expect(dist(p.board.hero, p.board.ents[a.id]!)).toBe(1);
     expect(p.board.at).toBe(`near:${a.id}`);
+    // (somebody out in the open, so there is a back to get behind)
+    const mid = p.layout.zones.floor.find((q) => q.x > 4 && q.y > 3 && q.x < p.layout.grid.w - 6)!;
+    p.board.ents[b.id] = { x: mid.x, y: mid.y, facing: 0 };
     positionFor(c, `pickpocket:${b.id}`);
     expect(dist(p.board.hero, p.board.ents[b.id]!)).toBe(1);
     const behind = angDiff(p.board.ents[b.id]!.facing, dirOf(p.board.ents[b.id]!, p.board.hero));
@@ -260,7 +266,7 @@ describe('where a fight starts', () => {
     const { c } = ctxOf(w);
     goTo(c, p, { kind: 'fixture', fixture: 'bar' }, { tell: false });
     const s = sim(w, [tender]);
-    expect(nearestFoe(s)).toBeLessThanOrEqual(3);
+    expect(nearestFoe(s)).toBeLessThanOrEqual(4);
     expect(p.layout.zones.stools.some((q) => q.x === s.hero.x && q.y === s.hero.y)).toBe(true);
   });
 

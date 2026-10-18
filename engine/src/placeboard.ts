@@ -1,6 +1,6 @@
 import { Rng, hashString } from './rng';
 import type { Ctx, Ent, Id, Location, Npc, PlaceBoard, World } from './types';
-import { dist, hasLos, idx, passable, type Pos } from './grid';
+import { dist, hasLos, idx, passable, pathTo, reach, type Pos } from './grid';
 import { everyoneAt } from './population';
 import { layoutOf, type CamMount, type Door, type Fixture, type Layout, type Zones } from './layout';
 import { PROPS, type PropKind } from './content/props';
@@ -56,6 +56,87 @@ const presentAt = (w: World, locId: Id): Npc[] => everyoneAt(w, locId).filter((n
 
 type Station = keyof Zones;
 
+// ------------------------------------------------------------------ rounds, and who is where when
+
+
+const paths = new Map<string, Pos[]>();
+
+/** The tiles from one end of a beat to the other, the same every time. */
+function pathBetween(key: string, l: Layout, a: Pos, b: Pos): Pos[] {
+  const k = `${key}:${a.x},${a.y}>${b.x},${b.y}:${l.grid.w}x${l.grid.h}`;
+  let out = paths.get(k);
+  if (!out) {
+    const steps = pathTo(l.grid, reach(l.grid, a, 80, () => false), b);
+    out = [{ ...a }, ...steps];
+    paths.set(k, out);
+  }
+  return out;
+}
+
+/**
+ * Where someone walking a beat is at tick `t`, which is only a function of the tick: a pause at the near end, the walk to the far end,
+ * a pause there, the walk back. `rest` is how long the pause has still to run; `dir` is the way they are walking (or last walked).
+ */
+export function routeAt(path: Pos[], pauseA: number, pauseB: number, t: number): { at: Pos; dir: number; leg: 0 | 1; rest: number } {
+  const L = path.length - 1;
+  if (L < 1) return { at: path[0]!, dir: 0, leg: 0, rest: 0 };
+  const total = pauseA + L + pauseB + L;
+  const k = ((t % total) + total) % total;
+  if (k < pauseA) return { at: path[0]!, dir: dirOf(path[1]!, path[0]!), leg: 1, rest: pauseA - k };
+  if (k < pauseA + L) {
+    const j = k - pauseA + 1;
+    return { at: path[j]!, dir: dirOf(path[j - 1]!, path[j]!), leg: 0, rest: 0 };
+  }
+  if (k < pauseA + L + pauseB) return { at: path[L]!, dir: dirOf(path[L - 1]!, path[L]!), leg: 0, rest: pauseA + L + pauseB - k };
+  const j = L - (k - (pauseA + L + pauseB)) - 1;
+  return { at: path[j]!, dir: dirOf(path[j + 1]!, path[j]!), leg: 1, rest: 0 };
+}
+
+/** The pauses and the starting tick of a given person's round: their own, so a room is not marching in step. */
+const roundOf = (id: Id): { pauseA: number; pauseB: number; offset: number } => {
+  const h = hashString(`round:${id}`);
+  return { pauseA: 1 + (h % 3), pauseB: 1 + ((h >> 3) % 3), offset: (h >> 6) % 64 };
+};
+
+/** Everyone on a beat is where their round puts them at this beat. (The clock says; nothing is stepped through.) */
+function walkRounds(w: World, p: Placed): void {
+  const { board, layout } = p;
+  for (const [id, e] of Object.entries(board.ents)) {
+    if (e.behavior !== 'patrol' || !e.route || e.route.length < 2 || w.npcs[id]?.hostile) continue;
+    const { pauseA, pauseB, offset } = roundOf(id);
+    const path = pathBetween(`${w.worldSeed}:${board.loc}`, layout, e.route[0]!, e.route[1]!);
+    const r = routeAt(path, pauseA, pauseB, w.beat + offset);
+    const blocked = occupied(board, r.at, id);
+    if (!blocked) {
+      e.x = r.at.x;
+      e.y = r.at.y;
+    }
+    // Waiting at an end, they look about; walking, they look where they are going.
+    e.facing = r.rest ? (r.dir + LOOK[(r.rest * 3 + hashString(id)) % 8]!) % 8 : r.dir;
+    e.leg = r.leg;
+    e.pause = r.rest;
+  }
+}
+
+/** How many beats it takes someone to go the whole way round their beat and come back to where they started (null if they don't walk one). */
+export function patrolPeriod(w: World, p: Placed, id: Id): number | null {
+  const e = p.board.ents[id];
+  if (!e?.route || e.route.length < 2) return null;
+  const { pauseA, pauseB } = roundOf(id);
+  const path = pathBetween(`${w.worldSeed}:${p.board.loc}`, p.layout, e.route[0]!, e.route[1]!);
+  return pauseA + pauseB + 2 * (path.length - 1);
+}
+
+/** Which stretch of the evening a person is in, for those who move about: every so often, a little different for each. */
+const slotOf = (id: Id, beat: number): number => {
+  const h = hashString(`slot:${id}`);
+  const stay = 10 + (h % 10);
+  return Math.floor((beat + ((h >> 4) % stay)) / stay);
+};
+
+/** Beats after a scene left someone in the middle of something before they give up and go back to their rounds. */
+const RESUME = 8;
+
 /** Those who stay where they work. */
 const fixedStation = (n: Npc): boolean => n.archetype === 'bartender' || n.archetype === 'dj' || n.archetype === 'bouncer' || n.role === 'DJ' || /bartender|barkeep/i.test(n.role) || n.tags.includes('security') || n.tags.includes('cop');
 
@@ -100,7 +181,21 @@ const entAt = (at: Pos, facing: number): Ent => ({ x: at.x, y: at.y, facing, hom
 /** In a club: to a station by job. */
 function stationAssign(l: Layout, b: PlaceBoard, n: Npc, rng: Rng): void {
   const s = freeSpot(l, b, stationOf(n, rng), rng, n.id);
-  if (s) b.ents[n.id] = entAt(s.at, facingFor(l, s.station, s.at));
+  if (!s) return;
+  const e = entAt(s.at, facingFor(l, s.station, s.at));
+  b.ents[n.id] = e;
+  // The bartender works up and down the bar and security walk the floor; the DJ stays on the decks.
+  if (s.station === 'behindBar' && l.zones.behindBar.length >= 3) {
+    const ends = [l.zones.behindBar[0]!, l.zones.behindBar[l.zones.behindBar.length - 1]!];
+    e.route = ends.map((q) => ({ ...q }));
+    e.behavior = 'patrol';
+  } else if (s.station === 'front') {
+    const far = l.zones.floor.filter((q) => dist(q, s.at) >= 4);
+    if (far.length) {
+      e.route = [{ ...s.at }, { ...far[rng.int(0, far.length - 1)]! }];
+      e.behavior = 'patrol';
+    }
+  }
 }
 
 /** Anywhere else: scattered away from the doors, a guard on a post or walking a short beat. Those who turn up in the middle of it (a mugging) start a few tiles from her. */
@@ -168,24 +263,40 @@ export function syncPlace(w: World, p: Placed): void {
     return !!n && n.locationId === board.loc && (!n.alive || n.downUntil > w.beat);
   });
   const rng = new Rng(`board:${board.loc}:${w.beat}`);
-  // After a long while away everyone has moved on, or gone back to their post.
+  // After a long while away, those who were on a post are back on it.
   const away = w.beat - board.placedAt;
-  if (away > 24) {
-    if (layout.role === 'club') for (const id of Object.keys(board.ents)) delete board.ents[id];
-    else for (const e of Object.values(board.ents)) standDown(e);
-  }
+  if (away > 24 && layout.role !== 'club') for (const e of Object.values(board.ents)) standDown(e);
   board.placedAt = w.beat;
   for (const n of here) if (!board.ents[n.id]) assign(layout, board, n, rng);
-  // And a few of a club's patrons wander to somewhere else, now and then.
-  if (layout.role === 'club' && w.beat % 6 === 0) {
+
+  // In a club, the patrons move on to somewhere else when their stretch is up.
+  if (layout.role === 'club') {
     for (const n of here) {
-      if (n.hostile || fixedStation(n)) continue;
-      if (rng.chance(0.25)) {
+      const e = board.ents[n.id];
+      if (!e || n.hostile || fixedStation(n)) continue;
+      const slot = slotOf(n.id, w.beat);
+      if (e.slot === undefined) e.slot = slot;
+      else if (e.slot !== slot) {
         delete board.ents[n.id];
-        assign(layout, board, n, rng);
+        assign(layout, board, n, new Rng(`slot:${board.loc}:${n.id}:${slot}`));
+        const moved = board.ents[n.id];
+        if (moved) moved.slot = slot;
       }
     }
   }
+
+  // Somebody a scene left in the middle of something gives it up after a while and goes back to their rounds.
+  for (const e of Object.values(board.ents)) {
+    if (e.behavior === 'investigate' || e.behavior === 'search' || e.behavior === 'return') {
+      if (e.sceneAt === undefined) e.sceneAt = w.beat;
+      else if (w.beat - e.sceneAt >= RESUME) {
+        e.sceneAt = undefined;
+        standDown(e);
+      }
+    } else e.sceneAt = undefined;
+  }
+
+  walkRounds(w, p);
 }
 
 /** Once a beat, for the place she is in. */

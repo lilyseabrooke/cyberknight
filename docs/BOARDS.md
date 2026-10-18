@@ -22,9 +22,10 @@ A place's layout is worked out from its id and the world's seed alone, so it is 
 
 Between scenes it is deliberately coarse and none of it is in the log:
 
-- In a club people sit at **stations** by what they are (the bartender behind the bar, the DJ on the decks, security by the door, the rest on the floor, at the bar or in the booths), and every few beats some patrons drift to another.
-- Elsewhere they stand scattered away from the doors, a guard on a post or walking a short beat. People who turn up in the middle of something (a mugging) start a few tiles from her.
-- Nobody walks about unless a scene is on. Someone mid-search is still searching if she comes back soon; after a long while away (`standDown`) they are back on their post. A club after a long while is reshuffled.
+- **Where anyone is, when no scene is on, is a function of the clock** (`routeAt`, `walkRounds`, `slotOf`): nobody is stepped from beat to beat, so skipping ahead and watching every beat give the same answer. A round is a path between two tiles with a pause at each end (the pauses and a starting offset are fixed per person), and it comes round again every `patrolPeriod` beats, so a patrol can be learned and timed. At an end they look about; walking, they face the way they go.
+- In a club people have **stations** by what they are: the bartender works up and down behind the bar, security walk a round of the floor from the door, the DJ stays on the decks, and patrons move on to another spot (bar, floor, booth) every ten to twenty beats, never onto each other or her.
+- Elsewhere they stand scattered away from the doors, a guard on a post or walking a round. People who turn up in the middle of something (a mugging) start a few tiles from her.
+- A scene can leave someone mid-search or mid-chase; after `RESUME` (8) quiet beats they give it up and go back to their round (`standDown`).
 - The fallen stay where they fell until they get up or are taken away.
 
 She **arrives in the doorway** of the door she came in by (`relocate` calls `enterPlace`). Actions that need her somewhere put her there first (`positionFor`): chatting, flirting, kissing, threatening, arm wrestling and analyzing put her beside the person; pickpocketing, behind them; the DJ booth, the dance floor and settling a tab put her at those. She is not moved to start a fight. A long walk is mentioned now and then (`place_spot`), not every time.
