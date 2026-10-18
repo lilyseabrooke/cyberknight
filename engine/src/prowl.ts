@@ -1,13 +1,13 @@
 import { Rng, hashString } from './rng';
 import type { Awareness, Ctx, Dungeon, Id, Location, Npc, World } from './types';
 import { clamp } from './candidate';
-import { angDiff, dirOf, dist, hasLos, idx, inCover, line, neighbors, passable, posOf, reach, terrainAt, type Grid, type Pos } from './grid';
+import { angDiff, dirOf, dist, hasLos, idx, inCover, line, neighbors, passable, pathTo, posOf, reach, stepOf, terrainAt, type Grid, type Pos } from './grid';
 import { V, atLeast, awareness, bucketOf, callForHelp, callWeight, heroPerception, heroStealth, keenness, npcPerception } from './stealth';
 import { PROPS, type PropKind } from './content/props';
 import { commitBoard, placeOf, syncPlace, viewOf } from './placeboard';
 import type { CamMount } from './layout';
 import { overrideChance } from './override';
-import { skillLevel, train, hasImplantFlag } from './skills';
+import { skillLevel, skillValue, train, hasImplantFlag } from './skills';
 import { gainXp } from './combat';
 import { wielded } from './arms';
 import { fxOf } from './weapons';
@@ -252,7 +252,8 @@ export function makeNoise(b: Board, at: Pos, level: number, from: 'her' | 'objec
 
 // ------------------------------------------------------------------ moving about
 
-function distFrom(g: Grid, sources: { p: Pos; c: number }[], blocked: (p: Pos) => boolean): Map<number, number> {
+/** Steps from the sources to everywhere. `into`: steps *to* the sources, which is not the same thing where there is a climb in the way. */
+function distFrom(g: Grid, sources: { p: Pos; c: number }[], blocked: (p: Pos) => boolean, o: { climber?: boolean; into?: boolean } = {}): Map<number, number> {
   const out = new Map<number, number>();
   const open = sources.map((s) => ({ ...s }));
   for (const s of open) out.set(idx(g, s.p), s.c);
@@ -261,9 +262,9 @@ function distFrom(g: Grid, sources: { p: Pos; c: number }[], blocked: (p: Pos) =
     for (let i = 1; i < open.length; i++) if (open[i]!.c < open[bi]!.c) bi = i;
     const cur = open.splice(bi, 1)[0]!;
     if (out.get(idx(g, cur.p))! < cur.c) continue;
-    for (const n of neighbors(g, cur.p)) {
+    for (const n of neighbors(g, cur.p, false, !!o.climber, !!o.into)) {
       if (blocked(n) && !same(n, cur.p)) continue;
-      const nc = cur.c + (terrainAt(g, n.x, n.y) === 'hazard' ? 2 : 1);
+      const nc = cur.c + (terrainAt(g, n.x, n.y) === 'hazard' ? 2 : 1) + (o.into ? stepOf(g, n, cur.p, !!o.climber) : stepOf(g, cur.p, n, !!o.climber)).extra;
       if (out.get(idx(g, n)) === undefined || nc < out.get(idx(g, n))!) {
         out.set(idx(g, n), nc);
         open.push({ p: n, c: nc });
@@ -277,7 +278,7 @@ const occupied = (b: Board, p: Pos, except?: PUnit): boolean => live(b).some((u)
 
 /** One step toward `to`, if there is a way. */
 function stepToward(b: Board, u: PUnit, to: Pos): Pos | null {
-  const dm = distFrom(b.grid, [{ p: to, c: 0 }], (p) => occupied(b, p, u) && !same(p, to));
+  const dm = distFrom(b.grid, [{ p: to, c: 0 }], (p) => occupied(b, p, u) && !same(p, to), { into: true });
   let best: Pos | null = null;
   let bd = dm.get(idx(b.grid, u)) ?? Infinity;
   for (const n of neighbors(b.grid, u)) {
@@ -503,7 +504,7 @@ function pickTarget(b: Board): { target: PUnit; dm: Map<number, number> } | null
   for (const t of units) {
     const goals = behindTiles(b, t);
     if (!goals.length) continue;
-    const dm = distFrom(b.grid, goals, (p) => units.some((o) => same(o, p)));
+    const dm = distFrom(b.grid, goals, (p) => units.some((o) => same(o, p)), { climber: true, into: true });
     const mine = dm.get(idx(b.grid, b.hero));
     if (mine === undefined) continue;
     const others = units.filter((o) => o !== t && dist(o, t) <= 5 && hasLos(b.grid, o, t)).length;
@@ -563,7 +564,7 @@ function plan(b: Board, state: { holds: number; sinceProp: number }): Plan {
 
   // If the only way at them is in their face, something else should have their attention first.
   if (state.sinceProp >= 2 && dist(h, target) > 1) {
-    const reachable = distFrom(b.grid, [{ p: h, c: 0 }], (p) => live(b).some((u) => same(u, p)));
+    const reachable = distFrom(b.grid, [{ p: h, c: 0 }], (p) => live(b).some((u) => same(u, p)), { climber: true });
     let bestChance = 0;
     for (const g of behindTiles(b, target)) {
       if (!reachable.has(idx(b.grid, g.p))) continue;
@@ -580,7 +581,7 @@ function plan(b: Board, state: { holds: number; sinceProp: number }): Plan {
 
   // Where she could stand this round.
   const blocked = (p: Pos) => live(b).some((u) => same(u, p));
-  const walk = reach(b.grid, h, SPEED.sneak, blocked);
+  const walk = reach(b.grid, h, SPEED.sneak, blocked, false, true);
   const pick: { to: Pos | null; score: number; exp: number } = { to: null, score: -Infinity, exp: 0 };
   const stay = exposure(b, h, 'hold') + (nearlyCaught(b, h, 'hold') ? 3 : 0);
   const here = dm.get(idx(b.grid, h)) ?? 99;
@@ -713,8 +714,25 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
       state.holds = 0;
     } else if (p.kind === 'move' && p.to) {
       b.posture = 'sneak';
-      b.hero = { ...p.to };
-      makeNoise(b, b.hero, STEP_NOISE.sneak);
+      // Any climbing on the way is a check; a slip stops her where she was, and makes a noise.
+      const way = reach(b.grid, b.hero, SPEED.sneak, (q) => occupied(b, q), false, true);
+      let at: Pos = b.hero;
+      let slipped = false;
+      for (const step of pathTo(b.grid, way, p.to)) {
+        if (stepOf(b.grid, at, step, true).check) {
+          train(c, 'athletics', 1);
+          if (!rng.chance(clamp(0.6 + 0.05 * skillValue(h, 'athletics') + 0.02 * heroStealth(w), 0.25, 0.95))) {
+            slipped = true;
+            break;
+          }
+        }
+        at = step;
+      }
+      b.hero = { ...at };
+      if (slipped) {
+        say('prowl_climb', 'bad', { variant: 'slip' });
+        makeNoise(b, b.hero, 0.3);
+      } else makeNoise(b, b.hero, STEP_NOISE.sneak);
       state.holds = 0;
     } else if (p.kind === 'prop' && p.prop) {
       useProp(c, b, p.prop, say);

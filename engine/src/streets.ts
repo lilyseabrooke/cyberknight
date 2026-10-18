@@ -19,11 +19,11 @@ export type StreetType =
   | 'highway' | 'avenue' | 'boulevard' | 'street' | 'freightway' | 'wharf'
   | 'lane' | 'row' | 'run' | 'yard'
   | 'walk' | 'arcade' | 'plaza' | 'concourse' | 'bazaar'
-  | 'alley' | 'passage' | 'roof' | 'crossing';
+  | 'alley' | 'passage' | 'roof' | 'crossing' | 'terrace' | 'shanty';
 
 const BY_WORD: Record<string, StreetType> = {
   avenue: 'avenue', boulevard: 'boulevard', street: 'street', freightway: 'freightway', wharf: 'wharf',
-  lane: 'lane', row: 'row', terrace: 'row', run: 'run', way: 'run', yard: 'yard',
+  lane: 'lane', row: 'row', terrace: 'terrace', run: 'run', way: 'run', yard: 'yard',
   walk: 'walk', arcade: 'arcade', plaza: 'plaza', concourse: 'concourse', bazaar: 'bazaar', market: 'bazaar',
   alley: 'alley', passage: 'passage', roof: 'roof',
 };
@@ -125,6 +125,8 @@ class Site {
   doorAt(at: Pos, inside: Pos, way: Way, front: boolean): boolean {
     if (this.d.at(inside) !== 'floor' || this.d.at(at) === null) return false;
     this.plans.push({ exit: way.exit, label: way.label, front, tiles: [at] });
+    // A door is as high as the ground just inside it.
+    this.d.setLevel(at, this.d.levelOf(inside));
     this.reserve(at);
     this.reserve(inside);
     return true;
@@ -261,6 +263,8 @@ function boulevard(site: Site, d: Draft, roles: Role[]): void {
 function freightway(site: Site, d: Draft, roles: Role[]): void {
   const lane = rowsOf(roles, 'lane');
   lamps(site, d, lane[0]! - 1, 9);
+  // Loading docks along the warehouse fronts, a step up from the yard, now and then.
+  if (site.rng.chance(0.6)) raisedFrontage(site, d, { rows: [1, 2], stairs: 2, ladders: 1, ledges: 1 });
   // Loading yards either side: stacks of containers with aisles between them.
   for (const [y0, y1] of [[1, lane[0]! - 2], [lane[lane.length - 1]! + 2, d.H - 2]] as const) {
     for (let x = 2; x < d.W - 5; x += 5) {
@@ -274,6 +278,7 @@ function freightway(site: Site, d: Draft, roles: Role[]): void {
 function wharf(site: Site, d: Draft, roles: Role[]): void {
   const quay = rowsOf(roles, 'pav').slice(-1)[0]!;
   lamps(site, d, quay, 8);
+  if (site.rng.chance(0.6)) raisedFrontage(site, d, { rows: [1, 2], stairs: 1, ladders: 2, ledges: 2 });
   // Bollards along the water's edge, a crane, and stacks of crates against the warehouses.
   for (let x = 2; x < d.W - 2; x += 4) site.put('crate', `bollard${x}`, 'a bollard', [pt(x, quay)]);
   site.put('machine', 'crane', 'a quayside crane', [pt(site.rng.int(6, d.W - 8), quay - 1), pt(site.rng.int(0, 1) + 7, quay - 1)], { large: true });
@@ -301,6 +306,8 @@ function walk(site: Site, d: Draft, roles: Role[]): void {
   lamps(site, d, 1, 8);
   lamps(site, d, d.H - 2, 8, 7);
   const mid = Math.floor(d.H / 2);
+  // Now and then the north side is a raised bank above the walk, with a low wall along it.
+  if (site.rng.chance(0.4)) raisedFrontage(site, d, { rows: [1, 2], stairs: 2, ledgeAll: true });
   trees(site, d, mid - 2, 6, 'treeN', 3);
   trees(site, d, mid + 2, 6, 'treeS', 6);
   for (let x = 4; x < d.W - 4; x += 8) site.put('bench', `bench${x}`, 'a bench', [pt(x, mid), pt(x + 1, mid)]);
@@ -352,6 +359,11 @@ function room(loc: Location, rng: Rng, ways: { streets: Way[]; buildings: Way[] 
 function plaza(site: Site, d: Draft): void {
   const cx = d.cx;
   const cy = d.cy;
+  // A bandstand: a dais at the north end with steps up and a low rail.
+  if (site.rng.chance(0.5)) {
+    d.platform(cx - 4, 2, cx + 4, 4, 1, { stairs: 2, ledges: 2 });
+    landDoors(site, d);
+  }
   // A fountain or a statue in the middle, with benches round it, trees at the corners and a kiosk or two.
   const statue = site.rng.chance(0.5);
   site.put(statue ? 'statue' : 'fountain', 'centre', statue ? 'a statue' : 'the fountain', [pt(cx, cy), pt(cx + 1, cy), pt(cx, cy + 1), pt(cx + 1, cy + 1)], { large: true });
@@ -362,6 +374,9 @@ function plaza(site: Site, d: Draft): void {
 }
 
 function yard(site: Site, d: Draft): void {
+  // A fire escape: an iron landing against one wall with a ladder up to it and a bad pipe.
+  const fe = d.patch(4, 2, (p) => site.reserved(p));
+  if (fe) d.platform(fe.x, fe.y, fe.x + 3, fe.y + 1, 1, { stairs: 0, ladders: 1, climbs: 1 });
   site.put('tree', 'tree', 'an old tree', [pt(d.cx, d.cy)], { large: true });
   site.d.scatter('crate', 'stack', 'a stack of crates', 1, 2, 3, { large: true });
   site.d.scatter('vehicle', 'wreck', 'a parked wreck', 2, 1, 2);
@@ -378,6 +393,8 @@ function concourse(site: Site, d: Draft): void {
 /** A market: stalls in blocks with narrow aisles between, and canopy over them. */
 function bazaar(site: Site, d: Draft): void {
   const vendors: Pos[] = [];
+  // A gantry along the north wall, over the stalls' heads.
+  if (site.rng.chance(0.6)) raisedFrontage(site, d, { rows: [1, 1], stairs: 2, ladders: 2, ledges: 2 });
   for (let y = 2; y + 2 < d.H - 1; y += 3) {
     for (let x = 2; x + 3 < d.W - 1; x += 4) {
       if (site.rng.chance(0.12)) continue;
@@ -391,6 +408,10 @@ function bazaar(site: Site, d: Draft): void {
 
 /** A rooftop: a parapet round the edge, vents, a water tank, a stairhead for the way down. */
 function roof(site: Site, d: Draft): void {
+  // The plant room's deck stands a level up, and its tank another.
+  d.platform(7, 3, 11, 5, 1, { stairs: 0, ladders: 1, climbs: 1 });
+  d.platform(9, 4, 10, 4, 2, { climbOnly: true, climbs: 1 });
+  landDoors(site, d);
   site.put('machine', 'tank', 'a water tank', [pt(2, 2), pt(3, 2), pt(2, 3), pt(3, 3)], { large: true });
   site.d.scatter('machine', 'vent', 'a vent stack', 2, 1, 3, { large: true });
   site.d.scatter('crate', 'aerial', 'an aerial mast', 1, 1, 3);
@@ -438,9 +459,12 @@ function alleyLayout(loc: Location, rng: Rng, ways: { streets: Way[]; buildings:
       if (site.doorAt(at, inside, way, false)) break;
     }
   }
+  // A loading step or a fire escape landing.
+  // (One row of a two-wide way, so there is still a way past it at the bottom.)
+  const landing = rng.chance(0.55) ? d.patch(3, 1, (p) => site.reserved(p)) : null;
+  if (landing) d.platform(landing.x, landing.y, landing.x + 2, landing.y, 1, { stairs: 0, ladders: 1, climbs: 1 });
   d.scatter('container', 'dumpster', 'a dumpster', 2, 1, 3, { large: true });
   d.scatter('crate', 'junk', 'a heap of junk', 1, 1, 4);
-  d.scatter('crate', 'escape', 'a fire escape', 1, 1, 2, { along: true });
   for (let x = 4; x < W - 3; x += 8) {
     const p = d.cells().find((q) => q.x === x && d.at(q) === 'floor');
     if (p && covered) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) d.lit([pt(p.x + dx, p.y + dy)], LIT);
@@ -488,6 +512,165 @@ function crossing(loc: Location, rng: Rng, ways: { streets: Way[]; buildings: Wa
   return finishStreet(loc, d, site, {});
 }
 
+// ===================================================================== raised ground
+
+/** A flight of steps or two up one face of a tier, a low wall along another stretch of it, a ladder and a pipe; the rest is retaining wall. */
+function retainingWall(d: Draft, rng: Rng, row: number, x0: number, x1: number, o: { flights: number; ledge: number; ladders: number; pipes: number }): void {
+  const free = Array.from({ length: x1 - x0 + 1 }, (_, i) => x0 + i);
+  const take = (n: number, width: number): number[] => {
+    const out: number[] = [];
+    for (let k = 0; k < n; k++) {
+      const ok = free.filter((x) => Array.from({ length: width }, (_, j) => x + j).every((v) => free.includes(v)));
+      if (!ok.length) break;
+      const x = ok[rng.int(0, ok.length - 1)]!;
+      for (let j = -1; j <= width; j++) {
+        const i = free.indexOf(x + j);
+        if (i >= 0) free.splice(i, 1);
+      }
+      out.push(x);
+    }
+    return out;
+  };
+  for (const x of take(o.flights, 2)) for (const dx of [0, 1]) {
+    d.reach(pt(x + dx, row), 'stairs');
+    d.fixture('stairs', `steps${x + dx}_${row}`, 'a flight of steps', [pt(x + dx, row)], { solid: false });
+  }
+  for (const x of take(o.ledge, 4)) for (let dx = 0; dx < 4; dx++) d.reach(pt(x + dx, row), 'ledge');
+  for (const x of take(o.ladders, 1)) {
+    d.reach(pt(x, row), 'ladder');
+    d.fixture('ladder', `ladder${x}_${row}`, 'a ladder', [pt(x, row)], { solid: false });
+  }
+  for (const x of take(o.pipes, 1)) d.reach(pt(x, row), 'climb');
+}
+
+/** A hillside street: three tiers, one above the next, with the way up at the far end. Steps, low walls and the odd drainpipe between them. */
+function terrace(loc: Location, rng: Rng, ways: { streets: Way[]; buildings: Way[] }, L: number): Layout {
+  const H = 11;
+  const d = new Draft(L, H, rng);
+  d.rect(0, 0, L - 1, 0, 'wall');
+  d.rect(0, H - 1, L - 1, H - 1, 'wall');
+  d.raise(0, 1, L - 1, 3, 2);
+  d.raise(0, 4, L - 1, 6, 1);
+  retainingWall(d, rng, 3, 2, L - 3, { flights: 2, ledge: 1, ladders: 1, pipes: 1 });
+  retainingWall(d, rng, 6, 2, L - 3, { flights: 2, ledge: 2, ladders: 0, pipes: 1 });
+  const site = new Site(d, ways, rng);
+  let front = true;
+  for (const [side, rows] of [['W', [7, 8, 9]], ['E', [1, 2, 3]]] as const) {
+    const way = ways.streets.find((s) => s.side === side);
+    const tiles = rows.map((y) => pt(side === 'W' ? 0 : L - 1, y));
+    if (way) {
+      site.openSide(side, way, tiles, front);
+      front = false;
+    }
+  }
+  for (const side of ['W', 'E'] as const) if (!ways.streets.some((s) => s.side === side)) for (let y = 1; y <= 9; y++) d.put(pt(side === 'W' ? 0 : L - 1, y), 'wall');
+  // The tiers that have an end of their own to reach it by are not shut in: the other two are walled off at that end.
+  for (const y of [1, 2, 3, 4, 5, 6]) d.put(pt(0, y), 'wall');
+  for (const y of [4, 5, 6, 7, 8, 9]) d.put(pt(L - 1, y), 'wall');
+  frontage(site, d, [...ways.streets.filter((s) => s.side === 'N' || s.side === 'S'), ...ways.buildings], { north: true, south: true }, 3, L - 4, 1);
+  lamps(site, d, 1, 8);
+  lamps(site, d, 4, 9, 5);
+  lamps(site, d, 9, 8, 4);
+  trees(site, d, 2, 7, 'treeU', 4);
+  parked(site, d, 8, 0.2, 'car');
+  for (let x = 5; x < L - 5; x += 9) site.put('bench', `bench${x}`, 'a bench', [pt(x, 5), pt(x + 1, 5)]);
+  return finishStreet(loc, d, site, {});
+}
+
+/**
+ * A shanty town: shacks built on shacks, roofs you can walk across, ladders and drainpipes and stacked crates to get onto them, narrow lanes
+ * between at the bottom. Some roofs have a ladder and some can only be climbed.
+ */
+function shanty(loc: Location, rng: Rng, ways: { streets: Way[]; buildings: Way[] }, L: number): Layout {
+  const H = 20;
+  const W = Math.max(30, L);
+  const d = new Draft(W, H, rng);
+  d.rect(0, 0, W - 1, 0, 'wall');
+  d.rect(0, H - 1, W - 1, H - 1, 'wall');
+  d.rect(0, 0, 0, H - 1, 'wall');
+  d.rect(W - 1, 0, W - 1, H - 1, 'wall');
+  const hy = Math.floor(H / 2) - 1;
+  // Vertical lanes cut the two bands of shacks into rows of blocks; where there is no lane the roofs run on into one another.
+  const cuts: number[] = [];
+  for (let x = rng.int(6, 9); x < W - 7; x += rng.int(8, 12)) cuts.push(x);
+  const spans: [number, number][] = [];
+  let from = 1;
+  for (const x of cuts) {
+    if (x - from >= 3) spans.push([from, x - 1]);
+    from = x + 2;
+  }
+  if (W - 2 - from >= 3) spans.push([from, W - 2]);
+  const blocks: { x0: number; y0: number; x1: number; y1: number; level: number }[] = [];
+  for (const [x0, x1] of spans) {
+    blocks.push({ x0, y0: 1, x1, y1: hy - 1, level: rng.chance(0.65) ? 1 : 2 });
+    blocks.push({ x0, y0: hy + 2, x1, y1: H - 2, level: rng.chance(0.65) ? 1 : 2 });
+  }
+  for (const b of blocks) d.raise(b.x0, b.y0, b.x1, b.y1, b.level);
+  for (const b of blocks) {
+    const kind = rng.next();
+    d.ways(b.x0, b.y0, b.x1, b.y1, b.level, kind < 0.45 ? { stairs: 0, ladders: 1, ledges: 1 } : kind < 0.8 ? { climbOnly: true, climbs: 2 } : { stairs: 1, climbs: 1 });
+    // Another storey on the bigger ones.
+    if (b.x1 - b.x0 >= 4 && b.y1 - b.y0 >= 3 && rng.chance(0.4) && b.level < 3) {
+      d.raise(b.x0 + 1, b.y0 + 1, b.x1 - 1, b.y1 - 1, b.level + 1);
+      d.ways(b.x0 + 1, b.y0 + 1, b.x1 - 1, b.y1 - 1, b.level + 1, rng.chance(0.5) ? { stairs: 0, ladders: 1 } : { climbOnly: true, climbs: 1 });
+    }
+  }
+  const site = new Site(d, ways, rng);
+  let front = true;
+  for (const side of ['W', 'E'] as const) {
+    const way = ways.streets.find((s) => s.side === side);
+    const tiles = [pt(side === 'W' ? 0 : W - 1, hy), pt(side === 'W' ? 0 : W - 1, hy + 1)];
+    for (const p of tiles) d.put(p, 'floor');
+    if (way) {
+      site.openSide(side, way, tiles, front);
+      front = false;
+    } else for (const p of tiles) d.put(p, 'wall');
+  }
+  // Streets to either side come in down the vertical lanes; the doors of the shacks open on the lanes.
+  const lanes = cuts.map((x) => x).filter((x) => d.at(pt(x, 1)) === 'floor');
+  for (const way of ways.streets.filter((s) => s.side === 'N' || s.side === 'S')) {
+    const x = lanes[rng.int(0, Math.max(0, lanes.length - 1))];
+    if (x === undefined) break;
+    if (way.side === 'N') site.doorAt(pt(x, 0), pt(x, 1), way, false);
+    else site.doorAt(pt(x, H - 1), pt(x, H - 2), way, false);
+  }
+  for (const way of ways.buildings) {
+    for (let k = 0; k < 60; k++) {
+      const b = blocks[rng.int(0, blocks.length - 1)]!;
+      const north = b.y0 === 1;
+      const x = rng.int(b.x0, b.x1);
+      // On the face of the shack that opens on the lane running along the middle.
+      const at = pt(x, north ? b.y1 : b.y0);
+      const inside = pt(x, north ? b.y1 + 1 : b.y0 - 1);
+      if (site.plans.some((p) => p.tiles.some((t) => dist(t, at) < 3))) continue;
+      if (site.doorAt(at, inside, way, false)) break;
+    }
+  }
+  // Roof clutter: a water tank, an aerial; on the ground, junk and the odd lamp.
+  d.scatter('machine', 'tank', 'a water tank', 2, 2, 4, { large: true });
+  d.scatter('crate', 'aerial', 'a dish and a tangle of wire', 1, 1, 6);
+  d.scatter('crate', 'junk', 'a heap of junk', 1, 1, 6);
+  return finishStreet(loc, d, site, { dark: true });
+}
+
+/** A raised stretch along the frontage of a strip: loading docks, a gantry, a bank above the street. */
+function raisedFrontage(site: Site, d: Draft, o: { rows: [number, number]; level?: number; stairs?: number; ladders?: number; ledges?: number; ledgeAll?: boolean }): void {
+  const [y0, y1] = o.rows;
+  const level = o.level ?? 1;
+  d.platform(2, y0, d.W - 3, y1, level, { stairs: o.stairs ?? 2, ladders: o.ladders ?? 1, ledges: o.ledges ?? 0, ledgeAll: o.ledgeAll });
+  landDoors(site, d);
+}
+
+/** A door that opens onto raised ground is as high as the ground it opens onto. */
+function landDoors(site: Site, d: Draft): void {
+  for (const plan of site.plans) {
+    for (const t of plan.tiles) {
+      const inside = [pt(t.x, t.y + 1), pt(t.x, t.y - 1), pt(t.x + 1, t.y), pt(t.x - 1, t.y)].find((q) => d.at(q) === 'floor' && d.levelOf(q) > 0);
+      if (inside && d.levelOf(t) < d.levelOf(inside)) d.setLevel(t, d.levelOf(inside));
+    }
+  }
+}
+
 // ===================================================================== entry
 
 const strips: Partial<Record<StreetType, { roles: Role[]; furnish: (site: Site, d: Draft, roles: Role[]) => void; dark?: boolean; base?: LightLevel }>> = {
@@ -511,9 +694,12 @@ export function streetLayout(w: Locs, loc: Location, seed: string): Layout {
   const n = Math.max(1, Math.min(6, loc.hex?.cells.length ?? 1));
   const L = 12 * n;
   let type = streetType(loc);
+  const district = loc.gen?.district;
   // Streets that meet several others at once are often a crossing: two strips making a wider open space.
   const longWay: StreetType[] = ['street', 'avenue', 'boulevard', 'lane', 'row'];
   if (ways.streets.length >= 3 && longWay.includes(type) && rng.chance(0.7)) type = 'crossing';
+  // In the slums the lanes and rows are shacks on shacks.
+  if (district === 'slum' && ['lane', 'row', 'run', 'street', 'alley'].includes(type) && rng.chance(0.45)) type = 'shanty';
   const base = strips[type];
   if (base) return strip(loc, rng, ways, Math.max(L, 24), base.roles, base.furnish, { base: base.base, dark: base.dark });
   switch (type) {
@@ -524,6 +710,8 @@ export function streetLayout(w: Locs, loc: Location, seed: string): Layout {
     case 'roof': return room(loc, rng, ways, 14, 10, roof, { gap: 2 });
     case 'alley': return alleyLayout(loc, rng, ways, Math.max(16, L), false);
     case 'passage': return alleyLayout(loc, rng, ways, Math.max(16, L), true);
+    case 'terrace': return terrace(loc, rng, ways, Math.max(L, 24));
+    case 'shanty': return shanty(loc, rng, ways, L);
     case 'crossing': return crossing(loc, rng, ways, Math.max(6, Math.min(14, n * 4)));
     default: return strip(loc, rng, ways, L, strips.street!.roles, strips.street!.furnish, {});
   }

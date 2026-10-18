@@ -56,6 +56,10 @@ Cameras are bolted up in the layout (`Layout.cams`: corners first, then the midd
 
 Some of what stands in a room is big enough to hide behind and some is not. A fixture or a cover tile can be `large` (`Grid.tall`): a speaker tower or a pillar in a club, and some of the rest of any room's cover; a crate, a table, the bar and the DJ booth are not. A big thing blocks sight (and shots, since a line is a line) without being a wall, so even a room with no interior walls has somewhere to stand unseen.
 
+## Height
+
+Where a board has levels (see `BOARDS.md`), sight has a height: from higher ground you see over walls and big objects that stop people on the ground, and from the street you cannot see onto a platform past its edge. Roofs are good places to watch from and hard places to be seen on.
+
 ## Calling for help
 
 An ordinary thing a foe can choose (the `call` technique in `techniques.ts`), weighed by `callWeight`: how outmatched they feel, what sort of crew they are, how many of their own are already here, how nervy they are, and whether they already called and nobody has lost her since (x0.1). Calling again is allowed once everyone has lost her and found her again. The old flat 22% backup roll is gone.

@@ -71,9 +71,13 @@ A street's layout is chosen by what kind of street it is, from the last word of 
 | alley, passage | cut out of solid building: a narrow dogleg with dumpsters and fire escapes, back doors in the walls; a passage is the same, dark, with pools of light |
 | roof | a rooftop with a water tank, vents and aerials, and the stairheads for ways down |
 | highway | lanes either side of a concrete barrier with gaps, wrecks, dark |
+| terrace | a hillside street in three tiers (levels 0 to 2), reached at the foot and left at the top, with steps, low walls, a ladder and a pipe between the tiers |
+| shanty | (in the slums, for a lane, row, run, street or alley) shacks on shacks: roofs at levels 1 to 3 to walk across, ladders and drainpipes to get onto them, lanes between |
 | crossing | when a street meets three or more others, usually: two strips crossing in a wider open space, an arm out to each side, blocks of building in the corners with doors in them |
 
 The neighbouring streets on the hex grid become the ways on and off, on the side that faces them relative to the way the street runs: at an end, an open edge (every walkable tile is the exit); to the side, a mouth in the frontage. The doors of the places on the street are in the frontage. Cameras are on poles looking down the street. A street's people and parked cars are the same entities as everywhere else; positions follow the clock.
+
+Several of the others have a raised part now and then (loading docks, a gantry over the market, a bandstand, a fire escape, a plant room on a roof); see `BOARDS.md`, "Height". Chases will use it: a way up is a way to lose someone, and a drop is a way down in a hurry.
 
 ## Things still to decide
 

@@ -15,7 +15,7 @@ import { PROPS, PROPS_BY_ROOM, type PropKind } from './content/props';
  * each one is, and zones: the sorts of spot a person might be standing in (behind the bar, on the floor, in a booth).
  */
 
-export type FixtureKind = 'bar' | 'dj_booth' | 'speaker' | 'booth' | 'dancefloor' | 'pillar' | 'tower' | 'counter' | 'shelf' | 'table' | 'machine' | 'desk' | 'bed' | 'bench' | 'rack' | 'locker' | 'ring' | 'server' | 'crate' | 'safe' | 'vehicle' | 'sofa' | 'bunk' | 'console' | 'screen' | 'pipe' | 'lamp' | 'tree' | 'container' | 'stall' | 'column' | 'statue' | 'fountain' | 'barrier';
+export type FixtureKind = 'bar' | 'dj_booth' | 'speaker' | 'booth' | 'dancefloor' | 'pillar' | 'tower' | 'counter' | 'shelf' | 'table' | 'machine' | 'desk' | 'bed' | 'bench' | 'rack' | 'locker' | 'ring' | 'server' | 'crate' | 'safe' | 'vehicle' | 'sofa' | 'bunk' | 'console' | 'screen' | 'pipe' | 'lamp' | 'tree' | 'container' | 'stall' | 'column' | 'statue' | 'fountain' | 'barrier' | 'stairs' | 'ladder';
 
 export interface Fixture {
   id: string;
@@ -117,7 +117,7 @@ export function layoutOf(w: Seeded, loc: Location): Layout | null {
   return l;
 }
 
-export const cloneGrid = (g: Grid): Grid => ({ w: g.w, h: g.h, cells: g.cells.slice(), exits: g.exits.map((p) => ({ ...p })), ...(g.tall ? { tall: g.tall.slice() } : {}) });
+export const cloneGrid = (g: Grid): Grid => ({ w: g.w, h: g.h, cells: g.cells.slice(), exits: g.exits.map((p) => ({ ...p })), ...(g.tall ? { tall: g.tall.slice() } : {}), ...(g.level ? { level: g.level.slice() } : {}), ...(g.access ? { access: { ...g.access } } : {}) });
 
 /** A club: the DJ booth at the back, the bar down one side, booths down the other, the dance floor between, the door at the front. */
 function clubLayout(w: Seeded, loc: Location): Layout {

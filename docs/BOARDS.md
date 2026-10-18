@@ -52,6 +52,23 @@ Doorways in interior walls (and the tiles beside them) are kept clear of furnitu
 
 Streets have boards too, a different layout for each kind of street (boulevards, markets, plazas, alleys, wharves, crossings...); see `STREETS_PLAN.md` for the catalogue and for how chases are meant to run on them. A street's neighbouring streets are its ways on and off the board, on the side that faces them, and a fight, a sneak or an ambush on a street now happens on the street rather than on a throwaway grid.
 
+## Height (`grid.ts`, `streets.ts`)
+
+A board can have **levels**: `Grid.level` is the height of every tile (0 is the ground), and a board without it is flat and plays exactly as it always did. Getting up from a lower tile to a higher one beside it depends on how that upper tile can be reached (`Grid.access`, `stepOf`):
+
+| Way up | What it is | Cost |
+|---|---|---|
+| stairs, ladder | a way up for any height (up to three levels) | free |
+| ledge | a waist-high wall, a crate, a low bank: one level only | slows you down (+2) |
+| climb | a drainpipe, a fence, a bad wall: up to two levels | slow, and a check (athletics for her, how tough a foe is for them); those who cannot (robots, dogs) cannot |
+| sheer, or nothing | a retaining wall or a roof edge | no way up; going down is always possible |
+
+Going down is free for a step, but a drop of more than one level is a fall that hurts (and the walkers' planning avoids it unless there is no other way). A failed climb leaves them where they were, now and then with a bruise. Flyers ignore all of it. Movement, planning and flight routes all go through `neighbors`/`reach`, so a ladder can be the only way to a roof for the patrol that walks its beat, and a climb is a route only for those who can make it (the sneaking planner includes them: a slip stops her short, with a noise).
+
+**Sight has a height too**: a line goes from eye to eye (one level is two units, an eye is one and a half above the ground) and walls, big things and the ground itself block it only if they reach that high. From two levels up you see over a wall that stops anyone on the ground; from the street you cannot see onto a platform past its edge; from well back on a platform you cannot see its foot. Cover that is not right in front of the target does nothing against someone shooting down at them, and shooting down is a little easier than up (and those who shoot like the high ground).
+
+**Where it turns up on streets**: a **terrace** (a hillside street) is three tiers with flights of steps, low walls, a ladder and a drainpipe between them, entered at the foot and left at the top; a **shanty town** (a good part of the slums' lanes) is shacks on shacks with roofs at up to three heights, some with a ladder and some you can only climb, and narrow lanes at the bottom; loading docks along a freightway or a wharf, a gantry over the market, a raised bank beside a promenade, a bandstand in a plaza, a fire escape in a yard or alley, a plant room and its tank on a roof. Doors that open onto raised ground are as high as the ground they open onto.
+
 ## The three ways of using it
 
 - **Walking about** is the above.

@@ -1,6 +1,6 @@
 import type { Rng } from './rng';
 import type { Id, Location } from './types';
-import { dirOf, dist, idx, neighbors, walkable, type Grid, type Pos, type Terrain } from './grid';
+import { dirOf, dist, idx, levelAt, neighbors, walkable, type Access, type Grid, type Pos, type Terrain } from './grid';
 import { PROPS_BY_ROOM } from './content/props';
 import type { CamMount, Door, Fixture, FixtureKind, Layout, LightLevel, PropSpec, Zones } from './layout';
 
@@ -14,7 +14,8 @@ export function reachable(g: Grid, from: Pos): Set<number> {
   const open = [from];
   while (open.length) {
     const p = open.pop()!;
-    for (const n of neighbors(g, p)) {
+    // (Anyone can climb, for this: a place that can only be got to by a climb is still part of the room.)
+    for (const n of neighbors(g, p, false, true)) {
       const i = idx(g, n);
       if (!seen.has(i)) {
         seen.add(i);
@@ -67,6 +68,17 @@ export interface DoorPlan {
   tiles: Pos[];
 }
 
+export interface WayOpts {
+  stairs?: number;
+  ladders?: number;
+  ledges?: number;
+  climbs?: number;
+  /** Every way up is a climb: a check to get onto it, and some who cannot at all. */
+  climbOnly?: boolean;
+  /** All of the edge is a low wall. */
+  ledgeAll?: boolean;
+}
+
 export class Draft {
   readonly g: Grid;
   readonly fixtures: Fixture[] = [];
@@ -77,6 +89,8 @@ export class Draft {
   readonly faces: Partial<Record<ZoneName, number>> = {};
   private readonly lights: [Pos[], LightLevel][] = [];
   bar: 'east' | 'west' | null = null;
+  private lv: number[] | null = null;
+  private readonly acc: Record<number, Access> = {};
 
   constructor(readonly W: number, readonly H: number, readonly rng: Rng) {
     this.g = { w: W, h: H, cells: Array<Terrain>(W * H).fill('floor'), exits: [] };
@@ -143,6 +157,73 @@ export class Draft {
     }
     return out;
   }
+  /** Raise a stretch of the board to a height (in levels). Its edges can't be climbed until `reach` or `platform` says how. */
+  raise(x0: number, y0: number, x1: number, y1: number, level: number): void {
+    this.lv ??= Array<number>(this.W * this.H).fill(0);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (this.at(pt(x, y)) !== null) this.lv[y * this.W + x] = level;
+  }
+  levelOf(p: Pos): number { return this.lv ? this.lv[p.y * this.W + p.x] ?? 0 : 0; }
+  setLevel(p: Pos, level: number): void { if (this.lv) this.raise(p.x, p.y, p.x, p.y, level); }
+  /** How to get up onto this tile from the lower ones beside it. */
+  reach(p: Pos, kind: Access): void { this.acc[p.y * this.W + p.x] = kind; }
+
+  /**
+   * A raised stretch with ways up onto it: every edge is a sheer face unless it is given a way. Some of the tiles along its edge
+   * become a flight of stairs, a ladder, a low wall you can haul yourself over (slow) or something you have to climb (a check); the rest
+   * stay sheer. There is always at least one way up that needs no check, unless `climbOnly`.
+   */
+  platform(x0: number, y0: number, x1: number, y1: number, level: number, o: WayOpts = {}): void {
+    this.raise(x0, y0, x1, y1, level);
+    this.ways(x0, y0, x1, y1, level, o);
+  }
+
+  /** The ways up onto a stretch that is already raised (so that a row of them can be raised first and their edges settled after). */
+  ways(x0: number, y0: number, x1: number, y1: number, level: number, o: WayOpts = {}): void {
+    const edge: Pos[] = [];
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const p = pt(x, y);
+        if (this.at(p) !== 'floor' && this.at(p) !== 'cover') continue;
+        const low = [pt(x + 1, y), pt(x - 1, y), pt(x, y + 1), pt(x, y - 1)].some((q) => this.at(q) !== null && this.at(q) !== 'wall' && this.at(q) !== 'void' && this.levelOf(q) < level);
+        if (low) edge.push(p);
+      }
+    }
+    // Spread the ways out round the edge rather than bunching them.
+    const order = edge.slice().sort((a, b) => ((a.x * 7 + a.y * 13) % 11) - ((b.x * 7 + b.y * 13) % 11) || a.x - b.x || a.y - b.y);
+    const pick = (): Pos | undefined => order.splice(this.rng.int(0, Math.max(0, order.length - 1)), 1)[0];
+    const way = (kind: Access, n: number) => {
+      for (let i = 0; i < n; i++) {
+        const p = pick();
+        if (!p) return;
+        this.reach(p, kind);
+        if (kind === 'stairs' || kind === 'ladder') this.fixture(kind === 'stairs' ? 'stairs' : 'ladder', `${kind}${p.x}_${p.y}`, kind === 'stairs' ? 'a flight of steps' : 'a ladder', [p], { solid: false });
+      }
+    };
+    if (o.ledgeAll) for (const p of edge) this.reach(p, 'ledge');
+    if (!o.climbOnly) way('stairs', o.stairs ?? 1);
+    way('ladder', o.ladders ?? 0);
+    way('ledge', o.ledges ?? 0);
+    way('climb', o.climbs ?? (o.climbOnly ? 2 : 0));
+    // Nothing yet but sheer wall: one way up, so it is somewhere to go and not just scenery.
+    const any = edge.some((p) => this.acc[p.y * this.W + p.x] !== undefined);
+    if (!any && edge.length) this.reach(edge[this.rng.int(0, edge.length - 1)]!, o.climbOnly ? 'climb' : 'ladder');
+  }
+
+  /** A patch of open floor of this size, away from the doors, or null. */
+  patch(fw: number, fh: number, avoid: (p: Pos) => boolean = () => false): Pos | null {
+    const spots: Pos[] = [];
+    for (let y = 1; y + fh < this.H; y++) for (let x = 1; x + fw < this.W; x++) {
+      let ok = true;
+      for (let yy = y - 1; yy <= y + fh && ok; yy++) for (let xx = x - 1; xx <= x + fw && ok; xx++) {
+        const t = this.at(pt(xx, yy));
+        const inside = xx >= x && xx < x + fw && yy >= y && yy < y + fh;
+        if (inside ? t !== 'floor' || avoid(pt(xx, yy)) : t === 'exit' || t === 'cover' || avoid(pt(xx, yy))) ok = false;
+      }
+      if (ok) spots.push(pt(x, y));
+    }
+    return spots.length ? spots[this.rng.int(0, spots.length - 1)]! : null;
+  }
+
   /** Every tile of the grid. */
   cells(): Pos[] { return this.g.cells.map((_, i) => pt(i % this.W, Math.floor(i / this.W))); }
   /** Everything outside the room until it is carved. */
@@ -210,6 +291,11 @@ export class Draft {
     for (const f of this.fixtures) f.tiles = f.tiles.filter((q) => !g.exits.some((e) => same(e, q)));
     for (let i = this.decor.length - 1; i >= 0; i--) if (g.exits.some((e) => same(e, this.decor[i]!))) this.decor.splice(i, 1);
 
+    if (this.lv) {
+      g.level = this.lv;
+      g.access = this.acc;
+    }
+
     // Never wall anyone in: furniture goes before a person is cut off, and what is still cut off is not part of the room.
     const from = g.exits[0]!;
     const cutOff = (): number[] => {
@@ -272,5 +358,16 @@ export class Draft {
     for (const l of this.lights) l[0] = l[0].map(m);
     for (const k of Object.keys(this.faces) as ZoneName[]) this.faces[k] = (8 - this.faces[k]!) % 8;
     if (this.bar) this.bar = this.bar === 'east' ? 'west' : 'east';
+    if (this.lv) {
+      const lv = this.lv.slice();
+      for (let y = 0; y < this.H; y++) for (let x = 0; x < W; x++) this.lv[y * W + x] = lv[y * W + (W - 1 - x)]!;
+      const acc: Record<number, Access> = {};
+      for (const [k, v] of Object.entries(this.acc)) {
+        const i = Number(k);
+        acc[Math.floor(i / W) * W + (W - 1 - (i % W))] = v;
+      }
+      for (const k of Object.keys(this.acc)) delete this.acc[Number(k)];
+      Object.assign(this.acc, acc);
+    }
   }
 }

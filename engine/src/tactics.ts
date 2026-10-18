@@ -4,7 +4,7 @@ import { KINDS } from './companions';
 import { foeArmor, fxOf, rating, vsMult } from './weapons';
 import { loaded, spendAmmo, wielded } from './arms';
 import { skillLevel, skillValue, train } from './skills';
-import { addObjects, coverObject, dist, hasLos, idx, inCover, makeGrid, nearestFree, objectAt, passable, pathTo, posOf, reach, same, terrainAt, type BoardObject, type CarLike, type Grid, type Pos, type Reach } from './grid';
+import { addObjects, coverObject, dist, hasLos, idx, inCover, levelAt, makeGrid, nearestFree, objectAt, passable, pathTo, posOf, reach, same, stepOf, terrainAt, type BoardObject, type CarLike, type Grid, type Pos, type Reach } from './grid';
 import { Rng } from './rng';
 import { MAKES, SPILL, blastInside, blastOutside, hitCar, normalize, paceOf } from './cars';
 import { parkedVehicle } from './roads';
@@ -484,6 +484,16 @@ export class Sim {
     return this.units.some((u) => u.state === 'active' && this.side(u) === this.side(att) && u !== att && dist(u, tgt) <= 1);
   }
 
+  /** Higher ground: shooting down is easier than shooting up. */
+  private heightEdge(from: Pos, tgt: Pos): number {
+    return 0.06 * clamp(levelAt(this.grid, from.x, from.y) - levelAt(this.grid, tgt.x, tgt.y), -2, 2);
+  }
+
+  /** Who can haul themselves up a bad wall: people can, machines and animals cannot. */
+  private climbs(u: Unit): boolean {
+    return !u.flying && !u.npc?.tags.some((t) => t === 'robot' || t === 'dog' || t === 'drone');
+  }
+
   /** A foe or an ally's chance to hit. */
   hitChance(att: Unit, tgt: Unit, from: Pos): number {
     if (att.npc?.tags.includes('hera')) return 1;
@@ -491,6 +501,7 @@ export class Sim {
     if (att.reach[1] > 1) {
       if (inCover(this.grid, from, tgt)) p -= 0.25;
       if (this.sheltered(tgt)) p -= 0.25;
+      p += this.heightEdge(from, tgt);
       const far = Math.ceil(att.reach[1] * 0.6);
       const d = dist(from, tgt);
       if (d > far) p -= 0.07 * (d - far);
@@ -518,6 +529,7 @@ export class Sim {
     if (ranged) {
       const max = thrown ? 4 : weaponReach(weapon)[1];
       if (inCover(this.grid, from, t)) p -= 0.25;
+      p += this.heightEdge(from, t);
       const far = Math.ceil(max * 0.6);
       if (d > far) p -= 0.07 * (d - far);
       const cls = fxOf(weapon).cls;
@@ -1526,14 +1538,14 @@ export class Sim {
     const ride = this.carOf2(u);
     if (ride && !ride.wrecked) {
       for (const p of ride.cells) {
-        const r = reach(g, p, 40, () => false, u.flying);
+        const r = reach(g, p, 40, () => false, u.flying, this.climbs(u), true);
         for (const [i, c] of r.cost) if (c < (best.get(i) ?? Infinity)) best.set(i, c);
       }
       return best;
     }
     for (const e of g.exits) {
       if (this.occupant(e, u)) continue;
-      const r = reach(g, e, 40, () => false, u.flying);
+      const r = reach(g, e, 40, () => false, u.flying, this.climbs(u), true);
       for (const [i, c] of r.cost) if (c < (best.get(i) ?? Infinity)) best.set(i, c);
     }
     return best;
@@ -1542,7 +1554,7 @@ export class Sim {
   private enemyDistMap(u: Unit, enemies: Unit[]): Map<number, number> {
     const best = new Map<number, number>();
     for (const e of enemies) {
-      const r = reach(this.grid, e, 30, () => false, u.flying);
+      const r = reach(this.grid, e, 30, () => false, u.flying, this.climbs(e));
       for (const [i, c] of r.cost) if (c < (best.get(i) ?? Infinity)) best.set(i, c);
     }
     return best;
@@ -1556,6 +1568,7 @@ export class Sim {
       if (gap > this.speedOf(e) + e.reach[1] + (e.flying ? 1 : 0)) continue;
       let p = e.npc?.tags.includes('hera') ? 1 : e.hit;
       if (e.reach[1] > 1 && inCover(this.grid, e, tile)) p -= 0.25;
+      if (e.reach[1] > 1) p += this.heightEdge(e, tile);
       if (e.reach[1] > 1 && this.sheltered(u) && same(tile, u)) p -= 0.25;
       d += Math.min(1, this.avgDamage(e, u) / Math.max(1, u.ref.hp)) * Math.max(0.05, p);
     }
@@ -1584,6 +1597,11 @@ export class Sim {
       }
     }
     if (!u.flying && terrainAt(this.grid, tile.x, tile.y) === 'hazard') s -= k.fleeing ? 4 : 14;
+    // Those who shoot like the high ground.
+    if (this.grid.level && u.reach[1] > 1 && !k.fleeing) {
+      const mine = levelAt(this.grid, tile.x, tile.y);
+      s += 0.7 * clamp(mine - Math.min(...k.enemies.map((e) => levelAt(this.grid, e.x, e.y))), -2, 2);
+    }
     k.pos.set(key, s);
     return s;
   }
@@ -1605,8 +1623,8 @@ export class Sim {
     const techs = fleeing ? techniquesFor(this, u).filter((t) => t.id === 'leave') : techniquesFor(this, u);
     const blocked = (p: Pos) => enemies.some((e) => same(e, p));
     const speed = this.speedOf(u);
-    const walk = reach(g, u, speed, blocked, u.flying);
-    const sprint = reach(g, u, speed * 2, blocked, u.flying);
+    const walk = reach(g, u, speed, blocked, u.flying, this.climbs(u));
+    const sprint = reach(g, u, speed * 2, blocked, u.flying, this.climbs(u));
 
     const cands: { tile: Pos; mode: Option['mode']; r: Reach | null; cost: number }[] = [];
     for (const [i, c] of sprint.cost) {
@@ -1654,6 +1672,13 @@ export class Sim {
     return best;
   }
 
+  /** Hauling yourself up something that is not meant for it: athletics for her, how hard a foe is for them. */
+  private climbRoll(u: Unit): boolean {
+    const p = u.kind === 'hero' ? 0.55 + 0.05 * skillValue(this.w.hero, 'athletics') + 0.01 * this.w.hero.reflex : 0.5 + 0.02 * (u.npc?.level ?? 1);
+    if (u.kind === 'hero') train(this.c, 'athletics', 1);
+    return this.c.rng.chance(clamp(p, 0.2, 0.95));
+  }
+
   private execute(u: Unit, o: Option): void {
     const rode = u.aboard ? this.carOf(u) : undefined;
     // She gets out when she walks off; on a bike she rides, and it goes where she goes.
@@ -1672,8 +1697,21 @@ export class Sim {
     } else if (o.mode !== 'stay' && o.r) {
       for (const step of pathTo(this.grid, o.r, o.tile)) {
         if (u.state !== 'active') return;
+        const how = stepOf(this.grid, u, step, this.climbs(u));
+        if (how.check && !this.climbRoll(u)) {
+          // Slipped. She stays where she was, and now and then comes down hard.
+          this.note('tactic', u.kind === 'hero' ? 'bad' : 'good', { variant: 'climb_fail', foe: u.name }, 1.5, `climb_fail:${u.id}:${this.round}`);
+          if (this.c.rng.chance(0.2)) this.damage(null, u, 2 + this.c.rng.int(0, 3));
+          break;
+        }
+        if (how.check) this.note('tactic', 'good', { variant: 'climb', foe: u.name, hero: u.kind === 'hero' }, 1, `climb:${u.id}`);
         u.x = step.x;
         u.y = step.y;
+        if (how.fall > 0) {
+          this.damage(null, u, how.fall * (3 + this.c.rng.int(0, 3)));
+          this.note('tactic', u.kind === 'hero' ? 'bad' : 'good', { variant: 'fall', foe: u.name, levels: how.fall + 1 }, 1.5, `fall:${u.id}:${this.round}`);
+          if (u.state !== 'active') return;
+        }
         this.triggerWatch(u);
       }
     }
