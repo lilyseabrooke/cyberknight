@@ -328,4 +328,27 @@ describe('a hunt on the street', () => {
     w0.clock = 4 * 60;
     expect(ambientNoise(w0, w0.locations.neon_pharaoh)).toBeGreaterThan(ambientNoise(w0, w0.locations.street_main));
   });
+
+  it('bystanders have opinions about a chase going by: some get clear, some trip her, some help, some call it in', () => {
+    const seen: Record<string, number> = {};
+    for (let i = 0; i < 240; i++) {
+      const sc = scenario({ seed: `watch-${i % 40}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.clock = 20 * 60;
+      w.hero.level = 8;
+      w.hero.maxHp = w.hero.hp = 180;
+      const { c, events } = ctxOf(w, new Rng(`wt-${i}`));
+      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      const mood = i % 3 === 0 ? 30 : i % 3 === 1 ? -30 : 0;
+      for (const n of spawnGroup(c, 'patron', 8)) n.affinity = mood;
+      runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 6)) });
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'chase_bystander') seen[String(e.data.variant)] = (seen[String(e.data.variant)] ?? 0) + 1;
+      }
+    }
+    expect(seen.scatter ?? 0).toBeGreaterThan(0);
+    expect(seen.help ?? 0).toBeGreaterThan(0);
+    expect(seen.trip ?? 0).toBeGreaterThan(0);
+  });
 });

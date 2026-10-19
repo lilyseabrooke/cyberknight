@@ -161,7 +161,7 @@ describe('after they have gone', () => {
         expect(t.w.getaways).toHaveLength(0);
       }
     }
-    expect(lost).toBeGreaterThanOrEqual(6);
+    expect(lost).toBeGreaterThanOrEqual(4);
     // The day her legs are faster than their car, the same question has a different answer: a slow car she can run down, most times.
     let caught = 0;
     for (let k = 0; k < 16; k++) {

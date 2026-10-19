@@ -16,6 +16,7 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { streetHunt } from './streethunt';
+import { bystand } from './bystanders';
 import { BEHIND, addTire, ambientNoise, carries, coverOf, eased, follow, rest, standTired, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
@@ -97,6 +98,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   // The noise she (or whoever is running) has made since they were last in sight of her: it all helps whoever is following.
   let loud = 0;
   let lost = false;
+  // Bystanders who have already had their say.
+  const said = new Set<string>();
   const trails = new Map<Chaser, Trail>();
   const tries = new Map<Chaser, number>();
   // A chaser's check on her trail: the best of their crew. They get three goes in a chase.
@@ -827,6 +830,16 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
               const back = inTheWay(board, board.s - f.gap, board.s, crew).length;
               if (back) f.gap += Math.min(2, back) * 0.3;
             }
+          }
+        }
+        // And whoever else is watching has an opinion.
+        if (!result && board) {
+          const crew = o.foes.flatMap((f) => f.crew.map((n) => n.id));
+          for (const r of bystand(c, board, { except: crew, done: said, chased: o.mode === 'pursued', lost, limit: 2 })) {
+            c.emit('chase_bystander', r.kind === 'trip' || r.kind === 'point' || r.kind === 'call' ? 'bad' : r.kind === 'help' ? 'good' : 'mixed', { variant: r.kind, who: r.who.name, role: r.who.role, place: here.name, foe: lead.name });
+            if (r.kind === 'trip') for (const f of live) f.gap = Math.max(0, f.gap - 0.8);
+            else if (r.kind === 'help') for (const f of live) f.gap += 1;
+            else if (r.kind === 'point') loud += 0.8;
           }
         }
         if (car && h.vehicle) {

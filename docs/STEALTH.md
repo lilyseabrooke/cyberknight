@@ -165,3 +165,12 @@ flat out, 0.6 for blows or ramming, 1 for shooting), which eases the check when 
 Ambient noise (`ambientNoise` in `tracking.ts`, 0 to 1): traffic and crowd on a street (`trafficAt`, so it follows the hour), +0.3 on a highway, +0.15 rain outdoors;
 indoors 0.2 plus the music (club 0.7, bar 0.45, gym 0.35) and a crowd. How much of her noise carries to a tracker is `carries(ambient)`, from 1.6 in dead
 silence to 0.4 in a din, applied to the noise that adds to `PUnit.heard` and to a chase's `loud`.
+
+### Bystanders react (`bystanders.ts`)
+
+Each round of a chase, up to two people within seven tiles of her who have not yet had their say (anyone on the street board who isn't one of the pursuers, her
+companions, a robot, dragon or boss) pick a reaction once, by who they are and how they feel about her: **scatter** (the timid and the unnerved step off
+the line), **point** (only once the pursuers have lost her: the ones who dislike her, and the law, tell them which way she went, which counts as noise to the
+tracker), **trip** (affinity -15 or worse: she loses ground), **help** (affinity 15 or better, and Charm: the pursuers lose ground), **film** (fame +1),
+**call** (the law always, others sometimes: NPD heat +1, Atlas on its own premises), or nothing. Told as `chase_bystander`. Not yet: reactions to takedowns and
+bodies in stealth scenes (those people are not units on the board), or to a chase that she is the one running after.
