@@ -105,3 +105,10 @@ from there (`seesFrom`): if she's in view, the chase is on again (`chase_search:
 (`hideGuess`: more doors, alleys, ways up and dark corners near that spot means more likely she stopped to hide). A chaser who guesses
 "hiding" gives up the chase (`Chaser.off`) and searches the street from there (`leaveSearching`); one who guesses "running" carries on after
 her, a little behind for the hesitation. All of them searching ends the chase as escaped; a split sends some after her and leaves some behind.
+
+### People on the line
+
+On foot, whoever is standing on the chase line tiles she covers this round (`inTheWay`, up to two) is dealt with before the stumble roll: if there's
+room beside the line she weaves round (a small loss of ground), otherwise she shoves through (`stepAside` moves them off the line, affinity down),
+and a failed roll is a proper `bump` with the usual hurt/angry/heat results (angry bystanders join the chase). Foot chasers lose a little ground to
+anyone still on the line behind her. Told with `chase_crowd` (weave, shove); the random bump roll still happens too.

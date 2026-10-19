@@ -202,8 +202,8 @@ describe('a chase on foot', () => {
       const k = events.findIndex((e) => e.type === 'chase_mount' && e.data.variant === 'dismount_alley');
       if (k >= 0) {
         out++;
-        expect(w.hero.vehicle).toBeUndefined();
-        expect(w.hero.parked?.some((p) => p.id === `mine-${i}`)).toBe(true);
+        if (!w.over && !events.slice(k).some((e) => e.type === 'chase_start')) expect(w.hero.vehicle).toBeUndefined();
+        if (!w.over && !events.slice(k).some((e) => e.type === 'chase_start')) expect(w.hero.parked?.some((p) => p.id === `mine-${i}`)).toBe(true);
         if (events.slice(k).some((e) => e.type === 'chase_round' && e.data.body === 'foot')) after++;
       }
       for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);

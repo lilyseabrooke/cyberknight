@@ -346,3 +346,41 @@ export function hideGuess(w: World, cb: ChaseBoard, from: Pos): number {
   const spots = outsFrom(w, cb, 8, from).filter((x) => x.kind !== 'crowd' && x.kind !== 'over').length;
   return Math.max(0.1, Math.min(0.85, 0.2 + 0.15 * spots));
 }
+
+// ------------------------------------------------------------------ people in the way
+
+export interface InTheWay {
+  id: Id;
+  at: Pos;
+  /** Whether there is somewhere beside the line to step round them. */
+  room: boolean;
+}
+
+/** Whoever is standing on the line between two points along it. */
+export function inTheWay(cb: ChaseBoard, from: number, to: number, except: Id[] = []): InTheWay[] {
+  const g = cb.placed.layout.grid;
+  const ents = cb.placed.board.ents;
+  const out: InTheWay[] = [];
+  for (let k = Math.max(0, Math.floor(from) + 1); k <= Math.min(cb.path.length - 1, Math.floor(to)); k++) {
+    const at = cb.path[k]!;
+    const id = Object.keys(ents).find((i) => !except.includes(i) && ents[i]!.x === at.x && ents[i]!.y === at.y);
+    if (!id) continue;
+    const room = [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => (dx || dy) && passable(g, at.x + dx, at.y + dy) && !Object.values(ents).some((e) => e.x === at.x + dx && e.y === at.y + dy) && !cb.path.some((q) => q.x === at.x + dx && q.y === at.y + dy)));
+    out.push({ id, at: { ...at }, room });
+  }
+  return out;
+}
+
+/** Somebody gets out of the way: onto a free tile beside the line. */
+export function stepAside(cb: ChaseBoard, id: Id): void {
+  const g = cb.placed.layout.grid;
+  const ents = cb.placed.board.ents;
+  const e = ents[id];
+  if (!e) return;
+  const spots = [-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => ({ x: e.x + dx, y: e.y + dy }))).filter((q) => (q.x !== e.x || q.y !== e.y) && passable(g, q.x, q.y) && !Object.values(ents).some((o) => o.x === q.x && o.y === q.y) && !cb.path.some((r) => r.x === q.x && r.y === q.y));
+  const q = spots[0];
+  if (q) {
+    e.x = q.x;
+    e.y = q.y;
+  }
+}

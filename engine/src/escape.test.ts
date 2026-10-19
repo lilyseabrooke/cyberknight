@@ -121,4 +121,24 @@ describe('a hunt on the street', () => {
     }
     expect(Object.keys(seen).length).toBeGreaterThanOrEqual(2);
   });
+
+  it('people standing on her line are gone round, shoved through or run into, and everything is told', () => {
+    const seen: Record<string, number> = {};
+    for (let i = 0; i < 200; i++) {
+      const sc = scenario({ seed: `crowd-${i % 40}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.clock = 20 * 60;
+      w.hero.level = 8;
+      w.hero.maxHp = w.hero.hp = 180;
+      const { c, events } = ctxOf(w, new Rng(`c-${i}`));
+      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      for (let k = 0; k < 8; k++) spawnGroup(c, 'patron', 1);
+      runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 4)) });
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'chase_crowd') seen[String(e.data.variant)] = (seen[String(e.data.variant)] ?? 0) + 1;
+      }
+    }
+    expect((seen.weave ?? 0) + (seen.shove ?? 0)).toBeGreaterThan(0);
+  });
 });

@@ -7,7 +7,7 @@ import { nested } from './events';
 import { roadClass, roadsFrom, scene, squeezeOf, trafficAt, trafficWord } from './roads';
 import { isShut } from './shutdown';
 import { foeProfile } from './tactics';
-import { footChance, stumble } from './footfx';
+import { bump, footChance, stumble } from './footfx';
 import { grabVehicle, vehicleHere } from './vehicles';
 import { accident, hopChance } from './drivefx';
 import { KINDS, removeCompanion } from './companions';
@@ -18,7 +18,7 @@ import { Rng } from './rng';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
-import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, hideGuess, openBoard, outsFrom, passBy, seesFrom, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
+import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, hideGuess, inTheWay, stepAside, openBoard, outsFrom, passBy, seesFrom, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
 import type { Pos } from './grid';
 
 /**
@@ -338,6 +338,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     for (let round = 1; round <= maxRounds && !result; round++) {
       rounds = round;
       const live = o.foes.filter((f) => f.alive && !f.off);
+      let ran: [number, number] | null = null;
       if (!live.length) {
         result = o.foes.some((f) => f.alive) ? 'escaped' : 'won';
         break;
@@ -350,7 +351,9 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       // On the street: she runs on along it.
       if (!boarded) {
         const cb0 = boardNow();
+        const s0 = cb0?.s ?? 0;
         if (cb0) runOn(cb0, heroSpeed(w) * TILES_PER_PACE);
+        ran = cb0 ? [s0, cb0.s] : null;
         // The chase goes on down the road. A runner will go where a car cannot, and if she follows on wheels she has to get out.
         if (!result) {
           const mine = mounted();
@@ -716,6 +719,49 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       // The road itself: flat out down a narrow or a crowded street is how a chase ends in a wall. On foot, it is people, or it is cars.
       if (!result) {
         const pace = action === 'floor_it' ? 1 : action === 'swerve' || action === 'lane_split' ? 0.8 : 0.7;
+        if (foot && ran && board) {
+          // The people on the line: round them if there is room, through them if there is not.
+          const crew = o.foes.flatMap((f) => f.crew.map((n) => n.id));
+          const people = inTheWay(board, ran[0], ran[1], [...crew, ...h.companions.flatMap((a) => (a.npcId ? [a.npcId] : []))]).slice(0, 2);
+          let slowed = 0;
+          for (const p of people) {
+            const who = w.npcs[p.id];
+            if (!who) continue;
+            const skill = clamp(0.6 + 0.03 * skillValue(h, 'athletics') + 0.01 * h.reflex - 0.2 * squeeze, 0.2, 0.92);
+            if (p.room && rng.chance(skill + 0.1)) {
+              slowed += 0.3;
+              c.emit('chase_crowd', 'mixed', { variant: 'weave', who: who.name, role: who.role, place: here.name });
+              continue;
+            }
+            // No room: she goes through. Most times it's a shoulder and a shout; sometimes they both go down.
+            if (rng.chance(skill)) {
+              who.affinity -= 3;
+              slowed += 0.2;
+              c.emit('chase_crowd', 'mixed', { variant: 'shove', who: who.name, role: who.role, place: here.name });
+              stepAside(board, p.id);
+            } else {
+              const st = bump(c, who, here, cls, pace);
+              slowed += st.lost;
+              told.push('down');
+              if (st.angry && !o.foes.some((f) => f.crew.includes(st.angry!))) {
+                st.angry.hostile = true;
+                if (o.mode === 'pursued') o.foes.push(onFoot(st.angry, 1.5));
+                else owed.push(st.angry);
+              }
+              if (dead(c)) result = 'wrecked';
+              break;
+            }
+          }
+          if (slowed) for (const f of live) f.gap = Math.max(0, f.gap + (o.mode === 'pursuer' ? slowed : -slowed));
+          // Whoever is still on the line behind her is in their way too.
+          if (!result && o.mode === 'pursued') {
+            for (const f of live) {
+              if (!f.foot) continue;
+              const back = inTheWay(board, board.s - f.gap, board.s, crew).length;
+              if (back) f.gap += Math.min(2, back) * 0.3;
+            }
+          }
+        }
         if (car && h.vehicle) {
           if (rng.chance(hopChance(w, car, cls, pace, traffic) * 0.5 * (1 + 0.25 * Math.min(2, board ? pinches(board) : 0)))) {
             const crash = accident(c, car, here, cls, pace, true);

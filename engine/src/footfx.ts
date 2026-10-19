@@ -57,29 +57,18 @@ const isLaw = (n: Npc): boolean => n.tags.includes('cop') || n.tags.includes('se
 export function stumble(c: Ctx, loc: Location, cls: RoadClass, s: number): Stumble {
   const { w, rng } = c;
   const h = w.hero;
-  const t = trafficAt(w, loc);
-  const data = { road: cls, place: loc.name, speed: Math.round(s * 100), traffic: trafficWord(t), scene: scene(cls, t), body: 'foot' };
   train(c, 'athletics', 1);
 
   if (isBump(cls)) {
     // Into somebody.
     const crowd = npcsAt(w, loc.id).filter((n) => n.alive && !n.hostile && !n.tags.some((x) => ['robot', 'dragon', 'boss'].includes(x)) && n.archetype !== 'puppy' && !h.companions.some((a) => a.npcId === n.id));
     const who = crowd.length ? rng.pick(crowd) : spawnGroup(c, 'patron', 1)[0]!;
-    const law = isLaw(who);
-    // She puts a police officer or an Atlas agent on the ground more often than not, and that is the sort of thing that is noticed.
-    const hurt = law ? rng.chance(0.7) : rng.chance(0.25);
-    const angry = rng.chance(clamp(0.3 + 0.35 * t + (law ? 0.3 : 0) + (hurt ? 0.2 : 0), 0, 0.95));
-    who.affinity -= hurt ? 15 : 5;
-    if (hurt && law) {
-      const faction = who.faction === 'atlas' || who.tags.includes('corp') ? 'atlas' : 'npd';
-      addHeat(w, faction, 1);
-      c.emit('heat_up', 'bad', { variant: faction, gain: 1, level: w.heat[faction] ?? 0, source: 'crash', calls: 0 });
-    }
-    c.emit('accident', angry ? 'bad' : 'mixed', { variant: 'bump', who: who.name, role: who.role, law, hurt, angry, ...data });
-    return { lost: 1 + (hurt ? 0.5 : 0) + t, down: false, angry: angry ? who : null };
+    return bump(c, who, loc, cls, s);
   }
 
   // Into traffic: a car hits her.
+  const t = trafficAt(w, loc);
+  const data = { road: cls, place: loc.name, speed: Math.round(s * 100), traffic: trafficWord(t), scene: scene(cls, t), body: 'foot' };
   const dmg = Math.round(8 + 10 * t + (cls === 'highway' ? 14 : 0) + 6 * s);
   h.hp -= dmg;
   maybeInjure(c, dmg, 0.35);
@@ -88,4 +77,23 @@ export function stumble(c: Ctx, loc: Location, cls: RoadClass, s: number): Stumb
   const up = rng.chance(stay);
   c.emit('accident', up ? 'mixed' : 'bad', { variant: up ? 'struck' : 'struck_down', dmg, ...data });
   return { lost: up ? 1 : 2.8, down: !up, angry: null };
+}
+
+/** She goes into somebody in particular. */
+export function bump(c: Ctx, who: Npc, loc: Location, cls: RoadClass, s: number): Stumble {
+  const { w, rng } = c;
+  const t = trafficAt(w, loc);
+  const data = { road: cls, place: loc.name, speed: Math.round(s * 100), traffic: trafficWord(t), scene: scene(cls, t), body: 'foot' };
+  const law = isLaw(who);
+  // She puts a police officer or an Atlas agent on the ground more often than not, and that is the sort of thing that is noticed.
+  const hurt = law ? rng.chance(0.7) : rng.chance(0.25);
+  const angry = rng.chance(clamp(0.3 + 0.35 * t + (law ? 0.3 : 0) + (hurt ? 0.2 : 0), 0, 0.95));
+  who.affinity -= hurt ? 15 : 5;
+  if (hurt && law) {
+    const faction = who.faction === 'atlas' || who.tags.includes('corp') ? 'atlas' : 'npd';
+    addHeat(w, faction, 1);
+    c.emit('heat_up', 'bad', { variant: faction, gain: 1, level: w.heat[faction] ?? 0, source: 'crash', calls: 0 });
+  }
+  c.emit('accident', angry ? 'bad' : 'mixed', { variant: 'bump', who: who.name, role: who.role, law, hurt, angry, ...data });
+  return { lost: 1 + (hurt ? 0.5 : 0) + t, down: false, angry: angry ? who : null };
 }
