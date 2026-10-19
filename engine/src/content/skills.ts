@@ -52,6 +52,7 @@ export const SKILLS = {
   medicine: { label: 'first aid', group: 'craft', spill: { tinkering: 0.05 }, titles: ['knows where the bandage goes', 'stitches at an angle', 'talks people through their own surgery', 'fixes people like cars'] },
   art: { label: 'graffiti', group: 'craft', spill: { streetwise: 0.1 }, titles: ['draws a mean doodle', 'tags in two colors', 'fills walls with intent', 'her murals have critics'] },
   scavenging: { label: 'scavenging', group: 'craft', spill: { tinkering: 0.15 }, titles: ['can tell trash from treasure, usually', 'has a system for dumpsters and scrap heaps', 'finds the good stuff before the rats do', 'could furnish an apartment from one back alley'] },
+  fishing: { label: 'fishing', group: 'craft', spill: { scavenging: 0.2, perception: 0.1 }, titles: ['can stand at a canal without being asked to leave', 'knows a bite from a bin bag', 'reels in what the water was hiding', 'the water gives her things, politely'] },
   hustling: { label: 'hustling', group: 'craft', spill: { streetwise: 0.1, athletics: 0.1 }, titles: ['shows up, mostly on time', 'has done every odd job in the Halo at least once', 'a professional at being professional', 'the gig economy, personified'] },
 } as const satisfies Record<string, SkillDef>;
 

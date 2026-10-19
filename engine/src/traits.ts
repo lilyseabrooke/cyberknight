@@ -91,6 +91,7 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   recruit_juno: { loyalty: 0.4, techy: 0.6 },
   // thrills
   parkour: { thrill: 1.4 },
+  fish: { curiosity: 0.6, greed: 0.3, thrill: -0.4 },
   laser_tag: { thrill: 0.8, sociable: 0.4 },
   mix_molotov: { mischief: 1.0, thrill: 0.6, grudge: 0.4 },
   skyline: { thrill: 0.6, curiosity: 0.4 },
