@@ -29,6 +29,7 @@ import { driveByRoll } from './driveby';
 import { haloShun, heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
+import { tickBookings } from './bookings';
 import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
 import { satietyBias, tickSatiety } from './romance';
@@ -280,6 +281,7 @@ function upkeep(c: Ctx): void {
   if (w.beat % 90 === 0) restockShelf(c);
   tickVenues(w);
   tickHustles(c);
+  tickBookings(c);
   tickGyms(c);
   tickPawns(c);
   if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;

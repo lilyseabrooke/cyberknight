@@ -5,6 +5,8 @@ import type { AskOption, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Locatio
 import { armBest, edge, rating } from './weapons';
 import { ACT_SKILL, CALLING } from './stage';
 import { judgeSet } from './renown';
+import { bookingAt } from './bookings';
+import type { Booking } from './types';
 import { SKILL_LABELS, skillLevel } from './skills';
 import { medPacks, wielded } from './arms';
 import type { EventData } from './events';
@@ -139,6 +141,20 @@ function questStyle(c: Ctx, d: { kind: DungeonKind; tier: number }, kind: string
 // ===================================================================== kinds
 
 const KINDS: Record<GoalKind, Kind> = {
+  // ------------------------------------------------------------------ a night she's booked to play
+  booking: {
+    decay: 0.0008, stick: ['fame', 'vanity', 'loyalty'], patience: 200,
+    label: (w, g) => `play ${w.locations[g.loc!]?.name ?? 'the booking'} tonight`,
+    check(w, g) {
+      const b = bookingAt(w, g.loc!);
+      if (!b || b.night !== w.legacy.runs) return { drop: 'moot' };
+      return b.played ? { done: 'played' } : null;
+    },
+    plan() {},
+    metric: (w, g) => -distTo(w, g.loc!),
+    targets: (w, g) => (w.hero.locationId === g.loc ? [] : [{ loc: g.loc!, value: 3.4 }]),
+    bias: (w, g, fam) => (w.hero.locationId === g.loc && fam.startsWith('booked_') ? 6 : 0),
+  },
   // ------------------------------------------------------------------ buy
   buy: {
     decay: 0.003, stick: ['greed'], patience: 80,
@@ -948,6 +964,13 @@ export function adoptContract(c: Ctx, targetId: string, mode: 'kill' | 'beat_up'
   const t = c.w.npcs[targetId];
   if (!t) return null;
   return adopt(c, { kind: 'kill', npc: targetId, mode, why, desire, variant: 'contract', extra: { npc: t.name } });
+}
+
+/** She's booked to play somewhere tonight, and means to show up. */
+export function startBookingGoal(c: Ctx, b: Booking, place: string): Goal | null {
+  const t = traits(c.w);
+  const desire = clamp(0.7 + 0.2 * (t.fame - 0.5) + 0.15 * (t.vanity - 0.5) + 0.1 * (t.loyalty - 0.5), 0.5, 0.95);
+  return adopt(c, { kind: 'booking', loc: b.loc, why: `${place} has her on the bill`, desire, variant: 'booking', extra: { place, amount: b.pay } });
 }
 
 /** She takes a job on as a goal, if she has room for it. */

@@ -25,6 +25,7 @@ export const ACT_SKILL: Record<string, string> = {
   dj_set: 'djing', backlot_set: 'djing',
   beatbox: 'beatbox', beat_battle: 'beatbox',
   graffiti: 'art',
+  booked_guitar: 'guitar', booked_vocals: 'vocals', booked_djing: 'djing', booked_beatbox: 'beatbox',
 };
 
 /** What a calling sounds like, by skill. */

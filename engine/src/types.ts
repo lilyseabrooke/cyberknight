@@ -848,12 +848,32 @@ export interface Legacy {
   renown?: Record<string, number>;
   /** Letdowns in a row per skill, and the fame they cost, so a set that finally delivers can be a comeback. */
   slump?: Record<string, { sets: number; lost: number }>;
+  /** Gigs she's been booked for. They wait for her through a death: the calendar doesn't know. See bookings.ts. */
+  bookings?: Booking[];
   /** Lab upgrades she has, by node id, with the number of ranks bought. See content/tree.ts. */
   upgrades: Record<string, number>;
   /** Neodollars spent in the lab, ever. */
   spent: number;
   /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
   report?: RunReport;
+}
+
+/** A night she's been booked to play somewhere. */
+export interface Booking {
+  id: string;
+  /** Where she plays. */
+  loc: Id;
+  /** The night it's for (a `legacy.runs` number). */
+  night: number;
+  /** What they booked her for: guitar, singing, DJing, beatboxing. */
+  skill: string;
+  /** 'gig': a stage at a bar or club. 'private': the entertainment, somewhere she couldn't otherwise get into. */
+  kind: 'gig' | 'private';
+  /** Her fee, if it goes well. */
+  pay: number;
+  /** Who booked her, when somebody in particular did. */
+  host?: Id;
+  played?: boolean;
 }
 
 /** The books on one night, settled when it ends. */
@@ -982,7 +1002,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'booking';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better

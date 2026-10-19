@@ -5,6 +5,7 @@ import { sneakBonus, tryTalkDown } from './extras';
 import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { moveNpc } from './population';
 import { cross } from './shortcut';
+import { bookedTonight } from './bookings';
 
 /** Resolve walking through an exit, including bouncers, locks, guards and jumps. */
 export function moveThrough(c: Ctx, exit: Exit): void {
@@ -23,6 +24,12 @@ export function moveThrough(c: Ctx, exit: Exit): void {
   if (exit.misroute && rng.chance(0.4)) {
     to = exit.misroute;
     arrive(c, to, 'misroute', { intended: dest.name });
+    return;
+  }
+
+  // Booked to play there tonight: the door is expecting her.
+  if (exit.gate && bookedTonight(w, exit.to)) {
+    arrive(c, to, 'booked', { place: dest.name });
     return;
   }
 

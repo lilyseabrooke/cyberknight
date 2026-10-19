@@ -29,6 +29,7 @@ import { knowsBounty, tippable } from './bounty';
 import { healUrge } from './urges';
 import { laylowCandidates } from './laylow';
 import { stageCandidates } from './stage';
+import { bookingCandidates } from './bookings';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
@@ -205,6 +206,7 @@ export function gather(w: World): Candidate[] {
   out.push(...questCandidates(w));
   out.push(...laylowCandidates(w));
   out.push(...stageCandidates(w));
+  out.push(...bookingCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));
   out.push(...discretionCandidates(w));
