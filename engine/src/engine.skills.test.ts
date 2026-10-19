@@ -153,7 +153,7 @@ describe('layered skills', () => {
       ['gig', { variant: 'killer', amount: 1, npc: 'x' }], ['gig', { variant: 'flop', npc: 'x' }],
       ['stump_speech', { variant: 'rousing', level: 1 }], ['stump_speech', { variant: 'rousing', level: 5 }], ['stump_speech', { variant: 'complaint' }], ['stump_speech', { variant: 'heckled' }], ['stump_speech', { variant: 'ignored' }],
       ['rally', { variant: 'great', count: 2, names: 'x and y', name: 'x' }], ['rally', { variant: 'good', count: 1, names: 'x', name: 'x' }], ['rally', { variant: 'flat', count: 1, names: 'x', name: 'x' }], ['rally', { variant: 'flop', count: 1, names: 'x', name: 'x' }],
-      ['mirror_speech', { variant: 'rough' }], ['mirror_speech', { variant: 'orator' }],
+      ['mirror_speech', { variant: 'rough' }], ['mirror_speech', { variant: 'orator' }], ['mirror_speech', { variant: 'doubt' }],
       ['busk', { variant: 'tips', amount: 1 }], ['busk', { variant: 'stolen' }], ['busk', { variant: 'complaint' }], ['busk', { variant: 'ignored' }],
       ['jam', { variant: 'band', level: 1, npc: 'x' }], ['jam', { variant: 'solo', level: 1 }], ['jam', { variant: 'meh' }], ['jam', { variant: 'smash', npc: 'x' }], ['jam', { variant: 'thrown_out', npc: 'x' }],
       ['steal_guitar', { variant: 'alone' }], ['steal_guitar', { variant: 'band' }], ['steal_guitar', { variant: 'caught', npc: 'x' }],

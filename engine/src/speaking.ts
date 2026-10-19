@@ -3,6 +3,7 @@ import { addHeat, here } from './combat';
 import { type Candidate } from './candidate';
 import { odds, skillLevel, synergy, train } from './skills';
 import { fameFrom } from './stage';
+import { sleepOf } from './needs';
 
 /**
  * Speaking: public speeches, rousing ones. Three ways to use it.
@@ -15,8 +16,20 @@ const ODDS = {
   rally: (h: Hero) => odds(0.3, 0.07, synergy(h, ['speaking', ['stat:charm', 0.6], ['stat:int', 0.2]])),
 };
 
-/** Beats between speeches to the same bunch of companions. */
-const RALLY_GAP = 25;
+/** Speeches wear off: each repeat counts for less, and the wear halves in about 23 beats. */
+const WEAR_DECAY = 0.97;
+
+/** How worn out a kind of speech is right now (each one adds 1). */
+function worn(w: World, key: string): number {
+  return (w.counters[`${key}_worn`] ?? 0) * WEAR_DECAY ** (w.beat - (w.counters[`${key}_at`] ?? w.beat));
+}
+function wear(w: World, key: string): void {
+  w.counters[`${key}_worn`] = worn(w, key) + 1;
+  w.counters[`${key}_at`] = w.beat;
+}
+
+/** The mirror stops being flattering after about this many speeches in a short while. */
+const DOUBT_AT = 3;
 
 export function speakingCandidates(w: World): Candidate[] {
   const out: Candidate[] = [];
@@ -31,13 +44,13 @@ export function speakingCandidates(w: World): Candidate[] {
 
   // ---- the troops
   const crew = h.companions.filter((a) => a.hp > 0);
-  if (crew.length && w.beat - (w.counters.rally ?? -99) >= RALLY_GAP) {
-    out.push({ key: 'rally_allies', drives: { pride: 0.5, curiosity: 0.2, bravery: 0.2 }, bonus: 0.15 + lvl * 0.02, intent: {}, run: rallyAllies });
+  if (crew.length) {
+    out.push({ key: 'rally_allies', drives: { pride: 0.5, curiosity: 0.2, bravery: 0.2 }, bonus: 0.15 + lvl * 0.02 - 0.2 * worn(w, 'rally'), intent: {}, run: rallyAllies });
   }
 
   // ---- the mirror
   if (Object.values(w.features).some((f) => f.kind === 'mirror' && f.locationId === h.locationId)) {
-    out.push({ key: 'mirror_speech', drives: { pride: 1.0, curiosity: 0.2 }, intent: {}, run: mirrorSpeech });
+    out.push({ key: 'mirror_speech', drives: { pride: 1.0, curiosity: 0.2 }, bonus: -0.3 * worn(w, 'mirror_speech'), intent: {}, run: mirrorSpeech });
   }
   return out;
 }
@@ -68,26 +81,27 @@ function rallyAllies(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const crew = h.companions.filter((a) => a.hp > 0);
-  w.counters.rally = w.beat;
-  const p = ODDS.rally(h);
+  // The same speech again and again lands softer: it is less likely to go well, and does less when it does.
+  const f = 1 / (1 + 0.7 * worn(w, 'rally'));
+  wear(w, 'rally');
+  const p = ODDS.rally(h) * f;
   const roll = rng.next();
   const names = crew.map((a) => a.name);
   const data = { count: crew.length, names: names.join(' and '), name: names[0]! };
+  const fire = (power: number, beats: number, loyalty: number, heal: number): void => {
+    for (const a of crew) {
+      a.inspired = { until: w.beat + Math.round(beats * f), power: Math.round(power * f * 10) / 10 };
+      a.loyalty = Math.min(100, a.loyalty + Math.round(loyalty * f));
+      a.hp = Math.min(a.maxHp, a.hp + Math.ceil(a.maxHp * heal * f));
+    }
+  };
   if (roll < p * 0.35) {
     // the kind of speech they tell their grandkids about
-    for (const a of crew) {
-      a.inspired = { until: w.beat + 45, power: 4 };
-      a.loyalty = Math.min(100, a.loyalty + 12);
-      a.hp = a.maxHp;
-    }
+    fire(4, 45, 12, 1);
     train(c, 'speaking', 3);
     c.emit('rally', 'good', { variant: 'great', ...data });
   } else if (roll < p) {
-    for (const a of crew) {
-      a.inspired = { until: w.beat + 30, power: 2 };
-      a.loyalty = Math.min(100, a.loyalty + 6);
-      a.hp = Math.min(a.maxHp, a.hp + Math.ceil(a.maxHp * 0.2));
-    }
+    fire(2, 30, 6, 0.2);
     train(c, 'speaking', 2);
     c.emit('rally', 'good', { variant: 'good', ...data });
   } else if (rng.chance(0.55)) {
@@ -103,7 +117,15 @@ function rallyAllies(c: Ctx): void {
 
 function mirrorSpeech(c: Ctx): void {
   const { w } = c;
-  const lvl = skillLevel(w.hero, 'speaking');
-  train(c, 'speaking', 0.6);
-  c.emit('mirror_speech', 'good', { variant: lvl >= 3 ? 'orator' : 'rough' });
+  const h = w.hero;
+  const before = worn(w, 'mirror_speech');
+  wear(w, 'mirror_speech');
+  if (before >= DOUBT_AT) {
+    // She has heard herself enough to notice the flaws, and it costs her sleep rather than helping.
+    h.sleep = Math.max(0, sleepOf(h) - 1.5 * (before - DOUBT_AT + 1));
+    c.emit('mirror_speech', 'bad', { variant: 'doubt' });
+    return;
+  }
+  train(c, 'speaking', 0.6 / (1 + 0.5 * before));
+  c.emit('mirror_speech', 'good', { variant: skillLevel(h, 'speaking') >= 3 ? 'orator' : 'rough' });
 }
