@@ -77,3 +77,15 @@ How it goes out depends on what they carry (`channelOf`): a **shout** (nearby al
 - Listener behaviour beyond a nudge: police sent after her and dragons record the noise (`makeNoise` in stealth.ts) but don't yet move to investigate.
 - Nobody teaches Hush yet, like the other learnable Hacks.
 - Cover is derived from crowd, dark and weather; authored `Location.cover` is supported but nothing sets it. On the board, light is a room-kind base with random lamps and dark corners.
+
+## Slipping away while they search
+
+Stealth isn't only for getting in. When people are looking for her and don't have a fix on her (Alert, no fix), the street's own board plays
+as a **leave** scene: `viewOf(..., { goal: 'leave' })` marks every real door/mouth as a way off the board (`Board.ways`), and `planLeave`
+scores her moves by distance to the nearest way, exposure, and how near anyone is. Reaching a way ends the scene as `evaded`; she is
+relocated to the neighbouring street and whoever was looking is left looking at an empty street.
+
+- `streetHunt` (`streethunt.ts`) runs this for `gang_hunt` (gangers she's angered): she starts somewhere along the street (not in a doorway),
+  they start Alert with no fix. If one spots her, it hands off: a foot chase if the nearest is 4+ tiles away, otherwise a fight.
+- The mirror case: timid units (`timid()` in `prowl.ts`: patrons, shopkeepers, kids, etc.) who reach Alert/Aware don't come for her; they
+  walk to the nearest way and leave (`prowl_flee`). Fleeing units don't count as "detected".

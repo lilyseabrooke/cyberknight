@@ -7,6 +7,7 @@ import { PROPS, type PropKind } from './content/props';
 import { dirOf, angDiff, camFacing, camView, coneFactor, holdsPost, makeUnit, sensors, sightGain, type Board, type PUnit } from './prowl';
 import { V, awareness, npcPerception, stir } from './stealth';
 import { workingCameras } from './witness';
+import { isShut } from './shutdown';
 
 /**
  * The one board a place has. Whatever she is doing in a place (walking about, sneaking, fighting) it is this: where she is,
@@ -519,7 +520,7 @@ export function storeUnit(u: PUnit, e: Ent): void {
  * The board as the sneaking code plays it: this room as it stands, with these people (or everyone near enough) in it. The bodies, the
  * machines and the darkened patches are the board's own, so whatever happens to them stays happened.
  */
-export function viewOf(w: World, p: Placed, o: { foes?: Npc[]; near?: number; except?: Id[] } = {}): Board {
+export function viewOf(w: World, p: Placed, o: { foes?: Npc[]; near?: number; except?: Id[]; goal?: 'clear' | 'leave' } = {}): Board {
   const { board, layout } = p;
   const who: Npc[] = o.foes ?? Object.keys(board.ents).filter((id) => w.npcs[id] && !(o.except ?? []).includes(id) && dist(board.ents[id]!, board.hero) <= (o.near ?? 99)).map((id) => w.npcs[id]!);
   const units = who.filter((n) => board.ents[n.id]).map((n) => unitOf(n, board.ents[n.id]!));
@@ -536,6 +537,8 @@ export function viewOf(w: World, p: Placed, o: { foes?: Npc[]; near?: number; ex
     dark: board.dark,
     role: layout.role,
     cams: workingCams(w, w.locations[board.loc]!),
+    ...(o.goal ? { goal: o.goal } : {}),
+    ...(o.goal === 'leave' ? { ways: layout.doors.filter((d) => !d.via && w.locations[d.exit] && !isShut(w, d.exit)).map((d) => ({ at: { ...d.at }, to: d.exit })) } : {}),
   };
 }
 

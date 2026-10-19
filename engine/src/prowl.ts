@@ -12,6 +12,7 @@ import { gainXp } from './combat';
 import { wielded } from './arms';
 import { fxOf } from './weapons';
 import { downFor } from './shutdown';
+import { moveNpc } from './population';
 import { nested } from './events';
 
 /**
@@ -30,8 +31,9 @@ import { nested } from './events';
 
 export type Light = 0 | 1 | 2;
 export type Posture = 'hold' | 'sneak' | 'walk' | 'dash';
-export type Behavior = 'post' | 'patrol' | 'investigate' | 'search' | 'return';
-export type ProwlOutcome = 'cleared' | 'detected' | 'stalled';
+export type Behavior = 'post' | 'patrol' | 'investigate' | 'search' | 'return' | 'flee';
+/** `evaded`: she was going for the way out, and got there unseen. */
+export type ProwlOutcome = 'cleared' | 'detected' | 'stalled' | 'evaded';
 
 /** Eight directions, clockwise from north. */
 const DIRS: Pos[] = [{ x: 0, y: -1 }, { x: 1, y: -1 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }, { x: -1, y: 1 }, { x: -1, y: 0 }, { x: -1, y: -1 }];
@@ -63,6 +65,8 @@ export interface PUnit {
   /** Sensors and not eyes: a wider cone. */
   wide: boolean;
   down: boolean;
+  /** Gone out the door rather than put down. */
+  fled?: boolean;
 }
 
 export interface Prop {
@@ -94,6 +98,14 @@ export interface Board {
   role: string;
   /** The cameras that are working, bolted where they are. They sweep (see `camFacing`). */
   cams?: CamMount[];
+  /** What she is doing here: putting them down (the default), or getting out without being seen. */
+  goal?: 'clear' | 'leave';
+  /** The ways out of the room, and what is beyond them. */
+  ways?: { at: Pos; to: Id }[];
+  /** The way she took out, if she took one. */
+  left?: Id;
+  /** Those who ran for it. */
+  fled?: { npc: Npc; to: Id }[];
 }
 
 // ------------------------------------------------------------------ the board
@@ -356,9 +368,29 @@ function walkTo(b: Board, u: PUnit, to: Pos, steps = 1): boolean {
   return same(u, to);
 }
 
+/** Those who run rather than look: people with nothing to fight with and no reason to stay. */
+const TIMID = new Set(['patron', 'drifter', 'street_kid', 'noodler', 'shopkeeper', 'bartender', 'dancer', 'gym_regular', 'gym_desk', 'scientist', 'doc', 'cook', 'tourist']);
+export const timid = (n: Npc): boolean => TIMID.has(n.archetype) && !n.hostile;
+
 /** What one unit does with its round, by how much it knows. */
 function act(b: Board, u: PUnit, rng: Rng): void {
   const bucket = bucketOf(b.w, u.npc);
+  // Somebody who has realised something is wrong, with no stomach for it, makes for the door.
+  if ((bucket === 'alert' || bucket === 'aware') && timid(u.npc) && !u.holds && b.ways?.length) u.behavior = 'flee';
+  if (u.behavior === 'flee') {
+    const way = [...(b.ways ?? [])].sort((x, y) => dist(u, x.at) - dist(u, y.at))[0];
+    if (way) {
+      walkTo(b, u, way.at, 2);
+      if (same(u, way.at)) {
+        u.down = true;
+        u.fled = true;
+        moveNpc(b.w, u.npc, way.to);
+        (b.fled ??= []).push({ npc: u.npc, to: way.to });
+      }
+      return;
+    }
+    u.behavior = 'search';
+  }
   if (bucket === 'alert') {
     u.behavior = 'search';
     if (u.holds) {
@@ -547,9 +579,35 @@ function bestProp(b: Board, target: PUnit): Prop | null {
   return best && best.score >= 1 ? best.p : null;
 }
 
+/**
+ * Getting out unseen: for each tile she could reach, how far it leaves her from the nearest way out against how much of her the room would
+ * see there, now and next round. She waits when waiting is better, and only runs when running is.
+ */
+function planLeave(b: Board): Plan {
+  const h = b.hero;
+  const goals = (b.ways ?? []).map((x) => ({ p: x.at, c: 0 }));
+  if (!goals.length) return { kind: 'hold' };
+  const dm = distFrom(b.grid, goals, (p) => live(b).some((u) => same(u, p)), { climber: true, into: true });
+  const blocked = (p: Pos) => live(b).some((u) => same(u, p));
+  const walk = reach(b.grid, h, SPEED.sneak, blocked, false, true);
+  const here = dm.get(idx(b.grid, h)) ?? 99;
+  const stayScore = -5 * here - 14 * (exposure(b, h, 'hold') + (nearlyCaught(b, h, 'hold') ? 3 : 0));
+  let best: { to: Pos; score: number } | null = null;
+  for (const [i] of walk.cost) {
+    const to = posOf(b.grid, i);
+    if (same(to, h) || occupied(b, to) || terrainAt(b.grid, to.x, to.y) === 'hazard') continue;
+    const left = dm.get(i);
+    if (left === undefined) continue;
+    const score = -5 * left - 14 * exposure(b, to, 'sneak') - (nearlyCaught(b, to, 'sneak') ? 40 : 0);
+    if (!best || score > best.score) best = { to, score };
+  }
+  return best && best.score > stayScore + 1 ? { kind: 'move', to: best.to } : { kind: 'hold' };
+}
+
 /** What she does with a round. */
 function plan(b: Board, state: { holds: number; sinceProp: number }): Plan {
   const h = b.hero;
+  if (b.goal === 'leave') return planLeave(b);
   // A body in sight of somebody wants moving.
   for (const body of b.bodies) {
     if (body.found) continue;
@@ -618,6 +676,12 @@ function plan(b: Board, state: { holds: number; sinceProp: number }): Plan {
 export interface ProwlOpts {
   /** For the log: "three drones and a trooper". */
   describe?: (foes: Npc[]) => string;
+  /** Slip away rather than clear the place: she is looking for a way out, not for fights. */
+  goal?: 'clear' | 'leave';
+  /** Told as a hunt: they are looking for her, not just standing about. */
+  hunt?: boolean;
+  /** Filled in: where she slipped away to. */
+  left?: Id;
 }
 
 function sync(b: Board, u: PUnit, from: Pos | null): void {
@@ -704,6 +768,14 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
     if (!live(b).length) return 'cleared';
     state.sinceProp++;
     told = 0;
+    // On the way out and there: gone.
+    if (b.goal === 'leave') {
+      const way = b.ways?.find((x) => same(x.at, b.hero));
+      if (way) {
+        b.left = way.to;
+        return 'evaded';
+      }
+    }
 
     // Her turn.
     const p = plan(b, state);
@@ -781,6 +853,7 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
       }
       if (RANK[now] >= RANK.alert && !a.calledSince) maybeCall(c, b, u);
     }
+    for (const f of b.fled?.splice(0) ?? []) say('prowl_flee', 'mixed', { npc: f.npc.name, to: w.locations[f.to]?.name ?? 'the door' });
 
     // Bodies get found.
     for (const body of b.bodies) {
@@ -810,7 +883,7 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
         }
       } else if (loc) loc.camAware = Math.max(0, (loc.camAware ?? 0) - 0.03);
     }
-    if (live(b).some((u) => atLeast(bucketOf(w, u.npc), 'aware'))) return 'detected';
+    if (live(b).some((u) => u.behavior !== 'flee' && atLeast(bucketOf(w, u.npc), 'aware'))) return 'detected';
     if (state.holds >= 9) return 'stalled';
   }
   return 'stalled';
@@ -850,14 +923,15 @@ export function prowlRoom(c: Ctx, d: Dungeon, loc: Location, foes: Npc[], o: Pro
   const { w } = c;
   const placed = placeOf(w, loc)!;
   syncPlace(w, placed);
-  const b = viewOf(w, placed, { foes });
+  const b = viewOf(w, placed, { foes, goal: o.goal });
   const say: Sink = (type, outcome, data) => c.emit(type, outcome, data);
   let out: ProwlOutcome = 'stalled';
-  nested(c, 'prowl_start', 'mixed', { place: loc.name, count: foes.length, foes: o.describe ? o.describe(foes) : `${foes.length} of them`, lit: b.light.reduce<number>((a, x) => a + x, 0) / b.light.length > 1.3 }, () => {
+  nested(c, 'prowl_start', 'mixed', { variant: o.hunt ? 'hunt' : 'quiet', place: loc.name, count: foes.length, foes: o.describe ? o.describe(foes) : `${foes.length} of them`, lit: b.light.reduce<number>((a, x) => a + x, 0) / b.light.length > 1.3 }, () => {
     out = prowlBoard(c, b, say);
     commitBoard(b, placed);
+    if (b.left) o.left = b.left;
     w.clock += Math.ceil(b.round / 4);
-    say('prowl_end', out === 'detected' ? 'bad' : out === 'cleared' ? 'good' : 'mixed', { variant: out, place: loc.name, count: live(b).length });
+    say('prowl_end', out === 'detected' ? 'bad' : out === 'cleared' || out === 'evaded' ? 'good' : 'mixed', { variant: out, place: loc.name, count: live(b).length, to: b.left ? w.locations[b.left]?.name ?? 'the next street' : '' });
   });
   return out;
 }
