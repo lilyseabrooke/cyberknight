@@ -12,7 +12,9 @@ import { MIN_PER_DAY } from './clock';
  * famous *for* all carry over (`legacy.fame`, `legacy.renown`, `Location.fans`). Her hands don't: skills start again
  * with every body. So a crowd comes expecting the Blackbird it remembers, and a new body mostly lets it down.
  *
- * - **Renown** is fame per performing skill ("Blackbird, the guitarist"). It sets what a crowd expects of that skill.
+ * - **Renown** is fame per performing skill ("Blackbird, the guitarist"): how much of a name she has for it.
+ * - **Repute** is the skill grade Neo has seen her perform at. It is what a crowd expects of her, on the skill's own
+ *   0-100 scale, so a body with fresh hands is measured against the one that came before.
  * - **Fans** are counted where she won them, on the place itself, and outlive her like the place does.
  * - **Letdowns** cost fame, renown and fans, sharply: a bad set in front of people who came for a legend can empty a
  *   street of fans. A few in a row are a slump, and the first set that delivers after a slump is a comeback.
@@ -36,19 +38,31 @@ export function fadeFame(w: World): void {
   const k = 0.5 ** (dt / (FAME_HALF_LIFE_DAYS * MIN_PER_DAY));
   w.hero.fame *= k;
   for (const s of Object.keys(w.legacy.renown ?? {})) w.legacy.renown![s]! *= k;
+  for (const s of Object.keys(w.legacy.repute ?? {})) w.legacy.repute![s]! *= k;
 }
 
-/** The skill grade a crowd expects from her at this skill, from how famous she is for it. */
-export const expectation = (w: World, skill: string): number => 0.8 * Math.sqrt(Math.max(0, w.legacy.renown?.[skill] ?? 0));
+/**
+ * The skill grade a crowd expects from her at this skill (0-100, the same scale as the skill): the level Neo has seen
+ * her play at. It rises as she plays well in front of people (see `addRenown`), and fades as people forget.
+ */
+export const expectation = (w: World, skill: string): number => w.legacy.repute?.[skill] ?? 0;
 
 /** How far short of what they came for she'd fall right now (negative when she's better than her name). */
 export const shortfall = (w: World, skill: string): number => expectation(w, skill) - skillLevel(w.hero, skill as SkillId);
 
-/** Fame earned with a performing skill is also fame *for* it. */
+/**
+ * Fame earned with a performing skill is also fame *for* it, and it shows Neo how good she is: what a crowd expects
+ * creeps towards the level she just played at, faster for a bigger moment. A good set below her reputation doesn't
+ * lower it (that's what letdowns and time are for).
+ */
 export function addRenown(w: World, skill: string, gain: number): void {
   if (gain <= 0 || SKILLS[skill as SkillId]?.group !== 'music') return;
   const r = (w.legacy.renown ??= {});
   r[skill] = (r[skill] ?? 0) + gain;
+  const rep = (w.legacy.repute ??= {});
+  const seen = skillLevel(w.hero, skill as SkillId);
+  const was = rep[skill] ?? 0;
+  if (seen > was) rep[skill] = was + (seen - was) * (gain / (gain + 6));
 }
 
 /** Her street: the street a place is on, or the place itself when it isn't on one. */
@@ -105,7 +119,7 @@ export function judgeSet(c: Ctx, act: string, skill: string, events: GameEvent[]
 
   if (good) {
     const won = 1 + Math.floor(crowd / 2);
-    if (gap > 2) {
+    if (gap > 4) {
       // Fine, for someone else. Not for Blackbird.
       loc.fans = (loc.fans ?? 0) + Math.ceil(won / 2);
       if (rng.chance(0.35)) c.emit('letdown', 'mixed', { variant: 'underwhelm', skill: label, place: loc.name, expected: Math.round(expectation(w, skill)) });
@@ -124,12 +138,15 @@ export function judgeSet(c: Ctx, act: string, skill: string, events: GameEvent[]
   }
 
   // A flop only disappoints people who expected something.
-  if (gap <= 1) return;
-  const share = Math.min(1, gap / 5);
-  const lost = Math.min(h.fame, 0.08 * h.fame * share + gap);
+  if (gap <= 2) return;
+  const share = Math.min(1, gap / 15);
+  const lost = Math.min(h.fame, 0.1 * h.fame * share + gap * 0.5);
   h.fame -= lost;
-  const r = w.legacy.renown!;
-  r[skill] = Math.max(0, (r[skill] ?? 0) * (1 - 0.1 * share) - gap);
+  const r = (w.legacy.renown ??= {});
+  r[skill] = Math.max(0, (r[skill] ?? 0) * (1 - 0.1 * share));
+  // "She's lost it": the legend survives a bad night, mostly.
+  const rep = (w.legacy.repute ??= {});
+  rep[skill] = (rep[skill] ?? 0) * (1 - 0.05 * share);
   const big = crowd >= 8 || loc.kind === 'club';
   let gone = 0;
   const near = block(w, loc);

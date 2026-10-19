@@ -27,6 +27,10 @@ export const BOOKABLE = ['guitar', 'vocals', 'djing', 'beatbox'] as const;
 export const bookedAct = (skill: string): string => `booked_${skill}`;
 
 const MAX_OPEN = 3;
+/** The level a crowd has to expect of her before bars and clubs book her: a real player, near the top of the starting district. */
+export const GIG_LEVEL = 12;
+/** And before somebody wants her for a private function: a professional, the kind of name that gets past a cordon. */
+export const PRIVATE_LEVEL = 25;
 
 const open = (w: World): Booking[] => (w.legacy.bookings ??= []);
 
@@ -40,7 +44,7 @@ export const bookingAt = (w: World, loc: string): Booking | undefined => w.legac
 /** The skill she's best known for, among the ones people book. */
 function bestKnown(w: World): string | null {
   let best: string | null = null;
-  for (const s of BOOKABLE) if ((w.legacy.renown?.[s] ?? 0) > (best ? w.legacy.renown![best]! : 0)) best = s;
+  for (const s of BOOKABLE) if (expectation(w, s) > (best ? expectation(w, best) : 0)) best = s;
   return best;
 }
 
@@ -83,7 +87,7 @@ export function offerBooking(c: Ctx, skill: string, kind: 'gig' | 'private'): Bo
   const exp = expectation(w, skill);
   const night = w.legacy.runs + (rng.chance(0.4) ? 0 : rng.int(1, 3));
   const host = hostAt(w, loc);
-  const fee = kind === 'private' ? 60 + 25 * exp + rng.int(0, 40) : (20 + 12 * exp) * prestige(loc) + rng.int(0, 20);
+  const fee = kind === 'private' ? 80 + 15 * exp + rng.int(0, 40) : (20 + 5 * exp) * prestige(loc) + rng.int(0, 20);
   const pay = Math.round(fee * (w.legacy.muse?.signed ? 1.5 : 1));
   const b: Booking = { id: `bk${w.legacy.runs}.${w.beat}.${loc.id}`, loc: loc.id, night, skill, kind, pay, ...(host ? { host: host.id } : {}) };
   open(w).push(b);
@@ -121,18 +125,18 @@ export function tickBookings(c: Ctx): void {
   const skill = bestKnown(w);
   if (!skill) return;
   const exp = expectation(w, skill);
-  if (exp < 3 || (list?.filter((b) => !b.played).length ?? 0) >= MAX_OPEN) return;
+  if (exp < GIG_LEVEL || (list?.filter((b) => !b.played).length ?? 0) >= MAX_OPEN) return;
   // Signed to Muse, the bookings come to her: more of them, and better paid.
   const muse = w.legacy.muse?.signed ? 2 : 1;
-  if (!rng.chance(0.003 * muse * Math.min(4, exp / 2))) return;
-  offerBooking(c, skill, exp >= 5 && rng.chance(0.4) ? 'private' : 'gig');
+  if (!rng.chance(0.003 * muse * Math.min(4, exp / GIG_LEVEL))) return;
+  offerBooking(c, skill, exp >= PRIVATE_LEVEL && rng.chance(0.4) ? 'private' : 'gig');
 }
 
 function missed(c: Ctx, b: Booking): void {
   const { w } = c;
   const loc = w.locations[b.loc];
   if (loc?.fans) loc.fans *= 0.6;
-  const cost = Math.min(w.hero.fame, 2 + expectation(w, b.skill));
+  const cost = Math.min(w.hero.fame, 2 + 0.3 * expectation(w, b.skill));
   w.hero.fame -= cost;
   const host = b.host ? w.npcs[b.host] : undefined;
   if (host?.alive) host.affinity -= 15;

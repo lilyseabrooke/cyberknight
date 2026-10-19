@@ -848,6 +848,8 @@ export interface Legacy {
   fameAt?: number;
   /** The part of her fame that is about one performing skill ("Blackbird, the guitarist"), which sets what a crowd expects of her. See renown.ts. */
   renown?: Record<string, number>;
+  /** The skill grade Neo has seen her perform at, per skill: what a crowd expects of her (0-100, like the skill). See renown.ts. */
+  repute?: Record<string, number>;
   /** Letdowns in a row per skill, and the fame they cost, so a set that finally delivers can be a comeback. */
   slump?: Record<string, { sets: number; lost: number }>;
   /** Gigs she's been booked for. They wait for her through a death: the calendar doesn't know. See bookings.ts. */

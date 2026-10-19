@@ -51,8 +51,21 @@ describe('fame outlives her, skill does not', () => {
     const w = atTheBar('renown');
     const { c } = ctxOf(w, 'r');
     expect(expectation(w, 'guitar')).toBe(0);
+    w.hero.skills.guitar = xpForLevel(20);
     fameFrom(c, 3, 'gig');
     expect(w.legacy.renown!.guitar).toBeGreaterThan(0);
+    // A crowd now expects something on the way to the level it saw; more good sets bring it closer.
+    const once = expectation(w, 'guitar');
+    expect(once).toBeGreaterThan(0);
+    expect(once).toBeLessThan(20);
+    for (let i = 0; i < 10; i++) fameFrom(c, 3, 'gig');
+    expect(expectation(w, 'guitar')).toBeGreaterThan(once);
+    expect(expectation(w, 'guitar')).toBeLessThanOrEqual(20);
+    // Playing well below that doesn't lower it.
+    const high = expectation(w, 'guitar');
+    w.hero.skills.guitar = 0;
+    fameFrom(c, 3, 'gig');
+    expect(expectation(w, 'guitar')).toBe(high);
     expect(w.legacy.renown!.vocals ?? 0).toBe(0);
     // Graffiti makes her famous, but nobody comes to a wall expecting a performance.
     fameFrom(c, 3, 'graffiti');
@@ -73,7 +86,7 @@ describe('a crowd that came for a legend', () => {
   it('a famous guitarist with fresh hands loses fame and fans sharply when she flops', () => {
     const w = atTheBar('legend');
     w.hero.fame = 400;
-    w.legacy.renown = { guitar: 400 };
+    w.legacy.repute = { guitar: 40 };
     w.locations.halo_floor!.fans = 50;
     const { c, events } = ctxOf(w, 'l');
     judgeSet(c, 'busk', 'guitar', played('bad'));
@@ -87,11 +100,11 @@ describe('a crowd that came for a legend', () => {
 
   it('a set that delivers wins fans where she played; one that is merely fine for a legend wins fewer', () => {
     const good = atTheBar('deliver');
-    good.legacy.renown = { guitar: 25 };
+    good.legacy.repute = { guitar: 5 };
     good.hero.skills.guitar = xpForLevel(5);
     judgeSet(ctxOf(good, 'd').c, 'busk', 'guitar', played('good'));
     const meh = atTheBar('deliver');
-    meh.legacy.renown = { guitar: 400 };
+    meh.legacy.repute = { guitar: 40 };
     judgeSet(ctxOf(meh, 'd').c, 'busk', 'guitar', played('good'));
     expect(totalFans(good)).toBeGreaterThan(totalFans(meh));
     expect(totalFans(meh)).toBeGreaterThan(0);
@@ -100,7 +113,7 @@ describe('a crowd that came for a legend', () => {
   it('after a slump, the first set that delivers is a comeback and wins some of it back', () => {
     const w = atTheBar('comeback');
     w.hero.fame = 400;
-    w.legacy.renown = { guitar: 100 };
+    w.legacy.repute = { guitar: 20 };
     const { c, events } = ctxOf(w, 'c');
     judgeSet(c, 'busk', 'guitar', played('bad'));
     judgeSet(c, 'busk', 'guitar', played('bad'));
@@ -118,7 +131,7 @@ describe('a crowd that came for a legend', () => {
     for (const n of Object.values(w.npcs)) if (n.locationId === 'halo_floor') moveNpc(w, n, '_gone');
     w.locations.halo_floor!.crowded = false;
     w.hero.fame = 400;
-    w.legacy.renown = { guitar: 400 };
+    w.legacy.repute = { guitar: 40 };
     judgeSet(ctxOf(w, 'e').c, 'busk', 'guitar', played('bad'));
     expect(w.hero.fame).toBe(400);
   });
@@ -129,11 +142,13 @@ describe('fame fades, and its perks take work', () => {
     const w = atTheBar('fade');
     w.hero.fame = 100;
     w.legacy.renown = { guitar: 80 };
+    w.legacy.repute = { guitar: 30 };
     fadeFame(w);
     w.clock += FAME_HALF_LIFE_DAYS * MIN_PER_DAY;
     fadeFame(w);
     expect(w.hero.fame).toBeCloseTo(50, 5);
     expect(w.legacy.renown.guitar).toBeCloseTo(40, 5);
+    expect(w.legacy.repute.guitar).toBeCloseTo(15, 5);
     // A beat's worth of time barely touches it.
     w.clock += 3;
     fadeFame(w);

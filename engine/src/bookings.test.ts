@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { beginRun, endRun, newUniverse } from './universe';
-import { bookedTonight, bookingCandidates, offerBooking, playBooking, privateRooms, tickBookings } from './bookings';
+import { GIG_LEVEL, bookedTonight, bookingCandidates, offerBooking, playBooking, privateRooms, tickBookings } from './bookings';
 import { moveThrough } from './moves';
 import { always, never } from './testkit';
 import type { Booking } from './types';
@@ -19,6 +19,15 @@ const booking = (w: World, extra: Partial<Booking> = {}): Booking => {
 };
 
 describe('getting booked', () => {
+  it('a so-so player is not worth booking; it takes a crowd expecting a real player', () => {
+    const w = createWorld({ seed: 'soso' });
+    w.legacy.repute = { guitar: GIG_LEVEL - 1 };
+    for (const l of Object.values(w.locations)) if (l.kind === 'bar' || l.kind === 'club') l.visits = 1;
+    const { c } = ctxOf(w);
+    for (let i = 0; i < 3000; i++) tickBookings(c);
+    expect(w.legacy.bookings ?? []).toHaveLength(0);
+  });
+
   it('nobody books a nobody', () => {
     const w = createWorld({ seed: 'nobody' });
     const { c, events } = ctxOf(w);
@@ -29,7 +38,7 @@ describe('getting booked', () => {
 
   it('a famous guitarist gets offers, never more than a few open at once', () => {
     const w = createWorld({ seed: 'famous' });
-    w.legacy.renown = { guitar: 200 };
+    w.legacy.repute = { guitar: 30 };
     for (const l of Object.values(w.locations)) if (l.kind === 'bar' || l.kind === 'club') l.visits = 1;
     const { c, events } = ctxOf(w);
     for (let i = 0; i < 3000; i++) tickBookings(c);
@@ -40,7 +49,7 @@ describe('getting booked', () => {
 
   it('a gig is at a bar or club she knows; a private booking is behind a door she could not walk through', () => {
     const w = createWorld({ seed: 'where' });
-    w.legacy.renown = { guitar: 100 };
+    w.legacy.repute = { guitar: 30 };
     w.locations.neon_pharaoh!.visits = 1;
     const { c } = ctxOf(w);
     const gig = offerBooking(c, 'guitar', 'gig')!;
