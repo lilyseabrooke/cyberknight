@@ -7,6 +7,7 @@ import { skillLevel, train } from './skills';
 import { isBadGuy } from './traits';
 import { routeTo } from './plans';
 import { scoutSaves } from './extras';
+import { fanCouchCandidate, mobShields } from './fans';
 
 /**
  * Heat, and what she does about it. Low heat only sends drones, which a competent hero can swat;
@@ -97,6 +98,8 @@ export function npdResponse(c: Ctx): boolean {
   const loc = w.locations[w.hero.locationId]!;
   const npd = w.heat.npd ?? 0;
   if (!loc.outdoors || npd < 1) return false;
+  // A flash mob of her fans is in the way, filming.
+  if (mobShields(w)) return false;
   const officers = npd >= 4;
   if (!rng.chance(officers ? 0.09 + npd * 0.03 : 0.05 + npd * 0.04)) return false;
   if (scoutSaves(c)) return true;
@@ -133,6 +136,10 @@ export function laylowCandidates(w: World): Candidate[] {
   const loc = w.locations[h.locationId]!;
   const npd = w.heat.npd ?? 0;
   const crowd = here(w);
+
+  // A fan's couch, anywhere she has enough of them.
+  const couch = fanCouchCandidate(w, u);
+  if (couch) out.push(couch);
 
   // Lie low. The safe approach: do nothing, somewhere nobody is looking.
   if (isHideout(w, loc.id) && !crowd.some((n) => n.tags.includes('cop') && n.hostile)) {

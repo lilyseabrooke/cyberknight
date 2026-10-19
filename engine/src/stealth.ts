@@ -1,4 +1,5 @@
 import type { Awareness, Ctx, Id, Npc, World } from './types';
+import { fanCover, recognisable } from './fans';
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
 import { everyoneAt, npcsAt } from './population';
@@ -97,6 +98,7 @@ export function coverAt(w: World, locId: Id): number {
   if (w.flags.blackout) cv += 0.35;
   if (w.situation.weather === 'neon_fog') cv += 0.25;
   if (hasAlly(w, 'distract')) cv += 0.15;
+  cv += fanCover(w, locId);
   return clamp(cv, 0, 1);
 }
 
@@ -107,6 +109,7 @@ export function profile(w: World): number {
   p *= 1 - 0.55 * coverAt(w, h.locationId);
   if (hasImplantFlag(h, 'glow')) p *= 1.3;
   if (h.vehicle) p *= 1.3;
+  p *= recognisable(w);
   return clamp(p, 0.1, 1.6);
 }
 

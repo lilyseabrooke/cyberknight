@@ -79,7 +79,7 @@ export function streetOf(w: World, loc: Location): Location {
 }
 
 /** The street and its neighbours, for word that travels a block or two. */
-function block(w: World, loc: Location): Set<string> {
+export function block(w: World, loc: Location): Set<string> {
   const street = streetOf(w, loc);
   const out = new Set<string>([street.id]);
   for (const e of street.exits) if (w.locations[e.to]?.kind === 'street') out.add(e.to);

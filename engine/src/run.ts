@@ -31,6 +31,7 @@ import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
 import { tickBookings } from './bookings';
 import { fadeFame } from './renown';
+import { grapevineTick } from './fans';
 import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
 import { satietyBias, tickSatiety } from './romance';
@@ -284,6 +285,7 @@ function upkeep(c: Ctx): void {
   fadeFame(w);
   tickHustles(c);
   tickBookings(c);
+  grapevineTick(c);
   tickGyms(c);
   tickPawns(c);
   if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;
