@@ -11,6 +11,10 @@ mirrorshades. Everything has a subscription tier, including safety.
   the starting layout is not sacred: Blackbird can close the Halo by killing its owner. Everything else is generated per save
   (`engine/src/mapgen.ts`) from district *types*: market, nightlife, tenement, industrial, corporate, slum.
   Content should describe what a district type is *like*, never a fixed street address in the generated city.
+- **Hand-authored areas are examples, not the main show.** The Rusty Halo and the rest of the starting district show what
+  the generated city is meant to feel like. They are not important to the game as a whole and get no special treatment for
+  being hand-authored: no extra rules, content, tuning or design weight, and nothing should assume the player is there. An
+  exception will say it is one.
 - Distance from the Rusty Halo is difficulty. Nearer is gentler; further is richer and nastier.
 - Weather (acid rain, neon fog, heatwave) and "situational variables" (which gangs are at war, what the NPD is
   cracking down on this week) are per-run. Don't hard-code them into places.
