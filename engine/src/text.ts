@@ -1616,6 +1616,17 @@ const T: Record<string, Entry> = {
     (d) => [`Blackbird counts her spare parts. It does not take long. ${cap(String(d.place))} is the sort of place that has them lying about for anyone who asks nicely, or at all. New objective: ${d.goal}.`],
     ['Scrap is just treasure that has not been introduced.', 'Free parts. My favourite kind of shopping.'],
   ),
+  'goal_new:want_craft': e(
+    (d) => [`Blackbird looks at her options and at the ${d.item} she could build. ${cap(String(d.parts))}, a bench and an evening. It is cheaper than shopping and a lot less polite. New objective: ${d.goal}.`, `Why buy a ${d.item} when she can make one? It takes ${d.parts}. New objective: ${d.goal}.`],
+    ['Homemade is a lifestyle.', 'If I build it, I know exactly where the safety is. Mostly nowhere.'],
+  ),
+  'goal_new:for_craft': e(
+    (d) => [`Building the ${d.item} takes ${d.parts} more than Blackbird has. ${cap(String(d.place))} looks like the kind of place that has them. New step: ${d.goal}.`],
+    ['The best parts are free. They are also in places with bad lighting.'],
+  ),
+  'goal_new:explore_parts': e((d) => [`Blackbird has no idea where to find parts. ${cap(String(d.place))} might. New step: ${d.goal}.`], ['If I had a map of everything lying around, I would be rich.']),
+  'goal_done:built': e((d) => [`Blackbird built the ${String(d.goal).replace(/^build /, '')}. It works. It is hers. It has a slightly different idea of how a handle should be.`], ['I made this. With my hands. And a lot of tape.']),
+  'goal_done:stocked': e((d) => [`That is enough parts for what she has in mind. Blackbird straightens up, bag heavy, and points herself at a bench.`], ['Shopping list: done. Time to make something dangerous.']),
   'goal_done:scavenged': e((d) => [`Blackbird has been through ${d.place} with a bag. The bag is heavier. Everything else is unchanged.`], ['Clean sweep. Nobody missed it.', 'Someone left me a whole city of presents.']),
   'goal_done:explored': e((d) => [d.nested ? `Blackbird has now seen ${d.place}. One more corner of the city is on her map.` : `Blackbird has seen ${d.place} now. It is a place. She files it and moves on.`], ['Mapped. Mostly. In my head.', 'New place. Noted.']),
   // ====================================================== dungeons: outposts and hideouts

@@ -118,3 +118,12 @@ export function scavengeCandidates(w: World): Candidate[] {
     },
   }];
 }
+
+/** Chop shops on streets she has walked: where she knows there is a bench, and how good it is. */
+export function knownBenches(w: World): { id: string; tier: number }[] {
+  const out: { id: string; tier: number }[] = [];
+  for (const loc of Object.values(w.locations)) {
+    if (loc.chop && (w.locations[loc.gen?.parent ?? '']?.visits ?? 0) > 0) out.push({ id: loc.id, tier: loc.chop.tier });
+  }
+  return out;
+}

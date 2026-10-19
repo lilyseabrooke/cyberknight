@@ -45,6 +45,14 @@ Components mostly come from **spots** (`scavenge.ts`, `spotParts` in `content/sp
 - **People:** a mechanic (the owner, 90%), the door, 0-2 customers, sometimes a ganger (more where the cars are hot).
 - **Hours:** 08:00 to 02:00.
 
+### Building a weapon as a goal
+
+"Find a better weapon" can be met by building as well as buying, in the same circumstances: she knows a Chop Shop (she has walked its street) whose bench
+is good enough, and has the Tinkering for a recipe that beats what she has. With no shop wares to buy it is always the build; otherwise it is a coin toss
+leaning on her techy streak, her skill and how short of cash she is. The child is a `craft` goal. If she lacks the parts it adopts a `scavenge` subgoal
+(a spot with parts and nobody holding it) and repeats until she has enough, then she heads for a known bench, pulled through the door by whichever way
+she fancies. It is done when the thing is built (`goals.ts`: `craft`, `recipeOf`, `craftable`).
+
 ## 4. Getting in
 
 The bench is open once she has a **day pass** (`counters['chopin:<shop>']` = the day) or once **nobody is minding the door** (the guard is dead or

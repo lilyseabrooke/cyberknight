@@ -352,7 +352,7 @@ describe('the bench', () => {
     expect(can.length).toBeGreaterThan(0);
     const r = can[0]!;
     const before = { ...h.parts };
-    sc.do(`bench:craft:${r.item}`, always());
+    sc.do(`benchcraft:${r.item}`, always());
     expect([h.weapon, h.armor, ...h.inventory].some((i) => i?.id === r.item && i.tags.includes('homemade'))).toBe(true);
     for (const [p, n] of Object.entries(r.parts)) expect(h.parts[p]).toBe(before[p]! - n);
     // A miss.
@@ -360,7 +360,7 @@ describe('the bench', () => {
     const h2 = sc2.w.hero;
     h2.skills = { tinkering: 4000 };
     h2.parts = { ...before };
-    sc2.do(`bench:craft:${r.item}`, never());
+    sc2.do(`benchcraft:${r.item}`, never());
     expect([h2.weapon, h2.armor, ...h2.inventory].some((i) => i?.id === r.item)).toBe(false);
     for (const [p, n] of Object.entries(r.parts)) expect(h2.parts[p]).toBe(before[p]! - Math.floor(n / 2));
   });

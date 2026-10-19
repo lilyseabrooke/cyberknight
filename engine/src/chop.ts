@@ -322,7 +322,7 @@ export function chopCandidates(w: World): Candidate[] {
     }
     for (const r of craftable(h, bench).slice(0, 3)) {
       out.push({
-        key: `bench:craft:${r.item}`, drives: { pride: 0.5, bravery: 0.2, curiosity: 0.2 }, smart: 0.5, bonus: 0.7 + pull + (r.skill >= lvl ? 0.2 : 0),
+        key: `benchcraft:${r.item}`, drives: { pride: 0.5, bravery: 0.2, curiosity: 0.2 }, smart: 0.5, bonus: 0.7 + pull + (r.skill >= lvl ? 0.2 : 0),
         run: (c) => {
           const b = benchHere(c.w);
           if (b) craft(c, b, r);

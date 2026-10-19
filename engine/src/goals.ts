@@ -6,8 +6,10 @@ import { armBest, edge, rating } from './weapons';
 import { ACT_SKILL, CALLING } from './stage';
 import { SKILL_LABELS, skillLevel } from './skills';
 import { dayOf } from './clock';
-import { PLENTY_PARTS, lowOnParts, partsLeads } from './scavenge';
-import { totalParts } from './content/parts';
+import { PLENTY_PARTS, knownBenches, lowOnParts, partsLeads } from './scavenge';
+import { RECIPES, billText, canAfford, totalParts, type Bill, type Recipe } from './content/parts';
+import { ITEMS, makeItem } from './content/items';
+import { tinkerLevel } from './bench';
 import { medPacks, wielded } from './arms';
 import type { EventData } from './events';
 import type { Trait } from './personality';
@@ -90,6 +92,20 @@ const NOISY = new Set([
 /** Things that look good to a girl who is watching. */
 const IMPRESSIVE = new Set(['karaoke', 'dj_set', 'gig', 'busk', 'serenade', 'jam', 'beatbox', 'billboard', 'graffiti', 'laser_tag', 'darts', 'pool', 'parkour', 'mix_molotov', 'tend_bar', 'dancefloor', 'buy_round', 'engage_flight', 'challenge_dragon']);
 const LOOT = new Set(['safe', 'vault', 'crates', 'till']);
+
+// ---- crafting a weapon (the other way to get a better one than buying it)
+
+const recipeOf = (g: Goal): Recipe | undefined => RECIPES.find((r) => r.item === g.ware);
+const missingParts = (w: World, r: Recipe): Bill => Object.fromEntries(Object.entries(r.parts).map(([id, n]) => [id, Math.max(0, n - (w.hero.parts?.[id] ?? 0))]).filter(([, n]) => (n as number) > 0));
+
+/** Weapons she could build, as things stand: she has the skill for it and knows a bench that is good enough. */
+function craftable(w: World, foe: Npc | undefined, cur: number): { r: Recipe; rate: number }[] {
+  const lvl = tinkerLevel(w.hero);
+  const best = Math.max(0, ...knownBenches(w).map((b) => b.tier));
+  return RECIPES.filter((r) => ITEMS[r.item]?.kind === 'weapon' && r.skill <= lvl && r.tier <= best)
+    .map((r) => ({ r, rate: rating(makeItem(r.item), foe) }))
+    .filter((x) => x.rate > cur + 0.5);
+}
 
 export function goalLabel(w: World, g: Goal): string {
   return KINDS[g.kind].label(w, g);
@@ -274,12 +290,35 @@ const KINDS: Record<GoalKind, Kind> = {
       return armBest(w.hero, foeOf(w, g)) >= (g.amount ?? 99) ? { done: 'armed' } : null;
     },
     plan(c, g) {
-      const { w } = c;
+      const { w, rng } = c;
       if (!isLeaf(w, g)) return;
       const foe = foeOf(w, g);
       const cur = armBest(w.hero, foe);
       const rate = (x: Ware) => (x.item ? rating(x.item, foe) : x.power);
       const known = Object.values(w.mind.wares).filter((x) => x.kind === 'weapon' && !isSold(w, x.id) && rate(x) > cur + 0.5);
+      // Or build one. Buying or building, she doesn't do both: whichever she started, she sees through.
+      const kids = childrenOf(w, g);
+      if (kids.some((k) => k.kind === 'craft')) return;
+      if (!kids.some((k) => k.kind === 'buy')) {
+        const can = craftable(w, foe, cur);
+        if (can.length) {
+          const t = traits(w);
+          const cheapest = known.length ? Math.min(...known.map((x) => wareCost(w, x))) : Infinity;
+          const broke = cheapest > w.hero.cash ? 0.25 : 0;
+          const p = !known.length ? 1 : clamp(0.25 + 0.5 * (t.techy - 0.5) + 0.04 * tinkerLevel(w.hero) + broke, 0.1, 0.9);
+          if (rng.chance(p)) {
+            let pickR = can.filter((x) => x.rate >= (g.amount ?? 99)).sort((a, b) => Object.values(a.r.parts).reduce((s2, n) => s2 + n, 0) - Object.values(b.r.parts).reduce((s2, n) => s2 + n, 0))[0];
+            if (!pickR) {
+              pickR = [...can].sort((a, b) => b.rate - a.rate)[0]!;
+              g.amount = pickR.rate;
+              w.mind.tally.revised++;
+              c.emit('goal_revise', 'mixed', goalData(w, g, { variant: 'lower_sights', item: ITEMS[pickR.r.item]!.name }));
+            }
+            adopt(c, { kind: 'craft', parent: g.id, ware: pickR.r.item, why: g.why, desire: g.desire, variant: 'want_craft', extra: { item: ITEMS[pickR.r.item]!.name, parts: billText(pickR.r.parts) } });
+            return;
+          }
+        }
+      }
       if (!known.length) {
         // She has stood in the shop and nothing in it beats what she's got. The shelf turns over; give it time, or take one off somebody.
         if (Object.values(w.mind.wares).some((x) => x.kind === 'weapon') && w.beat - g.born > 160) end(c, g, 'drop', 'nothing_better');
@@ -651,6 +690,60 @@ const KINDS: Record<GoalKind, Kind> = {
     targets: (_w, g) => [{ loc: g.loc!, value: 2.8 }],
     bias: () => 0,
   },
+  // ------------------------------------------------------------------ craft
+  // Build a weapon at a bench (bench.ts). If she hasn't the parts, getting them is a step of its own: a trip to somewhere that
+  // has them lying about (the scavenge goal below). Once she has them, she wants to be at a bench she knows, and the way in is
+  // whichever she fancies.
+  craft: {
+    decay: 0.003, stick: ['techy', 'greed'], patience: 90,
+    label: (_w, g) => `build ${ITEMS[g.ware ?? '']?.name ?? 'something'}`,
+    check(w, g) {
+      const r = recipeOf(g);
+      if (!r) return { drop: 'moot' };
+      const h = w.hero;
+      if ([h.weapon, ...h.inventory].some((i) => i.id === r.item && i.tags.includes('homemade'))) return { done: 'built' };
+      if (r.skill > tinkerLevel(h)) return { drop: 'impossible' };
+      if (!knownBenches(w).some((b) => b.tier >= r.tier)) return { drop: 'nowhere' };
+      return null;
+    },
+    plan(c, g) {
+      const { w, rng } = c;
+      const r = recipeOf(g);
+      if (!r) return;
+      const short = missingParts(w, r);
+      const kid = childrenOf(w, g).find((k) => k.kind === 'scavenge');
+      if (Object.keys(short).length === 0) return;
+      if (kid || hpFrac(w) < 0.5) return;
+      const leads = partsLeads(w).filter((l) => !hasGoal(w, 'scavenge', l.id) && !cooling(w, `scavenge:${l.id}`));
+      if (leads.length) {
+        const l = rng.weighted(leads, (x) => x.rich / (2 + distTo(w, x.id)));
+        adopt(c, { kind: 'scavenge', parent: g.id, loc: l.id, why: `to build ${ITEMS[r.item]!.name}`, desire: g.desire * 0.95, variant: 'for_craft', extra: { place: w.locations[l.id]!.name, item: ITEMS[r.item]!.name, parts: billText(short) } });
+      } else {
+        exploreFor(c, g, 0.02, () => 0, 'she needs parts and does not know where they are lying', 'explore_parts');
+      }
+    },
+    metric(w, g) {
+      const r = recipeOf(g);
+      if (!r) return 0;
+      const miss = Object.values(missingParts(w, r)).reduce((s2, n) => s2 + n, 0);
+      if (miss > 0) return -miss * 4 - 20;
+      const near = Math.min(12, ...knownBenches(w).filter((b) => b.tier >= r.tier).map((b) => distTo(w, b.id)));
+      return -near;
+    },
+    targets(w, g) {
+      const r = recipeOf(g);
+      if (!r || !canAfford(w.hero.parts, r.parts)) return [];
+      return knownBenches(w).filter((b) => b.tier >= r.tier).map((b) => ({ loc: b.id, value: 3.4 }));
+    },
+    bias(w, g, fam, id) {
+      const r = recipeOf(g);
+      if (!r || !canAfford(w.hero.parts, r.parts)) return 0;
+      if (fam === 'benchcraft' && id === r.item) return 6;
+      // Getting through the door is a means to the bench.
+      if (fam === 'chopin') return 1.2;
+      return 0;
+    },
+  },
   // ------------------------------------------------------------------ scavenge
   // Low on parts. A scrap camp, a drone boneyard, a stripped car with nobody minding it: free for the taking (scavenge.ts). The
   // trip is ordinary travel; the goal ends when she has been through the place, or has all she needs, or somebody takes it over.
@@ -662,6 +755,9 @@ const KINDS: Record<GoalKind, Kind> = {
       if (!loc) return { drop: 'moot' };
       const last = w.counters[`scav:${loc.id}`];
       if (last !== undefined && dayOf(w.clock) - last <= 0) return { done: 'scavenged' };
+      const parent = goalById(w, g.parent);
+      const want = parent?.kind === 'craft' ? recipeOf(parent) : undefined;
+      if (want && canAfford(w.hero.parts, want.parts)) return { done: 'stocked' };
       if (totalParts(w.hero.parts) >= PLENTY_PARTS) return { drop: 'moot' };
       const d = w.dungeons[loc.id];
       if (d && garrisonAlive(w, d).length && w.hero.locationId !== loc.id) return { drop: 'moot' };
