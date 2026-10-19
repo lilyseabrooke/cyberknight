@@ -1070,6 +1070,7 @@ const T: Record<string, Entry> = {
       `${cap(String(d.why))}. Blackbird does not cry, she does not shout, she does not do anything at all for a while. Then she decides: she is going to ${d.line}.`,
       `Blackbird goes very quiet. Something has been taken, and she has done the arithmetic. From here on she is going to ${d.line}.`,
       `It is not a plan yet. It is a direction. Blackbird is going to ${d.line}, and nothing between here and there is going to be allowed to matter.`,
+      ...(d.cause === 'brush' ? [`That was too close. Blackbird sits with her back to a wall and her heart in her throat and works out what that was for. ${cap(String(d.why))}. She is going to ${d.line}.`, `${cap(String(d.why))}. Whatever happens next, Blackbird has decided it will happen to someone else. She is going to ${d.line}.`] : []),
     ],
     (d) => [CALLING_VOWS[String(d.id)] ?? 'No more waiting.', 'This is not grief. This is a schedule.', 'I will carry this until I put it down. Or until it puts me down.'],
   ),

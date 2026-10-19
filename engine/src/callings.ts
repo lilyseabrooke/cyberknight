@@ -1,7 +1,7 @@
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
 import type { Calling, Ctx, GameEvent, Id, World } from './types';
-import { TALLY, DEFS, CALLINGS, tallyOf, seenPlaces, callingLine, type CallingDef, type SparkCtx } from './content/callings';
+import { TALLY, DEFS, CALLINGS, hurt, tallyOf, seenPlaces, callingLine, type CallingDef, type SparkCtx } from './content/callings';
 import { cool, cooling, topLevel } from './mind';
 import { maybeAsk, waiting, type Proposal } from './advice';
 import { adoptWant } from './goals';
@@ -168,7 +168,7 @@ export function adoptCalling(c: Ctx, cal: Calling, by: 'self' | 'lab' = 'self'):
   const def = DEFS[cal.id]!;
   c.emit('calling', 'good', {
     variant: cal.sequel ? 'sequel' : cal.origin.kind,
-    id: cal.id, group: def.group, line: callingLine(cal), why: cal.origin.text, goal: cal.goal, target: cal.target?.text ?? '', by,
+    id: cal.id, group: def.group, line: callingLine(cal), why: cal.origin.text, goal: cal.goal, target: cal.target?.text ?? '', by, cause: cal.origin.cause ?? '',
   });
   return true;
 }
@@ -202,19 +202,38 @@ function pickSpark(c: Ctx, sctx: SparkCtx): { def: CallingDef; s: number } | nul
   if (!opts.length) return null;
   const pick = rng.weighted(opts, (o) => o.weight);
   // Leans strong. A moment that is vivid and fits her nearly always takes; one that doesn't, sometimes still does.
-  const wounded = !!sctx.lost && pick.def.wound;
+  const wounded = !!hurt(sctx) && !!pick.def.wound;
   const p = clamp(0.12 + 0.75 * pick.s * Math.min(1.5, fitOf(w, pick.def)), 0, 0.9);
-  return rng.chance(wounded ? Math.max(p, 0.85) : p) ? pick : null;
+  return rng.chance(wounded ? Math.max(p, sctx.lost ? 0.85 : 0.7) : p) ? pick : null;
+}
+
+/** Hit points left, as a share of her best, below which she was nearly dead. */
+const BRINK = 0.2;
+/** How much of her best she has to lose in one go for it to count as a near thing. */
+const PLUNGE = 0.3;
+
+/** She walked away from that with next to nothing left. Not a companion's death: her own close call. */
+function closeCall(w: World, events: GameEvent[], hpBefore: number): GameEvent | undefined {
+  const h = w.hero;
+  if (w.over || h.hp <= 0 || h.hp / h.maxHp > BRINK || (hpBefore - h.hp) / h.maxHp < PLUNGE) return undefined;
+  const fight = events.find((e) => e.type === 'fight_end' && e.data.hurt_by_id);
+  return {
+    beat: w.beat, type: 'near_death', outcome: 'bad',
+    data: {
+      name: 'nearly killing her', hp: Math.round(h.hp),
+      ...(fight ? { by: fight.data.hurt_by!, by_id: fight.data.hurt_by_id!, by_faction: fight.data.hurt_by_faction ?? '', ...(fight.data.hurt_by_dragon ? { by_dragon: true } : {}) } : {}),
+    },
+  };
 }
 
 /** After each thing she does: tally it, then notice whether it meant anything. */
-export function callingAfter(c: Ctx, pick: Candidate | null, gained: number, events: GameEvent[]): void {
+export function callingAfter(c: Ctx, pick: Candidate | null, gained: number, events: GameEvent[], hpBefore = Infinity): void {
   const { w, rng } = c;
   const d = tally(w, events);
   const cal = w.mind.calling;
   const fam = (pick?.key ?? '').split(':')[0] ?? '';
   const lost = events.find((e) => e.type === 'companion_lost');
-  const sctx: SparkCtx = { w, events, fam, gained, d, lost };
+  const sctx: SparkCtx = { w, events, fam, gained, d, lost, near: closeCall(w, events, hpBefore) };
 
   if (cal) {
     const def = DEFS[cal.id];
@@ -244,11 +263,15 @@ export function callingAfter(c: Ctx, pick: Candidate | null, gained: number, eve
   if (w.over || w.beat < 12 || waiting(w) || cooling(w, 'calling')) return;
   const hit = pickSpark(c, sctx);
   if (!hit) return;
-  const wound = !!lost && !!hit.def.wound;
+  const h = hurt(sctx);
+  const wound = !!h && !!hit.def.wound;
   const target = hit.def.aim?.(w, rng, sctx);
   if (hit.def.aim && !target) return;
-  const why = wound ? `${lost!.data.name ?? 'someone'} is dead, and ${lost!.data.by ?? 'someone'} did it` : hit.def.origin;
-  realise(c, make(c, hit.def, wound ? 'wound' : 'spark', Math.min(1, hit.s * 0.7 + 0.35 * rng.next() + (wound ? 0.25 : 0)), why, target ?? undefined), !wound);
+  const by = (h?.data.by as string | undefined) || 'something';
+  const why = !wound ? hit.def.origin : lost ? `${lost.data.name ?? 'someone'} is dead, and ${lost.data.by ?? 'someone'} did it` : `${by} nearly killed her, and she remembers every second of it`;
+  const fresh = make(c, hit.def, wound ? 'wound' : 'spark', Math.min(1, hit.s * 0.7 + 0.35 * rng.next() + (wound ? 0.25 : 0)), why, target ?? undefined);
+  if (wound) fresh.origin.cause = lost ? 'loss' : 'brush';
+  realise(c, fresh, !wound);
 }
 
 // ===================================================================== finishing, wavering, whims

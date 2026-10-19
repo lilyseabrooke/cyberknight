@@ -1539,7 +1539,7 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
     for (const g of m.goals) if (g.kind === 'fame' && g.pursuit?.act === fam) g.pursuit.arrived = undefined;
   }
 
-  callingAfter(c, pick, h.fame - before.fame, events);
+  callingAfter(c, pick, h.fame - before.fame, events, before.hp);
   const lost = events.some((e) => e.type === 'fight_end' && e.data.variant !== 'win');
   const looted = events.some((e) => LOOT.has(e.type) && e.outcome === 'good');
   // She remembers who has beaten her.

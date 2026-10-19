@@ -345,6 +345,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   const standing = () => foes.filter((f) => f.alive && !res.down.has(f.id) && !gone(f));
   const survivors = standing();
   const killed = foes.filter((f) => !f.alive || res.down.has(f.id));
+  const top = foes.reduce<Npc | undefined>((a, f) => (!a || f.level > a.level ? f : a), undefined);
   const base = {
     foes: names,
     count: foes.length,
@@ -360,6 +361,8 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
     allyKind: h.companions.find((a) => a.hp > 0)?.kind ?? '',
     boss: foes.some((f) => f.tags.includes('boss')),
     dragon: foes.find((f) => f.tags.includes('dragon'))?.archetype ?? '',
+    // Whoever hit hardest, in case she walks away from this with next to nothing left (see callings.ts).
+    ...(top ? { hurt_by: top.name, hurt_by_id: top.id, hurt_by_faction: top.faction ?? '', hurt_by_dragon: top.tags.includes('dragon') } : {}),
     killer: survivors[0]?.name ?? '',
     place: loc.name,
   };

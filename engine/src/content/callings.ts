@@ -23,7 +23,12 @@ export interface SparkCtx {
   d: Record<string, number>;
   /** A companion of hers died this beat. */
   lost?: GameEvent;
+  /** She came within a whisker of dying this beat. `data` names who did it (`by`, `by_id`, `by_faction`, `by_dragon`), if anyone. */
+  near?: GameEvent;
 }
+
+/** Whatever it was that hurt her this beat: a loss or a close call. */
+export const hurt = (s: SparkCtx): GameEvent | undefined => s.lost ?? s.near;
 
 export type Target = NonNullable<Calling['target']>;
 
@@ -193,8 +198,10 @@ export const CALLINGS: CallingDef[] = [
     fit: { temper: 1.4, justice: 0.8, grudge: 1.2, courage: 0.6, reckless: 0.5 },
     whim: 0.7,
     key: 'cop',
-    spark({ events, lost, d }) {
-      if (lost?.data.by_faction === 'npd') return 0.95;
+    spark(s) {
+      const { events, d } = s;
+      const h = hurt(s);
+      if (h?.data.by_faction === 'npd') return s.lost ? 0.95 : 0.85;
       if (has(events, 'fight_end', undefined, 'arrested')) return 0.7;
       if (has(events, 'bribe_cop', 'bad') || has(events, 'raid_fine')) return 0.45;
       if (has(events, 'fight_end', undefined, 'tossed')) return 0.35;
@@ -218,9 +225,10 @@ export const CALLINGS: CallingDef[] = [
     line: (c) => `put ${c.target?.text ?? 'a gang'} out of business, personally, one member at a time`,
     fit: { grudge: 1.3, temper: 0.9, courage: 0.7, justice: 0.6, thrill: 0.4 },
     whim: 0.7,
-    spark({ w, events, lost }) {
-      const f = lost?.data.by_faction as string | undefined;
-      if (f && GANG_IDS(w).includes(f)) return 0.95;
+    spark(s) {
+      const { w, events } = s;
+      const f = hurt(s)?.data.by_faction as string | undefined;
+      if (f && GANG_IDS(w).includes(f)) return s.lost ? 0.95 : 0.85;
       if (has(events, 'mugging', 'bad')) return 0.55;
       if (has(events, 'dungeon_cleared', 'good') && events.some((e) => e.data.kind === 'hideout')) return 0.5;
       return 0;
@@ -228,7 +236,7 @@ export const CALLINGS: CallingDef[] = [
     aim(w, rng, s, prev) {
       const ids = GANG_IDS(w);
       // The crew that did it, if that's what this is about: a killer's, or whoever the last Calling was after.
-      const f = (s?.lost?.data.by_faction as string | undefined) ?? npcOf(w, prev?.target?.npc)?.faction ?? undefined;
+      const f = (s && (hurt(s)?.data.by_faction as string | undefined)) ?? npcOf(w, prev?.target?.npc)?.faction ?? undefined;
       const id = f && ids.includes(f) ? f : ids.length ? rng.pick(ids) : null;
       return id ? { faction: id, text: w.factions[id]?.name ?? 'a gang' } : null;
     },
@@ -252,12 +260,14 @@ export const CALLINGS: CallingDef[] = [
     line: (c) => `make ${c.target?.text ?? 'them pay'}`,
     fit: { loyalty: 1.5, grudge: 1.5, romantic: 0.5, temper: 0.6 },
     whim: 0,
-    spark: ({ lost }) => (lost?.data.by_id ? 0.97 : 0),
+    // A loss is the best reason; a near miss from someone still standing is nearly as good.
+    spark: ({ lost, near }) => (lost?.data.by_id ? 0.97 : near?.data.by_id ? 0.8 : 0),
     aim(w, rng, s) {
-      const id = s?.lost?.data.by_id as string | undefined;
+      const h = s && hurt(s);
+      const id = h?.data.by_id as string | undefined;
       const by = npcOf(w, id);
-      if (!id || !by) return null;
-      return { npc: id, text: `${by.name} pay for ${s?.lost?.data.name ?? 'what they did'}` };
+      if (!id || !by || !by.alive) return null;
+      return { npc: id, text: `${by.name} pay for ${h?.data.name ?? 'what they did'}` };
     },
     goal: () => 1,
     measure: (w, cal) => (npcOf(w, cal.target?.npc)?.alive === false ? 1 : 0),
@@ -275,8 +285,9 @@ export const CALLINGS: CallingDef[] = [
     line: (c) => `put ${c.goal === 1 ? 'a cyberdragon' : `${c.goal} cyberdragons`} in the ground`,
     fit: { courage: 1.2, justice: 1.2, thrill: 1, reckless: 0.6 },
     whim: 0.8,
-    spark({ lost, d }) {
-      if (lost?.data.by_dragon) return 0.95;
+    spark(s) {
+      const { d } = s;
+      if (hurt(s)?.data.by_dragon) return s.lost ? 0.95 : 0.9;
       return (d.dragon ?? 0) > 0 ? 0.75 : 0;
     },
     goal: (rng, u) => near(rng, 3, 60, u),
@@ -353,11 +364,13 @@ export const CALLINGS: CallingDef[] = [
     sequels: [{ id: 'score', p: 0.35 }],
   },
   {
-    id: 'kit', origin: "she saw what a really good piece of kit feels like", group: 'take',
+    id: 'kit', origin: "she saw what a really good piece of kit feels like", group: 'take', wound: true,
     line: () => 'have the best chrome and iron in the whole city',
     fit: { vanity: 1.2, greed: 1, techy: 1, thrill: 0.3 },
     whim: 0.9,
-    spark({ events }) {
+    spark(s) {
+      const { events } = s;
+      if (s.near) return 0.6;
       if (has(events, 'implant', 'good')) return 0.7;
       return has(events, 'equip', 'good') ? 0.35 : 0;
     },
@@ -437,12 +450,15 @@ export const CALLINGS: CallingDef[] = [
 
   // -------------------------------------------------------------- body, wheels, and the rest of Neo
   {
-    id: 'strongest', origin: "she found out exactly how strong somebody can be", group: 'body',
+    id: 'strongest', origin: "she found out exactly how strong somebody can be", group: 'body', wound: true,
     line: () => 'be the strongest person in Neo, and prove it to everyone in it',
     fit: { courage: 1, temper: 0.8, vanity: 0.6, thrill: 0.4, impress: 0.4 },
     whim: 1,
     key: 'bout',
-    spark({ events }) {
+    spark(s) {
+      const { events } = s;
+      // Nearly dying to somebody tougher is a reason to never be that small again.
+      if (s.near) return 0.7;
       if (has(events, 'arm_wrestle', undefined, 'lose')) return 0.75;
       if (has(events, 'arm_wrestle', undefined, 'win')) return 0.6;
       return has(events, 'gym', 'good') ? 0.45 : 0;

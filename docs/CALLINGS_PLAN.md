@@ -237,6 +237,7 @@ Departures from the sketch above:
   `SPOTLIGHT_LINE` is the old `CALLING` text.
 - **No save migration.** `Mind` is per-run, not part of the universe, so there is nothing to bring forward. A saved night
   from before simply has no Calling (a leftover `passion` is ignored).
+- **A close call is a wound too.** A fight that drops her by 30% of her best hp or more and leaves her at 20% or less (`closeCall` in `callings.ts`) can start a wound Calling: the NPD, a gang, a dragon, a grudge against the one who did it, or (smaller chance) to be stronger or better armed. Same rules as a loss: no ask, high fervor, a bigger finish line. `fight_end` now carries `hurt_by*` for the toughest foe.
 - **Added: Banned from everywhere** (get banned from N bars), which fits the unhinged brief and uses the existing `banned` event.
 - **Kills are tallied in `kill()`** by tag and crew (`cal.cop`, `cal.corp`, `cal.f_<faction>`); the rest are tallied from the
   beat's events (`TALLY` in the table). Counters live in `w.counters` under `cal.*`.

@@ -263,3 +263,59 @@ describe('callings: carrying one', () => {
     expect(events.find((e) => e.type === 'companion_lost')!.data).toMatchObject({ by_id: 'brandt', by_faction: brandt.faction ?? '' });
   });
 });
+
+describe('callings: a close call is a wound too', () => {
+  const brush = (w: World, by: Npc, hpBefore: number) => {
+    w.beat = 40;
+    w.hero.hp = Math.round(w.hero.maxHp * 0.1);
+    const { c, events } = ctxOf(w, `brush-${w.worldSeed}`);
+    callingAfter(c, null, 0, [ev('fight_end', 'good', { variant: 'win', hurt_by: by.name, hurt_by_id: by.id, hurt_by_faction: by.faction ?? '', hurt_by_dragon: false })], hpBefore);
+    return events;
+  };
+
+  it('nearly dying to the NPD can start a war on the NPD, or a grudge against the one who did it, without asking', () => {
+    const taken: Record<string, number> = {};
+    for (let i = 0; i < 40; i++) {
+      const w = world(`brush${i}`, { temper: 0.8, grudge: 0.8 });
+      const cop = npc(w, 'brandt', 'cop', 'halo_floor', { name: 'Officer Brandt' });
+      const events = brush(w, cop, w.hero.maxHp);
+      const cal = w.mind.calling;
+      if (!cal) continue;
+      taken[cal.id] = (taken[cal.id] ?? 0) + 1;
+      expect(cal.origin).toMatchObject({ kind: 'wound', cause: 'brush' });
+      expect(w.mind.ask).toBeUndefined();
+      expect(events.some((e) => e.type === 'calling' && e.data.variant === 'wound' && hasTemplate(e))).toBe(true);
+    }
+    expect(Object.values(taken).reduce((a, b) => a + b, 0)).toBeGreaterThan(20);
+    expect(Object.keys(taken).every((k) => ['cops', 'avenge', 'strongest', 'kit'].includes(k))).toBe(true);
+    expect((taken.cops ?? 0) + (taken.avenge ?? 0)).toBeGreaterThan(10);
+  });
+
+  it('a scrape that left her healthy, or a long grind down, is not a near thing', () => {
+    for (let i = 0; i < 20; i++) {
+      const w = world(`notnear${i}`, { temper: 0.8 });
+      const cop = npc(w, 'brandt', 'cop', 'halo_floor');
+      w.beat = 40;
+      w.hero.hp = Math.round(w.hero.maxHp * 0.6);
+      callingAfter(ctxOf(w, `a${i}`).c, null, 0, [ev('fight_end', 'good', { hurt_by_id: cop.id, hurt_by_faction: 'npd' })], w.hero.maxHp);
+      expect(w.mind.calling).toBeUndefined();
+      // Already low going in: the plunge is not this beat's.
+      w.hero.hp = Math.round(w.hero.maxHp * 0.1);
+      callingAfter(ctxOf(w, `b${i}`).c, null, 0, [ev('fight_end', 'good', { hurt_by_id: cop.id, hurt_by_faction: 'npd' })], Math.round(w.hero.maxHp * 0.2));
+      expect(w.mind.calling).toBeUndefined();
+    }
+  });
+
+  it('a dragon that nearly had her makes her want dragons dead', () => {
+    let dragons = 0;
+    for (let i = 0; i < 40; i++) {
+      const w = world(`drag${i}`, { courage: 0.8, justice: 0.8 });
+      w.beat = 40;
+      w.hero.hp = Math.round(w.hero.maxHp * 0.05);
+      const { c } = ctxOf(w, `d${i}`);
+      callingAfter(c, null, 0, [ev('fight_end', 'good', { hurt_by: 'APOLLO', hurt_by_id: 'dragon', hurt_by_faction: 'atlas', hurt_by_dragon: true })], w.hero.maxHp);
+      if (w.mind.calling?.id === 'dragon') dragons++;
+    }
+    expect(dragons).toBeGreaterThan(15);
+  });
+});

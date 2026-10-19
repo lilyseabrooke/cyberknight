@@ -1085,7 +1085,7 @@ export interface Calling {
   base: number;
   /** Who or what it is about. `text` is how she names it ("the Chrome Vipers", "Pip"). */
   target?: { npc?: Id; faction?: Id; skill?: string; text?: string };
-  origin: { kind: 'spark' | 'wound' | 'whim'; text: string; beat: number };
+  origin: { kind: 'spark' | 'wound' | 'whim'; text: string; beat: number; /** A wound is a loss (someone died) or a brush (she nearly did). */ cause?: 'loss' | 'brush' };
   /** The last beat it moved, to tell a calling that's merely quiet from one she has forgotten. */
   lastProgress: number;
   /** Progress at the last look, to notice when it moves. */
