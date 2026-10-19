@@ -920,6 +920,8 @@ const T: Record<string, Entry> = {
   'intent:gymfight': e((d) => [String(d.text)]),
   // ---- pawn shops: same shape (content/pawn*.ts)
   pawn: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  // ---- chop shops and workbenches (chop.ts, bench.ts): same shape
+  chop: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
   'intent:pawn': e((d) => [String(d.text)]),
   'intent:pawnquick': e((d) => [String(d.text)]),
   'intent:pawnfight': e((d) => [String(d.text)]),
@@ -1797,6 +1799,22 @@ const T: Record<string, Entry> = {
   'goal_new:explore_cash': e((d) => [`Nothing around here is paying. Blackbird has not tried ${d.place} yet, and it has to be good for something. New step: ${d.goal}.`], ['Money does not grow on streets I know. Time to meet some new streets.']),
   'goal_new:explore_dragon': e((d) => [`The dragons are not going to wait in the places Blackbird has already looked. She heads for ${d.place}. New step: ${d.goal}.`], ['Dragons have to nest somewhere. Somewhere I have not been.']),
   'goal_new:explore_fame': e((d) => [`A new crowd is a fresh crowd. Blackbird has never played ${d.place}. New step: ${d.goal}.`], ['They do not know me there yet. That is the best kind of audience.']),
+  'goal_new:parts': e(
+    (d) => [`Blackbird counts her spare parts. It does not take long. ${cap(String(d.place))} is the sort of place that has them lying about for anyone who asks nicely, or at all. New objective: ${d.goal}.`],
+    ['Scrap is just treasure that has not been introduced.', 'Free parts. My favourite kind of shopping.'],
+  ),
+  'goal_new:want_craft': e(
+    (d) => [`Blackbird looks at her options and at the ${d.item} she could build. ${cap(String(d.parts))}, a bench and an evening. It is cheaper than shopping and a lot less polite. New objective: ${d.goal}.`, `Why buy a ${d.item} when she can make one? It takes ${d.parts}. New objective: ${d.goal}.`],
+    ['Homemade is a lifestyle.', 'If I build it, I know exactly where the safety is. Mostly nowhere.'],
+  ),
+  'goal_new:for_craft': e(
+    (d) => [`Building the ${d.item} takes ${d.parts} more than Blackbird has. ${cap(String(d.place))} looks like the kind of place that has them. New step: ${d.goal}.`],
+    ['The best parts are free. They are also in places with bad lighting.'],
+  ),
+  'goal_new:explore_parts': e((d) => [`Blackbird has no idea where to find parts. ${cap(String(d.place))} might. New step: ${d.goal}.`], ['If I had a map of everything lying around, I would be rich.']),
+  'goal_done:built': e((d) => [`Blackbird built the ${String(d.goal).replace(/^build /, '')}. It works. It is hers. It has a slightly different idea of how a handle should be.`], ['I made this. With my hands. And a lot of tape.']),
+  'goal_done:stocked': e((d) => [`That is enough parts for what she has in mind. Blackbird straightens up, bag heavy, and points herself at a bench.`], ['Shopping list: done. Time to make something dangerous.']),
+  'goal_done:scavenged': e((d) => [`Blackbird has been through ${d.place} with a bag. The bag is heavier. Everything else is unchanged.`], ['Clean sweep. Nobody missed it.', 'Someone left me a whole city of presents.']),
   'goal_done:explored': e((d) => [d.nested ? `Blackbird has now seen ${d.place}. One more corner of the city is on her map.` : `Blackbird has seen ${d.place} now. It is a place. She files it and moves on.`], ['Mapped. Mostly. In my head.', 'New place. Noted.']),
   // ====================================================== dungeons: outposts and hideouts
   'goal_new:raid_idea': e(
@@ -1833,6 +1851,14 @@ const T: Record<string, Entry> = {
   ),
   'shut_down:pawn_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. Nobody in ${d.place} says so out loud. The clerks lay a cloth over the counter, someone turns the sign and a very quiet person with a key shows Blackbird to the pavement. The grille comes down and stays down.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, the ledger is under a lock and every tag in the window is waiting for somebody who is not coming.`],
+    ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
+  'shut_down:chop': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor there is nobody to run ${d.place}. The roller door comes down on its chain and someone with a key shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The roller door stays shut, and the radio inside plays to nobody.`],
+    ['I closed a chop shop. It was always going to be cleaner after.', 'No more day rate. Bad for the economy. Good for me, today.'],
+  ),
+  'shut_down:chop_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. The radio plays on for a bar, and then someone turns it off. A very quiet person with a key shows Blackbird to the pavement and pulls the roller door down on the bench.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back and the bench is under a tarp.`],
     ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
   ),
   'shut_down:clinic': e(

@@ -125,7 +125,7 @@ describe('where gyms grow', () => {
         for (const g of kids.filter((l) => l!.gen!.role === 'gym')) {
           gyms++;
           // Its slot is after every shop, bar, clinic and spot, so none of their ids moved when gyms were added.
-          for (const other of kids.filter((l) => !['gym', 'gymroom', 'pawn', 'pawnroom', 'realty'].includes(l!.gen!.role))) expect(g!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
+          for (const other of kids.filter((l) => !['gym', 'gymroom', 'pawn', 'pawnroom', 'realty', 'chop'].includes(l!.gen!.role))) expect(g!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
         }
       }
     }
