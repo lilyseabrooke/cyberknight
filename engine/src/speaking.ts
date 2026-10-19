@@ -5,6 +5,7 @@ import { odds, skillLevel, synergy, train } from './skills';
 import { fameFrom } from './stage';
 import { sleepOf } from './needs';
 import { canDeepen, ensureDeep } from './deepen';
+import { moveNpc, npcsAt } from './population';
 import { isPerson } from './roads';
 import { cool } from './mind';
 import { ERRAND_KINDS, barNear, carStreet } from './errands';
@@ -77,11 +78,11 @@ function stumpSpeech(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   if (rng.next() < ODDS.stump(h)) {
-    const moved = moveCrowd(c, { cap: 8, stretch: 1, edge: 0 });
+    const moved = moveCrowd(c, { depth: 1, stretch: 1, edge: 0 });
     const n = moved?.count ?? 0;
-    fameFrom(c, 0.4 + 0.3 * Math.min(n, 6), 'stump_speech');
+    fameFrom(c, 0.4 + 0.45 * Math.sqrt(n), 'stump_speech');
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 4;
-    train(c, 'speaking', 2 + Math.min(n, 3));
+    train(c, 'speaking', 2 + Math.min(Math.round(Math.sqrt(n)), 4));
     c.emit('stump_speech', 'good', { variant: n ? 'crowd' : 'rousing', level: skillLevel(h, 'speaking'), ...crowdData(moved) });
   } else if (rng.chance(0.3)) {
     addHeat(w, 'npd', 1);
@@ -201,12 +202,12 @@ export function billboardSpeech(c: Ctx): void {
   if (skillLevel(h, 'speaking') < BILLBOARD_SPEECH_LEVEL) return;
   if (rng.chance(billboardOdds(h))) {
     // Everyone in earshot, a bigger voice, and it lasts longer.
-    const moved = moveCrowd(c, { cap: 14, stretch: 1.6, edge: 0.15 });
+    const moved = moveCrowd(c, { depth: 2, stretch: 1.6, edge: 0.15 });
     const n = moved?.count ?? 0;
-    const gain = fameFrom(c, 1.5 + 0.5 * Math.min(n, 8), 'stump_speech');
+    const gain = fameFrom(c, 1.5 + 0.7 * Math.sqrt(n), 'stump_speech');
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 8;
     addHeat(w, 'atlas', 1);
-    train(c, 'speaking', 4 + Math.min(n, 4));
+    train(c, 'speaking', 4 + Math.min(Math.round(Math.sqrt(n)), 5));
     gainXp(c, 8);
     c.emit('billboard_speech', 'good', { variant: n ? 'crowd' : 'speech', fame: Math.round(gain * 10) / 10, level: skillLevel(h, 'speaking'), ...crowdData(moved) });
   } else {
@@ -221,10 +222,37 @@ export function billboardSpeech(c: Ctx): void {
 /** The things a crowd can be sent off to do. (Not "tell her a secret", and not "go and kiss somebody": that wants one person.) */
 const CRY: NpcGoalKind[] = ['back_me_up', 'go_after', 'cover', 'give_cash', 'steal_car', 'take_deck', 'buy_round', 'tag_wall', 'karaoke'];
 
-/** Who is in earshot and can be moved. */
-export function audience(w: World): Npc[] {
+/** Locations within earshot: here, and out along the open streets from here. */
+function earshot(w: World, depth: number): string[] {
+  const start = w.hero.locationId;
+  const seen = new Set<string>([start]);
+  let ring = [start];
+  for (let d = 0; d < depth; d++) {
+    const next: string[] = [];
+    for (const id of ring) {
+      for (const e of w.locations[id]?.exits ?? []) {
+        const to = w.locations[e.to];
+        if (e.hidden || e.gate || !to?.outdoors || seen.has(e.to)) continue;
+        seen.add(e.to);
+        next.push(e.to);
+      }
+    }
+    ring = next;
+  }
+  return [...seen];
+}
+
+/** Who is in earshot and can be moved. A speech on a street carries along the street. */
+export function audience(w: World, depth = 1): Npc[] {
   const h = w.hero;
-  return here(w).filter((n) => n.alive && !n.hostile && n.downUntil <= w.beat && canDeepen(n) && isPerson(n.tags, n.archetype) && !h.companions.some((a) => a.npcId === n.id));
+  const places = new Set(earshot(w, depth));
+  const out: Npc[] = [];
+  for (const id of places) {
+    for (const n of npcsAt(w, id)) {
+      if (n.alive && !n.hostile && n.downUntil <= w.beat && canDeepen(n) && isPerson(n.tags, n.archetype) && !h.companions.some((a) => a.npcId === n.id)) out.push(n);
+    }
+  }
+  return out;
 }
 
 /** What she asks of this one person for this cry, if it is something they could do. */
@@ -247,7 +275,7 @@ function wishFor(w: World, n: Npc, kind: NpcGoalKind): Wish | null {
 function pickCry(c: Ctx, crowd: Npc[]): NpcGoalKind | null {
   const { w, rng } = c;
   let best: { kind: NpcGoalKind; urge: number } | null = null;
-  for (const n of crowd) {
+  for (const n of crowd.slice(0, 12)) {
     for (const x of wishes(w, n)) if (CRY.includes(x.kind) && (!best || x.urge > best.urge)) best = { kind: x.kind, urge: x.urge };
   }
   if (best && best.urge >= 0.2) return best.kind;
@@ -264,42 +292,65 @@ function pickCry(c: Ctx, crowd: Npc[]): NpcGoalKind | null {
 
 export interface Moved {
   kind: NpcGoalKind;
+  /** Everyone the speech moved. */
   count: number;
+  /** How many of them carry the goal themselves; the rest follow one of those. */
+  lead: number;
   of: number;
   names: string[];
   deed: string;
 }
 
+/** How many of the people she moves are actually simulated, carrying the goal about. The rest follow one of them. */
+export const MAX_LEADERS = 6;
+
+/** What only works if they are with her. */
+const PRESENCE = new Set<NpcGoalKind>(['back_me_up', 'give_cash', 'cover']);
+
 /**
  * The real win of a speech: a goal in the head of everyone listening. She picks the cry (what she wants done, or what she
  * fancies) and each person in earshot weighs it the way they would a one-to-one ask: how big it is, how it sits with who they
  * are, how they feel about her. A crowd carries itself, so the more of them there are the likelier each is to go along.
+ *
+ * She can move any number of them. Only the keenest `MAX_LEADERS` are simulated, with the goal in their heads; everyone else
+ * she moves falls in behind one of those, and just makes that person stronger while they do it (`withAssist`). So fifty people
+ * is a very different thing from eight, without fifty people to run.
  */
-export function moveCrowd(c: Ctx, o: { cap: number; stretch: number; edge: number }): Moved | null {
+export function moveCrowd(c: Ctx, o: { depth: number; stretch: number; edge: number }): Moved | null {
   const { w, rng } = c;
   const h = w.hero;
-  const crowd = audience(w).sort((a, b) => b.affinity - a.affinity).slice(0, o.cap);
+  const crowd = audience(w, o.depth).sort((a, b) => b.affinity - a.affinity);
   if (!crowd.length) return null;
   const kind = pickCry(c, crowd);
   if (!kind) return null;
   const voice = synergy(h, ['speaking', ['stat:charm', 0.6]]);
-  const swell = Math.min(0.2, 0.04 * (crowd.length - 1));
-  const taken: Npc[] = [];
-  let deed = '';
+  const swell = Math.min(0.25, 0.03 * Math.log2(crowd.length) * 2);
+  const willing: { n: Npc; wish: Wish; p: number }[] = [];
   for (const n of crowd) {
     const wish = wishFor(w, n, kind);
     if (!wish) continue;
     ensureDeep(w, n);
     cool(w, `influence:${n.id}:${kind}`, 35);
-    if (!rng.chance(clamp(oddsWith(w, n, wish, 'persuasion', voice) + swell + o.edge, 0.03, 0.95))) continue;
-    addGoal(c, n, wish, 'persuasion', o.stretch);
+    const p = clamp(oddsWith(w, n, wish, 'persuasion', voice) + swell + o.edge, 0.03, 0.95);
+    if (rng.chance(p)) willing.push({ n, wish, p });
+  }
+  if (!willing.length) return { kind, count: 0, lead: 0, of: crowd.length, names: [], deed: '' };
+  // The keenest take the lead; everyone else falls in behind one of them.
+  willing.sort((a, b) => b.p - a.p);
+  const leaders = willing.slice(0, MAX_LEADERS).map((x) => ({ ...x, goal: addGoal(c, x.n, x.wish, 'persuasion', o.stretch) }));
+  willing.slice(MAX_LEADERS).forEach((f, i) => {
+    const lead = leaders[i % leaders.length]!;
+    (lead.goal.followers ??= []).push(f.n.id);
+  });
+  for (const { n } of willing) {
     n.affinity += 2;
     remember(n, 'was swept up by a speech of Blackbird\'s');
-    taken.push(n);
-    deed ||= kind === 'give_cash' ? 'passing the hat' : phrasing(w, wish).deed;
   }
-  if (!taken.length) return { kind, count: 0, of: crowd.length, names: [], deed: '' };
-  return { kind, count: taken.length, of: crowd.length, names: taken.map((n) => n.name), deed };
+  // Some things only count if they are there.
+  if (PRESENCE.has(kind)) for (const { n } of leaders) if (n.locationId !== h.locationId) moveNpc(w, n, h.locationId);
+  const first = leaders[0]!;
+  const deed = kind === 'give_cash' ? 'passing the hat' : phrasing(w, first.wish).deed;
+  return { kind, count: willing.length, lead: leaders.length, of: crowd.length, names: willing.map((x) => x.n.name), deed };
 }
 
-const crowdData = (m: Moved | null): Record<string, string | number> => (m?.count ? { count: m.count, of: m.of, deed: m.deed, who: m.names.slice(0, 2).join(' and '), kind: m.kind } : {});
+const crowdData = (m: Moved | null): Record<string, string | number> => (m?.count ? { count: m.count, lead: m.lead, rest: m.count - m.lead, of: m.of, deed: m.deed, who: m.names.slice(0, 2).join(' and '), kind: m.kind } : {});

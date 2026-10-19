@@ -389,6 +389,8 @@ export interface NpcGoal {
   tries?: number;
   /** Errands: not before this beat. */
   wait?: number;
+  /** People a speech moved along with them who are not simulated: they follow, and lend whoever is carrying this their numbers. See speaking.ts. */
+  followers?: Id[];
 }
 
 /**

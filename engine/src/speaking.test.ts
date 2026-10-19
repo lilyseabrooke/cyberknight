@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, personalityFrom, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
-import { speakingCandidates, talkDown, billboardSpeech } from './speaking';
+import { speakingCandidates, talkDown, billboardSpeech, moveCrowd, MAX_LEADERS } from './speaking';
+import { assistMult, statsOf, withAssist } from './npcstats';
+import { followersOf } from './influence';
 import { spawnGroup } from './candidate';
 import { spawnNpc } from './content/archetypes';
 import { addNpc, moveNpc } from './population';
@@ -222,5 +224,79 @@ describe('speaking', () => {
     }
     expect(board).toBeGreaterThan(stump);
     expect(boardLen / board).toBeGreaterThan(stumpLen / stump);
+  });
+
+  const bigStreet = (seed: string, n: number) => {
+    const w = world(seed);
+    w.hero.skills.speaking = 5000;
+    w.hero.charm = 10;
+    w.hero.locationId = 'street_main';
+    for (const x of Object.values(w.npcs)) if (x.locationId === 'street_main') moveNpc(w, x, '_gone');
+    crowdAt(w, n);
+    return w;
+  };
+
+  it('moves any number of people but only simulates a handful; the rest follow one of them', () => {
+    let sawFollowers = 0;
+    for (let i = 0; i < 20; i++) {
+      const w = bigStreet(`legion-${i}`, 50);
+      const { c } = ctxOf(w, `l${i}`);
+      const moved = moveCrowd(c, { depth: 1, stretch: 1, edge: 0.3 })!;
+      const leaders = (w.influenced ?? []).map((id) => w.npcs[id]!);
+      expect(leaders.length).toBe(moved.lead);
+      expect(leaders.length).toBeLessThanOrEqual(MAX_LEADERS);
+      const followers = leaders.flatMap((l) => followersOf(w, l.goals![0]));
+      expect(leaders.length + followers.length).toBe(moved.count);
+      for (const f of followers) {
+        expect(w.influenced).not.toContain(f.id);
+        expect(f.goals ?? []).toEqual([]);
+      }
+      if (moved.count > MAX_LEADERS) {
+        expect(moved.lead).toBe(MAX_LEADERS);
+        sawFollowers++;
+        // spread across the leaders, not piled on one
+        const sizes = leaders.map((l) => l.goals![0]!.followers?.length ?? 0);
+        expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
+      }
+    }
+    expect(sawFollowers).toBeGreaterThan(10);
+  });
+
+  it('moving fifty people is worth more than moving eight', () => {
+    expect(assistMult(0)).toBe(1);
+    expect(assistMult(8)).toBeGreaterThan(assistMult(1));
+    // 9 moved = 6 leaders, 3 with a follower; 50 moved = 6 leaders with about 7 each
+    expect(assistMult(Math.ceil(44 / 6))).toBeGreaterThan(assistMult(1) + 0.3);
+    const w = world('assist');
+    const n = Object.values(w.npcs).find((x) => x.alive)!;
+    const base = { ...statsOf(n) };
+    const power = n.power;
+    let inside = 0;
+    let insidePower = 0;
+    withAssist(n, 7, () => {
+      inside = statsOf(n).muscle;
+      insidePower = n.power;
+    });
+    expect(inside).toBeGreaterThan(base.muscle);
+    expect(insidePower).toBeGreaterThan(power);
+    expect(statsOf(n)).toEqual(base);
+    expect(n.power).toBe(power);
+    expect(() => withAssist(n, 7, () => { throw new Error('x'); })).toThrow();
+    expect(n.power).toBe(power);
+  });
+
+  it('followers put into the hat and add to a backer\'s power', () => {
+    let more = 0;
+    for (let i = 0; i < 30; i++) {
+      const small = bigStreet(`hat-s-${i}`, 6);
+      const big = bigStreet(`hat-b-${i}`, 50);
+      for (const w of [small, big]) {
+        const { c } = ctxOf(w, `h${i}`);
+        moveCrowd(c, { depth: 1, stretch: 1, edge: 0.3 });
+      }
+      const total = (w: World) => (w.influenced ?? []).flatMap((id) => w.npcs[id]!.goals!).reduce((a, g) => a + followersOf(w, g).length, 0);
+      if (total(big) > total(small)) more++;
+    }
+    expect(more).toBeGreaterThan(20);
   });
 });

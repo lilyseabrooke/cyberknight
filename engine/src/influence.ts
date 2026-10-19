@@ -8,7 +8,7 @@ import { traitOf } from './character';
 import { isFairGame } from './people';
 import { fight, heroPower, here, remember } from './combat';
 import { synergy, train, type Part } from './skills';
-import { ratio, statsOf, type NpcStat } from './npcstats';
+import { assistMult, ratio, statsOf, type NpcStat } from './npcstats';
 import { cool, cooling, priority } from './mind';
 
 import { heartOf, romanceMod } from './bonds';
@@ -105,7 +105,11 @@ export function backers(w: World): Npc[] {
 }
 
 /** What they add to a fight she is in. */
-export const backersPower = (w: World): number => (w.influenced?.length ? backers(w).reduce((a, n) => a + n.power * 0.6, 0) : 0);
+export const backersPower = (w: World): number =>
+  w.influenced?.length ? backers(w).reduce((a, n) => a + n.power * 0.6 * assistMult(followersOf(w, goalOf(n, 'back_me_up')).length), 0) : 0;
+
+/** The people who came along behind whoever is carrying this goal, and are still about. */
+export const followersOf = (w: World, g: NpcGoal | undefined): Npc[] => (g?.followers ?? []).map((id) => w.npcs[id]).filter((x): x is Npc => !!x && x.alive);
 
 /** −1..1: how much this goal sits with who they are. Negative is a conflict, positive is a fit. */
 export function alignment(w: World, n: Npc, kind: NpcGoalKind): number {
@@ -356,8 +360,14 @@ export function influenceTick(c: Ctx): void {
       if (n.downUntil > w.beat) continue;
       const near = n.locationId === hero;
       if (g.kind === 'give_cash' && near) {
-        const amount = Math.min(g.amount ?? 0, n.cash);
+        let amount = Math.min(g.amount ?? 0, n.cash);
         n.cash -= amount;
+        // Whoever came along behind them puts something in the hat too.
+        for (const f of followersOf(w, g)) {
+          const put = Math.round(f.cash * 0.4);
+          f.cash -= put;
+          amount += put;
+        }
         w.hero.cash += amount;
         c.emit('influence_pay', amount > 0 ? 'good' : 'mixed', { variant: g.method, npc: n.name, amount, method: g.method });
         finish(c, n, g, 'done');

@@ -59,6 +59,25 @@ function roll(n: Npc): Stats {
 
 export const statsOf = (n: Npc): Stats => (n.stats ??= roll(n));
 
+/** What a crowd at their back is worth: the multiplier on a person's stats while they act with this many followers behind them. */
+export const assistMult = (followers: number): number => Math.min(3, 1 + 0.25 * Math.sqrt(Math.max(0, followers)));
+
+/** Run something as this person with their followers lending a hand: their stats and power are higher for the duration. */
+export function withAssist<T>(n: Npc, followers: number, f: () => T): T {
+  if (followers <= 0) return f();
+  const m = assistMult(followers);
+  const base = statsOf(n);
+  const power = n.power;
+  n.stats = { muscle: base.muscle * m, reflex: base.reflex * m, int: base.int * m, charm: base.charm * m };
+  n.power = power * m;
+  try {
+    return f();
+  } finally {
+    n.stats = base;
+    n.power = power;
+  }
+}
+
 /** A skill level near theirs: always the same wobble for the same person and skill. */
 export function skillOf(n: Npc, id: SkillId): number {
   const r = new Rng(`skill:${n.id}:${id}`).next();
