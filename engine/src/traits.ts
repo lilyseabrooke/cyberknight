@@ -91,6 +91,12 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   recruit_juno: { loyalty: 0.4, techy: 0.6 },
   // thrills
   parkour: { thrill: 1.4 },
+  reel_in: { temper: 0.8, courage: 0.6, thrill: 0.8, mischief: 0.6 },
+  reel_girl: { impress: 1.4, romantic: 0.6, vanity: 0.6, mischief: 0.4 },
+  rod_lift: { honesty: -1.4, mischief: 0.8, vanity: 0.6, thrill: 0.6 },
+  rod_tug: { mischief: 0.8, curiosity: 0.4 },
+  rod_swing: { thrill: 1.2 },
+  rod_bait: { thrill: 1.0, courage: 0.6, mischief: 0.8, vanity: 0.4 },
   fish: { curiosity: 0.6, greed: 0.3, thrill: -0.4 },
   laser_tag: { thrill: 0.8, sociable: 0.4 },
   mix_molotov: { mischief: 1.0, thrill: 0.6, grudge: 0.4 },

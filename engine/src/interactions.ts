@@ -12,6 +12,7 @@ import { dragonCandidates } from './dragons';
 import { hasAlly } from './companions';
 import { odds, skillLevel, synergy, train } from './skills';
 import { hobbyCandidates } from './hobbies';
+import { rodCandidates } from './rodwork';
 import { buyStim, supplyCandidates, supplyUrge } from './supply';
 import { needsUrge, restCandidates } from './rest';
 import { STIM_IDS } from './content/stims';
@@ -198,6 +199,7 @@ export function gather(w: World): Candidate[] {
   out.push(...extraCandidates(w));
   out.push(...dragonCandidates(w));
   out.push(...hobbyCandidates(w));
+  out.push(...rodCandidates(w));
   out.push(...graffitiCandidates(w));
   out.push(...romanceCandidates(w));
   out.push(...bondCandidates(w));
