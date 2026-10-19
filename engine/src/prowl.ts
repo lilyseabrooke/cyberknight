@@ -703,7 +703,7 @@ export function takedownChance(b: Board, t: PUnit): number {
   return clamp(base + (arc === 'behind' ? 0.1 : arc === 'front' ? -0.3 : 0) + (lit === 0 ? 0.07 : lit === 2 ? -0.05 : 0) + skill, 0.1, 0.97);
 }
 
-function takedown(c: Ctx, b: Board, t: PUnit, say: Sink): boolean {
+export function takedown(c: Ctx, b: Board, t: PUnit, say: Sink): boolean {
   const { w, rng } = c;
   const h = w.hero;
   const arc = arcOf(t, b.hero);

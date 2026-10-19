@@ -98,10 +98,15 @@ describe('a hunt on the street', () => {
         if (!events.some((e) => e.type === 'chase_search')) for (const n of crew) if (n.alive) expect(n.locationId).not.toBe(w.hero.locationId);
       }
       if (told.includes('hide:found')) seen.found = (seen.found ?? 0) + 1;
+      if (told.includes('ambush')) {
+        seen.ambush = (seen.ambush ?? 0) + 1;
+        expect(events.some((e) => e.type === 'prowl_takedown')).toBe(true);
+      }
       w.over = undefined as never;
     }
     expect(seen.past ?? 0).toBeGreaterThan(0);
     expect(seen.found ?? 0).toBeGreaterThan(0);
+    expect(seen.ambush ?? 0).toBeGreaterThan(0);
   });
 
   it('when they lose sight of her they go to where they last saw her, then either press on or fan out to search', () => {

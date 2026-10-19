@@ -116,3 +116,10 @@ anyone still on the line behind her. Told with `chase_crowd` (weave, shove); the
 Charm: each person on the line may simply make way for her (`clamp(0.06 * (charm - 2))`, times 0.4 for police and security), with no cost, no affinity loss
 and no anger; they then close up behind her (`chase_crowd:ranks`), costing every pursuer 0.6 of gap per person who did. A charmed shove loses no
 affinity, and a charmed bump never makes anyone angry.
+
+### Takedown from cover
+
+When she has gone to ground and they run past without seeing her, the last of them (on foot, alone in his crew, no stronger than about 1.3× her) is on his own
+with his back to her. Six times in ten she takes him (`ambush` in `chaseboard.ts`: the ordinary prowl `takedown`, with its own odds, arcs, kill/KO and
+`prowl_takedown` text). He is out of the chase, and each of the rest has a one-in-five chance of hearing it and coming back. A failed takedown is a
+`hide:found` with him on top of her. If nobody is left, the chase ends as won or escaped.

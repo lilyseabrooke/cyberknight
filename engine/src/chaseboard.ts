@@ -2,11 +2,11 @@ import { dist, hasLos, idx, passable, pathTo, reach, terrainAt, type Pos } from 
 import { moveNpc } from './population';
 import { V, lose } from './stealth';
 import { placeOf, syncPlace, viewOf, type Placed } from './placeboard';
-import { dirOf, makeUnit, sightGain } from './prowl';
+import { dirOf, makeUnit, sightGain, takedown, type PUnit } from './prowl';
 import type { Rng } from './rng';
 import { roadClass } from './roads';
 import { isClosed } from './hours';
-import type { Id, Npc, Via, World } from './types';
+import type { Ctx, Id, Npc, Via, World } from './types';
 import type { Door } from './layout';
 
 /**
@@ -261,6 +261,32 @@ export function passBy(w: World, cb: ChaseBoard, foes: { crew: Npc[]; gap: numbe
     }
   }
   return found;
+}
+
+/**
+ * The last one past, with nobody looking back: she steps out behind them. A takedown as in any other scene (see `prowl.ts`), done to whoever is
+ * level with her on the line; what it does to their friends is the noise it makes. Returns whether it worked.
+ */
+export function ambush(c: Ctx, cb: ChaseBoard, n: Npc, gap: number, spot: Pos): boolean {
+  const { w } = c;
+  const b = viewOf(w, cb.placed, { foes: [] });
+  b.hero = { ...spot };
+  // The point on their way that is nearest her.
+  let k = Math.max(0, Math.floor(cb.s - gap));
+  let best = Infinity;
+  for (let i = k; i <= Math.min(cb.path.length - 1, Math.floor(cb.s) + 12); i++) {
+    const d = dist(tileAt(cb, i), spot);
+    if (d < best) {
+      best = d;
+      k = i;
+    }
+  }
+  const at = tileAt(cb, k);
+  const u: PUnit = makeUnit(n, at, dirOf({ x: at.x, y: at.y } as never, tileAt(cb, k + 1)), {});
+  u.behavior = 'patrol';
+  b.units.push(u);
+  const ok = takedown(c, b, u, (type, outcome, data) => c.emit(type, outcome, data));
+  return ok;
 }
 
 /** They ran past: on along the line and off the end of it, still looking, with no idea where she went. */
