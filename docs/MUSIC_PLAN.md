@@ -41,6 +41,8 @@ herself, and the comedy lives in the gap with the log. Six bucks still gets a tr
 | Songs | **Each song has its own character, and songs end.** Even in a samey stretch of play, a song plays out and transitions smoothly into a new song with a new character (§11). |
 | Lab screen | **Deferred.** The lab will get its own composed piece later. Until then the music fades out on the lab screen. |
 | Companions, romance | Left out. |
+| Persistence | **The last few songs survive a page reload**, not the whole history (§11.7). |
+| Titles | **Song titles can reference what happened in the night** (§11.6). |
 
 ## 3. Hard constraints
 
@@ -49,7 +51,7 @@ herself, and the comedy lives in the gap with the log. Six bucks still gets a tr
   later only if a voice can't be done with native nodes.
 - **The sim never knows the music exists.** The music reads `World` and `GameEvent`s and never mutates them. It **never touches
   `w.rng`**, because the sim is deterministic and seeded (offline catch-up depends on that, see DESIGN.md §3). The music has its own
-  `Rng` (`engine/src/rng.ts`, the class not the instance), seeded from the save seed plus `'music'`.
+  `Rng` (`engine/src/rng.ts`, the class not the instance), seeded from the universe's `worldSeed` plus `'music'`.
 - **Split pure from browser.** Everything that decides *what* to play (axes, songs, harmony, melody, patterns, form, the planners, cues,
   the bridge, patch definitions) is plain TypeScript with no Web Audio types, so it runs under vitest in node. Only `music/synth/` touches
   `AudioContext`.
@@ -86,6 +88,9 @@ music/
     song.ts                song character, generation, lifecycle and ending (§11.1–§11.3)
     setlist.ts             the night's songs so far, choosing the next one, reprises (§11.4)
     transition.ts          handing one song over to the next (§11.5)
+    facts.ts               title facts pulled from events: names, places, numbers (§11.6)
+    titles.ts              title templates and the word table (§11.6)
+    memory.ts              the persisted song memory: to/from JSON, validation (§11.7)
     cues.ts                cue table, quantization, priority, cooldowns (§12)
     palettes.ts            district and location-kind palettes (§13)
     conductor.ts           runs it all: generates bar N+1 while bar N plays -> NoteEvent[]
@@ -782,8 +787,8 @@ Character is a vector of 0..1 traits plus a few discrete picks.
   it returns in the recap, and it gets a coherence bonus throughout.
 - **theme quote:** whether this song quotes the save's theme motif (about 30% of songs), and where (counter in the breakdown, bells in the
   outro)
-- **a title**, generated from a word table ("Chrome Psalm", "Ninth Precinct Rain"). It shows in MusicDock and the timeline. It's cheap,
-  fits the tone, and makes songs easy to tell apart while tuning.
+- **a title**, often about what just happened in the night ("Six Separate Groups"), otherwise from a word table ("Chrome Psalm").
+  It shows in MusicDock and the timeline. See §11.6.
 
 **How character reaches the music:**
 
@@ -836,7 +841,8 @@ the next section boundary.
 
 ### 11.4 The setlist: choosing the next song
 
-`setlist.ts` keeps every song of the night (seed, character, palette, title, materials, bars played). When a song begins to end, it
+`setlist.ts` keeps every song of the night (seed, character, palette, title, materials, bars played). The last few also survive a
+reload (§11.7). When a song begins to end, it
 chooses the next one. This is the same scored-candidates pattern again.
 
 1. **Generate candidates:** about 6 new song seeds from the music Rng, each with a rolled character, plus any **reprise** candidates
@@ -903,6 +909,90 @@ transition.
 
 Texture beds belong to the place, not the song, so they carry on unbroken through every transition except a cut.
 
+### 11.6 Titles
+
+Songs are often named after what just happened. **A song is about the stretch of night before it:** its title is chosen when it is
+created, from what happened while the previous song played. The comedy is the same as the log's: a dead-serious darksynth track called
+"Six Bucks".
+
+**Facts.** The bridge keeps a rolling buffer of **title facts** from released events, cleared when a song starts.
+
+- `facts.ts` extracts them at step time, alongside the axis reads, from the event's `data` and the read-only world. It uses a table
+  keyed by event type, and events with no row give no facts.
+- A fact holds:
+  - the event type and outcome
+  - the named things: a place, a district, a person's name or role, a gang, a dragon model ("Ares Mk. IV"), an item or weapon
+  - any specific number: cash, kills, how many came after her
+- Each fact has a **salience** score:
+  - the event's weight (a dragon fight or a heist beats a bowl of noodles)
+  - an extreme outcome
+  - rarity tonight
+  - recency
+  - a bonus for specific numbers and proper nouns, which are funnier (TONE.md, "Specific numbers and brand-ish nouns")
+
+**Templates.** `titles.ts` holds templates tagged by fact kind and outcome, in the same spirit as the text layer:
+
+| Fact | Template | Example |
+|---|---|---|
+| a count | `{Count} Separate {Things}` | "Six Separate Groups" |
+| cash, small | `{Amount} Bucks` | "Six Bucks" |
+| a place and time | `{Place}, {Hour}` | "Rusty Halo, 3 AM" |
+| a dragon | `{Model} (Get Inside)` | "Ares Mk. IV (Get Inside)" |
+| a person | `Ballad of the {Role}` | "Ballad of the Blue-Haired Bartender" |
+| a gang | `{Gang} Don't Dance` | |
+| an item lost or broken | `Requiem for a {Item}` | "Requiem for a Pool Cue" |
+| a bad night | `{RealName} Has Left the Building` | rare, the deflating government name (TONE.md, "The hero") |
+
+Rules:
+
+- **An event title only when it is earned:** the top fact's salience must clear a bar. Otherwise the song gets a word-table title. In an
+  eventful night roughly half the titles reference events, and in a quiet one few do.
+- At most 32 characters, in title case.
+- No title repeats one in the setlist or the persisted memory, and no fact is used twice.
+- Picked with the music Rng, so it is deterministic from the facts and the seed.
+- **Inspiration (light):** the fact that names the song nudges its character a little, at most ±0.1 per trait. For example, a dragon
+  nudges `brood` and `grit`, a heist nudges `drive`, and a club night nudges `lift`. The song then sounds a bit like what it's named for.
+
+Titles appear in MusicDock ("Now playing") and the MusicLab timeline. They stay out of the chronicle, which belongs to the sim.
+
+### 11.7 Memory across reloads
+
+The **last 5 songs** survive a page reload. The whole history doesn't. This memory lives in its own `localStorage` key
+(`cyberknight.music`) next to the game save (`cyberknight.save`), never inside it: the sim's save stays free of music.
+
+```ts
+interface MusicMemory {
+  v: number;                 // format version: a mismatch discards the memory
+  worldSeed: string;         // the save it belongs to: a different save (a new universe) discards it
+  songCount: number;         // the next song index, so song seeds keep advancing and never repeat across reloads
+  recent: StoredSong[];      // the last 5, newest last
+  current?: { index: number; section: SectionType };   // what was playing when the page closed
+}
+
+interface StoredSong {
+  index: number; seed: number;
+  gen: number;               // the song generator's version
+  title: string;             // kept verbatim: it came from events that are gone now
+  palette: string; key: number; tempo: number;   // set by the transition into it, so not derivable from the seed
+  traits: Record<string, number>;
+  run: number;               // which night (legacy.runs) it played in
+  reprised: boolean; barsPlayed: number;
+}
+```
+
+- **Material is not stored.** It is regenerated from `seed`, `palette`, `key`, `tempo` and `traits`, which keeps each entry to a few
+  hundred bytes.
+- If a stored song's `gen` doesn't match the current generator, regenerating it would give different music. It is kept for contrast
+  scoring and title de-duplication, but never offered as a reprise.
+- **What it's used for:**
+  - contrast and variety scoring for the next song (§11.4)
+  - reprise candidates. "At most once a night" is checked against `run`.
+  - title de-duplication
+  - **picking up after a reload:** if `current` is set and the run is the same, the song that was playing comes back from the start of
+    the section it was in. This doesn't count as its one reprise. A new night always starts with a new song.
+- **Writes** happen at song start, song end and section boundaries, never per bar, and are wrapped in `try/catch`. Without storage
+  (private mode, cleared data) the music still works and simply starts with no memory.
+
 ## 12. Cues and the viewer
 
 ### 12.1 Cues
@@ -932,7 +1022,8 @@ at 1×). The music follows what is on screen:
 
 - At step time, the bridge runs every registered axis's `read(w)` and attaches the results, plus the chunk's `GameEvent[]`, to the
   chunk. The world stays read-only.
-- **On `release`**, not on step, the bridge calls each axis's `target` and feeds the cue table.
+- At step time it also runs the title-fact extractor (§11.6) and attaches those facts.
+- **On `release`**, not on step, the bridge calls each axis's `target`, feeds the cue table and adds the facts to the title buffer.
 
 ### 12.3 Speed, skip and catch-up
 
@@ -980,12 +1071,13 @@ and comes in the place phase.
 
 ## 15. Per-save identity
 
-Each save rolls a **theme** from the music Rng (save seed plus `'music'`):
+Each save rolls a **theme** from the music Rng, seeded from the universe's `worldSeed` plus `'music'`. That seed lasts across runs, as the
+save does:
 
 - a **home key**, biased toward E, F, F♯, G, A for low-end weight. The night's first song starts here, and the setlist drifts away from
   it and back.
 - a **theme motif** of 5–7 notes, which some songs quote (§11.1)
-- a seed for every song, from `(theme seed, song index)`
+- a seed for every song, from `(theme seed, song index)`. The song index carries across reloads (§11.7).
 
 ## 16. Samples (author-supplied)
 
@@ -1055,12 +1147,15 @@ Each phase ends playable in MusicLab, with `npm test` and `npm run typecheck` gr
 4. **Melody.** Motifs, transformations, phrase forms, the lead, counter, pluck and arp, and the spotlight. *Done when the lead sounds
    like phrases that ask and answer, and the motif is recognizable in different sections.*
 5. **Songs.** Character and traits, song generation (patch picks, tempo, hook, titles), length and lifecycle, ending pressure and
-   ending styles, the setlist with scored candidates and reprises, and all four transition types with key relations and pivots. *Done
+   ending styles, the setlist with scored candidates and reprises, word-table titles, and all four transition types with key relations
+   and pivots. *Done
    when twenty minutes with the sliders held still plays a run of distinct songs, each one recognizable by its hook, and every handover
    sounds intentional.*
 6. **Samples.** Manifest loader, round-robin, kick tuning and the author's kit as it arrives.
 7. **Bridge.** `bridge.ts` driven by the registry, axis reads on chunks, feeding on `release`, the cue table and planner jumps, speed
-   scaling, and `MusicDock` with the now-playing title in NightViewer. *The first time it plays along with a real night.*
+   scaling, and `MusicDock` with the now-playing title in NightViewer. Title facts, event titles and inspiration, and the persisted song
+   memory with pick-up after a reload. *The first time it plays along with a real night. Done when a reload mid-song picks the song
+   back up.*
 8. **Heat and place.** The heat axis end to end (tempo push, siren), district palettes, the dwell rule and district transitions,
    location-kind overrides, choir, bells, weather beds, key changes inside songs and the vehicle overlay.
 9. **Polish.** Victory, death and dawn cues, glitch gestures, and an `AudioWorklet` only if a voice needs it.
@@ -1116,12 +1211,18 @@ Each phase ends playable in MusicLab, with `npm test` and `npm run typecheck` gr
 - A reprise reuses the original song's material and title, and happens at most once a night.
 - A district visit shorter than the dwell doesn't change the song.
 
+**Titles and memory**
+- Every title template fills from fixture facts. Titles stay within 32 characters, and none repeats one in the setlist or the memory.
+- A dragon fight outranks noodles for the title. Below the salience bar, a song gets a word-table title.
+- Fact extraction never mutates the world.
+- The memory round-trips through JSON, holds at most 5 songs, and is discarded on a version or `worldSeed` mismatch. A song with a stale
+  `gen` is never offered as a reprise.
+- Song indices continue across a simulated reload, so no seed repeats.
+
 Listening is the real test. These catch regressions.
 
 ## 21. Open questions (for later, not blockers)
 
 - **The lab piece:** its own composed music, out of scope for now (§13).
-- **Persisting the setlist** across page reloads (in `localStorage`, per save), so reprises survive a reload. It's in memory only for
-  now.
-- **Song titles:** a word table to start with. Should titles ever reference the night's events ("Six Separate Groups")? It would be fun,
-  and it's cheap once the bridge exists.
+- **Titles in the chronicle:** should a song title ever show up in the log (a busker covering it, a club DJ playing it)? It's out of
+  scope, and the sim would need to learn about the music for it.
