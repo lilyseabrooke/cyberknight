@@ -35,7 +35,7 @@ export const ODDS = {
   art: (h: Hero) => odds(0.42, 0.06, synergy(h, ['art', ['stat:reflex', 0.5]])),
   ask: (h: Hero) => odds(0.3, 0.065, synergy(h, ['streetwise', ['stat:charm', 0.5]])),
   trick: (h: Hero) => odds(0.3, 0.06, synergy(h, ['rapport', ['tinkering', 0.4]])),
-  fish: (h: Hero) => odds(0.45, 0.04, synergy(h, ['fishing', ['stat:int', 0.3]])),
+  fish: (h: Hero) => odds(0.45, 0.012, synergy(h, ['fishing', ['stat:int', 0.3]])),
   parkour: (h: Hero) => odds(0.35, 0.055, synergy(h, ['athletics', ['stat:reflex', 0.5]])),
 };
 
@@ -426,7 +426,7 @@ function fish(c: Ctx): void {
   train(c, 'fishing', 2);
   if (!rng.chance(ODDS.fish(h))) {
     const rod = h.inventory.find((i) => i.tags.includes('rod'));
-    if (rod && rng.chance(Math.max(0.02, 0.1 - lvl * 0.01))) {
+    if (rod && rng.chance(Math.max(0.02, 0.1 - lvl * 0.002))) {
       h.inventory.splice(h.inventory.indexOf(rod), 1);
       c.emit('fish', 'bad', { variant: 'snap', npc: gawker });
     } else if (rng.chance(0.12)) {
@@ -438,7 +438,7 @@ function fish(c: Ctx): void {
     return;
   }
   train(c, 'fishing', 2);
-  const tier = tierFor(rng.next() + Math.min(0.9, lvl * 0.03), lvl);
+  const tier = tierFor(rng.next() + Math.min(0.8, lvl * 0.008), lvl);
   const id = rng.pick(tier.items);
   const it = id === 'ammo' ? makeAmmoBox(rng.pick(AMMO_IDS), rng.int(tier.rounds[0], tier.rounds[1])) : makeItem(id);
   if (tier.variant === 'prize') gainXp(c, 4);

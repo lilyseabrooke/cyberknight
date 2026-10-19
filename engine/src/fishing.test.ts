@@ -27,8 +27,9 @@ describe('fishing', () => {
   it('opens up better catches as she levels, and every item exists', () => {
     for (const t of CATCH_TIERS) for (const id of t.items) if (id !== 'ammo') expect(() => makeItem(id), id).not.toThrow();
     expect(tierFor(1.4, 0).variant).toBe('junk');
-    expect(tierFor(1.4, 3).variant).toBe('haul');
-    expect(tierFor(1.4, 8).variant).toBe('legend');
+    expect(tierFor(1.4, 10).variant).toBe('haul');
+    expect(tierFor(1.4, 40).variant).toBe('legend')
+    expect(tierFor(1.4, 39).variant).toBe('prize');
     expect(tierFor(0.1, 100).variant).toBe('junk');
   });
 
@@ -50,7 +51,7 @@ describe('fishing', () => {
     const novice = seen(0);
     expect(novice.has('legend')).toBe(false);
     expect(novice.has('junk')).toBe(true);
-    const master = seen(800);
+    const master = seen(30000);
     expect(master.has('legend') || master.has('ammo')).toBe(true);
     expect(master.has('prize')).toBe(true);
   });
