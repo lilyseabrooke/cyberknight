@@ -7,6 +7,7 @@ import { skillLevel, train } from './skills';
 import { isBadGuy } from './traits';
 import { routeTo } from './plans';
 import { scoutSaves } from './extras';
+import { talkDown } from './speaking';
 
 /**
  * Heat, and what she does about it. Low heat only sends drones, which a competent hero can swat;
@@ -111,7 +112,7 @@ export function npdResponse(c: Ctx): boolean {
   // On foot on a street, a patrol car may be what pulls up.
   if (officers && patrolPullsUp(c, squad)) return true;
   c.emit('ambush', 'bad', { variant: officers ? 'npd' : 'npd_drone', count: squad.length, heat: npd });
-  fight(c, squad, { cause: officers ? 'an NPD ambush' : 'an NPD drone sweep', joiners: false });
+  if (!talkDown(c, squad)) fight(c, squad, { cause: officers ? 'an NPD ambush' : 'an NPD drone sweep', joiners: false });
   return true;
 }
 

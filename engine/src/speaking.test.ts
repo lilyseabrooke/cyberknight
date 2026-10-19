@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, personalityFrom, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
-import { speakingCandidates } from './speaking';
+import { speakingCandidates, talkDown, billboardSpeech } from './speaking';
+import { spawnGroup } from './candidate';
 import { newCompanion, allyPower } from './companions';
 
 const world = (seed: string): World => createWorld({ seed, competence: 0.8, personality: personalityFrom({}) });
@@ -100,5 +101,66 @@ describe('speaking', () => {
     }
     expect(inspired).toBeGreaterThan(20);
     expect(fameGain).toBeGreaterThan(0);
+  });
+
+  it('can talk down attackers, taking Heat off when they came because of it, or fail and get hit', () => {
+    let won = 0;
+    let lost = 0;
+    let cooled = 0;
+    for (let i = 0; i < 200; i++) {
+      const w = world(`talk-${i}`);
+      w.hero.skills.speaking = 100;
+      w.hero.charm = 10;
+      w.heat.npd = 4;
+      w.hero.locationId = 'street_main';
+      const { c, events } = ctxOf(w, `t${i}`);
+      const squad = spawnGroup(c, 'npd_officer', 2);
+      const hp = w.hero.hp;
+      const ok = talkDown(c, squad);
+      for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+      if (ok) {
+        won++;
+        expect(squad.every((f) => !f.alive || !f.hostile)).toBe(true);
+        expect(w.heat.npd).toBeLessThanOrEqual(4);
+        if (w.heat.npd! < 4) cooled++;
+      } else if (events.length) {
+        lost++;
+        expect(w.hero.hp).toBeLessThan(hp);
+      }
+    }
+    expect(won).toBeGreaterThan(0);
+    expect(lost).toBeGreaterThan(0);
+    expect(cooled).toBeGreaterThan(0);
+  });
+
+  it('does not try without any Speaking, or on robots', () => {
+    const w = world('talk-none');
+    w.hero.locationId = 'street_main';
+    const { c, events } = ctxOf(w, 'n');
+    const squad = spawnGroup(c, 'npd_officer', 2);
+    for (let i = 0; i < 50; i++) expect(talkDown(c, squad)).toBe(false);
+    w.hero.skills.speaking = 100;
+    const drones = spawnGroup(c, 'npd_drone', 2);
+    for (let i = 0; i < 50; i++) expect(talkDown(c, drones)).toBe(false);
+    expect(events).toEqual([]);
+  });
+
+  it('a skilled speaker takes the mic when she hijacks a billboard', () => {
+    const w = world('billboard-speech');
+    w.hero.locationId = 'street_main';
+    const { c, events } = ctxOf(w, 'b');
+    billboardSpeech(c);
+    expect(events).toEqual([]);
+    w.hero.skills.speaking = 100;
+    w.hero.charm = 10;
+    let fame = 0;
+    for (let i = 0; i < 30; i++) {
+      const f0 = w.hero.fame;
+      billboardSpeech(c);
+      if (events.at(-1)!.data.variant === 'speech') fame = Math.max(fame, w.hero.fame - f0);
+    }
+    expect(events.some((e) => e.type === 'billboard_speech' && e.data.variant === 'speech')).toBe(true);
+    for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+    expect(fame).toBeGreaterThan(1.2);
   });
 });

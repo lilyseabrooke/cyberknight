@@ -154,6 +154,8 @@ describe('layered skills', () => {
       ['stump_speech', { variant: 'rousing', level: 1 }], ['stump_speech', { variant: 'rousing', level: 5 }], ['stump_speech', { variant: 'complaint' }], ['stump_speech', { variant: 'heckled' }], ['stump_speech', { variant: 'ignored' }],
       ['rally', { variant: 'great', count: 2, names: 'x and y', name: 'x' }], ['rally', { variant: 'good', count: 1, names: 'x', name: 'x' }], ['rally', { variant: 'flat', count: 1, names: 'x', name: 'x' }], ['rally', { variant: 'flop', count: 1, names: 'x', name: 'x' }],
       ['mirror_speech', { variant: 'rough' }], ['mirror_speech', { variant: 'orator' }], ['mirror_speech', { variant: 'doubt' }],
+      ['talk_speech', { variant: 'win', npc: 'x', count: 1, heat: 0 }], ['talk_speech', { variant: 'win', npc: 'x', count: 2, heat: 1 }], ['talk_speech', { variant: 'great', npc: 'x', count: 2, heat: 2 }], ['talk_speech', { variant: 'fail', npc: 'x', count: 2, heat: 0 }],
+      ['billboard_speech', { variant: 'speech', fame: 3, level: 5 }], ['billboard_speech', { variant: 'flop' }],
       ['busk', { variant: 'tips', amount: 1 }], ['busk', { variant: 'stolen' }], ['busk', { variant: 'complaint' }], ['busk', { variant: 'ignored' }],
       ['jam', { variant: 'band', level: 1, npc: 'x' }], ['jam', { variant: 'solo', level: 1 }], ['jam', { variant: 'meh' }], ['jam', { variant: 'smash', npc: 'x' }], ['jam', { variant: 'thrown_out', npc: 'x' }],
       ['steal_guitar', { variant: 'alone' }], ['steal_guitar', { variant: 'band' }], ['steal_guitar', { variant: 'caught', npc: 'x' }],
