@@ -3,7 +3,7 @@ import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { clamp, dutchHere, levelRisk, spawnGroup, type Candidate } from './candidate';
 import { makeAmmoBox, makeItem } from './content/items';
 import { AMMO_IDS } from './content/ammo';
-import { skillLevel, synergy, train } from './skills';
+import { skillLevel, train } from './skills';
 import { isFairGame } from './people';
 import { kindle } from './romance';
 import { bondEvent, romanceMod, scruples } from './bonds';
@@ -90,7 +90,7 @@ function reelIn(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   const lvl = skillLevel(h, 'fishing');
-  const p = clamp(0.38 + 0.01 * synergy(h, ['fishing', ['stat:reflex', 0.5]]) - n.level * 0.004, 0.1, 0.9);
+  const p = clamp(0.38 + 0.01 * lvl - n.level * 0.004, 0.1, 0.9);
   if (rng.chance(p)) {
     train(c, 'fishing', 4);
     const dmg = Math.round(5 + lvl * 0.4 + h.muscle);
@@ -110,11 +110,11 @@ function reelIn(c: Ctx, n: Npc): void {
 function reelGirl(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + 0.008 * synergy(h, ['fishing', ['romance', 0.5], ['stat:charm', 0.5]]) + n.affinity / 200 + romanceMod(w, n) - Math.max(0, h.drunk - 3) * 0.08, 0.05, 0.9);
+  const lvl = skillLevel(h, 'fishing');
+  const p = clamp(0.3 + 0.008 * lvl + n.affinity / 200 + romanceMod(w, n) - Math.max(0, h.drunk - 3) * 0.08, 0.05, 0.9);
   kindle(h, 0.06);
   train(c, 'fishing', 2);
   if (rng.chance(p)) {
-    train(c, 'romance', 2);
     n.affinity += 22;
     remember(n, 'was reeled in across a room by Blackbird, and let it happen');
     if (here(w).length > 3) h.fame += 1;
@@ -135,13 +135,10 @@ function rodLift(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   const lvl = skillLevel(h, 'fishing');
-  if (atLeast(bucketOf(w, n), 'alert')) {
-    c.emit('rod_lift', 'mixed', { variant: 'abort', npc: n.name });
-    return;
-  }
-  const p = clamp(0.35 + lvl * 0.004 + 0.006 * synergy(h, ['fishing', ['sleight', 0.5], ['stat:reflex', 0.3]]) - n.level * 0.003 - 0.02 * npcPerception(n), 0.15, 0.92);
+  // A pure fishing check: the stealth system plays no part. Their eyes only make the cast harder.
+  const watching = atLeast(bucketOf(w, n), 'alert');
+  const p = clamp(0.35 + lvl * 0.005 - n.level * 0.003 - 0.02 * npcPerception(n) - (watching ? 0.15 : 0), 0.1, 0.92);
   train(c, 'fishing', 4);
-  train(c, 'sleight', 2);
   if (!rng.chance(p)) {
     awareness(w, n).v = 1;
     n.affinity -= 25;
@@ -233,8 +230,7 @@ function swing(c: Ctx): void {
   const h = w.hero;
   const lvl = skillLevel(h, 'fishing');
   train(c, 'fishing', 3);
-  if (rng.chance(clamp(0.5 + lvl * 0.004 + 0.01 * synergy(h, ['fishing', ['athletics', 0.5]]), 0.2, 0.92))) {
-    train(c, 'athletics', 2);
+  if (rng.chance(clamp(0.5 + lvl * 0.006, 0.2, 0.92))) {
     h.fame += 1;
     if (rng.chance(0.6)) {
       const it = makeItem(rng.pick(['credchip', 'gold_tooth', 'memory_shard', 'walkman', 'chrono_watch', 'signet_ring']));

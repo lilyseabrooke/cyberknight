@@ -109,7 +109,7 @@ describe('fishing', () => {
 
     it('has a line for every rod-work outcome', () => {
       const lines: [string, string[]][] = [
-        ['reel_in', ['haul', 'snag']], ['reel_girl', ['smooth', 'swoon', 'slapped', 'tangle']], ['rod_lift', ['item', 'cash', 'nothing', 'abort', 'noticed']],
+        ['reel_in', ['haul', 'snag']], ['reel_girl', ['smooth', 'swoon', 'slapped', 'tangle']], ['rod_lift', ['item', 'cash', 'nothing', 'noticed']],
         ['rod_tug', ['tap', 'tap_seen', 'tap_miss', 'vending_coins', 'vending_snack', 'vending_miss', 'dumpster', 'dumpster_miss', 'panel', 'panel_miss', 'till', 'till_caught']],
         ['rod_swing', ['loot', 'clean', 'swing']], ['rod_bait', ['bite', 'landed']],
       ];
