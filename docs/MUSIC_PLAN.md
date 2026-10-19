@@ -3,9 +3,13 @@
 Status: **plan**. Nothing is built yet. Feel over balance applies here too: every number below is a first guess, to be tuned by ear.
 
 Neo gets a score that is generated as it plays, not hand-authored tracks. It is built from native Web Audio synthesizers plus a small kit of
-one-shot samples. It reads the night as it unfolds and moves along four axes: **intensity**, **danger**, **heat** and **place**. It is
-written like a song, not a loop. Material is invented, repeated, varied, dropped and brought back across an arc, so a stretch where nothing
-changes in the game still develops musically.
+one-shot samples. It reads the night as it unfolds through a set of **axes** (intensity, danger, heat and place to start with, and more
+can be added later), and it makes **songs**, not background loops:
+
+- Each song has its own character: its own tempo, key, sound palette, hook and shape.
+- Within a song, ideas are invented, repeated, varied, dropped and brought back across an arc.
+- When a song has run its course it ends and hands over to a new song with a different character, even if nothing in the game has
+  changed.
 
 ## 1. The sound
 
@@ -29,10 +33,14 @@ herself, and the comedy lives in the gap with the log. Six bucks still gets a tr
 | Question | Answer |
 |---|---|
 | Relation to the sim clock | **Free-run plus stingers.** The music keeps its own tempo grid. Game state moves the axes smoothly, and notable events queue quantized cues on the next 16th, beat, bar or phrase. Playback speed (1×/2×/5×) never warps the tempo. |
-| Axes | **Intensity**, **danger**, **heat/pursuit** and **place/district**. Hero condition (low HP, drunk) and mood/outcome are *not* axes. Low HP feeds danger (§5), and outcomes only drive cues. |
-| Samples | **The author supplies the sample files** (§15). Every sample role has a synthesized stand-in, so the system plays fully with zero files. |
+| Axes | **Intensity**, **danger**, **heat/pursuit** and **place/district** to start with. Hero condition feeds danger (low HP). Mood/outcome only drives cues. |
+| Future axes | **The axis set must stay open.** Axes are registered as data, so a new one can be added later without touching the rest of the system (§5.3). |
+| Samples | **The author supplies the sample files** (§16). Every sample role has a synthesized stand-in, so the system plays fully with zero files. |
 | Scope beyond the rhythm section | Every melodic and harmonic layer is designed to the same depth as the bass, on one shared instrument model (§6–§9). |
-| Form | **Songs, not loops.** The music follows the arc of a song. Even with constant axes it never repeats the same bar indefinitely, and it adds and drops elements deliberately, by plan, never at random (§10). |
+| Form | **Songs, not loops.** Within a song the music follows an arc, and it adds and drops elements deliberately, by plan, never at random (§10). |
+| Songs | **Each song has its own character, and songs end.** Even in a samey stretch of play, a song plays out and transitions smoothly into a new song with a new character (§11). |
+| Lab screen | **Deferred.** The lab will get its own composed piece later. Until then the music fades out on the lab screen. |
+| Companions, romance | Left out. |
 
 ## 3. Hard constraints
 
@@ -42,49 +50,59 @@ herself, and the comedy lives in the gap with the log. Six bucks still gets a tr
 - **The sim never knows the music exists.** The music reads `World` and `GameEvent`s and never mutates them. It **never touches
   `w.rng`**, because the sim is deterministic and seeded (offline catch-up depends on that, see DESIGN.md §3). The music has its own
   `Rng` (`engine/src/rng.ts`, the class not the instance), seeded from the save seed plus `'music'`.
-- **Split pure from browser.** Everything that decides *what* to play (axes, harmony, melody, patterns, form, the arc planner, cues, the
-  bridge, patch definitions) is plain TypeScript with no Web Audio types, so it runs under vitest in node. Only `music/synth/` touches
+- **Split pure from browser.** Everything that decides *what* to play (axes, songs, harmony, melody, patterns, form, the planners, cues,
+  the bridge, patch definitions) is plain TypeScript with no Web Audio types, so it runs under vitest in node. Only `music/synth/` touches
   `AudioContext`.
 - **Autoplay policy.** The `AudioContext` is created or resumed on a user gesture. Music is **off by default** until the player turns it
   on once. That choice and the volume persist in `localStorage`.
 - **Idle game manners.** Fade out and `suspend()` the context when the tab is hidden, and fade back in on return. Offline catch-up never
-  generates cues (§11.3).
+  generates cues (§12.3).
+- **Data over code at the edges.** Axes, macros, patches, palettes, role eligibility, cues and song traits are all tables. Growth (a new
+  axis, a new instrument, a new district) should mostly be new rows.
 
 ## 4. Architecture
 
 ```
 music/
   score/                   pure: no AudioContext, node-testable
-    types.ts               NoteEvent, Bar, AxisState, Palette, Cue, Patch, Material, Section
-    axes.ts                axis targets -> smoothed values, derived macros (§5)
+    types.ts               NoteEvent, Bar, Patch, Material, Section, Song, Cue
+    axes/
+      registry.ts          AxisDef table: the axes that exist (§5)
+      defs/                one file per axis: intensity.ts, danger.ts, heat.ts, place.ts
+      macros.ts            macro table: weights from axes to macros (§5.2)
+      state.ts             targets -> smoothed values, hysteresis
     theory.ts              scales, modes, chords, note<->Hz
     harmony.ts             progressions, harmonic rhythm, cadences, pedals, modulation (§8)
     voicing.ts             voice leading, register windows, low-interval limit (§8.3)
     melody.ts              motifs, transformations, phrase forms, pitch rules (§9)
-    theme.ts               per-save identity (§14)
-    patches/               instrument definitions as data, one file per role (§6, §7)
+    theme.ts               per-save identity (§15)
+    patches/               instrument definitions as data, one file per role, with alternates (§6, §7)
     roles/                 one generator per role: sub, bass, drums, pad, stabs, pluck, arp, lead, counter, siren, bells, choir, drone, texture
     material.ts            the material pool: invent, vary, recall (§10.2)
-    phrase.ts              bar roles inside a phrase: statement, repeat, variation, turnaround (§10.3)
+    phrase.ts              bar roles inside a phrase (§10.3)
     sections.ts            section types and their purpose (§10.4)
-    arc.ts                 the arc planner: energy curve, fatigue, move scoring (§10.5)
+    planner.ts             the song planner: energy plan, fatigue, move scoring (§10.5)
     orchestra.ts           orchestration rules: slots, spotlight, density, lifetimes (§10.6)
-    cues.ts                cue table, quantization, priority, cooldowns (§11)
-    palettes.ts            district and location-kind palettes (§12)
+    song.ts                song character, generation, lifecycle and ending (§11.1–§11.3)
+    setlist.ts             the night's songs so far, choosing the next one, reprises (§11.4)
+    transition.ts          handing one song over to the next (§11.5)
+    cues.ts                cue table, quantization, priority, cooldowns (§12)
+    palettes.ts            district and location-kind palettes (§13)
     conductor.ts           runs it all: generates bar N+1 while bar N plays -> NoteEvent[]
   synth/                   browser only
     engine.ts              AudioContext lifecycle, start/stop, visibility
     scheduler.ts           lookahead scheduler (§4.1)
     voice.ts               builds a playable voice from a Patch (§6)
     pool.ts                voice allocation: mono, poly, stealing
-    buses.ts, master.ts    buses, sidechain ducking, master chain (§16)
-    samples.ts             manifest loader, decode, round-robin, synth fallbacks (§15)
+    buses.ts, master.ts    buses, sidechain ducking, master chain (§17)
+    samples.ts             manifest loader, decode, round-robin, synth fallbacks (§16)
     impulse.ts             generated reverb impulse responses
-  bridge.ts                World + GameEvent[] -> AxisTargets + Cue[] (§5, §11), pure
+  bridge.ts                World + GameEvent[] -> axis targets + cues, driven by the axis registry (§5, §12), pure
   index.ts
 components/
-  MusicDock.tsx            on/off, volume, mounted in NightViewer
-  MusicLab.tsx             debug (`?music=lab`): axis sliders, palette picker, cue buttons, a patch auditioner and the arc timeline (§10.8)
+  MusicDock.tsx            on/off, volume, now playing (the song's title), mounted in NightViewer
+  MusicLab.tsx             debug (`?music=lab`): sliders for every registered axis, palette picker, cue buttons,
+                           a patch auditioner, "next song" and the timeline (§10.8)
 ```
 
 Add `"music"` to `tsconfig.json` `include`. Vitest has no config file, so `music/**/*.test.ts` is picked up by `npm test` already.
@@ -93,58 +111,115 @@ Add `"music"` to `tsconfig.json` `include`. Vitest has no config file, so `music
 
 This uses the standard two-clock pattern.
 
-- **Conductor (bar-ahead).** At each bar boundary the conductor asks the arranger what the next bar is (section, phrase position, bar
-  role, active roles and their material), reads the smoothed axes and the palette, and has each role render the next bar into
+- **Conductor (bar-ahead).** At each bar boundary the conductor asks the setlist and the song planner what the next bar is: which song
+  (or which two, during a transition), the section, the phrase position and bar role, the active roles and their material. It then reads
+  the smoothed axes, the macros and the palette, and has each role render the next bar into
   `NoteEvent { t, role, note | sample, vel, dur, params }`. Every musical decision happens here.
 - **Scheduler (lookahead).** A `setInterval` of about 25 ms (or a worker timer, so hidden-tab throttling doesn't stutter it) schedules
   every `NoteEvent` whose time falls within the next ~120 ms against `ctx.currentTime`. Parameter automation uses `setValueAtTime`,
   `linearRampToValueAtTime` and `setTargetAtTime`, never per-frame JS.
 - **Quantized cues** go into a queue keyed by grid (`16th | beat | bar | phrase`) and are spliced in at the next boundary of that grid.
-- **Tempo** changes only at phrase boundaries, apart from the deliberate tape-stop and push cues.
+- **Tempo** changes only at phrase boundaries, apart from the deliberate tape-stop and push cues, and the tempo ramps inside song
+  transitions (§11.5).
 
 ## 5. The axes
 
-Every axis is a value from 0 to 1 with a **target** (set by the bridge) and a **current** value (slewed). The slew is asymmetric: it
-rises fast and falls slow, so a fight snaps the music up and the comedown takes a phrase or two. **Hysteresis** applies wherever an axis
-crosses a threshold that enables something.
+### 5.1 The axis registry
 
-| Axis | What it means | Derived from (in `bridge.ts`) | Rise / fall |
-|---|---|---|---|
-| **intensity** | How much is *happening* to her right now | An event-energy accumulator with decay. Each event type has a weight: `fight_round` .5, `ambush` .8, `chase_round` .6, `dungeon_wave` .6, `gang_brawl` .7, `dragon_engage` .9, `crash_gig`/`dance`/`dj_set` .4 (a club can be intense and fun). Quiet ones (`eat_noodles`, `sleep`, `chat`) push it *down*. | ~1 beat / ~8 bars |
-| **danger** | How likely this is to kill her | `dangerOf(location)` normalized through `tierOfDanger`, plus: a dragon flight here (`w.flight`, more once `noticed`, most during an Ares `scream` or `raid`), a damsel's foes present, HP ratio below 40%, `dying`/`security_closes_in`/`monitored_death`. | ~2 beats / ~4 bars |
-| **heat** | How hunted she is | `heatLevel(w)` (`laylow.ts`) normalized, plus a pursuit boost while a chase is live (`give_chase`, `pursuit`, `chase_round`, `getaway`, `tail`, `dragon_chase`) that ends on `chase_end`/`chase_cut`. `lay_low` pulls the target down. | ~1 beat / ~16 bars |
-| **place** | Where she is | Categorical: `Location.district` and `Location.kind` select a **palette** (§12). Not a number. | phrase crossfade |
+An axis is a row in `axes/registry.ts`, not a hard-coded field:
+
+```ts
+interface AxisDef<R = unknown> {
+  id: string;                                   // 'intensity', 'danger', 'heat', 'place', ... (open-ended)
+  label: string;                                // for MusicLab
+  kind: 'continuous' | 'categorical';
+  /** Runs at step time against the read-only world; whatever it returns rides on the chunk to `release`. */
+  read(w: Readonly<World>): R;
+  /** Runs when the chunk is shown: the axis's new target, from what was read and the chunk's events. */
+  target(read: R, events: readonly GameEvent[], prev: number | string): number | string;
+  rise: number; fall: number;                   // slew, in bars (continuous only)
+  hysteresis: number;                           // dead zone around any threshold that reads this axis
+  initial: number | string;
+}
+```
+
+- The bridge (§12.2) has no knowledge of any particular axis. It loops over the registry: it calls `read` at step time, stores the results
+  on the chunk, and calls `target` on release.
+- `state.ts` keeps a target and a current value for every registered axis, with an asymmetric slew (rises fast, falls slow) and
+  hysteresis.
+- MusicLab builds its sliders from the registry.
+
+**The starting axes:**
+
+| Axis | Kind | What it means | `read` / `target` | Rise / fall |
+|---|---|---|---|---|
+| **intensity** | continuous | How much is *happening* to her right now | An event-energy accumulator with decay, using a per-event weight table: `fight_round` .5, `ambush` .8, `chase_round` .6, `dungeon_wave` .6, `gang_brawl` .7, `dragon_engage` .9, `crash_gig`/`dance`/`dj_set` .4. Quiet ones (`eat_noodles`, `sleep`, `chat`) push it *down*. | ~1 beat / ~8 bars |
+| **danger** | continuous | How likely this is to kill her | `dangerOf(location)` normalized through `tierOfDanger`, plus: a dragon flight here (`w.flight`, more once `noticed`, most during an Ares `scream` or `raid`), a damsel's foes present, HP ratio below 40%, `dying`/`security_closes_in`/`monitored_death`. | ~2 beats / ~4 bars |
+| **heat** | continuous | How hunted she is | `heatLevel(w)` (`laylow.ts`) normalized, plus a pursuit boost while a chase is live (`give_chase`, `pursuit`, `chase_round`, `getaway`, `tail`, `dragon_chase`) that ends on `chase_end`/`chase_cut`. `lay_low` pulls the target down. | ~1 beat / ~16 bars |
+| **place** | categorical | Where she is | `Location.district` and `Location.kind`. Selects the palette (§13). | see §13 |
 
 Weather (`w.situation.weather`) is not an axis. It picks the texture bed (§7.14).
 
-### 5.1 Macros
+### 5.2 Macros
 
-Voices and the planner never read the raw axes. They read **macros**, so a single change to the mapping re-voices everything consistently:
+Voices and planners never read raw axes directly. They read **macros**, defined in `macros.ts` as a table of weights over axis ids plus
+an optional shaping function:
+
+```ts
+interface MacroDef {
+  id: string;
+  weights: Record<AxisId, number>;     // an axis not listed contributes 0
+  bias?: number;
+  shape?: (linear: number, axes: AxisValues) => number;   // for the few non-linear ones
+}
+```
+
+The starting macros:
 
 ```
-aggression  = clamp(0.55*intensity + 0.35*danger + 0.25*heat)       // clean -> distorted, in every patch that has a drive or filter route
-syncopation = clamp(0.6*intensity + 0.5*heat - 0.2*danger*(1-intensity))  // dread is sparse, a chase is busy
-density     = clamp(0.8*intensity + 0.3*heat)                       // notes per bar, inside whatever layers are on
-darkness    = clamp(0.8*danger + 0.2*(1-intensity))                 // mode, filter brightness, reverb size, which bed (pad or choir)
-drive       = clamp(heat*0.7 + intensity*0.4)                       // tempo push, hat drive, siren lead, gated pads
+aggression  = 0.55*intensity + 0.35*danger + 0.25*heat             // clean -> distorted, in every patch with a drive or filter route
+syncopation = 0.6*intensity + 0.5*heat, minus 0.2*danger*(1-intensity) // dread is sparse, a chase is busy
+density     = 0.8*intensity + 0.3*heat                              // notes per bar, inside whatever layers are on
+darkness    = 0.8*danger + 0.2*(1-intensity)                        // mode, filter brightness, reverb size, which bed (pad or choir)
+drive       = 0.7*heat + 0.4*intensity                              // tempo push, hat drive, siren lead, gated pads
 energyBand  = [floor, ceiling] from intensity, danger and heat      // how loud and full the arrangement may get (§10.5)
-volatility  = clamp(0.3 + 0.7*intensity)                            // how far the arc may swing inside the band
+volatility  = 0.3 + 0.7*intensity                                   // how far the song's energy may swing inside the band
 ```
 
-These weights are placeholders, to be tuned in MusicLab by ear.
+All of these are clamped to 0..1, and the weights are placeholders, to be tuned in MusicLab by ear. The current song's character adds a
+small offset to some macros (§11.1).
 
 Three corners of the axis space show the shape:
 
 - **High danger, low intensity** ("something is up there"): half-time kick, tonic pedal, Phrygian ♭2 rubs in the choir, a drone, sub
-  swells, a sparse and dark locked bass, a big dark reverb. A narrow, low energy band, so the arc moves in small, uneasy steps.
+  swells, a sparse and dark locked bass, a big dark reverb. A narrow, low energy band.
 - **High intensity, low danger** (a bar brawl over a pool cue): a full four-floor groove, stabs on the bass accents and a busy but
   mid-aggression bass. A wide band, so big builds and drops.
 - **High heat** (a chase): tempo pushed up, driving 16th hats, gated pads, the siren lead as the foreground voice, syncopated bass.
 
+### 5.3 Adding an axis later
+
+Every place an axis can have an effect references it **by id, through data**:
+
+| Where | How a new axis plugs in |
+|---|---|
+| Registry | A new `AxisDef` file (`read` and `target`) |
+| Macros | Add its weight to existing macros, or define a new macro |
+| Patches | A mod route can read a macro or a raw axis: `src: 'axis:<id>'` (§6.3) |
+| Role eligibility | `eligible: [{ axis: '<id>', above: 0.6 }]` in the role table (§7) |
+| Energy band | An optional contribution in the `energyBand` macro |
+| Cues | Rows in the cue table can be keyed on an axis crossing a threshold, not just on events (§12.1) |
+| Songs | Song-choice fit scoring reads macros (§11.4), so a new axis that feeds a macro already affects which songs fit |
+| MusicLab | Sliders appear automatically |
+
+A new axis with no weights anywhere is **registered but silent**, which is safe to ship and then wire up. **Test:** a fixture axis
+registered only in a test file can drive a patch parameter through `axis:<id>` and a role's eligibility, with no change to any other
+file. Unknown axis ids in any table fail validation.
+
 ## 6. Instruments: one patch model for everything
 
 No role gets a hand-wired chain. Every pitched instrument, the bass included, is a **patch**: plain data in `score/patches/` that
-`synth/voice.ts` turns into nodes. Adding an instrument means writing data and a role generator, not new audio plumbing.
+`synth/voice.ts` turns into nodes. Each role has several alternate patches, and the song's character picks among them (§11.1).
 
 ### 6.1 The patch
 
@@ -184,6 +259,8 @@ interface OscLayer {
 - **Poly pool:** pad, stabs, pluck, arp, bells and choir. A pool of `poly` prebuilt voices with oldest-note stealing (released voices
   first). No node churn per note.
 - **One-shots:** drums and sample FX are throwaway `AudioBufferSourceNode`s.
+- **Transitions need two of some voices at once** (the outgoing and incoming songs' pads, for example). Persistent voices are built per
+  song from its patch picks and released once that song's tails have died, so there are at most two sets alive (§11.5, §18).
 
 ### 6.3 Modulation routes
 
@@ -192,39 +269,42 @@ A patch declares how it responds, as data:
 ```ts
 interface ModRoute { src: ModSource; dst: string; range: [number, number]; curve?: 'lin' | 'exp' | 'scurve' }
 type ModSource =
-  | 'aggression' | 'syncopation' | 'density' | 'darkness' | 'drive'   // macros
-  | 'velocity' | 'accent'                                             // per note
-  | 'phrasePos' | 'sectionPos'                                        // 0..1 through the current phrase or section
-  | 'sectionEnergy' | 'entry' | 'exit';                               // from the arranger (entry/exit gestures, §10.6)
+  | `macro:${string}`                                 // aggression, darkness, drive, ... or any macro added later
+  | `axis:${string}`                                  // a raw axis, for a new axis that needs a direct line (§5.3)
+  | `trait:${string}`                                 // the current song's character traits (§11.1)
+  | 'velocity' | 'accent'                            // per note
+  | 'phrasePos' | 'sectionPos' | 'songPos'            // 0..1 through the current phrase, section or song
+  | 'sectionEnergy' | 'entry' | 'exit';               // from the planner (entry and exit gestures, §10.6)
 ```
 
 Examples:
 
-- bass `aggression -> drive.amount [1, 20] exp`
-- pad `darkness -> filter.cutoff [3500, 600] exp`
-- every patch `entry -> filter.cutoff` for a filter-in over one bar when the arranger brings it in
+- bass `macro:aggression -> drive.amount [1, 20] exp`
+- pad `macro:darkness -> filter.cutoff [3500, 600] exp`
+- pad `trait:space -> sends.reverb [0.2, 0.7]`
+- every patch `entry -> filter.cutoff` for a filter-in over one bar when the planner brings it in
 - stabs `sectionPos -> filter.env [0.2, 0.9]` so a build brightens them bar by bar
 
-This is how the axes and the song's arc both reach the sound without any role knowing about the other. **Test:** every route names a real
-parameter of its patch.
+The axes, the song's character and the song's arc all reach the sound this way, without any role knowing about the others. **Test:**
+every route names a real parameter of its patch and a known source.
 
 ## 7. The ensemble
 
-Every role has a **register slot**, a **plane** (what part of the attention it holds) and rules for when it is eligible. The arc planner
-(§10) decides when an eligible role actually plays.
+Every role has a **register slot**, a **plane** (what part of the attention it holds) and **eligibility rules** written as data
+(conditions on macros, axes, palette or song traits). The song planner (§10) decides when an eligible role actually plays.
 
 | Role | Slot | Plane | Rhythm | Pitch source | Eligible when |
 |---|---|---|---|---|---|
-| sub | sub (30–90 Hz) | floor | kick-locked or held | root | always except ambient sections |
+| sub | sub (30–90 Hz) | floor | kick-locked or held | root | always except intros and beatless sections |
 | bass | low (110 Hz–1 kHz) | groove | groove templates (§7.2) | root + vocabulary | groove or above |
 | drums | — | groove | kit patterns | — | groove or above (kick); hats and perc also in builds and breakdowns |
 | pad | mid (C3–C5) | bed | sustained, swelling | voiced chord | most sections |
 | choir | mid (C3–C5) | bed (alternative to pad) | sustained, vowel morph | voiced chord | darkness ≥ .5, dragons |
-| drone | sub + low | bed | held | tonic/fifth pedal | dread, breakdowns, home |
+| drone | sub + low | bed | held | tonic/fifth pedal | dread, breakdowns, transitions |
 | stabs | mid (C3–G4) | groove accent | syncopated hits | power chord / triad | density ≥ .45 |
 | pluck | high-mid (C4–C6) | groove | 1–2 bar ostinato | chord tones + passing | groove, build |
 | arp | high-mid (C4–C6) | groove | gated 16ths | chord tones | build, peak, density ≥ .5 |
-| lead | high-mid (C4–C6) | **foreground** | phrased melody | the motif (§9) | peaks, some grooves |
+| lead | high-mid (C4–C6) | **foreground** | phrased melody | the song's motif (§9) | peaks, some grooves |
 | counter | mid–high (A3–A5) | answer | in the lead's rests | motif fragments | while lead plays, or as the melody in breakdowns |
 | siren | high-mid | **foreground** | slow glides | root / ♭2 / ♭3 | heat ≥ .6 |
 | bells | air (C5–C7) | color | sparse | chord tones, motif fragments | low darkness, corporate, victory |
@@ -235,14 +315,15 @@ Every role has a **register slot**, a **plane** (what part of the attention it h
 - Patch: one sine plus ~3% of a sine an octave up for small speakers, lowpass ~90 Hz, sub bus, mono, no drive or reverb sends.
 - Follows the bar's root and changes on chord changes. At low density it holds whole notes. At higher density it re-triggers with the
   kick so the floor pulses.
-- The kick ducks it for ~60 ms (§16).
+- The kick ducks it for ~60 ms (§17).
 - Clamped to E1–E2 (41–82 Hz), folding the octave. **Test:** no sub note leaves that range.
 
 ### 7.2 Character bass
 
 **Patch:** 2× saw (detune 0..18 cents) plus a square at −1 octave (mix 0..0.4) → lowpass (cutoff, Q, envelope) → tanh drive (4×
 oversample) → stepped-curve crusher (aggression above .75 only) → **post highpass ~110 Hz** → bass bus (sidechained). The post-drive
-highpass is the band split that lets the bass go feral while the sub stays clean. Keep it.
+highpass is the band split that lets the bass go feral while the sub stays clean. Keep it. Alternate patches (a rounder square bass,
+a reese-style detuned bass, an acid single-saw) are picked by song character.
 
 **Aggression routes:**
 
@@ -265,10 +346,10 @@ highpass is the band split that lets the bass go feral while the sub stays clean
 - `acid`: dense with holes
 - `broken`: off-grid, for half-time dread
 
-The blend is weighted by syncopation and aggression. The result is a **riff**: a piece of material (§10.2) that is generated once, kept
-and varied, never re-rolled per bar.
+The blend is weighted by syncopation, aggression and the song's character. The result is a **riff**: a piece of material (§10.2) that
+is generated once, kept and varied, never re-rolled per bar.
 
-**Pitch:** from the vocabulary weighted by aggression, with motif bias from the theme. It may **anticipate** the next chord by an 8th at
+**Pitch:** from the vocabulary weighted by aggression, with motif bias from the song. It may **anticipate** the next chord by an 8th at
 syncopation above .5 (the synthwave push).
 
 **Invariant (test):** at `aggression = 0` every note is the root on a `locked` step. At `aggression = 1` the average share of off-kick
@@ -280,15 +361,16 @@ notes in a bar is above 60%.
   sine with a pitch envelope from 150 Hz down to 45 Hz over 80 ms, plus a noise click.
   - Pattern families: `half`, `four`, `four+` (16th ghost kicks at high drive), `broken`.
 - **Clap/snare** on 2 and 4 from moderate density.
-- **Hats:** closed 8ths, then offbeat opens, then 16ths as `drive` rises. Velocity humanized ±10%, palette swing.
+- **Hats:** closed 8ths, then offbeat opens, then 16ths as `drive` rises. Velocity humanized ±10%, with swing from the palette and the
+  song.
 - **Perc/metal** at density above .6. **Ride** at peaks only.
 - The **drum pattern is material** too: the kit, the hat figure and the perc figure are kept and varied. Fills are graded by energy
-  (hat flam → snare roll → full break) and placed by bar role (§10.3).
+  (hat flam → snare roll → full break) and placed by bar role (§10.3). Each song picks its own kit variant.
 
 ### 7.4 Pad
 
 - Patch: 4–6 voices of detuned saw or PWM, slow attack (≈ 1/2 bar), long release, lowpass from `darkness`, heavy reverb, sidechained so
-  it pumps. Alternate patches per palette: lush supersaw, warm filtered, glassy wavetable, grimy saw.
+  it pumps. Alternates: lush supersaw, warm filtered, glassy wavetable, grimy saw.
 - Plays the voiced chord (§8.3). Rhythm options are material too:
   - held whole notes
   - a swell on each chord
@@ -322,9 +404,9 @@ notes in a bar is above 60%.
 ### 7.8 Lead
 
 - Patch: mono, 2 saws plus a sub square, glide, vibrato LFO with delayed onset, mild drive by aggression, delay and reverb.
-  Alternates: a hollow wavetable for calm, a screaming detuned saw for peaks.
-- Plays **phrases** built from the motif (§9). Expressive gestures come from macros: aggression adds pitch-envelope scoops, slides and
-  16th ornaments, and darkness lengthens notes and favours the ♭2 neighbour.
+  Alternates: a hollow wavetable, a screaming detuned saw, and a pitched `vox` sample (§16) for a vocal-chop lead.
+- Plays **phrases** built from the song's motif (§9). Expressive gestures come from macros: aggression adds pitch-envelope scoops,
+  slides and 16th ornaments, and darkness lengthens notes and favours the ♭2 neighbour.
 - It is the **foreground** voice. When it plays, nothing else may be foreground (§10.6).
 
 ### 7.9 Counter-melody
@@ -354,7 +436,8 @@ notes in a bar is above 60%.
 ### 7.13 Drone
 
 - Patch: a sine and saw pair on the tonic and fifth, with slow beating detune and a lowpass LFO over many bars.
-- Holds through breakdowns, dread and home. It is the pedal tone made audible.
+- Holds through breakdowns, dread, home and beatless transitions. It is the pedal tone made audible, and the usual glue between two
+  songs (§11.5).
 
 ### 7.14 Texture and FX
 
@@ -362,14 +445,15 @@ notes in a bar is above 60%.
   - **Acid rain:** filtered pink noise with droplet ticks.
   - **Neon fog:** a chorused high shimmer.
   - **Heatwave:** a slow pitch wobble on the beds plus a faint crushed hiss.
-- Place beds (§12).
+- Place beds (§13). Texture belongs to the place, not to a song, so it **carries straight through song transitions** and helps them feel
+  continuous.
 - FX gestures:
   - **Risers:** filtered noise sized to the time until the next bar or phrase.
   - **Impacts:** a sample, or a synth sub-drop plus a noise burst.
   - **Reverse cymbals.**
   - **Glitch stutters:** gated repeats of the current voices.
 
-  These are mostly used by the arranger for entries, exits and transitions (§10.6), and by cues (§11).
+  These are mostly used by the planner for entries, exits and transitions (§10.6, §11.5), and by cues (§12).
 
 ## 8. Harmony and voice leading
 
@@ -380,21 +464,25 @@ tension notes the current darkness allows, and the notes to avoid. Melody, arp, 
 
 ### 8.2 Progressions, harmonic rhythm and cadences
 
-- **Progressions are material** (§10.2), picked from the theme's banks (§14) by section:
+- **Progressions are material** (§10.2). Each song picks its own from the banks, by section type:
   - rest: `i–VI–III–VII`, `i–iv–VI–v`
   - tense: `i–♭II` pedal, `i–♭VI–♭II–i`
   - peak: `i–VI–VII–i`, `i–VII–VI–V(harmonic)`
-- **Harmonic rhythm:** one chord per bar by default, two per bar in turnarounds, one per two bars in breakdowns and dread.
+- **Harmonic rhythm:** one chord per bar by default, two per bar in turnarounds, one per two bars in breakdowns and dread. The song's
+  `complexity` trait shifts this.
 - **Cadences sit at phrase ends:**
   - The last bar of a phrase gets a turnaround (`♭VII → i`, `v → i`, or `♭II → i` under danger).
   - Section ends use a stronger cadence, or a **deceptive** one (to ♭VI) when the planner wants to keep pushing.
   - Builds sit on a **dominant pedal** (V or ♭VII over a held bass) so the drop resolves the tension.
+  - **A song's ending** gets a final cadence (§11.3).
 - **Pedals:** danger can pin the bass, sub and drone to the tonic while the chords move above.
-- **Extensions by palette and darkness:** add9 and sus2 colour calm sections. ♭2 and ♭5 tensions colour danger.
-- **Modulation:** rare, at section boundaries only.
-  - A **lift** up a whole step or a semitone for a late peak in a long arc. Pure synthwave cheese, played straight.
+- **Extensions by palette, song and darkness:** add9 and sus2 colour calm sections and high-`lift` songs. ♭2 and ♭5 tensions colour
+  danger.
+- **Modulation inside a song:** rare, at section boundaries only.
+  - A **lift** up a whole step or a semitone for a late peak. Pure synthwave cheese, played straight.
   - A **modal shift** with the same root (Aeolian → Phrygian) as danger rises.
-  - A **return** to the home key on recap.
+  - A **return** to the song's home key on recap.
+- **Between songs:** the key relation and the pivot chord are chosen by the transition (§11.5).
 
 ### 8.3 Voicing
 
@@ -412,8 +500,9 @@ tension notes the current darkness allows, and the notes to avoid. Melody, arp, 
 
 ### 9.1 Motifs
 
-A **motif** is a rhythm cell (1 bar or less), a contour and a set of intervals in scale degrees relative to the chord. The theme (§14)
-gives each save a main motif. The material pool (§10.2) can invent secondary motifs for bridges, and each district keeps its own.
+A **motif** is a rhythm cell (1 bar or less), a contour and a set of intervals in scale degrees relative to the chord. **Each song has
+its own main motif**, and the planner can invent secondary motifs for a song's bridge. The save's theme motif (§15) is quoted by some
+songs, not all, as a thread through the night.
 
 ### 9.2 Transformations
 
@@ -446,15 +535,15 @@ A lead phrase follows one of two classical forms:
 - **Breathing:** the lead rests for at least ~25% of a phrase and never plays more than 2 bars without a rest.
 - **Call and response:** the counter, the pluck or the bells answer in those rests (§7.9).
 
-All of these are testable on generated phrases (§19).
+All of these are testable on generated phrases (§20).
 
-## 10. Form: phrasing and the arc of a song
+## 10. Form inside a song
 
-The goal is a song that develops, not a loop and not a random walk. Three ideas carry it:
+A song develops instead of looping or wandering. Three ideas carry it:
 
 - **Material is kept, not re-rolled.**
 - **Bars have roles inside phrases.**
-- **An arc planner chooses deliberate moves at phrase and section boundaries,** scored against an energy plan and listener fatigue.
+- **A song planner chooses deliberate moves at phrase and section boundaries,** scored against an energy plan and listener fatigue.
 
 ### 10.1 The time hierarchy
 
@@ -464,15 +553,16 @@ The goal is a song that develops, not a loop and not a random walk. Three ideas 
 | bar | 16 steps | rendering, micro-variation (§10.3) |
 | phrase | 4 or 8 bars | bar roles, fills, one or two arrangement moves (§10.5) |
 | section | 2–4 phrases | section type, which material is bound to which role, harmony changes, phrase form |
-| arc | many sections | the energy plan. An arc ends when the palette changes or a hard cue resets it (death, dawn). |
+| song | a few minutes | character, material, energy plan, form, ending (§11) |
+| night | many songs | the setlist: which song comes next, contrast, reprises (§11.4) |
 
 ### 10.2 Material
 
-Everything a role plays comes from **material**:
+Everything a role plays comes from **material**, and **material belongs to a song**:
 
 ```ts
 interface Material {
-  id: string; role: RoleId;
+  id: string; song: SongId; role: RoleId;
   kind: 'riff' | 'drums' | 'progression' | 'motif' | 'ostinato' | 'arp' | 'rhythm' | 'voicingStyle';
   seed: number;          // generation is deterministic from this
   born: number;          // bar
@@ -482,16 +572,17 @@ interface Material {
 }
 ```
 
-- A material is **invented once** and played for as long as the planner wants it. Inside a phrase it repeats, which gives the music an
+- A material is **invented once** and played for as long as the planner wants it. Inside a phrase it repeats, which gives the song an
   identity. Across phrases it advances through **variants**: related versions produced by the role's variation operators (for example a
   bass riff with one note changed, an octave flip, a displaced accent, a thinned version or a busier one). Variants are deterministic from
   `(seed, variant)`.
-- New material is invented only when the planner chooses a "new material" move. Old material can be **recalled** later (a recap), so
-  the song has callbacks.
-- **The pool persists per palette for the whole night.** When she comes back to the slum, the slum's riff and motif come back with her,
-  in the same way the world remembers her in the text (TONE.md, "Callbacks").
+- New material is invented only when the planner chooses a "new material" move (usually for a bridge). Earlier material can be
+  **recalled** for a recap, so a song has callbacks inside itself.
+- **A song's material is generated in its character** (§11.1): an acid song's riffs are acid riffs, and a brooding song's progressions
+  move slowly.
 - Material carries no axis values. The same riff becomes clean or vicious through the patch's mod routes, so a fight that breaks out in a
-  bar plays a **fight version of the bar's music**, not unrelated music.
+  bar plays a **fight version of the current song**, not unrelated music.
+- Songs are kept in the setlist (§11.4) with all their material, so a song can be **reprised** later in the night.
 
 ### 10.3 Inside a phrase: bar roles
 
@@ -505,7 +596,7 @@ What each role means for the layers:
 
 - **Statement and repeat:** play the bound material as it is. Repetition is deliberate here.
 - **Variation:** each eligible layer may apply **one** small operator (a drum ghost note or open-hat accent, a bass note change or
-  octave flip, a pad inversion or rhythm change). The variation budget scales with `volatility`.
+  octave flip, a pad inversion or rhythm change). The variation budget scales with `volatility` and the song's `complexity`.
 - **Turnaround:** a fill graded by energy, a bass pickup into the next downbeat, a pad swell or cut, a cadence (§8.2) and, when the next
   phrase brings a big change, a **pre-drop gap** (kick and bass out for the last beat or two).
 - **Micro-variation, every bar:** velocity humanizing and an occasional ghost note keep identical bars from sounding machine-printed. It
@@ -515,16 +606,18 @@ What each role means for the layers:
 
 | Section | Purpose | Shape |
 |---|---|---|
-| **intro** | Establish the palette | Bed and texture first, then one layer enters each phrase |
+| **intro** | Establish the song | Bed and texture first, then one layer enters each phrase. The hook is held back. |
 | **groove** (A) | The main material | Steady, with variation bars and the occasional layer swap |
 | **build** | Create pull | Add or brighten each phrase (`sectionPos` routes), snare roll density up, a riser, a dominant pedal, then a pre-drop gap |
-| **peak** (B) | Pay off | Full band and lead foreground. Stabs on chord changes. |
+| **peak** (B) | Pay off | Full band, the hook in front. Stabs on chord changes. |
 | **breakdown** | Breathe, so the next peak can land | **Subtract first**: strip to bed, drone and counter or a lead fragment, half-time allowed, new harmony allowed |
 | **bridge** (C) | Contrast after A has been heard a lot | New material for one or two roles (new progression, a sibling swap such as pluck→arp or pad→choir, a secondary motif) |
 | **recap** (A') | Return | Recall the earlier material in a varied, fuller form, possibly lifted a key (§8.2) |
-| **outro** | Wind down | Remove layers one per phrase, with tails into the reverb |
+| **outro** | End the song | Remove layers one per phrase, with tails into the reverb, then a final cadence (§11.3) |
+| **transition** | Hand over to the next song | Owned by two songs at once (§11.5) |
 
-Section transitions follow a weighted grammar, which the planner then scores (§10.5):
+Section transitions follow a weighted grammar. The song's character shifts the weights (§11.1), and the planner scores the candidates
+(§10.5):
 
 ```
 intro -> groove
@@ -534,10 +627,10 @@ peak -> breakdown | bridge | peak (at most once)
 breakdown -> build | recap
 bridge -> build | groove
 recap -> build | peak | outro
-outro -> (arc ends)
+outro -> transition
 ```
 
-### 10.5 The arc planner
+### 10.5 The song planner
 
 This is where the intelligence lives. It uses the same utility-AI pattern as the hero (DESIGN.md §4): score the options, then pick with a
 low-temperature softmax from the music Rng. It is deterministic, deliberate, and only rarely surprising.
@@ -548,16 +641,21 @@ low-temperature softmax from the music Rng. It is deterministic, deliberate, and
 energy = Σ layerWeight(role) × noteDensity(role) × brightness(role)
 ```
 
-**Energy plan.** From `energyBand` and `volatility`, the planner draws an **intended energy curve** over the next few sections:
+**Energy plan.** From `energyBand`, `volatility` and the song's character, the planner draws an **intended energy curve** across the
+song's form:
 
-- a rise into a peak near the band's ceiling, then a breakdown near its floor, then back up.
+- a rise into a peak near the band's ceiling, a breakdown near its floor, back up, and a wind-down at the end.
 - A wide band (a fight) gives big dynamics. A narrow band (a quiet shop) gives subtle motion: pad inversions, an arp coming and going,
   bells.
-- **Constant axes still give a moving curve.** The band stays put while the arc keeps cycling inside it.
+- **Constant axes still give a moving curve.** The band stays put while the song moves through its sections inside it, and eventually
+  ends.
+- The curve's shape is the song's own: a `brood` song has long low stretches and one late peak, a `drive` song sits high with short
+  breaths (§11.1).
 
 **Fatigue.** Every active layer, every bound material and the current section type accumulate **exposure** while they play unchanged.
 Exposure decays while they rest. Total fatigue raises the value of change. **Familiarity** is valued too: recalling something heard a
-while ago scores better than inventing something new, up to a point.
+while ago scores better than inventing something new, up to a point. Fatigue that no move inside the song can relieve any more is one of
+the signals that the song is done (§11.3).
 
 **Moves.** At each phrase boundary (and with a larger allowance at section boundaries) the planner considers:
 
@@ -573,14 +671,14 @@ while ago scores better than inventing something new, up to a point.
 | re-voice / register shift | pad up an octave, bass drops an octave |
 | feel change | half-time or double-time drums for a phrase |
 | mute for effect | kick out for 2 bars before a peak |
-| key change | late-arc lift, section boundary only, rare |
+| key change | late-song lift, section boundary only, rare |
 
 **Scoring:**
 
 ```
 score(move) =  wE · (how close the result's energy is to the intended curve)
             +  wN · (fatigue relieved)
-            +  wC · (coherence: fits the section's purpose, reuses or recalls known material, keeps the motif present)
+            +  wC · (coherence: fits the section's purpose, reuses or recalls the song's material, keeps the hook present, fits the song's character)
             −  wD · (disruption: number of simultaneous changes; touching the foreground voice mid-phrase)
             −  orchestration penalties (§10.6, hard rules are vetoes)
 ```
@@ -588,16 +686,16 @@ score(move) =  wE · (how close the result's energy is to the intended curve)
 **Limits:** at most 1–2 small moves or 1 big move per phrase boundary, and more at section boundaries.
 
 **Planning, not just greedy choices.** At a section boundary the planner picks the next section from the grammar, scored by the energy
-plan and fatigue. Inside the section, phrase moves serve its purpose:
+plan, fatigue and how far through the song it is (`songPos`). Inside the section, phrase moves serve its purpose:
 
 - A **build** adds or brightens every phrase.
 - A **breakdown** subtracts first, then reintroduces one element per phrase.
-- A **peak** spotlights the lead.
+- A **peak** spotlights the hook.
 
 The result is staggered entries, grouped exits and "subtract before you add" before a payoff, which is how an arranger works.
 
 **Every decision is logged with its reasons** for MusicLab (§10.8), for example
-`phrase 14: drop arp (exposure .82, build next, density budget)`.
+`"Chrome Psalm" phrase 14: drop arp (exposure .82, build next, density budget)`.
 
 ### 10.6 Orchestration rules
 
@@ -605,11 +703,12 @@ Hard rules (vetoes):
 
 - **One spotlight.** At most one foreground voice at a time (lead, siren, or the counter when it carries the melody). The counter only
   answers in rests.
-- **Slots:** one voice in the low slot (the bass), one in the air slot, at most two in high-mid, and pluck and arp never together.
+- **Slots:** one voice in the low slot (one bassline, even during a transition), one in the air slot, at most two in high-mid, and pluck
+  and arp never together.
 - **Floors:** a groove section needs kick or bass. The sub plays whenever the bass plays.
 - **Minimum lifetimes:** a layer that enters stays at least one phrase, and a material stays at least two phrases, so nothing flickers.
 - **Boundaries:** layers enter and leave only at phrase boundaries (or section boundaries for big moves). The only exceptions are cues
-  (§11).
+  (§12).
 
 Soft rules (penalties):
 
@@ -619,70 +718,235 @@ Soft rules (penalties):
 - **Gestures:** an entry gets an entry gesture (the patch's `entry` mod route: filter-in, swell, or a reverse cymbal on big ones). An
   exit gets an exit gesture (`exit`: filter-close, a tail into the reverb). Hard cuts are reserved for drops, pre-drop gaps and cues.
 
-### 10.7 How the axes and the arc share control
+### 10.7 How the axes and the song share control
 
 - **The axes decide what is allowed and how it sounds:** the palette, which roles are eligible (the siren needs heat, the choir needs
-  darkness), the energy band and volatility, and every patch's mod routes (aggression, darkness and drive).
-- **The arc decides when and how, inside that.** Slow axis drift moves the band, and the planner absorbs it into its curve.
-- **Sharp changes override the plan.** A drop or dread cue (§11) makes the planner abandon its current section and jump to a matching
-  one (a peak or a breakdown) on the next bar, restarting the phrase count from there. It **keeps the bound material**, so the music
-  changes state without changing identity.
+  darkness), the energy band and volatility, and every patch's mod routes.
+- **The song decides who it is:** tempo, key, patches, hook, material and the shape of its curve.
+- **The planner decides when and how, inside both.** Slow axis drift moves the band, and the planner absorbs it into its curve.
+- **Sharp changes override the plan.** A drop or dread cue (§12) makes the planner abandon its current section and jump to a matching
+  one (a peak or a breakdown) on the next bar, restarting the phrase count from there. It **keeps the song and its material**, so the
+  music changes state without changing identity. Events never end a song, apart from death and dawn (§11.3).
 
 ### 10.8 MusicLab timeline
 
 The lab view needed to tune all of this:
 
-- a scrolling timeline of sections and phrases
+- a scrolling timeline of songs (titled), sections and phrases, with transitions shown as overlaps
 - active layers as lanes, with entries and exits marked
 - the intended and actual energy curves, with the band
-- per-layer fatigue
-- the planner's log line for each boundary
+- per-layer fatigue, and the song's ending pressure (§11.3)
+- the planner's and setlist's log lines for each boundary
+- each song's character as a small radar or bar readout, so contrast between songs is visible
+- a "next song" button to force a transition while tuning
 
-Sliders let you hold the axes still and listen for whether it still develops.
+Sliders let you hold the axes still and listen for whether it still develops, and whether it moves on.
 
-## 11. Cues and the viewer
+## 11. Songs
 
-### 11.1 Cues
+A song is the unit of identity. The axes shape how a song is *performed*, while its character decides *what it is*. Over a night the
+music plays a **setlist** of songs that differ from each other, each with a beginning, a development and an end, joined by deliberate
+transitions.
 
-The bridge turns notable events into cues. Each cue has a **grid**, a **priority** (only the highest pending cue per grid slot wins) and
-a **cooldown**. Big cues act through the arc planner (§10.7), not around it.
+### 11.1 Character
 
-| Event(s) | Cue | Grid |
+Each song rolls a **character** when it is created, much as each save rolls Blackbird's personality (`engine/src/personality.ts`).
+Character is a vector of 0..1 traits plus a few discrete picks.
+
+**Traits:**
+
+| Trait | Low | High | What it moves |
+|---|---|---|---|
+| `drive` | loose, half-time leaning | relentless four-floor | kick families, hat density, energy floor, section weights (more groove/peak) |
+| `brood` | restless | slow, heavy, spacious | harmonic rhythm, note lengths, breakdown weight, a late single peak |
+| `melody` | groove-forward | lead-forward | how often the lead and counter are eligible, hook role |
+| `acid` | round bass | resonant, squelchy bass | bass patch and templates, resonance baseline, bass as hook |
+| `grit` | polished | crushed, saturated | drive and crush baselines, kit variant, texture level |
+| `space` | dry, tight | huge reverb and delay | send levels, IR length, sparser arrangements |
+| `swing` | straight | swung | groove swing (added to the palette's) |
+| `lift` | bleak minor | heroic synthwave | mode choice (Dorian, add9, the odd major chord), brighter patches |
+| `complexity` | simple, hypnotic | busy, developing | harmonic rhythm, chord extensions, how many materials, the variation budget |
+| `length` | short and punchy | a long journey | target length (§11.2) |
+
+**Discrete picks:**
+
+- **tempo** inside the palette's range (±6 BPM around its centre), nudged by `drive`
+- **key**, chosen by the transition from the previous song (§11.5)
+- **mode bias**, from the palette's bias plus `lift` and `brood`
+- **patches** for each role, from the alternates, weighted by the traits
+- **kit variant**
+- **groove templates** the riff draws from
+- **form preference**, for example `ABAB'`, `A–build–peak–breakdown–peak`, or a long slow-burn single build
+- **the hook (signature):** the one element the song is known for. It is a role plus its main material (an acid riff, a lead motif, a
+  stab rhythm, an arp figure, a vox-chop line). The planner keeps it present: it is held back in the intro, it lands at the first peak,
+  it returns in the recap, and it gets a coherence bonus throughout.
+- **theme quote:** whether this song quotes the save's theme motif (about 30% of songs), and where (counter in the breakdown, bells in the
+  outro)
+- **a title**, generated from a word table ("Chrome Psalm", "Ninth Precinct Rain"). It shows in MusicDock and the timeline. It's cheap,
+  fits the tone, and makes songs easy to tell apart while tuning.
+
+**How character reaches the music:**
+
+- **Generation:** materials are generated in character (§10.2).
+- **Patches:** picks, plus `trait:` mod routes (§6.3).
+- **Planner:** section grammar weights, the shape of the energy curve, and coherence scoring for the hook and the song's signature roles.
+- **Macro offsets:** small offsets (at most ±0.15) on macros, for example a `grit` song raising the aggression floor a little. The axes
+  always dominate: a gritty song in a quiet shop is still quiet, just rough at the edges.
+
+Character traits are **registered like axes**, as a table of rows with weights into the systems above. New traits can be added the same
+way new axes can (§5.3).
+
+### 11.2 Length and lifecycle
+
+```
+created -> intro -> body (sections per the planner) -> outro -> transition -> (the next song takes over)
+```
+
+- **Target length** comes from `length`: about 3 to 7 minutes, converted to bars at the song's tempo and rounded to whole phrases.
+- **The arc is required.** A song isn't allowed to end until it has had its intro, at least one peak or full-energy section (scaled to
+  the band, so in a quiet stretch it's a modest one), at least one breakdown or bridge, and its hook has been heard at least twice.
+- The planner always knows `songPos` (0..1 through the target), and uses it both to place the arc and to steer toward an ending.
+
+### 11.3 Endings
+
+A song ends from **within the music**, even when the game is samey. **Ending pressure** rises with:
+
+- `songPos` past 1.0 (the target length reached)
+- **exhaustion:** fatigue that no in-song move can relieve any more (every sibling swapped, every material varied out, the recap done)
+- a **sustained shift in the axes**, where the song's character no longer suits the band it has been playing in for several phrases
+  (for example, a brooding song through a long chase). It's the axes' lasting state that counts, not a single event.
+
+When pressure crosses a threshold, the planner steers to an ending through the grammar (`recap → outro`, or `peak → outro` for a
+big finish). It never cuts away mid-section. There is a **hard ceiling** of 1.5× the target length, after which the outro is forced at
+the next section boundary.
+
+**Ending styles,** picked by character and energy:
+
+- **Wind-down:** layers leave one per phrase, then a final cadence into the drone.
+- **Big finish:** the last peak ends on a hit and a long reverb tail.
+- **Dissolve:** the beat drops out and the beds hold while the next song's intro rises underneath (this is effectively a breakdown-bridge
+  transition, §11.5).
+
+**Events that do end a song:**
+
+- **Death** ends it on the spot (the tape-stop cue, §12.1). The music then fades out, since the lab has no music yet. A new song starts
+  when the next run goes out.
+- **Dawn** moves the song to its outro, and the night ends with it.
+- **A district change** after she has stayed long enough (§13) triggers a transition to that district's music, with a shorter outro.
+
+### 11.4 The setlist: choosing the next song
+
+`setlist.ts` keeps every song of the night (seed, character, palette, title, materials, bars played). When a song begins to end, it
+chooses the next one. This is the same scored-candidates pattern again.
+
+1. **Generate candidates:** about 6 new song seeds from the music Rng, each with a rolled character, plus any **reprise** candidates
+   (§11.4.1).
+2. **Score each one:**
+   ```
+   score(song) =  wK · contrast with the current song (trait distance: wants clearly different, not maximally different)
+               +  wV · variety across the last few songs (penalize a character close to any of them)
+               +  wP · fit to the palette (the district's signature roles and mode bias)
+               +  wA · fit to the current macros (a long chase favours drive; a long dread favours brood and space)
+               −  wT · transition cost (tempo and key distance from the current song, §11.5)
+   ```
+3. **Pick** with a low-temperature softmax. It is deterministic from the seed.
+
+The aim is that each song plainly has a different character from the last while still belonging to the same night and the same place.
+
+#### 11.4.1 Reprises
+
+A song from earlier in the night can come back, which is the setlist's version of a callback (TONE.md, "Callbacks"):
+
+- She returns to a district whose song she left mid-way.
+- Or enough songs have passed that a familiar one feels earned.
+
+A reprise keeps its character, title and material. It starts from its intro (or at its recap, for a quick return) and runs a shorter
+form. A song is reprised at most once a night.
+
+### 11.5 Transitions
+
+A transition is a section owned by two songs at once. Both songs' material is available, and the orchestration rules still apply, so
+there is always exactly one bassline and one spotlight.
+
+**Key relation** (from the outgoing key to the incoming one, each with a cost):
+
+| Relation | Feel | Cost |
+|---|---|---|
+| same key | seamless | lowest, but penalized if overused |
+| up or down a fifth | natural | low |
+| relative major/minor | colour change | medium |
+| up a whole step | lift | medium |
+| up or down a semitone | dramatic | high, only with a beatless transition or a cut |
+
+The change happens through a **pivot chord** that both keys share. Where there isn't one, it happens over the drone, in a beatless
+transition.
+
+**Tempo:** a ramp of at most about 1 BPM per bar inside a beat-carrying transition. Any bigger change happens while there's no beat.
+
+**Transition types**, chosen by tempo and key distance, the contrast between the songs and the current energy:
+
+- **Blend** (8–16 bars), the DJ mix, used when the songs are close in tempo and key:
+  - The incoming drums slide under the outgoing song first.
+  - The basslines **swap** at a phrase boundary, never overlapping.
+  - The outgoing harmony and lead leave, and the harmony pivots.
+  - **The incoming hook arrives last**, as the reveal.
+  - Favoured when energy is high, so a fight carries straight through a song change.
+- **Breakdown bridge**, used for big differences in tempo, key or character:
+  - The outgoing song winds down to bed, drone and texture.
+  - The tempo and key change while there's no beat.
+  - The incoming song's intro builds from that bed.
+  - Favoured when energy is low.
+- **Riser-drop:** the outgoing song builds, and the drop lands in the incoming song's first peak. Used when a drop cue arrives during an
+  outro, or for a high-energy district change.
+- **Cut:** the outgoing song ends on a hit, then a beat or a bar of tail, then the new song. It's rare: a hard district change, or after
+  a big finish.
+
+Texture beds belong to the place, not the song, so they carry on unbroken through every transition except a cut.
+
+## 12. Cues and the viewer
+
+### 12.1 Cues
+
+The bridge turns notable events, and axis thresholds, into cues. Each cue has a **grid**, a **priority** (only the highest pending cue
+per grid slot wins) and a **cooldown**. Big cues act through the song planner (§10.7), not around it.
+
+| Trigger | Cue | Grid |
 |---|---|---|
 | first `fight_round` / `ambush` / `join_brawl` / `gang_brawl` of a group | **Drop**: a riser over the remainder, then the planner jumps to a peak with an impact | bar |
 | `dragon_notices`, `dragon_near`, Ares `scream` | **Dread hit**: a sub-drop boom, the kick cuts, the planner jumps to a breakdown with choir and drone, plus a siren swell | beat |
 | `give_chase`, `pursuit`, `chase_mount` | **Push**: a fill now, +4 BPM at the next phrase, the siren becomes eligible, double-time hats | 16th → bar |
 | `chase_end` (good) | **Release**: a filter sweep down, and the planner heads to a breakdown or groove | bar |
 | a hit taken (`fight_round` bad, `injury`, `car_hit`) | **Flinch**: a one-beat master lowpass dip, or a glitch stutter at high aggression | 16th |
-| a foe or dragon down, `victory` | An impact plus a crash. A real `victory` gets the Picardy major chord with the motif on bells. | beat / bar |
-| `level_up`, `skill_up` | The motif as a quick bell arp | beat |
-| `death`, `dying_dies` | **Tape-stop**: `playbackRate` and frequencies ramp down over ~1.2 s, then silence. The arc ends, and the lab ambient follows (the motif, slowed down, on the drone). | 16th |
+| a foe or dragon down, `victory` | An impact plus a crash. A real `victory` gets the Picardy major chord with the hook on bells. | beat / bar |
+| `level_up`, `skill_up` | The current song's motif as a quick bell arp | beat |
+| `death`, `dying_dies` | **Tape-stop**: `playbackRate` and frequencies ramp down over ~1.2 s, then silence. The song ends (§11.3). | 16th |
 | `dawn` | The planner moves to an outro | phrase |
+| an axis crossing a threshold (data: `{ axis, above \| below }`) | for axes added later | per row |
 
 Outcomes (`good`/`bad`/`mixed`) only choose between cue variants. They don't move an axis.
 
-### 11.2 Feeding events from the viewer
+### 12.2 Feeding events from the viewer
 
 The viewer **steps the world ahead of what the player reads**: `stepWorld` queues chunks, and `release` reveals one every tick (2.4 s
 at 1×). The music follows what is on screen:
 
-- Attach each chunk's `GameEvent[]`, plus a small music snapshot, to the chunk. **Call the bridge on `release`**, not on `step`.
-- The music snapshot holds `district`, `kind`, `danger`, `heat`, `hpRatio`, flight `{kind, phase, noticed}` and a `chasing` flag. It is
-  computed at step time from the world, which stays read-only.
+- At step time, the bridge runs every registered axis's `read(w)` and attaches the results, plus the chunk's `GameEvent[]`, to the
+  chunk. The world stays read-only.
+- **On `release`**, not on step, the bridge calls each axis's `target` and feeds the cue table.
 
-### 11.3 Speed, skip and catch-up
+### 12.3 Speed, skip and catch-up
 
-- **At 2× and 5×** the axes follow as normal. Cooldowns scale with speed, and low-priority cues are dropped above 2×.
-- **Skip, offline catch-up and a jump to the digest** feed no events. They set the axes to the final state and let the planner move
-  there through one transition.
+- **At 2× and 5×** the axes follow as normal. Cooldowns scale with speed, and low-priority cues are dropped above 2×. Songs keep their
+  own tempo and length, so fast-forwarding doesn't speed through songs.
+- **Skip, offline catch-up and a jump to the digest** feed no events. They set the axes to the final state, and the planner moves there
+  through one section change. The setlist doesn't pretend that songs played while the music wasn't listening.
 
-## 12. Palettes (place)
+## 13. Palettes (place)
 
-A palette is data. Moving between districts crossfades continuous parameters over a phrase and swaps discrete ones on the phrase
-boundary. It also **switches the material pool** (§10.2), so each district has its own recognizable music, and the planner starts a new
-arc with an intro, or a recap if the district has been visited before.
+A palette is data. It sets the **range** songs are created in: a tempo centre, a mode bias, kit families, a bed preference, signature
+roles and swing. It also owns the **texture**, which is continuous across songs.
 
-| District | BPM | Mode bias | Kit / color | Bed | Signature roles | Swing | Texture |
+| District | BPM centre | Mode bias | Kit / color | Bed | Signature roles | Swing | Texture |
 |---|---|---|---|---|---|---|---|
 | `market` | 108 | Aeolian, Dorian at rest | tight, clicky | bright PWM pad | pluck, bells | 4% | crowd murmur |
 | `nightlife` | 124 | Aeolian | full club kit, big claps | lush supersaw | arp, stabs, lead | 0 | none (club wins) |
@@ -691,39 +955,39 @@ arc with an intro, or a recap if the district has been visited before.
 | `corporate` | 118 | harmonic minor | clean, glassy | glassy wavetable pad | bells, arp | 0 | air-handling whine |
 | `slum` | 116 | Phrygian, Locrian tint | distorted, crunchy | grimy saw, choir | siren, broken drums | 10% | dripping, rumble |
 
-The signature roles get a coherence bonus in that palette's planner scoring. They are a tendency, not a lock.
+**Moving between districts:**
 
-**Location-kind overrides** on top of the district:
+- The texture crossfades over a phrase straight away.
+- **The song changes only if she stays.** If she is still in the new district after a dwell (about one phrase of game beats), the
+  current song gets a short outro and transitions (§11.5) to a reprise of that district's song, if there is one, or a new song created in
+  the new palette. Passing through a district on the way somewhere doesn't make the music thrash.
+- Until then, the current song continues with the new palette's continuous parameters blended in a little.
+
+**Location-kind overrides** apply on top of the song, instantly (at the next bar):
 
 - `club`: four-floor and a high energy floor, with aggression capped unless danger is set. She's dancing.
 - `bar`: the mix goes through a lowpass about 2 kHz plus a room reverb ("the song from the next room"). It lifts when a fight starts.
-- `home` and the lab: ambient, using only the drone, the pad, the counter and the motif.
+- `home`: a quiet bed-only arrangement of the current song (drone, pad, counter).
 - `tunnel` and `lair`: long dark reverb, with half-time weighted up.
 - `boss`: a danger floor of 0.7.
 
-## 13. Vehicles
+**The lab screen** is out of scope for now. The music fades out there. It will get its own composed piece later.
+
+## 14. Vehicles
 
 Driving overlays the palette: an engine-drone texture, the band's floor raised one step, and the pluck or arp favoured. This is optional
-and comes in phase 7.
+and comes in the place phase.
 
-## 14. Per-save identity
+## 15. Per-save identity
 
 Each save rolls a **theme** from the music Rng (save seed plus `'music'`):
 
-- a root key, biased toward E, F, F♯, G, A for low-end weight
-- one progression from each bank (rest, tense, peak)
-- an arp pattern
-- a **main motif** of 5–7 notes
+- a **home key**, biased toward E, F, F♯, G, A for low-end weight. The night's first song starts here, and the setlist drifts away from
+  it and back.
+- a **theme motif** of 5–7 notes, which some songs quote (§11.1)
+- a seed for every song, from `(theme seed, song index)`
 
-Each district's pool is seeded from the theme too, so districts differ from each other while the main motif ties the whole night
-together. It shows up in:
-
-- the lead at peaks
-- the counter in breakdowns
-- bells on level-up
-- the lab ambient, slowed down
-
-## 15. Samples (author-supplied)
+## 16. Samples (author-supplied)
 
 - **Location:** `public/audio/` plus `public/audio/manifest.json`, loaded with `fetch` and `decodeAudioData` once the context starts.
   Loading never blocks playback: synth fallbacks play until the buffers arrive.
@@ -742,17 +1006,21 @@ together. It shows up in:
   | `clap`, `snare` ×2 | dry; the reverb is added in-engine |
   | `hat_closed` ×3, `hat_open` ×2, `ride` | |
   | `perc` ×4 | metal clanks, rims, shakers |
-  | `impact`, `boom` | for drops and dread hits |
+  | `impact`, `boom` | for drops, dread hits and big finishes |
   | `riser`, `reverse_cymbal` | optional |
-  | `glitch` ×2, `vox` ×2 | optional chopped one-shots. A `vox` sample can also be an oscillator source (`wave: 'sample'`) for a pitched vocal-chop lead. |
+  | `glitch` ×2, `vox` ×2 | optional chopped one-shots. A `vox` sample can also be an oscillator source (`wave: 'sample'`) for a pitched vocal-chop hook. |
+- More variants per role give songs more kits to choose between.
 - **Playback variation:** round-robin, ±2% rate drift (not on the kick), and velocity to gain and to a lowpass.
 - **Every role has a synth fallback renderer**, so the sample kit is never required.
 
-## 16. Mix and master
+## 17. Mix and master
 
-- **Buses:** `sub`, `bass`, `drums`, `beds` (pad, choir, drone), `music` (stabs, pluck, arp, bells), `lead` (lead, counter, siren) and
-  `fx`. Sends go to one `reverb` (a `ConvolverNode` with a generated noise-decay IR, length from palette and darkness) and one `delay`
-  (feedback through a bandpass, tempo-synced).
+- **Buses:** `sub`, `bass`, `drums`, `beds` (pad, choir, drone), `music` (stabs, pluck, arp, bells), `lead` (lead, counter, siren),
+  `texture` and `fx`.
+  - Sends go to one `reverb` (a `ConvolverNode` with a generated noise-decay IR, length from palette, song `space` and darkness) and one
+    `delay` (feedback through a bandpass, tempo-synced).
+  - During a transition each song gets its own bus group, so the two can be faded and filtered independently. A new IR is swapped in
+    with a crossfade between two convolvers.
 - **Sidechain:** faked by automating a gain dip on `bass`, `beds` and `music` at every kick (up to about −8 dB, release about 1/8 note),
   with a shallower dip on `sub`. The `lead` bus is barely ducked, so the melody stays on top.
 - **Spotlight mixing:** while a foreground voice plays, `music` drops ~2 dB and loses a little high end (a gentle shelf), so the lead
@@ -760,41 +1028,56 @@ together. It shows up in:
 - **Master:** highpass 25 Hz → glue compressor → tanh soft clip → limiter-style compressor → user volume. Mono below ~120 Hz.
 - **Levels:** the music sits *under* reading. The default volume is modest, with an optional dip while the viewer waits on her question.
 
-## 17. Performance
+## 18. Performance
 
 - Persistent mono voices and prebuilt poly pools (§6.2). Only one-shot hits create nodes.
-- Aim for about 80 active nodes at peak with the full ensemble. A `lowPower` flag, set when the scheduler sees late callbacks, shrinks
-  poly pools, drops unison voices and disables the formant bank (the choir falls back to the pad).
-- The conductor's work happens once per bar and is cheap: the planner scores a dozen moves at most once per phrase.
+- Aim for about 80 active nodes at peak with the full ensemble, and about 1.5× that during a transition, when two songs' voices
+  overlap. Transitions keep their overlap short and move layers across one at a time, so the peak never has two full ensembles.
+- A `lowPower` flag, set when the scheduler sees late callbacks, shrinks poly pools, drops unison voices, disables the formant bank (the
+  choir falls back to the pad) and prefers breakdown-bridge transitions (less overlap).
+- The conductor's work happens once per bar and is cheap. The planner scores a dozen moves at most once per phrase, and the setlist
+  scores about six candidates once per song.
 
-## 18. Phases
+## 19. Phases
 
 Each phase ends playable in MusicLab, with `npm test` and `npm run typecheck` green, and has a listening bar to clear.
 
-1. **Engine, patch model, sub and bass.** `synth/engine.ts`, the scheduler, `voice.ts` and `pool.ts`, the patch types, the axes and
-   macros, the synth kick, the sub, and the **character bass built as a patch** with the full aggression morph. *Done when sweeping
-   aggression from 0 to 1 goes from clean and locked to distorted and syncopated with no clicks, and the sub stays clean.*
+1. **Engine, axes, patch model, sub and bass.** `synth/engine.ts`, the scheduler, `voice.ts` and `pool.ts`, the patch types, **the
+   axis registry and macro table** (from day one, so nothing hard-codes an axis), the synth kick, the sub, and the **character bass
+   built as a patch** with the full aggression morph. *Done when sweeping aggression from 0 to 1 goes from clean and locked to distorted
+   and syncopated with no clicks, and the sub stays clean.*
 2. **Harmony and the beds.** `theory`, `harmony`, `voicing`, synth drums, pad, stabs and drone, the sidechain and the master chain. A
    fixed 8-bar loop for now. *Done when a progression moves smoothly with no voice jumping, and the stabs sit with the bass both locked
    and answering.*
-3. **Form.** The material pool and variants, bar roles, sections, the arc planner (energy plan, fatigue, moves, scoring), orchestration
-   rules and the MusicLab timeline. *Done when five minutes with the sliders held still doesn't feel like a loop, and the timeline
-   explains every change.*
+3. **Form inside a song.** The material pool and variants, bar roles, sections, the song planner (energy plan, fatigue, moves,
+   scoring), orchestration rules and the MusicLab timeline. One fixed character for now. *Done when five minutes with the sliders held
+   still doesn't feel like a loop, and the timeline explains every change.*
 4. **Melody.** Motifs, transformations, phrase forms, the lead, counter, pluck and arp, and the spotlight. *Done when the lead sounds
    like phrases that ask and answer, and the motif is recognizable in different sections.*
-5. **Samples.** Manifest loader, round-robin, kick tuning and the author's kit as it arrives.
-6. **Bridge.** `bridge.ts`, the music snapshot on chunks, feeding on `release`, the cue table and planner jumps, speed scaling and
-   `MusicDock` in NightViewer. *The first time it plays along with a real night.*
-7. **Heat and place.** The heat axis end to end (tempo push, siren), district palettes with their own pools, location-kind overrides,
-   choir, bells, weather beds, key changes and the vehicle overlay.
-8. **Polish.** Victory, death and dawn cues, the lab ambient, glitch gestures, and an `AudioWorklet` only if a voice needs it.
+5. **Songs.** Character and traits, song generation (patch picks, tempo, hook, titles), length and lifecycle, ending pressure and
+   ending styles, the setlist with scored candidates and reprises, and all four transition types with key relations and pivots. *Done
+   when twenty minutes with the sliders held still plays a run of distinct songs, each one recognizable by its hook, and every handover
+   sounds intentional.*
+6. **Samples.** Manifest loader, round-robin, kick tuning and the author's kit as it arrives.
+7. **Bridge.** `bridge.ts` driven by the registry, axis reads on chunks, feeding on `release`, the cue table and planner jumps, speed
+   scaling, and `MusicDock` with the now-playing title in NightViewer. *The first time it plays along with a real night.*
+8. **Heat and place.** The heat axis end to end (tempo push, siren), district palettes, the dwell rule and district transitions,
+   location-kind overrides, choir, bells, weather beds, key changes inside songs and the vehicle overlay.
+9. **Polish.** Victory, death and dawn cues, glitch gestures, and an `AudioWorklet` only if a voice needs it.
 
-## 19. Tests (all in `npm test`, all node-side, no balance tests)
+## 20. Tests (all in `npm test`, all node-side, no balance tests)
 
 **Determinism and safety**
-- The same theme seed and axis trajectory produce identical bars and identical planner decisions.
+- The same theme seed and axis trajectory produce identical bars, identical planner decisions and an identical setlist.
 - The music never reads or advances `w.rng`: a run with the bridge attached has the same `rngPosition` as one without.
-- Every patch's mod routes name real parameters.
+- Every patch's mod routes name real parameters and known sources.
+
+**Axes and extensibility**
+- Asymmetric slew and hysteresis.
+- A fixture axis registered only in a test drives a patch parameter (`axis:<id>`) and a role's eligibility with no other file changed.
+- Unknown axis or trait ids in any data table fail validation.
+- Representative event streams produce the expected targets and cues, and cooldowns hold across a long fight.
+- Every cue has a renderer.
 
 **Voices**
 - Bass invariants (§7.2) at aggression 0 and 1.
@@ -812,26 +1095,33 @@ Each phase ends playable in MusicLab, with `npm test` and `npm run typecheck` gr
 - At least 25% rest per phrase.
 - The counter never starts a note on a lead onset.
 
-**Form**
+**Form inside a song**
 - **With the axes held constant for 128 bars:**
   - no two consecutive phrases render identically
   - something changes at least every 2 phrases
   - at least one material is recalled in a non-adjacent section
   - energy covers at least half of the band
 - Layers enter and leave only at phrase boundaries (cues excepted), and minimum lifetimes hold.
-- Never more than one foreground voice. Slot caps and the pluck/arp exclusion hold.
-- A drop cue jumps to a peak on the next bar and keeps the bound material.
+- Never more than one foreground voice or more than one bassline (including during transitions). Slot caps and the pluck/arp exclusion
+  hold.
+- A drop cue jumps to a peak on the next bar and keeps the song and its material.
 
-**Axes and bridge**
-- Asymmetric slew and hysteresis.
-- Representative event streams produce the expected targets and cues, and cooldowns hold across a long fight.
-- Every cue has a renderer.
+**Songs**
+- **With the axes held constant for 1,000 bars:** at least three songs play, and every one ends through an outro and a transition (no
+  song is cut off by the clock).
+- Every song before it ends has had an intro, a peak, a breakdown or bridge, and its hook at least twice.
+- No song outlives 1.5× its target length.
+- Consecutive songs differ in character by at least a threshold distance, and no two of the last three are within it.
+- Key changes between songs use allowed relations. Beat-carrying transitions change tempo by at most ~1 BPM per bar.
+- A reprise reuses the original song's material and title, and happens at most once a night.
+- A district visit shorter than the dwell doesn't change the song.
 
 Listening is the real test. These catch regressions.
 
-## 20. Open questions (for later, not blockers)
+## 21. Open questions (for later, not blockers)
 
-- Lab screen music: the theme in ambient form (as planned), or a fixed "home" piece?
-- Companions and romance moments: is a softer cue family wanted, even though mood was dropped as an axis?
-- Should a long arc ever end on its own (an outro, then a short silence, then a new intro) even when nothing changes? It's good for very
-  long idle stretches, and it could tie to the in-game hour.
+- **The lab piece:** its own composed music, out of scope for now (§13).
+- **Persisting the setlist** across page reloads (in `localStorage`, per save), so reprises survive a reload. It's in memory only for
+  now.
+- **Song titles:** a word table to start with. Should titles ever reference the night's events ("Six Separate Groups")? It would be fun,
+  and it's cheap once the bridge exists.
