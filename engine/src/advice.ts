@@ -3,6 +3,7 @@ import type { EventData } from './events';
 import { clamp } from './candidate';
 import { cool, cooling, goalById } from './mind';
 import { adoptSpec } from './goals';
+import { adoptCalling } from './callings';
 
 /**
  * Asking the lab.
@@ -81,6 +82,7 @@ export function resolveAsk(c: Ctx, pick: string, by: 'lab' | 'self'): boolean {
   if (ask.about !== undefined && !goalById(w, ask.about)) return true;
   for (const [key, beats] of Object.entries(opt.cool ?? {})) cool(w, key, beats);
   if (opt.spec) adoptSpec(c, withBackup(opt.spec, by === 'lab'));
+  if (opt.calling) adoptCalling(c, opt.calling, by);
   return true;
 }
 

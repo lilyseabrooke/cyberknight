@@ -5,6 +5,7 @@ import type { Phase } from './clock';
 import type { StreetType } from './streettypes';
 import type { Trait } from './personality';
 import type { Faction } from './factions';
+import type { HomeKind } from './content/realty';
 
 /**
  * All world state is plain JSON (no classes, Sets or Maps) so a run can be saved to
@@ -479,7 +480,7 @@ export interface Location {
   /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
   street?: StreetType;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty';
   exits: Exit[];
   /** Where it stands on the hex grid (outdoor places only): every cell it covers, and the cell it is anchored on. See hexmap.ts. */
   hex?: { q: number; r: number; cells: [number, number][]; /** The way it runs, for streets: the direction it grew in. */ dir: number };
@@ -623,7 +624,7 @@ export interface GymInfo {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -877,8 +878,27 @@ export interface Legacy {
   upgrades: Record<string, number>;
   /** Neodollars spent in the lab, ever. */
   spent: number;
+  /** Deeds she owns (see content/deeds.ts): bought once, kept through every death. Absent before the first. */
+  deeds?: Deed[];
   /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
   report?: RunReport;
+}
+
+/** A home she bought from a property office. It is on the map for good and hers through every death. See realty.ts. */
+export interface Deed {
+  /** The listing it was: the office and the place on its board. Once sold, it is off the board. */
+  id: string;
+  kind: HomeKind;
+  /** What the deed calls it. */
+  name: string;
+  /** The place on the map. */
+  home: Id;
+  /** 0..1: how good a night in it is, like a bed's (see content/lodging.ts). */
+  quality: number;
+  price: number;
+  district: District;
+  /** The run she bought it in. */
+  run: number;
 }
 
 /** The books on one night, settled when it ends. */
@@ -899,6 +919,8 @@ export interface RunReport {
   level: number;
   kills: number;
   beats: number;
+  /** What she was chasing when the night ended, for the lab's wall. Shown once; it does not carry into the next body. */
+  calling?: { label: string; progress: number };
   /** Balance before and after. */
   before: number;
   after: number;
@@ -1049,6 +1071,8 @@ export interface Goal {
   revisions: number;
   /** Kill: she has actually thrown a punch at them. */
   struck?: boolean;
+  /** Made because of her Calling: harder to drop, and not the first thing to go when she's overloaded. */
+  calling?: boolean;
   /** Quest: she has been inside the place (so coming back through the door isn't news). */
   entered?: boolean;
   /** Heist bookkeeping. */
@@ -1100,6 +1124,33 @@ export interface Ware {
 
 /** What she knows, what she wants, and how she's going about it. All plain JSON. */
 /** A goal she could take on, as plain data: what `adopt` needs, so it can wait in an `Ask` until somebody answers. */
+/**
+ * A long-term goal Blackbird sets for herself and carries until she dies. One at a time; it does not carry over to
+ * the next body. Not a Goal: it steers the goals, and what she does for fun. Plain JSON. See callings.ts and
+ * docs/CALLINGS_PLAN.md.
+ */
+export interface Calling {
+  id: string;
+  since: number;
+  /** 0..1, how hard it has hold of her. Rises on progress and big moments, drifts down when nothing happens. */
+  fervor: number;
+  /** The finish line, rolled when she took it up. */
+  goal: number;
+  /** Where the counter stood when she took it up, for callings that count from there. */
+  base: number;
+  /** Who or what it is about. `text` is how she names it ("the Chrome Vipers", "Pip"). */
+  target?: { npc?: Id; faction?: Id; skill?: string; text?: string };
+  origin: { kind: 'spark' | 'wound' | 'whim'; text: string; beat: number; /** A wound is a loss (someone died) or a brush (she nearly did). */ cause?: 'loss' | 'brush' };
+  /** The last beat it moved, to tell a calling that's merely quiet from one she has forgotten. */
+  lastProgress: number;
+  /** Progress at the last look, to notice when it moves. */
+  last: number;
+  /** Quarter-marks already said out loud, 0..3. */
+  said: number;
+  wavering?: boolean;
+  sequel?: boolean;
+}
+
 export interface GoalSpec {
   kind: GoalKind;
   parent?: number | null;
@@ -1113,9 +1164,11 @@ export interface GoalSpec {
   /** Which line of the log introduces it. */
   variant: string;
   extra?: EventData;
+  /** Made because of her Calling. */
+  calling?: boolean;
 }
 
-export type AskKind = 'want' | 'earn' | 'door' | 'idle';
+export type AskKind = 'want' | 'earn' | 'door' | 'idle' | 'calling';
 
 /** One thing the lab can tell her. */
 export interface AskOption {
@@ -1126,6 +1179,8 @@ export interface AskOption {
   hint?: string;
   /** She takes this on if it's the answer. */
   spec?: GoalSpec;
+  /** She takes this on as her Calling if it's the answer. See callings.ts. */
+  calling?: Calling;
   /** Things she puts off if it's the answer: cooldown key -> beats. */
   cool?: Record<string, number>;
 }
@@ -1168,8 +1223,8 @@ export interface Mind {
   /** The leaf goal that has been steering her most lately (so she doesn't flip-flop). */
   focus: number | null;
   tally: { done: number; dropped: number; revised: number; delayed: number };
-  /** What she's currently inspired to get good at, if anything. See stage.ts. */
-  passion?: { skill: string; level: number; since: number };
+  /** What she has decided to do with her life, if anything. At most one, and it ends when she does. See callings.ts. */
+  calling?: Calling;
   /** What she expects each kind of act to do for her fame, learned from experience. */
   fame?: Record<string, number>;
   /** What she has made of people's stat distributions with Analyze: NPC id -> estimated shares of their stats, and how sure she is. See npcstats.ts. */

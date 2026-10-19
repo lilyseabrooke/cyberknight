@@ -1,9 +1,11 @@
 import { enterStealth, exitStealth } from './stealth';
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
-import type { AskOption, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Location, Npc, Ware, World, GameEvent } from './types';
+import type { AskOption, Calling, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Location, Npc, Ware, World, GameEvent } from './types';
 import { armBest, edge, rating } from './weapons';
-import { ACT_SKILL, CALLING } from './stage';
+import { ACT_SKILL } from './stage';
+import { SPOTLIGHT_LINE, type Want } from './content/callings';
+import { callingAfter, callingTargets, callingTick, spotlightFervor } from './callings';
 import { SKILL_LABELS, skillLevel } from './skills';
 import { medPacks, wielded } from './arms';
 import type { EventData } from './events';
@@ -364,7 +366,7 @@ const KINDS: Record<GoalKind, Kind> = {
   // ------------------------------------------------------------------ fame
   fame: {
     decay: 0.0028, stick: ['fame', 'vanity'], patience: 60,
-    label: (_w, g) => (g.mode && CALLING[g.mode] ? CALLING[g.mode]! : `get famous (${g.amount ?? 0} fame)`),
+    label: (_w, g) => (g.mode && SPOTLIGHT_LINE[g.mode] ? SPOTLIGHT_LINE[g.mode]! : `get famous (${g.amount ?? 0} fame)`),
     check: (w, g) => (w.hero.fame >= (g.amount ?? 0) ? { done: 'famous' } : null),
     plan(c, g) {
       const { w } = c;
@@ -472,7 +474,7 @@ const KINDS: Record<GoalKind, Kind> = {
     plan(c, g) {
       if (c.w.hero.locationId !== g.loc && hpFrac(c.w) < 0.5) delay(c, g, 40, 'hurt');
     },
-    metric: (w, g) => -distTo(w, g.loc!),
+    metric: (w, g) => 0 - distTo(w, g.loc!), // 0 - 0, not -0: a negative zero would not survive a save
     targets: (_w, g) => [{ loc: g.loc!, value: 3.2 }],
     bias(_w, g, fam, id) {
       if (fam === 'burgle_home') return id === g.npc ? 5 : 0;
@@ -644,7 +646,7 @@ const KINDS: Record<GoalKind, Kind> = {
     plan(c, g) {
       if (c.w.hero.locationId !== g.loc && hpFrac(c.w) < 0.5) delay(c, g, 40, 'hurt');
     },
-    metric: (w, g) => -distTo(w, g.loc!),
+    metric: (w, g) => 0 - distTo(w, g.loc!), // 0 - 0, not -0: a negative zero would not survive a save
     targets: (_w, g) => [{ loc: g.loc!, value: 2.8 }],
     bias: () => 0,
   },
@@ -964,6 +966,7 @@ function adopt(c: Ctx, s: Spec): Goal | null {
   const same = m.goals.find((g) => g.kind === s.kind && g.parent === (parent?.id ?? null) && (s.kind === 'cash' || subjectOf(g) === subject));
   if (same) {
     same.desire = Math.max(same.desire, s.desire);
+    if (s.calling) same.calling = true;
     return same;
   }
   // She doesn't want the same thing twice. If a wish for it is already floating around loose, that wish becomes the step.
@@ -979,7 +982,7 @@ function adopt(c: Ctx, s: Spec): Goal | null {
     if (cooling(w, `${s.kind}:${subject || s.amount}`)) return null;
     const top = topLevel(w);
     if (top.length >= capacity(w)) {
-      const weakest = [...top].sort((a, b) => priority(w, a) - priority(w, b))[0]!;
+      const weakest = weakestOf(w, top);
       if (s.desire < priority(w, weakest) + 0.12) {
         if (rng.chance(0.2)) c.emit('goal_pass', 'mixed', { variant: 'full', goal: label(w, s), count: top.length });
         return null;
@@ -990,7 +993,7 @@ function adopt(c: Ctx, s: Spec): Goal | null {
   const g: Goal = {
     id: m.nextId++, kind: s.kind, parent: parent?.id ?? null, npc: s.npc, ware: s.ware, loc: s.loc, amount: s.amount, mode: s.mode,
     why: s.why, desire: clamp(s.desire, 0.1, 1), frustration: 0, born: w.beat, lastProgress: w.beat, metric: 0, delayUntil: 0, setbacks: 0,
-    revisions: 0, lastFocus: 0,
+    revisions: 0, lastFocus: 0, ...(s.calling ? { calling: true } : {}),
   };
   g.metric = KINDS[g.kind].metric(w, g);
   m.goals.push(g);
@@ -1225,40 +1228,6 @@ function formGoals(c: Ctx): void {
 }
 
 /**
- * A big showing, or a level in the skill, can light her up: for a while she wants more of that kind of thing, and her
- * fame goal turns into a calling. Each good showing feeds it; flops starve it; time cools it.
- */
-function passionAfter(c: Ctx, fam: string, gained: number, events: GameEvent[]): void {
-  const { w, rng } = c;
-  const h = w.hero;
-  const skill = ACT_SKILL[fam]!;
-  const p = w.mind.passion;
-  const success = events.some((e) => e.type === fam && e.outcome === 'good') || gained >= 0.6;
-  const leveled = events.some((e) => e.type === 'skill_up' && e.data.id === skill);
-  if (p && p.skill === skill) {
-    p.level = clamp(p.level + (success ? 0.12 : -0.07) + (leveled ? 0.15 : 0), 0, 1);
-    return;
-  }
-  // Fluking a win isn't a calling: it takes a real showing from someone with some skill, or a level in it.
-  if (!success || (!leveled && (gained < 1.5 || skillLevel(h, skill as never) < 2)) || (p && p.level >= 0.35)) return;
-  const t = traits(w);
-  const chance = clamp(0.2 + 0.3 * (t.artistry - 0.5) + 0.25 * (t.fame - 0.5) + 0.2 * (t.impulsive - 0.5) + 0.04 * skillLevel(h, skill as never), 0.05, 0.8);
-  if (!rng.chance(chance)) return;
-  w.mind.passion = { skill, level: 0.55, since: w.beat };
-  c.emit('passion', 'good', { variant: 'ignite', skill: SKILL_LABELS[skill as keyof typeof SKILL_LABELS] ?? skill, calling: CALLING[skill] ?? '' });
-  const amount = Math.floor(h.fame) + rng.int(8, 14);
-  const existing = w.mind.goals.find((g) => g.kind === 'fame');
-  if (existing) {
-    existing.mode = skill;
-    existing.amount = Math.max(existing.amount ?? 0, amount);
-    existing.desire = Math.min(1, Math.max(existing.desire, 0.7));
-    existing.pursuit = undefined;
-  } else {
-    adopt(c, { kind: 'fame', amount, mode: skill, why: 'this is what she is for', desire: 0.7, variant: 'passion', extra: { calling: CALLING[skill] ?? '' } });
-  }
-}
-
-/**
  * Nothing on her mind. She's a cyberknight: mostly about getting rich, clearing out buildings for loot, and putting
  * cyberdragons in the ground, with getting famous a rare fourth. She picks one.
  */
@@ -1271,8 +1240,8 @@ function formIdle(c: Ctx): void {
   type Pick = 'fame' | 'cash' | 'dragon' | 'raid' | 'quest';
   const jobs = livePending(w);
   const opts = [
-    // Fame is a sideline now; a real calling (passion) can still pull her toward it.
-    { k: 'fame' as Pick, wt: 0.12 + 1.2 * (w.mind.passion?.level ?? 0) + 0.5 * (t.fame - 0.5) + 0.2 * (t.vanity - 0.5) + 0.2 * (t.artistry - 0.5) },
+    // Fame is a sideline now; a performance Calling can still pull her toward it.
+    { k: 'fame' as Pick, wt: 0.12 + 1.2 * spotlightFervor(w) + 0.5 * (t.fame - 0.5) + 0.2 * (t.vanity - 0.5) + 0.2 * (t.artistry - 0.5) },
     { k: 'cash' as Pick, wt: 0.9 + 1.5 * (t.greed - 0.5) + (h.cash < 150 ? 0.6 : 0) },
     { k: 'dragon' as Pick, wt: 0.5 + 1.4 * (t.courage - 0.5) + 0.9 * (t.justice - 0.5) + 0.6 * (t.thrill - 0.5) },
     { k: 'raid' as Pick, wt: knownDungeons(w).length ? 0.9 * raidAppetite(w) : 0 },
@@ -1323,6 +1292,59 @@ function formIdle(c: Ctx): void {
   if (!asked) adoptSpec(c, spec);
 }
 
+/**
+ * She sets herself something to do about her Calling. Real goals of the usual kinds, made harder to drop; the Calling
+ * itself is not a goal. Returns what she took on, if anything.
+ */
+export function adoptWant(c: Ctx, want: Want, cal: Calling): Goal | null {
+  const { w, rng } = c;
+  const h = w.hero;
+  const t = traits(w);
+  const base = { why: want.why, variant: 'calling', calling: true as const };
+  const desire = clamp(0.6 + 0.3 * cal.fervor, 0.5, 0.95);
+  switch (want.kind) {
+    case 'kill': {
+      const foes = Object.values(w.npcs).filter((n) => n.alive && !n.id.startsWith('tmp_') && want.pick(n, w) && !hasGoal(w, 'kill', n.id) && !cooling(w, `kill:${n.id}`));
+      if (!foes.length) return null;
+      const foe = rng.weighted(foes, (n) => 1 / (2 + distTo(w, w.mind.lastSeen[n.id] ?? n.locationId)));
+      return adoptSpec(c, { ...base, kind: 'kill', npc: foe.id, mode: want.mode ?? (rng.chance(0.75) ? 'kill' : 'beat_up'), desire, extra: { npc: foe.name } });
+    }
+    case 'dragon':
+      return hasGoal(w, 'dragon') ? null : adoptSpec(c, { ...base, kind: 'dragon', amount: (w.counters.dragon_kills ?? 0) + 1, mode: 'flight', desire });
+    case 'raid': {
+      const lead = hasGoal(w, 'raid') ? undefined : pickLead(c);
+      return lead ? adoptSpec(c, { ...raidSpec(w, lead, null, desire, want.why, 'calling'), calling: true }) : null;
+    }
+    case 'heist': {
+      const sites = hasGoal(w, 'heist') ? [] : knownSites(w).filter((s) => !cooling(w, `heist:${s.loc}`));
+      return sites.length ? adoptSpec(c, { ...heistSpec(w, rng.pick(sites), null, desire, want.why, 'calling'), calling: true }) : null;
+    }
+    case 'fame': {
+      const amount = Math.floor(h.fame) + rng.int(8, 14);
+      const existing = w.mind.goals.find((g) => g.kind === 'fame');
+      if (existing) {
+        existing.mode = want.skill;
+        existing.amount = Math.max(existing.amount ?? 0, amount);
+        existing.desire = Math.max(existing.desire, desire);
+        existing.calling = true;
+        existing.pursuit = undefined;
+        return existing;
+      }
+      return adoptSpec(c, { ...base, kind: 'fame', amount, mode: want.skill, desire });
+    }
+    case 'romance': {
+      const girls = here(w).filter((n) => isFairGame(n) && !n.hostile && !hasGoal(w, 'romance', n.id) && !cooling(w, `romance:${n.id}`));
+      if (!girls.length) return null;
+      const n = rng.pick(girls);
+      return adoptSpec(c, { ...base, kind: 'romance', npc: n.id, desire: clamp(desire - 0.1 + 0.1 * t.romantic, 0.4, 0.9), extra: { npc: n.name } });
+    }
+    case 'explore': {
+      const l = hasGoal(w, 'explore') ? undefined : pickUnexplored(c);
+      return l ? adoptSpec(c, { ...base, kind: 'explore', loc: l.id, desire: desire - 0.1, extra: { place: l.name } }) : null;
+    }
+  }
+}
+
 /** Somebody looks at her wrong. Whether that becomes anything depends on who she is. */
 export function ambientMind(c: Ctx): void {
   const { w, rng } = c;
@@ -1344,12 +1366,18 @@ export function ambientMind(c: Ctx): void {
 }
 
 /** Too many goals: shed the weakest. */
+/** The goal she'd let go of first. What she is doing for her Calling goes last. */
+function weakestOf(w: World, top: Goal[]): Goal {
+  const pool = top.some((g) => !g.calling) ? top.filter((g) => !g.calling) : top;
+  return [...pool].sort((a, b) => priority(w, a) - priority(w, b))[0]!;
+}
+
 function prune(c: Ctx): void {
   const { w } = c;
   for (;;) {
     const top = topLevel(w);
     if (top.length <= capacity(w)) return;
-    const weakest = [...top].sort((a, b) => priority(w, a) - priority(w, b))[0]!;
+    const weakest = weakestOf(w, top);
     end(c, weakest, 'drop', 'overloaded', {});
   }
 }
@@ -1377,6 +1405,14 @@ function steer(w: World): void {
       if (!r || r.dist === 0) continue;
       m.hops[r.next] = (m.hops[r.next] ?? 0) + (pull * t.value) / (1 + 0.25 * (r.dist - 1));
     }
+  }
+  // A Calling pulls too, a little behind her best goal.
+  for (const t of callingTargets(w)) {
+    const r = routeTo(w, w.hero.locationId, t.loc);
+    const pull = 0.6 * f * 1.5 * t.value;
+    if (r && r.dist === 0) stay += pull;
+    if (!r || r.dist === 0) continue;
+    m.hops[r.next] = (m.hops[r.next] ?? 0) + pull / (1 + 0.25 * (r.dist - 1));
   }
   // What's here counts too: she doesn't walk out of a place that has what she wants for one that has a bit more.
   for (const k of Object.keys(m.hops)) m.hops[k] = m.hops[k]! - 0.9 * stay;
@@ -1476,6 +1512,7 @@ export function mindTick(c: Ctx): void {
   for (const g of [...m.goals].sort((a, b) => depth(w, b) - depth(w, a))) {
     if (m.goals.includes(g)) review(c, g);
   }
+  callingTick(c);
   formGoals(c);
   prune(c);
   steer(w);
@@ -1497,12 +1534,12 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
   const h = w.hero;
   const [fam, id] = (pick?.key ?? '').split(':') as [string, string | undefined];
   if (pick && fam !== 'go' && fam) learnEarning(w, fam, wealth(h) - before.wealth);
-  if (pick && ACT_SKILL[fam]) passionAfter(c, fam, h.fame - before.fame, events);
   if (pick && FAME_FAMILIES.has(fam)) {
     learnFame(w, fam, h.fame - before.fame);
     for (const g of m.goals) if (g.kind === 'fame' && g.pursuit?.act === fam) g.pursuit.arrived = undefined;
   }
 
+  callingAfter(c, pick, h.fame - before.fame, events, before.hp);
   const lost = events.some((e) => e.type === 'fight_end' && e.data.variant !== 'win');
   const looted = events.some((e) => LOOT.has(e.type) && e.outcome === 'good');
   // She remembers who has beaten her.

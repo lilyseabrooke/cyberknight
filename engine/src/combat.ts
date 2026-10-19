@@ -12,6 +12,7 @@ import { addAmmo, wielded } from './arms';
 import { fxOf, rating } from './weapons';
 import { Sim, highlights, type Arrival, type Hooks, type LogEntry, type RoundRecord } from './tactics';
 import { nested } from './events';
+import { tallyKill } from './callings';
 import { witnessAssault } from './witness';
 import { collectBounties } from './bounty';
 import { npcsAt } from './population';
@@ -158,7 +159,7 @@ export function isLethal(foes: Npc[], w: World): boolean {
   if (foes.some((f) => marked(w, f))) return true;
   if (foes.some((f) => f.tags.some((t) => ['robot', 'cop', 'corp', 'boss'].includes(t)) && !f.tags.includes('nonlethal'))) return true;
   const kind = w.locations[w.hero.locationId]?.kind;
-  return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home' || kind === 'gym' || kind === 'pawn');
+  return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home' || kind === 'gym' || kind === 'pawn' || kind === 'realty');
 }
 
 export function maybeInjure(c: Ctx, hit: number, chance = 0.4): void {
@@ -175,6 +176,7 @@ export function kill(c: Ctx, w: World, npc: Npc, by: string): void {
   npc.alive = false;
   npc.hp = 0;
   w.stats.kills++;
+  tallyKill(w, npc);
   for (const other of npcsAt(w, npc.locationId)) {
     if (other.faction && other.faction === npc.faction) {
       other.affinity -= 25;
@@ -348,6 +350,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   const standing = () => foes.filter((f) => f.alive && !res.down.has(f.id) && !gone(f));
   const survivors = standing();
   const killed = foes.filter((f) => !f.alive || res.down.has(f.id));
+  const top = foes.reduce<Npc | undefined>((a, f) => (!a || f.level > a.level ? f : a), undefined);
   const base = {
     foes: names,
     count: foes.length,
@@ -363,6 +366,8 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
     allyKind: h.companions.find((a) => a.hp > 0)?.kind ?? '',
     boss: foes.some((f) => f.tags.includes('boss')),
     dragon: foes.find((f) => f.tags.includes('dragon'))?.archetype ?? '',
+    // Whoever hit hardest, in case she walks away from this with next to nothing left (see callings.ts).
+    ...(top ? { hurt_by: top.name, hurt_by_id: top.id, hurt_by_faction: top.faction ?? '', hurt_by_dragon: top.tags.includes('dragon') } : {}),
     killer: survivors[0]?.name ?? '',
     place: loc.name,
   };
@@ -498,7 +503,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   if (!w.over) {
     for (const a of [...h.companions]) {
       if (a.hp <= 0) {
-        removeCompanion(c, a, 'lost');
+        removeCompanion(c, a, 'lost', foes.find((f) => f.alive) ?? foes[0]);
         continue;
       }
       if (result === 'win') a.loyalty = Math.min(100, a.loyalty + 3);

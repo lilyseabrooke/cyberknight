@@ -8,6 +8,7 @@ import { FAME_ACTS, FAME_FAMILIES, expectedFame, routeTo } from './plans';
 import { traitBias } from './traits';
 import { freshness, prestige } from './stage';
 import { skillLevel } from './skills';
+import { fireOf } from './callings';
 import { spawnNpc } from './content/archetypes';
 import { Rng } from './rng';
 import { sneakBonus } from './extras';
@@ -347,7 +348,6 @@ interface Gig {
 
 function fameOptions(w: World, g: Goal, blocked: Record<string, number>): Gig[] {
   const out: Gig[] = [];
-  const passion = w.mind.passion;
   for (const a of FAME_ACTS) {
     if ((blocked[a.fam] ?? 0) > w.beat) continue;
     const loc = a.venue(w);
@@ -358,7 +358,7 @@ function fameOptions(w: World, g: Goal, blocked: Record<string, number>): Gig[] 
     const stage = prestige(w.locations[loc]!);
     // What she is good at she gets better at: practice breeds appetite, and a calling breeds more.
     const lvl = a.skill ? 1 + 0.08 * skillLevel(w.hero, a.skill as never) : 1;
-    const fire = a.skill && passion?.skill === a.skill ? 1 + passion.level : 1;
+    const fire = 1 + fireOf(w, a.skill);
     const calling = g.mode ? (a.skill === g.mode ? 3 : 0.3) : 1;
     out.push({ fam: a.fam, loc, eff: (expectedFame(w, a.fam) * taste * crowd * stage * lvl * fire * calling) / (2 + 2 * dist(w, loc)) });
   }
