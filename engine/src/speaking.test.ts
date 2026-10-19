@@ -151,7 +151,10 @@ describe('speaking', () => {
     const { c, events } = ctxOf(w, 'b');
     billboardSpeech(c);
     expect(events).toEqual([]);
-    w.hero.skills.speaking = 100;
+    w.hero.skills.speaking = 100; // level 7: good, not good enough
+    billboardSpeech(c);
+    expect(events).toEqual([]);
+    w.hero.skills.speaking = 5000;
     w.hero.charm = 10;
     let fame = 0;
     for (let i = 0; i < 30; i++) {

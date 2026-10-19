@@ -19,7 +19,10 @@ const ODDS = {
 /** Talking a crowd round, from a billboard, on a good day. */
 const billboardOdds = (h: Hero): number => odds(0.35, 0.07, synergy(h, ['speaking', ['streetwise', 0.3], ['stat:charm', 0.6]]));
 /** How good she has to be before she grabs the mic when she has hijacked a billboard. */
-export const BILLBOARD_SPEECH_LEVEL = 4;
+export const BILLBOARD_SPEECH_LEVEL = 12;
+
+/** Skills run 0 to 100 (levels 1, 3, 5, 8, 12... are the milestones). Past this level her speeches read as polished. */
+const POLISHED = 8;
 
 /** Speeches wear off: each repeat counts for less, and the wear halves in about 23 beats. */
 const WEAR_DECAY = 0.97;
@@ -44,13 +47,13 @@ export function speakingCandidates(w: World): Candidate[] {
 
   // ---- a soapbox on any street
   if (loc.outdoors && !['overpass', 'halo_roof'].includes(loc.id)) {
-    out.push({ key: 'stump_speech', drives: { pride: 0.6, curiosity: 0.3, bravery: 0.3 }, bonus: lvl * 0.03, risk: 0.15, intent: {}, run: stumpSpeech });
+    out.push({ key: 'stump_speech', drives: { pride: 0.6, curiosity: 0.3, bravery: 0.3 }, bonus: Math.min(lvl, 30) * 0.01, risk: 0.15, intent: {}, run: stumpSpeech });
   }
 
   // ---- the troops
   const crew = h.companions.filter((a) => a.hp > 0);
   if (crew.length) {
-    out.push({ key: 'rally_allies', drives: { pride: 0.5, curiosity: 0.2, bravery: 0.2 }, bonus: 0.15 + lvl * 0.02 - 0.2 * worn(w, 'rally'), intent: {}, run: rallyAllies });
+    out.push({ key: 'rally_allies', drives: { pride: 0.5, curiosity: 0.2, bravery: 0.2 }, bonus: 0.15 + Math.min(lvl, 30) * 0.007 - 0.2 * worn(w, 'rally'), intent: {}, run: rallyAllies });
   }
 
   // ---- the mirror
@@ -132,7 +135,7 @@ function mirrorSpeech(c: Ctx): void {
     return;
   }
   train(c, 'speaking', 0.6 / (1 + 0.5 * before));
-  c.emit('mirror_speech', 'good', { variant: skillLevel(h, 'speaking') >= 3 ? 'orator' : 'rough' });
+  c.emit('mirror_speech', 'good', { variant: skillLevel(h, 'speaking') >= POLISHED ? 'orator' : 'rough' });
 }
 
 /**
@@ -146,7 +149,7 @@ export function talkDown(c: Ctx, foes: Npc[]): boolean {
   const live = foes.filter((f) => f.alive);
   const lvl = skillLevel(h, 'speaking');
   if (!live.length || lvl < 1 || live.some((f) => f.tags.some((t) => ['robot', 'dragon', 'pet'].includes(t)))) return false;
-  const wants = clamp(0.08 + (h.personality.weights.pride - 0.5) * 0.3 + (h.personality.weights.bravery - 0.5) * 0.3 + lvl * 0.04, 0, 0.6);
+  const wants = clamp(0.08 + (h.personality.weights.pride - 0.5) * 0.3 + (h.personality.weights.bravery - 0.5) * 0.3 + Math.min(lvl, 30) * 0.01, 0, 0.6);
   if (!rng.chance(wants)) return false;
   const lead = live[0]!;
   const law = live.some((f) => f.tags.some((t) => ['cop', 'security'].includes(t)));
