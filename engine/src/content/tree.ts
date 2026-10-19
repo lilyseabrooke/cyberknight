@@ -183,10 +183,10 @@ chain(chassis, 'muscle', 'Muscle', [], [
 ]);
 
 chain(chassis, 'neural', 'Neural', [], [
-  { name: 'Neural Lace', blurb: 'A mesh of threads where the daydreams used to be.', cost: 90, max: 3, fx: [{ stat: 'hack', n: 1 }] },
-  { name: 'Packet Sniffer', blurb: 'She hears wifi. She hears it judging her.', cost: 320, max: 3, fx: [{ stat: 'hack', n: 1 }] },
-  { name: 'Ghost Protocol', blurb: 'The security system thinks she\'s a very persistent rumor.', cost: 850, max: 2, fx: [{ stat: 'hack', n: 2 }] },
-  { name: 'Black ICE Bracer', blurb: 'Hack back. Hack so back.', cost: 2400, fx: [{ stat: 'hack', n: 2 }, { comp: 0.03 }] },
+  { name: 'Neural Lace', blurb: 'A mesh of threads where the daydreams used to be.', cost: 90, max: 3, fx: [{ stat: 'int', n: 1 }] },
+  { name: 'Packet Sniffer', blurb: 'She hears wifi. She hears it judging her.', cost: 320, max: 3, fx: [{ stat: 'int', n: 1 }] },
+  { name: 'Ghost Protocol', blurb: 'The security system thinks she\'s a very persistent rumor.', cost: 850, max: 2, fx: [{ stat: 'int', n: 2 }] },
+  { name: 'Black ICE Bracer', blurb: 'Hack back. Hack so back.', cost: 2400, fx: [{ stat: 'int', n: 2 }, { comp: 0.03 }] },
 ]);
 
 chain(chassis, 'style', 'Style', [], [
@@ -234,7 +234,7 @@ shelf(chassis, 'grafts', 'Black-market chrome', ['frame.1'], [
 ]);
 
 shelf(chassis, 'knight', 'The Knight', ['frame.4', 'reflex.4', 'muscle.4'], [
-  { name: 'Cyberknight Frame', blurb: 'All of the above, and she knows it.', cost: 9000, fx: [{ stat: 'muscle', n: 2 }, { stat: 'reflex', n: 2 }, { stat: 'hack', n: 1 }, { stat: 'charm', n: 1 }, { hp: 50 }] },
+  { name: 'Cyberknight Frame', blurb: 'All of the above, and she knows it.', cost: 9000, fx: [{ stat: 'muscle', n: 2 }, { stat: 'reflex', n: 2 }, { stat: 'int', n: 1 }, { stat: 'charm', n: 1 }, { hp: 50 }] },
 ]);
 
 // ====================================================================== firmware
@@ -462,7 +462,7 @@ groupLine(brawl, 'drill', 'Combat drills', [
 groupLine(ghost, 'shadow', 'Shadow work', [
   { name: 'Soft Soles', blurb: 'Her boots stop making a statement.', cost: 90, max: 4, step: 1.6, fx: [{ grow: 'stealth', pct: 15 }] },
   { name: 'Burner Hands', blurb: 'Fingerless gloves with a small camera in the palm.', cost: 250, max: 3, step: 1.7, fx: [{ grow: 'stealth', pct: 20 }, { grow: 'tinkering', pct: 20 }] },
-  { name: 'Ghost in the Wires', blurb: 'The cameras file her under "weather."', cost: 1100, max: 2, step: 2, fx: [{ stat: 'hack', n: 1 }, { skill: 'sneak', lvl: 1 }] },
+  { name: 'Ghost in the Wires', blurb: 'The cameras file her under "weather."', cost: 1100, max: 2, step: 2, fx: [{ stat: 'int', n: 1 }, { skill: 'sneak', lvl: 1 }] },
 ]);
 
 groupLine(charm, 'rep', 'Reputation', [

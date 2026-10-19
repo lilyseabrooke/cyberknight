@@ -6,6 +6,7 @@ import { odds, synergy, train, type Part } from './skills';
 import { SKILLS } from './content/skills';
 import { fameFrom } from './stage';
 import { tippable } from './bounty';
+import { opposed } from './npcstats';
 
 /**
  * What every kind of place with affordances shares: the shape of a view of it, how to tell a line, and how to run a row
@@ -204,6 +205,8 @@ export function runCheckAs<V extends PlaceView>(kit: Kit<V>, c: Ctx, v: V, id: s
     tok.pay = p;
   }
   let p = odds(k.base, k.per, synergy(h, k.parts), k.lo ?? 0.03, k.hi ?? 0.93);
+  // A named opponent pushes back with their own version of the same stats and skills.
+  if (who && k.who) p += Math.max(-0.15, Math.min(0.15, 0.03 * (synergy(h, k.parts) - opposed(who, k.parts))));
   if (k.physical) p -= soreOf(c) * 0.12;
   if (k.dark && v.sit?.def.tags.includes('dark')) p += k.dark;
   const trapped = !!kit.trap?.(v);

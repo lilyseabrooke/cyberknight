@@ -2,6 +2,7 @@ import type { Rng } from './rng';
 import type { Personality } from './personality';
 import type { EventData, GameEvent, Outcome } from './events';
 import type { Phase } from './clock';
+import type { StreetType } from './streettypes';
 import type { Trait } from './personality';
 import type { Faction } from './factions';
 
@@ -69,7 +70,7 @@ export interface Buff {
   until: number;
   power: number;
   /** Stimulants that raise a stat: applied on use, taken back off when the buff lapses. */
-  stat?: 'muscle' | 'reflex' | 'hack' | 'charm';
+  stat?: 'muscle' | 'reflex' | 'int' | 'charm';
   amount?: number;
   /** Power penalty she eats once it wears off. */
   crash?: number;
@@ -122,6 +123,10 @@ export interface ParkedVehicle extends Vehicle {
 
 export interface Hero {
   name: string;
+  /** Sneaking: only then is anyone's awareness of her tracked. Out of stealth everyone in the room knows exactly where she is. See stealth.ts. */
+  stealth?: boolean;
+  /** Hack and Override techniques she has picked up beyond the ones she starts with (see `LEARNABLE` in techniques.ts). */
+  techniques?: string[];
   /** Randomly generated, astonishingly uncool. */
   realName: string;
   hp: number;
@@ -141,14 +146,14 @@ export interface Hero {
   /** The world minute her hunger and sleep were last brought up to date. */
   needsAt?: number;
   /** What hunger and tiredness are taking off her right now: power in a fight, and points off each stat (already deducted from the stat itself). See needs.ts. */
-  needsFx?: { power: number; muscle: number; reflex: number; hack: number; charm: number };
+  needsFx?: { power: number; muscle: number; reflex: number; int: number; charm: number };
   /** The tier each meter was last announced at, so a slide down the bar is remarked on once per step. */
   needTier?: { hunger: string; sleep: string };
   /** Stacks of lingering tiredness from poor beds: poor nights add them, good ones take them off, and they don't wear off with time. See needs.ts. */
   sleepDebt?: number;
   muscle: number;
   reflex: number;
-  hack: number;
+  int: number;
   charm: number;
   injuries: Injury[];
   weapon: Item;
@@ -298,6 +303,8 @@ export interface Npc {
   level: number;
   power: number;
   tags: string[];
+  /** Muscle, reflex, intelligence and charm, like hers. Rolled from level, tags and archetype the first time anyone looks (see npcstats.ts). */
+  stats?: Record<'muscle' | 'reflex' | 'int' | 'charm', number>;
   faction: string | null;
   /** How they feel about Blackbird, -100..100. Persisted; the world remembers. */
   affinity: number;
@@ -340,10 +347,31 @@ export interface Npc {
   bond?: Feelings;
   /** What they know about Blackbird's past runs that she might not expect them to. See universe.ts. */
   knows?: { died?: number; saw?: boolean; reacted?: boolean };
+  /** What they know about Blackbird, tracked while she sneaks. See stealth.ts. */
+  aware?: Awareness;
   /** The dungeon (its entrance's id) they are garrisoned in. Until they have noticed her, she can't deal with them one at a time; see dungeons.ts. */
   post?: Id;
   /** A job they have for Blackbird, once they've told her about it. Persists with them: the world remembers a job even when she doesn't. See quests.ts. */
   quest?: Quest;
+}
+
+/**
+ * How much one person (or camera) knows about Blackbird. `v` runs 0..1; with `fix` (they know where she is) a high `v`
+ * is Aware, without it Alert. Having lost her, they stay Alert until `floorUntil`, then slowly forget. See stealth.ts.
+ */
+export interface Awareness {
+  v: number;
+  fix: boolean;
+  /** Alert is the floor until this beat. */
+  floorUntil: number;
+  /** Where they last had her. */
+  seenAt?: Id;
+  /** When they last called for help, and whether anyone has had her since (if not, they don't call again). */
+  calledAt?: number;
+  calledSince?: boolean;
+  /** Hushed: no communicator or optics link until this beat. Silenced: no call at all, not even a shout. */
+  hushUntil?: number;
+  silenced?: boolean;
 }
 
 export type QuestKind = 'flatline' | 'retrieve' | 'hack';
@@ -413,8 +441,10 @@ export interface Hazards {
 
 export interface Location {
   id: Id;
-  /** Set on highways only. Every other street's class comes from its name: see `roadClass` in roads.ts. */
+  /** Set on highways only. (Their `street` type is 'highway' too.) */
   road?: 'highway';
+  /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
+  street?: StreetType;
   name: string;
   kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
   exits: Exit[];
@@ -435,6 +465,14 @@ export interface Location {
   doings?: number;
   /** Security cameras. They see everything she does, unless the power is out. */
   cameras: number;
+  /** Cameras Blackbird has shut down for now (Blackout), and the beat they come back on. */
+  camsDown?: { n: number; until: number };
+  /** Particular cameras she has Overridden (by id), and until when: the ones that were looking at her. */
+  camHacked?: { ids: string[]; until: number };
+  /** How much there is to hide behind, 0..1 (the crowd, the dark and the weather add to it). Absent means a little. See stealth.ts. */
+  cover?: number;
+  /** What the cameras here know about Blackbird while she sneaks, 0..1. */
+  camAware?: number;
   /** How tired this place's crowd is of her, per skill she performs with (singing, guitar...). Recovers with time. */
   fatigue?: Record<string, number>;
   /** How wary this place is of tricks she's pulled here (scams, fake goods, fortune-telling). Fades. */
@@ -458,6 +496,8 @@ export interface Location {
   /** Nobody gets in until this beat: the owner's been put down, or the police have taped the door. See shutdown.ts. */
   shutUntil?: number;
   shutBy?: 'owner' | 'police';
+  /** Open from, to (hours of the day; a close before the open runs past midnight). See hours.ts. */
+  hours?: [number, number];
   /** The owner is dead. The whole building stays shut, night after night, until this run, then reopens under somebody new (and maybe a new name). See shutdown.ts. */
   sealed?: { reopenRun: number; main: Id; former: string; faction?: Id; staff: Id[]; muscle: boolean };
   /** Somebody who works here has been laid out and the police are on their way. */
@@ -831,6 +871,52 @@ export interface RunReport {
   after: number;
 }
 
+/**
+ * Somebody on a place's board: where they are, which way they are facing, and what they were last doing about her (a post, a patrol
+ * route, a search). It lasts as long as the board does, so a guard who was halfway round a patrol when she left is still on it.
+ */
+export interface Ent {
+  x: number;
+  y: number;
+  facing: number;
+  home?: { x: number; y: number };
+  homeFacing?: number;
+  route?: { x: number; y: number }[];
+  leg?: number;
+  pause?: number;
+  behavior?: string;
+  last?: { x: number; y: number } | null;
+  looked?: number;
+  searched?: number[];
+  calm?: number;
+  sweep?: 1 | -1;
+  /** Which stretch of a club patron's evening they are in (see placeboard.ts), so they move on when it changes. */
+  slot?: number;
+  /** When a scene last left them in the middle of something (a search, a look), so they go back to their rounds after a while. */
+  sceneAt?: number;
+}
+
+/**
+ * The one board a place has, for the run (see placeboard.ts). Whatever she is doing there (walking about, sneaking, fighting) it is
+ * this: where she is, where everyone else is, what is lying on the floor and what has been used. The layout itself is worked out from
+ * the place's id and never stored.
+ */
+export interface PlaceBoard {
+  loc: Id;
+  hero: { x: number; y: number };
+  /** Where she is, coarsely: `door:<place>`, `fixture:<id>`, `near:<person>`, or `floor`. */
+  at: string;
+  ents: Record<Id, Ent>;
+  /** People who are down or dead, where they fell, and whether anyone has found them. */
+  bodies: { npcId: Id; x: number; y: number; found: boolean }[];
+  /** Things in the room she can get into, and how many goes they have left. */
+  props: { kind: string; x: number; y: number; charges: number }[];
+  /** Lights out around a point until a round of a scene. */
+  dark: { x: number; y: number; r: number; until: number }[];
+  /** The beat everyone was last put at their stations. */
+  placedAt: number;
+}
+
 export interface World {
   /** This run's seed: the stream of luck Blackbird's night draws on. */
   seed: string;
@@ -877,6 +963,12 @@ export interface World {
   recent: string[];
   brawlUntil: number;
   blackoutUntil: number;
+  /** Where everyone is in the places she has been, this run. See placeboard.ts. */
+  boards?: Record<Id, PlaceBoard>;
+  /** How long she (or whoever she is after) has been running, across chases and the searches between them: it wears everyone down. */
+  chaseTire?: { rounds: number; beat: number };
+  /** Everyone whose awareness of Blackbird is currently worth tracking, so the beat only has to look at them. */
+  watchers?: Id[];
   stats: { kills: number; fights: number; maxLevel: number; deposited: number; fees: number };
   over: boolean;
   ending: null | 'dead' | 'victory' | 'dawn';
@@ -1045,6 +1137,8 @@ export interface Mind {
   passion?: { skill: string; level: number; since: number };
   /** What she expects each kind of act to do for her fame, learned from experience. */
   fame?: Record<string, number>;
+  /** What she has made of people's stat distributions with Analyze: NPC id -> estimated shares of their stats, and how sure she is. See npcstats.ts. */
+  reads?: Record<Id, { shares: Record<'muscle' | 'reflex' | 'int' | 'charm', number>; quality: number }>;
   /** What she has found out about people: NPC id -> ids of their facts. Her side only; this resets with her body. */
   known?: Record<Id, string[]>;
   /** Scores she has agreed to settle. */

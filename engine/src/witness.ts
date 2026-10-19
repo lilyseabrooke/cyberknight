@@ -1,7 +1,8 @@
 import type { Ctx, Npc, World } from './types';
 import { GANGS } from './content/archetypes';
 import { addHeat, npcsAt, remember } from './combat';
-import { sneakBonus } from './extras';
+import { V, isSneaking, makeNoise, stir } from './stealth';
+import { camerasSeeHer, seesHer } from './placeboard';
 import { clamp } from './candidate';
 import { hasBounty } from './bounty';
 import { isFairGame } from './people';
@@ -29,8 +30,14 @@ export interface Witnessing {
 
 const isPerson = (n: Npc): boolean => !n.tags.includes('robot') && !n.tags.includes('dragon') && !n.tags.includes('boss') && n.archetype !== 'puppy';
 
-/** Working cameras here. A blackout takes them down with everything else. */
-export const workingCameras = (w: World, locId: string): number => (w.flags.blackout ? 0 : (w.locations[locId]?.cameras ?? 0));
+/** Working cameras here. A blackout takes them down with everything else; an Override takes down a few. */
+export const workingCameras = (w: World, locId: string): number => {
+  if (w.flags.blackout) return 0;
+  const loc = w.locations[locId];
+  if (!loc) return 0;
+  const off = loc.camsDown && w.beat < loc.camsDown.until ? loc.camsDown.n : 0;
+  return Math.max(0, loc.cameras - off);
+};
 
 /** What a bystander does when they watch Blackbird start something. */
 export function reactionWeights(w: World, n: Npc, victim: Npc): Record<Reaction, number> {
@@ -121,10 +128,24 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { noise: number }): Wi
   );
   const drones = bystanders.filter((n) => n.tags.includes('robot') && !n.tags.includes('dragon'));
   const loud = opts.noise >= 0.6;
-  const noticeP = clamp(0.8 - sneakBonus(w) + (opts.noise - 0.5) * 0.3, 0.2, 0.97);
-  const seenBy = bystanders.filter((n) => isPerson(n) && rng.chance(noticeP)).slice(0, 6);
-  const camSees = cams > 0;
-  const droneSees = drones.length > 0;
+  makeNoise(w, opts.noise); // whoever listens for her from far off hears the loud ones
+  let seenBy: Npc[];
+  let camSees: boolean;
+  let droneSees: boolean;
+  if (isSneaking(w)) {
+    // Sneaking: this is a stir, and only the ones it tips into Aware (or a camera that was already close) saw it.
+    const aware = stir(c, 0.35 + 0.8 * opts.noise, foes);
+    seenBy = aware.filter((n) => bystanders.includes(n) && isPerson(n)).slice(0, 6);
+    camSees = cams > 0 && (loc.camAware ?? 0) >= V.aware;
+    droneSees = drones.some((d) => aware.includes(d));
+  } else {
+    // In plain view everyone who can see her has her.
+    // (Anything loud turns heads; a quiet blow has to be seen.)
+    const turn = opts.noise >= 0.25;
+    seenBy = bystanders.filter((n) => isPerson(n) && seesHer(w, n, { turn })).slice(0, 6);
+    camSees = cams > 0 && camerasSeeHer(w);
+    droneSees = drones.some((d) => seesHer(w, d, { turn }));
+  }
 
   if (!camSees && !seenBy.length && !droneSees) {
     c.emit('crime_seen', 'good', { variant: 'none', place: loc.name });

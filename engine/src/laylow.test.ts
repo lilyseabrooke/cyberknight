@@ -212,7 +212,7 @@ describe('ways out', () => {
     let ok = 0;
     for (let i = 0; i < 80; i++) {
       const w = prep('frame' + i, 'halo_floor', 4);
-      w.hero.hack = 10;
+      w.hero.int = 10;
       const cands = laylowCandidates(w).filter((x) => x.key.startsWith('frame:'));
       expect(cands.length).toBeGreaterThan(0);
       const pick = cands[i % cands.length]!;

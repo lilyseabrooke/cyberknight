@@ -11,6 +11,8 @@ import {
 import { SPOTS, hasPaper, spotRoom, type Crew } from './content/spots';
 import { addChamber } from './mapgen';
 import { addNpc, everyoneAt, moveNpc, removeNpc } from './population';
+import { bucketOf, atLeast, enterStealth } from './stealth';
+import { prowlRoom } from './prowl';
 import { sendAway } from './roster';
 import { rating } from './weapons';
 import { genWeapon } from './weapons';
@@ -301,6 +303,14 @@ function noticeChance(w: World, d: Dungeon, foes: Npc[]): number {
   return clamp(base + 0.04 * d.tier + Math.min(0.2, 0.03 * foes.length) + 0.12 * d.alert - 1.5 * sneakBonus(w), 0.1, 0.95);
 }
 
+/** Quiet or loud through the door, by what she is like. (A place that is too much for her either way she gives up on: see `raidPlan`.) */
+function choosesQuiet(c: Ctx): boolean {
+  const { w, rng } = c;
+  const t = w.hero.personality.traits;
+  const loud = clamp(0.3 + 0.4 * (t.thrill - 0.5) + 0.4 * (t.courage - 0.5) + 0.3 * (t.temper - 0.5) + 0.3 * (t.justice - 0.5), 0.05, 0.85);
+  return rng.chance(1 - loud);
+}
+
 /** Called as she arrives anywhere. If it's a room in a dungeon, this is where whatever is in it finds out about her. */
 export function enterRoom(c: Ctx, loc: Location): void {
   const { w, rng } = c;
@@ -308,6 +318,8 @@ export function enterRoom(c: Ctx, loc: Location): void {
   if (!d) return;
   // However she came to be here, she is raiding now.
   startRaid(c, d, 'wandered_in');
+  // At the door she decides how to go in: a place she can't take loud, she creeps into; otherwise it is her nature.
+  if (isEntrance(loc) && !w.hero.stealth && d.clearedRun === null && !w.mind.goals.some((g) => g.kind === 'quest' && g.loc === d.id) && choosesQuiet(c)) enterStealth(c);
   // What the place keeps against people who let themselves in goes first.
   if (!meetHazards(c, loc)) {
     if (!w.over && w.hero.locationId === loc.id) {
@@ -323,6 +335,24 @@ export function enterRoom(c: Ctx, loc: Location): void {
     if (d.spot && roomOf(d, loc.id)?.cache && !roomOf(d, loc.id)!.cache!.taken) c.emit('dungeon_quiet', 'good', { kind: d.kind, crew: crewOf(d), place: loc.name, scene: d.scene ?? '', tier: d.tier });
     return;
   }
+  // Sneaking, the room is played out as a board: who is looking where, and what she can do about it.
+  if (w.hero.stealth && !d.aware.includes(loc.id)) {
+    const out = prowlRoom(c, d, loc, foes, { describe });
+    if (out === 'cleared') {
+      routed(c, d);
+      checkCleared(c, d);
+      return;
+    }
+    if (out === 'detected') {
+      raiseAlarm(c, d, loc, 'seen');
+      return;
+    }
+    if (standing(w, d, loc.id).length) {
+      c.emit('dungeon_unseen', 'mixed', { kind: d.kind, crew: crewOf(d), place: loc.name, count: standing(w, d, loc.id).length, foes: describe(standing(w, d, loc.id)), tier: d.tier, scene: d.scene ?? '' });
+    }
+    return;
+  }
+  // Walking in openly, it is the room's general watchfulness.
   if (d.aware.includes(loc.id) || rng.chance(noticeChance(w, d, foes))) {
     raiseAlarm(c, d, loc, 'seen');
     return;
@@ -448,7 +478,8 @@ export function dungeonAmbient(c: Ctx): void {
   if (!loc || !d) return;
   checkCleared(c, d);
   if (!standing(w, d, loc.id).length || d.clearedRun !== null) return;
-  if (rng.chance(0.07 + 0.02 * d.tier + 0.04 * d.alert)) raiseAlarm(c, d, loc, 'lingered');
+  // Sneaking, it is whoever in the room has worked out where she is; otherwise a little more of the room's attention each beat.
+  if (w.hero.stealth ? standing(w, d, loc.id).some((n) => atLeast(bucketOf(w, n), 'aware')) : rng.chance(0.07 + 0.02 * d.tier + 0.04 * d.alert)) raiseAlarm(c, d, loc, 'lingered');
 }
 
 // ===================================================================== what she can do in there
@@ -490,9 +521,9 @@ function openCache(c: Ctx, d: Dungeon, loc: Location, cache: Cache): void {
   const watched = standing(w, d, loc.id).length > 0;
   const lock = cache.kind === 'data' ? 'tinkering' : 'lockpicking';
   const skill =
-    cache.kind === 'data' ? h.hack * 0.05 + skillLevel(h, 'tinkering') * 0.03
+    cache.kind === 'data' ? h.int * 0.05 + skillLevel(h, 'tinkering') * 0.03
     : cache.kind === 'supplies' || cache.kind === 'arms' || cache.kind === 'armor' ? 0.2
-    : skillLevel(h, 'lockpicking') * 0.04 + h.hack * 0.02;
+    : skillLevel(h, 'lockpicking') * 0.04 + h.int * 0.02;
   const p = clamp(0.8 - HARD[cache.kind] - 0.03 * d.tier + skill - (watched ? 0.12 : 0), 0.1, 0.95);
   train(c, lock, 2);
   const data = { kind: d.kind, cache: cache.kind, what: CACHE_LABEL[cache.kind], place: loc.name };

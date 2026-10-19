@@ -1,3 +1,4 @@
+import { typeFromName } from './streettypes';
 import { Rng, hashString } from './rng';
 import { placeOnHex, seedHexes } from './hexmap';
 import { inheritInfluence, pickFaction } from './factions';
@@ -548,6 +549,7 @@ function sketch(
   };
   if (faction) loc.faction = faction;
   if (o.highway) loc.road = 'highway';
+  if (street) loc.street = o.highway ? 'highway' : typeFromName(loc.name, true);
   if (rolled) {
     loc.gym = rolled.info;
     loc.graffiti = CONDITIONS[rolled.info.condition]?.graffiti ?? 0;

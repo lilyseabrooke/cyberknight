@@ -3,6 +3,7 @@ import type { Pos } from './grid';
 import { dist, terrainAt } from './grid';
 import type { Sim, Unit } from './tactics';
 import { doctrineTechniques } from './doctrine';
+import { callWeight, channelNow } from './stealth';
 
 /**
  * Everything a unit can do with its action, as data plus two small functions. Adding a way to fight is adding an entry
@@ -164,23 +165,44 @@ function shove(s: Sim): Technique[] {
   ];
 }
 
+/**
+ * Hacks are for quick, mobile systems: robots, drones, cars, and the chrome in people. They work on anyone, unless
+ * they are tagged `no_chrome` (very rare). Overrides, for big systems like buildings and cameras, aren't a combat
+ * technique: see `override.ts`.
+ */
+const hackable = (t: Unit): boolean => !!t.npc && !t.npc.tags.includes('no_chrome');
+
 function hack(s: Sim, u: Unit): Technique[] {
   const isHero = u.kind === 'hero';
-  if (u.cd.hack) return [];
-  if (isHero && s.w.hero.hack < 2) return [];
-  if (!isHero && !u.assist?.disable) return [];
-  return [
-    {
+  const out: Technique[] = [];
+  if (isHero && !u.cd.optic_reset) {
+    out.push({
+      id: 'optic_reset',
+      targets: 'enemy',
+      range: [2, 6],
+      los: false,
+      value(s2, me, from, t) {
+        if (!hackable(t!) || t!.blind > 0) return null;
+        const p = s2.opticChance(t!, true);
+        const threat = frac(s2.avgDamage(t!, s2.hero), s2.hero.ref.hp);
+        return (1 + 10 * threat) * p;
+      },
+      run(s2, me, t) {
+        me.cd.optic_reset = 4;
+        s2.doOpticReset(t!);
+      },
+    });
+  }
+  if (!u.cd.hack && !(isHero && s.w.hero.int < 2) && (isHero || u.assist?.disable)) {
+    out.push({
       id: 'hack',
       targets: 'enemy',
       range: [2, 6],
       los: false,
       value(s2, me, from, t) {
-        if (!t!.npc || t!.npc.tags.some((x) => x === 'boss' || x === 'dragon')) return null;
-        // Blackbird's own hacking needs something with chrome in it; a hacker friend can jam anybody's gun.
-        if (isHero && !t!.npc.tags.some((x) => x === 'robot' || x === 'augmented')) return null;
+        if (!hackable(t!) || t!.npc!.tags.some((x) => x === 'boss' || x === 'dragon')) return null;
         if (t!.stunned || t!.disabled) return null;
-        const p = s2.hackChance(me, t!);
+        const p = s2.hackChance(me, t!, true);
         const threat = frac(s2.avgDamage(t!, s2.hero), s2.hero.ref.hp);
         return (5 + 14 * threat) * p;
       },
@@ -188,8 +210,140 @@ function hack(s: Sim, u: Unit): Technique[] {
         me.cd.hack = isHero ? 3 : 2;
         s2.doHack(me, t!);
       },
-    },
-  ];
+    });
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ learnable Hacks and Overrides
+
+/**
+ * Hacks and Overrides she doesn't start with. Nothing hands them out yet: they appear in `hero.techniques` (see
+ * `learnTechnique`) when something in the world teaches them, and until then she can't use them.
+ */
+export const LEARNABLE = ['gun_jam', 'limb_lock', 'pain_spike', 'rewrite', 'hot_wire', 'overclock', 'door_lock', 'lights_out', 'power_cut', 'turret_takeover', 'alarm_spoof', 'hush'] as const;
+export type LearnableId = (typeof LEARNABLE)[number];
+
+export const knowsTechnique = (h: { techniques?: string[] }, id: LearnableId): boolean => !!h.techniques?.includes(id);
+
+export function learnTechnique(h: { techniques?: string[] }, id: LearnableId): void {
+  if (!knowsTechnique(h, id)) (h.techniques ??= []).push(id);
+}
+
+const armed = (t: Unit): boolean => t.reach[1] > 1 || !!t.npc?.loadout.some((i) => i.tags.includes('gun'));
+
+function learned(s: Sim): Technique[] {
+  const h = s.w.hero;
+  const out: Technique[] = [];
+  const has = (id: LearnableId): boolean => knowsTechnique(h, id) && !s.hero.cd[id];
+  const foeHack = (id: LearnableId, cd: number, ok: (t: Unit) => boolean, worth: (s2: Sim, me: Unit, t: Unit, p: number, threat: number) => number, run: (s2: Sim, t: Unit) => void): void => {
+    if (!has(id) || h.int < 2) return;
+    out.push({
+      id,
+      targets: 'enemy',
+      range: [2, 6],
+      los: false,
+      value(s2, me, from, t) {
+        if (!hackable(t!) || t!.turned > 0 || t!.npc!.tags.some((x) => x === 'boss' || x === 'dragon') || !ok(t!)) return null;
+        const threat = frac(s2.avgDamage(t!, s2.hero), s2.hero.ref.hp);
+        return worth(s2, me, t!, s2.hackChance(me, t!, true), threat);
+      },
+      run(s2, me, t) {
+        me.cd[id] = cd;
+        run(s2, t!);
+      },
+    });
+  };
+  foeHack('gun_jam', 4, (t) => armed(t) && !t.disarmed, (s2, me, t, p, th) => (4 + 12 * th) * p, (s2, t) => s2.doGunJam(t));
+  foeHack('limb_lock', 4, (t) => !t.arm && !t.leg && !!t.npc!.tags.some((x) => x === 'augmented' || x === 'robot'), (s2, me, t, p, th) => (3 + 10 * th) * p, (s2, t) => s2.doLimbLock(t));
+  foeHack('pain_spike', 3, () => true, (s2, me, t, p) => strikeValue(p, s2.painSpikeDamage(t), t.ref.hp), (s2, t) => s2.doPainSpike(t));
+  foeHack('hush', 3, (t) => !!t.npc && !t.cd.call && s.backupPossible && channelNow(s.w, t.npc) !== null && callWeight(s.w, t.npc, 1, 0) > 0.1, (s2, me, t, p) => (2 + 9 * callWeight(s2.w, t.npc!, 1, 0)) * p, (s2, t) => s2.doHush(t));
+  foeHack('rewrite', 6, (t) => !!t.npc!.tags.includes('robot'), (s2, me, t, p, th) => (6 + 16 * th) * Math.max(0.05, p - 0.1), (s2, t) => s2.doRewrite(t));
+
+  if (has('hot_wire')) {
+    out.push({
+      id: 'hot_wire',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value(s2) {
+        return s2.standingFoes().some((f) => s2.keyCar(f)) ? 9 : null;
+      },
+      run(s2, me) {
+        me.cd.hot_wire = 99;
+        s2.doHotWire();
+      },
+    });
+  }
+  const bots = s.units.filter((u) => u.kind === 'ally' && u.state === 'active' && u.over <= 0 && ['drone', 'hacker', 'puppy', 'scrapper'].includes(u.comp!.kind));
+  if (has('overclock') && bots.length) {
+    out.push({
+      id: 'overclock',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value() {
+        return 3 + 2 * bots.length;
+      },
+      run(s2, me) {
+        me.cd.overclock = 5;
+        for (const b of bots) s2.doOverclock(b);
+      },
+    });
+  }
+  if (has('door_lock')) {
+    out.push({
+      id: 'door_lock',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value(s2) {
+        if (s2.sealed > 0) return null;
+        // Worth it when somebody is about to run or reinforcements are on the way.
+        const runners = s2.standingFoes().filter((f) => f.canFlee && f.ref.hp / f.ref.maxHp < 0.5).length;
+        return runners || s2.reinforcementsDue() ? 5 + 2 * runners : null;
+      },
+      run(s2, me) {
+        me.cd.door_lock = 8;
+        s2.doDoorLock();
+      },
+    });
+  }
+  if (has('lights_out')) {
+    out.push({
+      id: 'lights_out',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value(s2) {
+        if (s2.dark > 0) return null;
+        const shooters = s2.standingFoes().filter((f) => f.reach[1] > 1).length;
+        return shooters && !s2.wield.tags.includes('gun') ? 3 + 2 * shooters : null;
+      },
+      run(s2, me) {
+        me.cd.lights_out = 8;
+        s2.doLightsOut();
+      },
+    });
+  }
+  if (has('turret_takeover') && h.int >= 2) {
+    out.push({
+      id: 'turret_takeover',
+      targets: 'enemy',
+      range: [1, 8],
+      los: false,
+      value(s2, me, from, t) {
+        if (!t!.npc || !/turret/i.test(t!.npc.role) || t!.turned > 0) return null;
+        const threat = frac(s2.avgDamage(t!, s2.hero), s2.hero.ref.hp);
+        return (8 + 16 * threat) * s2.hackChance(me, t!, true);
+      },
+      run(s2, me, t) {
+        me.cd.turret_takeover = 3;
+        s2.doTurretTakeover(t!);
+      },
+    });
+  }
+  return out;
 }
 
 function intimidate(s: Sim): Technique[] {
@@ -420,10 +574,35 @@ function allyAttack(u: Unit): Technique {
   };
 }
 
+// ------------------------------------------------------------------ calling for help
+
+/** Any of them can call for help; whether they do is a matter of what they have to call with and how much they need it. */
+function callHelp(s: Sim, u: Unit): Technique[] {
+  if (!u.npc || u.cd.call || !s.backupPossible) return [];
+  return [
+    {
+      id: 'call',
+      targets: 'self',
+      range: [0, 0],
+      los: false,
+      value(s2, me) {
+        const foes = s2.standingFoes();
+        const power = foes.reduce((a, f) => a + f.power, 0);
+        const present = foes.filter((f) => f !== me && !!f.npc?.faction && f.npc.faction === me.npc!.faction).length;
+        const k = callWeight(s2.w, me.npc!, s2.hooks.heroPower(s2.w, s2.wield, true) / Math.max(1, power), present);
+        return k > 0.05 ? 12 * k : null;
+      },
+      run(s2, me) {
+        s2.callBackup(me);
+      },
+    },
+  ];
+}
+
 // ------------------------------------------------------------------ the registry
 
 export function techniquesFor(s: Sim, u: Unit): Technique[] {
-  if (u.kind === 'hero') return [attack(s, u), ...throwing(s), ...ambush(s), ...flurry(s), ...shove(s), ...hack(s, u), ...intimidate(s), ...overwatch(s), ...getIn(s), ...mount(s), ...rideBy(s), ...driveOff(s), ...runDown(s), ...doctrineTechniques(s), leave()];
+  if (u.kind === 'hero') return [attack(s, u), ...throwing(s), ...ambush(s), ...flurry(s), ...shove(s), ...hack(s, u), ...(u.kind === 'hero' ? learned(s) : []), ...intimidate(s), ...overwatch(s), ...getIn(s), ...mount(s), ...rideBy(s), ...driveOff(s), ...runDown(s), ...doctrineTechniques(s), leave()];
   if (u.kind === 'ally') return [allyAttack(u), ...hack(s, u)];
-  return [attack(s, u), forceDoor(), leave()];
+  return [attack(s, u), ...callHelp(s, u), forceDoor(), leave()];
 }

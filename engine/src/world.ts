@@ -54,14 +54,14 @@ const LOCATIONS: Record<Id, LocDef> = {
     exits: [ex('halo_floor', 'the bar floor')],
   },
   halo_roof: {
-    name: 'Halo roof', kind: 'street', security: 0, crowded: false, outdoors: true, tossTo: 'halo_kitchen', fleeTo: 'halo_kitchen',
+    name: 'Halo roof', kind: 'street', street: 'roof', security: 0, crowded: false, outdoors: true, tossTo: 'halo_kitchen', fleeTo: 'halo_kitchen',
     exits: [
       ex('halo_kitchen', 'the service stairs'),
       ex('neon_pharaoh', "a running leap at the Neon Pharaoh's skylight", { gate: 'jump' }),
     ],
   },
   halo_alley: {
-    name: 'Halo alley', kind: 'street', security: 2, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'street_main',
+    name: 'Halo alley', kind: 'street', street: 'alley', security: 2, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'street_main',
     exits: [
       ex('street_main', 'Strand Street'),
       ex('halo_kitchen', 'the kitchen door'),
@@ -70,7 +70,7 @@ const LOCATIONS: Record<Id, LocDef> = {
     ],
   },
   street_main: {
-    name: 'Strand Street', kind: 'street', security: 3, crowded: true, outdoors: true, tossTo: 'halo_alley', fleeTo: 'halo_alley',
+    name: 'Strand Street', kind: 'street', street: 'street', security: 3, crowded: true, outdoors: true, tossTo: 'halo_alley', fleeTo: 'halo_alley',
     exits: [
       ex('halo_floor', 'the Rusty Halo'),
       ex('halo_alley', 'the alley beside the Halo'),
@@ -122,7 +122,7 @@ const LOCATIONS: Record<Id, LocDef> = {
     exits: [ex('street_main', 'the street')],
   },
   club_backlot: {
-    name: 'The lot behind the Neon Pharaoh', kind: 'street', security: 1, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'halo_alley',
+    name: 'The lot behind the Neon Pharaoh', kind: 'street', street: 'lane', security: 1, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'halo_alley',
     exits: [
       ex('halo_alley', 'the gap in the fence'),
       ex('neon_pharaoh', "the club's back door"),
@@ -230,7 +230,7 @@ export function makeHero(personality: Personality, realName: string, competence 
     sleep: 100,
     muscle: 3,
     reflex: 3,
-    hack: 2,
+    int: 2,
     charm: 3,
     injuries: [],
     weapon: makeItem('excalibur'),

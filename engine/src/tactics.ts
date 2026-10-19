@@ -4,7 +4,7 @@ import { KINDS } from './companions';
 import { foeArmor, fxOf, rating, vsMult } from './weapons';
 import { loaded, spendAmmo, wielded } from './arms';
 import { skillLevel, skillValue, train } from './skills';
-import { addObjects, coverObject, dist, hasLos, idx, inCover, makeGrid, nearestFree, objectAt, passable, pathTo, posOf, reach, same, terrainAt, type BoardObject, type CarLike, type Grid, type Pos, type Reach } from './grid';
+import { addObjects, coverObject, dist, hasLos, idx, inCover, levelAt, makeGrid, nearestFree, objectAt, passable, pathTo, posOf, reach, same, stepOf, terrainAt, type BoardObject, type CarLike, type Grid, type Pos, type Reach } from './grid';
 import { Rng } from './rng';
 import { MAKES, SPILL, blastInside, blastOutside, hitCar, normalize, paceOf } from './cars';
 import { parkedVehicle } from './roads';
@@ -13,6 +13,10 @@ import { artsOf } from './lab';
 import { dragonSpeed, hasTrait, legSpeed } from './dragonmodels';
 import type { ArtBranch } from './content/doctrine';
 import * as D from './doctrine';
+import { perceived, ratio, statsOf } from './npcstats';
+import { atLeast, bucketOf, callForHelp, channelNow, hush } from './stealth';
+import type { Placed } from './placeboard';
+import { cloneGrid } from './layout';
 
 /**
  * A fight, played out on a small grid. Nobody watches it: the player gets a report of the interesting bits and the result.
@@ -59,6 +63,12 @@ export interface Unit extends Pos {
   pinned: number;
   marked: number;
   supp: number;
+  /** Rounds left blind (Optic Reset): it can barely hit anything. */
+  blind: number;
+  /** Rounds left turned (Rewrite, Turret Takeover): it fights for the other side. */
+  turned: number;
+  /** Rounds left overclocked (Overclock): hits harder and moves faster. */
+  over: number;
   stagger: number;
   /** Broken limbs, a fraction of armor stripped, a weapon taken, and whether it moved on its last turn. */
   leg: boolean;
@@ -102,6 +112,8 @@ export interface SimOpts {
   maxRounds: number;
   /** Same-faction friends of the other side who might wade in. */
   backup?: () => Npc[];
+  /** The place has a layout and everyone has somewhere to be on it: fight there, from where they are. */
+  board?: Placed;
 }
 
 export interface LogEntry {
@@ -131,6 +143,10 @@ export interface RoundRecord {
 
 export interface SimResult {
   result: TacticalResult;
+  /** The tile she left by, if she ran for it. */
+  fledAt?: Pos;
+  /** Where everyone was at the end, for the place's board. */
+  ended: { hero: Pos; others: Record<string, Pos> };
   rounds: number;
   /** Knocked out, in a fight where nobody dies. */
   down: Set<string>;
@@ -198,7 +214,12 @@ export function foeProfile(n: Npc): FoeProfile {
   const big = t.includes('boss') || t.includes('dragon');
   // A courier dragon with half its plating gone would sooner lose the delivery than the dragon.
   const canFlee = t.includes('skittish') || !t.some((x) => ['robot', 'dragon', 'boss', 'cop', 'security'].includes(x));
-  return { reach, speed, flying, hit: t.includes('hera') ? 1 : 0.8, caution: big ? 1 : t.includes('cop') || t.includes('security') ? 3 : 4.5, canFlee };
+  // What they are made of shows: quick people are quicker and surer, clever ones more careful.
+  const quick = ratio(n, 'reflex');
+  if (!big && speed === 3 && quick >= 1.7) speed = 4;
+  const hit = t.includes('hera') ? 1 : clamp(0.8 + 0.06 * (quick - 1), 0.65, 0.92);
+  const care = big ? 1 : t.includes('cop') || t.includes('security') ? 3 : 4.5;
+  return { reach, speed, flying, hit, caution: big ? care : care * (0.85 + 0.15 * ratio(n, 'int')), canFlee };
 }
 
 const ALLY_SHAPE: Record<string, { reach: [number, number]; speed: number; flying?: boolean }> = {
@@ -269,13 +290,16 @@ export class Sim {
   /** A car went up with her in it: that is death whether or not the fight was meant to be lethal. */
   private blastKill = false;
   droveOff = false;
+  fledAt: Pos | null = null;
   readonly getaways: { npc: Npc; carId: string }[] = [];
   /** A hit at the end of a ride-by: momentum. */
   private rideBonus = 0;
   private lastWield: string;
   private readonly procs = new Set<string>();
   private readonly queue: { unit: Unit; round: number; why: 'joiner' | 'law' | 'backup' }[] = [];
-  private backups = 0;
+  /** Rounds the doors stay sealed (Door Lock) and the lights stay out (Lights Out). */
+  sealed = 0;
+  dark = 0;
   private foeTotal = 0;
   private pw = new Map<string, number>();
   private dmgCache = new Map<string, number>();
@@ -289,7 +313,7 @@ export class Sim {
     this.o = o;
     const h = c.w.hero;
     const loc = c.w.locations[h.locationId]!;
-    this.grid = makeGrid(c.rng, loc.kind, loc.crowded);
+    this.grid = o.board ? cloneGrid(o.board.layout.grid) : makeGrid(c.rng, loc.kind, loc.crowded);
     this.parkCars(loc);
     this.wield = wielded(h, o.foes);
     this.arts = artsOf(c.w.legacy);
@@ -302,7 +326,8 @@ export class Sim {
     this.hero = this.heroUnit();
     this.units.push(this.hero);
     for (const a of h.companions) if (a.hp > 0) this.units.push(this.allyUnit(a));
-    for (const f of o.foes) this.units.push(this.foeUnit(f, !o.assault));
+    // Sneaking, whoever she picked a fight with is only ready for it if they already had a sense of her.
+    for (const f of o.foes) this.units.push(this.foeUnit(f, !o.assault || (h.stealth === true && atLeast(bucketOf(c.w, f), 'alert'))));
     this.foeTotal = o.foes.length;
     for (const a of o.arrivals) this.queue.push({ unit: this.foeUnit(a.npc, true, 'pending'), round: a.round, why: a.why === 'law' ? 'law' : 'joiner' });
     this.place();
@@ -365,6 +390,9 @@ export class Sim {
       pinned: 0,
       marked: 0,
       supp: 0,
+      blind: 0,
+      turned: 0,
+      over: 0,
       stagger: 0,
       leg: false,
       arm: false,
@@ -396,6 +424,20 @@ export class Sim {
       u.y = p.y;
       placed.push(u);
     };
+    const bd = this.o.board;
+    if (bd) {
+      // She is where she was and so is everyone else.
+      const spot = (p: Pos | undefined): Pos | null => (p && passable(g, p.x, p.y) && !taken(p) ? p : null);
+      const start = spot(bd.board.hero) ?? nearestFree(g, rng, bd.board.hero, taken)[0] ?? g.exits[0]!;
+      put(this.hero, start);
+      for (const u of this.units) if (u.kind === 'ally') put(u, nearestFree(g, rng, start, taken, u.flying)[0] ?? start);
+      for (const u of this.units) {
+        if (u.kind !== 'foe') continue;
+        const mine = spot(bd.board.ents[u.id]);
+        put(u, mine ?? nearestFree(g, rng, bd.board.hero, taken, u.flying).find((p) => dist(p, start) >= 2) ?? nearestFree(g, rng, start, taken, u.flying)[0] ?? start);
+      }
+      return;
+    }
     const entry = rng.pick(g.exits);
     // She is beside her own car if there is one.
     const mine = this.ownCar();
@@ -411,16 +453,21 @@ export class Sim {
 
   // ------------------------------------------------------------------ queries (used by techniques too)
 
+  /** Which side a unit is fighting for right now: a turned foe fights for hers. */
+  side(u: Unit): 'hero' | 'foe' | 'neutral' {
+    return u.turned > 0 ? (u.team === 'foe' ? 'hero' : 'foe') : u.team;
+  }
+
   enemiesOf(u: Unit): Unit[] {
-    return this.units.filter((e) => e.state === 'active' && e.team !== u.team);
+    return this.units.filter((e) => e.state === 'active' && this.side(e) !== this.side(u));
   }
 
   private friendsOf(u: Unit): Unit[] {
-    return this.units.filter((e) => e.state === 'active' && e.team === u.team && e !== u);
+    return this.units.filter((e) => e.state === 'active' && this.side(e) === this.side(u) && e !== u);
   }
 
   standingFoes(): Unit[] {
-    return this.units.filter((u) => u.team === 'foe' && u.state === 'active');
+    return this.units.filter((u) => u.team === 'foe' && u.state === 'active' && !(u.turned > 0));
   }
 
   private lostFraction(): number {
@@ -434,7 +481,17 @@ export class Sim {
   /** Is someone else on the same side standing next to the target (so it's being pincered)? */
   flanked(att: Unit, tgt: Unit, from: Pos): boolean {
     if (dist(from, tgt) > 1) return false;
-    return this.units.some((u) => u.state === 'active' && u.team === att.team && u !== att && dist(u, tgt) <= 1);
+    return this.units.some((u) => u.state === 'active' && this.side(u) === this.side(att) && u !== att && dist(u, tgt) <= 1);
+  }
+
+  /** Higher ground: shooting down is easier than shooting up. */
+  private heightEdge(from: Pos, tgt: Pos): number {
+    return 0.06 * clamp(levelAt(this.grid, from.x, from.y) - levelAt(this.grid, tgt.x, tgt.y), -2, 2);
+  }
+
+  /** Who can haul themselves up a bad wall: people can, machines and animals cannot. */
+  private climbs(u: Unit): boolean {
+    return !u.flying && !u.npc?.tags.some((t) => t === 'robot' || t === 'dog' || t === 'drone');
   }
 
   /** A foe or an ally's chance to hit. */
@@ -444,12 +501,15 @@ export class Sim {
     if (att.reach[1] > 1) {
       if (inCover(this.grid, from, tgt)) p -= 0.25;
       if (this.sheltered(tgt)) p -= 0.25;
+      p += this.heightEdge(from, tgt);
       const far = Math.ceil(att.reach[1] * 0.6);
       const d = dist(from, tgt);
       if (d > far) p -= 0.07 * (d - far);
     }
     if (this.flanked(att, tgt, from)) p += 0.08;
     p += D.foeHit(this, att, tgt, from);
+    if (att.blind > 0) p -= 0.5;
+    if (this.dark > 0 && att.reach[1] > 1) p -= 0.2;
     return clamp(p, 0.1, 0.97);
   }
 
@@ -463,10 +523,13 @@ export class Sim {
     else if (weapon.tags.includes('melee')) p += skillValue(h, 'melee') * 0.008;
     if (this.hooks.hasInjury(this.w, 'concussion')) p -= 0.05;
     if (ranged && this.hooks.hasInjury(this.w, 'fried_optics')) p -= 0.12;
+    if (t.npc && t.kind === 'foe') p -= clamp(0.06 * (ratio(t.npc, 'reflex') - 1), -0.05, 0.15);
+    if (this.dark > 0 && (gun || thrown)) p -= 0.2;
     const d = dist(from, t);
     if (ranged) {
       const max = thrown ? 4 : weaponReach(weapon)[1];
       if (inCover(this.grid, from, t)) p -= 0.25;
+      p += this.heightEdge(from, t);
       const far = Math.ceil(max * 0.6);
       if (d > far) p -= 0.07 * (d - far);
       const cls = fxOf(weapon).cls;
@@ -593,7 +656,7 @@ export class Sim {
   }
 
   panicIfCan(t: Unit): boolean {
-    if (t.leg || t.pinned > 0) return false;
+    if (t.leg || t.pinned > 0 || (this.sealed > 0 && t.kind === 'foe')) return false;
     const free = this.exitMap(t);
     if (!free.size || !free.has(idx(this.grid, t))) return false;
     t.fleeing = true;
@@ -665,6 +728,7 @@ export class Sim {
     }
     if (tgt.kind === 'hero' && D.deflected(this, att)) return;
     let fp = (att.power - (att.disabled ? 3 : 0)) * D.foePower(att);
+    if (att.npc && att.kind === 'foe') fp *= clamp(1 + 0.2 * (ratio(att.npc, 'muscle') - 1), 0.75, 1.5);
     if (att.npc?.tags.includes('apollo') && this.w.flags.dragon_weak) fp *= 0.65;
     let d = Math.max(1, Math.round(fp * (0.2 + rng.next() * 0.4)) - this.armorOf(tgt));
     if (tgt.kind === 'ally') d = Math.round(d * 0.6);
@@ -675,7 +739,7 @@ export class Sim {
   allyStrike(me: Unit, t: Unit, base: number): void {
     const rng = this.c.rng;
     if (!rng.chance(this.hitChance(me, t, me))) return;
-    let d = Math.round(base * (0.6 + rng.next() * 0.5) * 0.9);
+    let d = Math.round(base * (0.6 + rng.next() * 0.5) * 0.9 * (me.over > 0 ? 1.5 : 1));
     if (t.npc) d = Math.max(1, d - Math.round(foeArmor(t.npc) * 0.5));
     this.damage(me, t, d);
     if (!this.firstAssist.has(me.id)) {
@@ -728,7 +792,7 @@ export class Sim {
     if (u.pinned > 0) return 0;
     if (u.speed === 0) return 0;
     const riding = this.carOf(u)?.body === 'bike' ? 3 : 0; // a bike under her
-    return Math.max(1, u.speed + riding - (u.slow > 0 ? 1 : 0) - (u.leg ? 2 : 0));
+    return Math.max(1, u.speed + riding + (u.over > 0 ? 1 : 0) - (u.slow > 0 ? 1 : 0) - (u.leg ? 2 : 0));
   }
 
   /** Throw a foe back up to `n` tiles away from `me`: into a wall or person for damage and a daze, through an exit to be rid of them, onto a hazard for more. */
@@ -738,7 +802,7 @@ export class Sim {
       const dest = { x: t.x + Math.sign(t.x - me.x), y: t.y + Math.sign(t.y - me.y) };
       if (same(dest, t)) return;
       const terrain = terrainAt(this.grid, dest.x, dest.y);
-      if (terrain === null || terrain === 'wall' || terrain === 'cover' || this.occupant(dest)) {
+      if (terrain === null || terrain === 'wall' || terrain === 'void' || terrain === 'cover' || this.occupant(dest)) {
         this.damage(me, t, Math.max(1, Math.round((h.muscle * 1.2 + h.level) * slam)));
         if (t.state === 'active') {
           t.stunned = true;
@@ -766,7 +830,7 @@ export class Sim {
     const h = this.w.hero;
     const slam = Math.round(h.muscle * 1.2 + h.level);
     const terrain = terrainAt(this.grid, dest.x, dest.y);
-    if (terrain === null || terrain === 'wall' || terrain === 'cover' || this.occupant(dest)) return { kind: 'slam', dmg: slam, dest };
+    if (terrain === null || terrain === 'wall' || terrain === 'void' || terrain === 'cover' || this.occupant(dest)) return { kind: 'slam', dmg: slam, dest };
     if (terrain === 'exit') return { kind: 'out', dmg: 0, dest };
     if (terrain === 'hazard' && !t.flying) return { kind: 'hazard', dmg: hazardDmg(t), dest };
     return { kind: 'push', dmg: 0, dest };
@@ -799,10 +863,41 @@ export class Sim {
     train(this.c, 'athletics', 1);
   }
 
-  hackChance(me: Unit, t: Unit): number {
+  /** What a target's Intelligence takes off a Hack: the real number, or (for deciding whether to try) what she has read of it. */
+  private firewall(t: Unit, perceivedOnly: boolean): number {
+    if (!t.npc) return 0;
+    return 0.05 * (perceivedOnly ? perceived(this.w, t.npc, 'int') : statsOf(t.npc).int);
+  }
+
+  hackChance(me: Unit, t: Unit, perceivedOnly = false): number {
     if (me.kind !== 'hero') return 0.6;
     const h = this.w.hero;
-    return clamp(0.35 + h.hack * 0.07 + skillValue(h, 'tinkering') * 0.03 - ((t.npc?.level ?? 1) - h.level) * 0.04, 0.1, 0.9);
+    return clamp(0.35 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.03 - this.firewall(t, perceivedOnly), 0.1, 0.9);
+  }
+
+  /** Whether anyone could come if they called. */
+  get backupPossible(): boolean {
+    return !!this.o.backup;
+  }
+
+  /** One of them calls for help. Whoever hears it and would come turns up in a round or two. */
+  callBackup(u: Unit): void {
+    const heard = callForHelp(this.c, u.npc!);
+    u.cd.call = 99;
+    const cap = u.npc && channelNow(this.w, u.npc) === 'shout' ? 1 : 2;
+    const pals = (this.o.backup?.() ?? []).filter((n) => heard.includes(n) && !this.units.some((x) => x.id === n.id) && !this.queue.some((q) => q.unit.id === n.id));
+    for (const pal of pals.slice(0, cap)) this.queue.push({ unit: this.foeUnit(pal, true, 'pending'), round: this.round + 1 + this.c.rng.int(0, 2), why: 'backup' });
+  }
+
+  /** Hush, a Hack: a burst down the comm link that leaves them unable to call out for a while. A very good one leaves them with nothing, not even a shout. */
+  doHush(t: Unit): void {
+    const p = this.hackChance(this.hero, t);
+    const r = this.c.rng.next();
+    if (r >= p) return;
+    hush(this.w, t.npc!, r < p * 0.2);
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'hush', foe: t.name, deep: r < p * 0.2 }, 3, `hush:${t.id}`);
   }
 
   doHack(me: Unit, t: Unit): void {
@@ -811,7 +906,7 @@ export class Sim {
     t.disabled = true;
     if (me.kind === 'hero') {
       this.stats.hacks++;
-      const dmg = t.npc?.tags.includes('robot') ? Math.round(this.w.hero.hack * 2.2) : 0;
+      const dmg = t.npc?.tags.includes('robot') ? Math.round(this.w.hero.int * 2.2) : 0;
       if (dmg) this.damage(me, t, dmg);
       train(this.c, 'tinkering', 1);
       this.note('tactic', 'good', { variant: 'hack', foe: t.name, robot: !!t.npc?.tags.includes('robot') }, 3, `hack:${t.id}`);
@@ -820,11 +915,118 @@ export class Sim {
     }
   }
 
+  /** Optic Reset, a Hack: a burst down the optic feed that leaves anything with chrome for eyes blind for a few rounds. */
+  opticChance(t: Unit, perceivedOnly = false): number {
+    const h = this.w.hero;
+    return clamp(0.4 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.02 - this.firewall(t, perceivedOnly), 0.1, 0.92);
+  }
+
+  doOpticReset(t: Unit): void {
+    if (!this.c.rng.chance(this.opticChance(t))) return;
+    t.blind = 2 + Math.ceil(this.w.hero.int / 3);
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'optic_reset', foe: t.name }, 3, `optic:${t.id}`);
+  }
+
+  // ---- the learnable Hacks and Overrides: see techniques.ts
+
+  /** Gun Jam: its weapon locks up for a few rounds. */
+  doGunJam(t: Unit): void {
+    if (!this.c.rng.chance(this.hackChance(this.hero, t))) return;
+    t.disarmed = true;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'gun_jam', foe: t.name }, 3, `gunjam:${t.id}`);
+  }
+
+  /** Limb Lock: a chromed limb stops answering. Slows them and cuts what they hit for. */
+  doLimbLock(t: Unit): void {
+    if (!this.c.rng.chance(this.hackChance(this.hero, t))) return;
+    const arm = this.c.rng.chance(0.5);
+    if (arm) t.arm = true;
+    else t.leg = true;
+    t.slow = Math.max(t.slow, 3);
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'limb_lock', foe: t.name, arm }, 3, `limb:${t.id}`);
+  }
+
+  painSpikeDamage(t: Unit): number {
+    return Math.round(this.w.hero.int * 3 * (t.npc?.tags.includes('robot') ? 1.4 : 1));
+  }
+
+  /** Pain Spike: feedback straight into the nervous system. */
+  doPainSpike(t: Unit): void {
+    if (!this.c.rng.chance(this.hackChance(this.hero, t))) return;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.damage(this.hero, t, this.painSpikeDamage(t));
+    if (t.state === 'active') t.stagger = 2;
+    this.note('tactic', 'good', { variant: 'pain_spike', foe: t.name }, 3, `spike:${t.id}`);
+  }
+
+  /** Rewrite: a robot or drone fights for her for a few rounds. */
+  doRewrite(t: Unit): void {
+    if (!this.c.rng.chance(clamp(this.hackChance(this.hero, t) - 0.1, 0.05, 0.85))) return;
+    t.turned = 3 + Math.floor(this.w.hero.int / 4);
+    t.fleeing = false;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 2);
+    this.note('tactic', 'good', { variant: 'rewrite', foe: t.name }, 4, `rewrite:${t.id}`);
+  }
+
+  /** Hot-Wire: the car a foe was running for won't start. */
+  doHotWire(): void {
+    let any = false;
+    for (const f of this.standingFoes()) {
+      const o = this.keyCar(f);
+      if (!o) continue;
+      any = true;
+      f.carFlee = undefined;
+      o.carId = undefined;
+    }
+    if (!any) return;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'hot_wire' }, 3, 'hotwire');
+  }
+
+  /** Overclock: a drone, hacker or robot ally runs hot for a few rounds. */
+  doOverclock(a: Unit): void {
+    a.over = 3 + Math.floor(this.w.hero.int / 4);
+    this.stats.hacks++;
+    this.note('tactic', 'good', { variant: 'overclock', ally: a.name }, 3, `over:${a.id}`);
+  }
+
+  /** Door Lock: nobody leaves and nobody arrives for a while. */
+  doDoorLock(): void {
+    this.sealed = 3 + Math.floor(this.w.hero.int / 4);
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'door_lock' }, 3, 'doorlock');
+  }
+
+  /** Lights Out: guns and throws miss in the dark. */
+  doLightsOut(): void {
+    this.dark = 4;
+    train(this.c, 'tinkering', 1);
+    this.note('tactic', 'good', { variant: 'lights_out' }, 3, 'lightsout');
+  }
+
+  /** Turret Takeover: the building's own gun changes sides for good. */
+  doTurretTakeover(t: Unit): void {
+    if (!this.c.rng.chance(this.hackChance(this.hero, t))) return;
+    t.turned = 99;
+    this.stats.hacks++;
+    train(this.c, 'tinkering', 2);
+    this.note('tactic', 'good', { variant: 'turret_takeover', foe: t.name }, 4, `turret:${t.id}`);
+  }
+
   scareChance(t: Unit): number {
     const h = this.w.hero;
     const lvl = t.npc?.level ?? 1;
     const hurt = t.ref.hp / t.ref.maxHp < 0.5 ? 0.2 : 0;
-    return clamp(0.1 + skillValue(h, 'intimidation') * 0.06 + (h.level - lvl) * 0.05 + h.fame * 0.004 + hurt + this.lostFraction() * 0.2, 0.02, 0.7);
+    return clamp(0.1 + skillValue(h, 'intimidation') * 0.06 + (h.level - lvl) * 0.05 + h.fame * 0.004 + hurt + this.lostFraction() * 0.2 - (t.npc ? 0.08 * (ratio(t.npc, 'muscle') - 1) + 0.04 * (ratio(t.npc, 'int') - 1) : 0), 0.02, 0.7);
   }
 
   doIntimidate(t: Unit): void {
@@ -858,10 +1060,18 @@ export class Sim {
       for (const p of o.cells) this.grid.cells[idx(this.grid, p)] = 'floor';
       this.grid.objects = (this.grid.objects ?? []).filter((x) => x !== o);
     } else if (me.kind === 'foe') this.eject(me, me.scared ? 'scared' : 'ran');
-    else me.state = 'fled';
+    else {
+      me.state = 'fled';
+      if (me.kind === 'hero') this.fledAt = { x: me.x, y: me.y };
+    }
   }
 
   /** The car (not hers, in one piece) a foe has the key to, if it is on the board. */
+  /** Anybody still to come through the doors. */
+  reinforcementsDue(): boolean {
+    return this.queue.length > 0;
+  }
+
   keyCar(u: Unit): BoardObject | undefined {
     const n = u.npc;
     if (u.kind !== 'foe' || !n || n.flags.includes('cornered')) return undefined;
@@ -1125,8 +1335,12 @@ export class Sim {
       // Whoever she crept up on has noticed her by the second round.
       if ((this.round >= 2 && this.round >= this.hush) || !this.o.assault) for (const f of this.units) if (f.team === 'foe') f.alert = true;
     }
+    const ended = { hero: { x: this.hero.x, y: this.hero.y }, others: {} as Record<string, Pos> };
+    for (const u of this.units) if (u.kind === 'foe') ended.others[u.id] = { x: u.x, y: u.y };
     return {
       result: this.result ?? 'flee',
+      ...(this.fledAt ? { fledAt: this.fledAt } : {}),
+      ended,
       rounds: this.round,
       down: this.down,
       fled: this.fled,
@@ -1173,32 +1387,21 @@ export class Sim {
     }
     D.regen(this);
     // Late arrivals come through the doors.
-    const now = this.queue.filter((q) => q.round <= this.round);
+    if (this.sealed > 0) this.sealed--;
+    if (this.dark > 0) this.dark--;
+    const now = this.sealed > 0 ? [] : this.queue.filter((q) => q.round <= this.round);
     const groups = new Map<string, Unit[]>();
     for (const q of now) {
       this.queue.splice(this.queue.indexOf(q), 1);
       if (this.arriveAt(q.unit)) {
+        if (q.why === 'backup') {
+          q.unit.npc!.hostile = true;
+          q.unit.npc!.affinity -= 15;
+        }
         this.units.push(q.unit);
         this.arrived.push(q.unit.npc!);
         this.foeTotal++;
         groups.set(q.why, [...(groups.get(q.why) ?? []), q.unit]);
-      }
-    }
-    // Friends of the other side hear the noise.
-    if (this.o.backup && this.round >= 3 && this.backups < 2 && this.lostFraction() > 0 && rng.chance(0.22)) {
-      const pals = this.o.backup().filter((n) => !this.units.some((u) => u.id === n.id));
-      const pal = pals.length ? rng.pick(pals) : null;
-      if (pal) {
-        const u = this.foeUnit(pal, true);
-        if (this.arriveAt(u)) {
-          this.backups++;
-          pal.hostile = true;
-          pal.affinity -= 15;
-          this.units.push(u);
-          this.arrived.push(pal);
-          this.foeTotal++;
-          groups.set('backup', [...(groups.get('backup') ?? []), u]);
-        }
       }
     }
     for (const [why, us] of groups) {
@@ -1303,7 +1506,14 @@ export class Sim {
     if (this.result) return;
     const h = this.w.hero;
     const rng = this.c.rng;
-    if (!this.standingFoes().length) this.result = 'win';
+    if (!this.standingFoes().length) {
+      this.result = 'win';
+      // Whatever she had turned is stood down with the rest.
+      for (const u of this.units) if (u.team === 'foe' && u.turned > 0 && u.state === 'active') {
+        u.state = 'down';
+        this.down.add(u.id);
+      }
+    }
     else if (this.hero.state === 'fled') this.result = 'flee';
     else if (h.hp <= 0 && (this.o.lethal || this.blastKill)) {
       if (this.w.hero.implants.some((i) => i === 'emergency_defib') && !this.w.flags.defib_used) {
@@ -1328,14 +1538,14 @@ export class Sim {
     const ride = this.carOf2(u);
     if (ride && !ride.wrecked) {
       for (const p of ride.cells) {
-        const r = reach(g, p, 40, () => false, u.flying);
+        const r = reach(g, p, 40, () => false, u.flying, this.climbs(u), true);
         for (const [i, c] of r.cost) if (c < (best.get(i) ?? Infinity)) best.set(i, c);
       }
       return best;
     }
     for (const e of g.exits) {
       if (this.occupant(e, u)) continue;
-      const r = reach(g, e, 40, () => false, u.flying);
+      const r = reach(g, e, 40, () => false, u.flying, this.climbs(u), true);
       for (const [i, c] of r.cost) if (c < (best.get(i) ?? Infinity)) best.set(i, c);
     }
     return best;
@@ -1344,7 +1554,7 @@ export class Sim {
   private enemyDistMap(u: Unit, enemies: Unit[]): Map<number, number> {
     const best = new Map<number, number>();
     for (const e of enemies) {
-      const r = reach(this.grid, e, 30, () => false, u.flying);
+      const r = reach(this.grid, e, 30, () => false, u.flying, this.climbs(e));
       for (const [i, c] of r.cost) if (c < (best.get(i) ?? Infinity)) best.set(i, c);
     }
     return best;
@@ -1358,6 +1568,7 @@ export class Sim {
       if (gap > this.speedOf(e) + e.reach[1] + (e.flying ? 1 : 0)) continue;
       let p = e.npc?.tags.includes('hera') ? 1 : e.hit;
       if (e.reach[1] > 1 && inCover(this.grid, e, tile)) p -= 0.25;
+      if (e.reach[1] > 1) p += this.heightEdge(e, tile);
       if (e.reach[1] > 1 && this.sheltered(u) && same(tile, u)) p -= 0.25;
       d += Math.min(1, this.avgDamage(e, u) / Math.max(1, u.ref.hp)) * Math.max(0.05, p);
     }
@@ -1386,6 +1597,11 @@ export class Sim {
       }
     }
     if (!u.flying && terrainAt(this.grid, tile.x, tile.y) === 'hazard') s -= k.fleeing ? 4 : 14;
+    // Those who shoot like the high ground.
+    if (this.grid.level && u.reach[1] > 1 && !k.fleeing) {
+      const mine = levelAt(this.grid, tile.x, tile.y);
+      s += 0.7 * clamp(mine - Math.min(...k.enemies.map((e) => levelAt(this.grid, e.x, e.y))), -2, 2);
+    }
     k.pos.set(key, s);
     return s;
   }
@@ -1407,8 +1623,8 @@ export class Sim {
     const techs = fleeing ? techniquesFor(this, u).filter((t) => t.id === 'leave') : techniquesFor(this, u);
     const blocked = (p: Pos) => enemies.some((e) => same(e, p));
     const speed = this.speedOf(u);
-    const walk = reach(g, u, speed, blocked, u.flying);
-    const sprint = reach(g, u, speed * 2, blocked, u.flying);
+    const walk = reach(g, u, speed, blocked, u.flying, this.climbs(u));
+    const sprint = reach(g, u, speed * 2, blocked, u.flying, this.climbs(u));
 
     const cands: { tile: Pos; mode: Option['mode']; r: Reach | null; cost: number }[] = [];
     for (const [i, c] of sprint.cost) {
@@ -1456,6 +1672,13 @@ export class Sim {
     return best;
   }
 
+  /** Hauling yourself up something that is not meant for it: athletics for her, how hard a foe is for them. */
+  private climbRoll(u: Unit): boolean {
+    const p = u.kind === 'hero' ? 0.55 + 0.05 * skillValue(this.w.hero, 'athletics') + 0.01 * this.w.hero.reflex : 0.5 + 0.02 * (u.npc?.level ?? 1);
+    if (u.kind === 'hero') train(this.c, 'athletics', 1);
+    return this.c.rng.chance(clamp(p, 0.2, 0.95));
+  }
+
   private execute(u: Unit, o: Option): void {
     const rode = u.aboard ? this.carOf(u) : undefined;
     // She gets out when she walks off; on a bike she rides, and it goes where she goes.
@@ -1474,8 +1697,21 @@ export class Sim {
     } else if (o.mode !== 'stay' && o.r) {
       for (const step of pathTo(this.grid, o.r, o.tile)) {
         if (u.state !== 'active') return;
+        const how = stepOf(this.grid, u, step, this.climbs(u));
+        if (how.check && !this.climbRoll(u)) {
+          // Slipped. She stays where she was, and now and then comes down hard.
+          this.note('tactic', u.kind === 'hero' ? 'bad' : 'good', { variant: 'climb_fail', foe: u.name }, 1.5, `climb_fail:${u.id}:${this.round}`);
+          if (this.c.rng.chance(0.2)) this.damage(null, u, 2 + this.c.rng.int(0, 3));
+          break;
+        }
+        if (how.check) this.note('tactic', 'good', { variant: 'climb', foe: u.name, hero: u.kind === 'hero' }, 1, `climb:${u.id}`);
         u.x = step.x;
         u.y = step.y;
+        if (how.fall > 0) {
+          this.damage(null, u, how.fall * (3 + this.c.rng.int(0, 3)));
+          this.note('tactic', u.kind === 'hero' ? 'bad' : 'good', { variant: 'fall', foe: u.name, levels: how.fall + 1 }, 1.5, `fall:${u.id}:${this.round}`);
+          if (u.state !== 'active') return;
+        }
         this.triggerWatch(u);
       }
     }

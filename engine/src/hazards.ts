@@ -63,10 +63,10 @@ function meetTrap(c: Ctx, home: Location, trap: NonNullable<Location['hazards']>
   const h = w.hero;
   const def = TRAPS[trap.kind]!;
   const data = { place: home.name, trap: trap.kind };
-  const spot = clamp(0.3 + skillLevel(h, 'sneak') * 0.05 + h.hack * 0.03 + h.competence * 0.1, 0.1, 0.9);
+  const spot = clamp(0.3 + skillLevel(h, 'sneak') * 0.05 + h.int * 0.03 + h.competence * 0.1, 0.1, 0.9);
   if (rng.chance(spot)) {
     // A turret is a computer: it is her hacking that talks it down, not her lockpicks.
-    const skill = trap.kind === 'sentry_turret' ? h.hack * 0.08 : skillLevel(h, 'lockpicking') * 0.04 + h.hack * 0.02;
+    const skill = trap.kind === 'sentry_turret' ? h.int * 0.08 : skillLevel(h, 'lockpicking') * 0.04 + h.int * 0.02;
     if (rng.chance(clamp(def.disarm + skill, 0.1, 0.9))) {
       c.emit('home_hazard', 'good', { variant: 'trap_disarmed', ...data });
       train(c, trap.kind === 'sentry_turret' ? 'tinkering' : 'lockpicking', 2);

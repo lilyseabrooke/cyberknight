@@ -35,8 +35,12 @@ import { knowledgeCandidates, shareFact } from './knowledge';
 import { questCandidates } from './quests';
 import { isFairGame } from './people';
 import { isBadGuy } from './traits';
-import { isShut } from './shutdown';
+import { isClosed } from './hours';
 import { moveNpc } from './population';
+import { cooling } from './mind';
+import { atLeast, awareness, bucketOf, coverAt, enterStealth, isSneaking, npcPerception, stealthCandidates } from './stealth';
+import { spatialStir } from './placeboard';
+import { analyze, perceived, perceivedRatio, ratio, readQuality, skillOf, statsOf } from './npcstats';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -98,9 +102,11 @@ export function gather(w: World): Candidate[] {
     }
     // The street doc is the only one who puts her back together for pocket change. She doesn't bite the hand that patches her.
     const spare = n.tags.includes('doc') && n.affinity > -20;
-    if (!spare && !n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
+    // She can only lift from someone who hasn't noticed her: while sneaking, that is someone Unaware or Suspicious; otherwise it takes cover to slip into stealth first.
+    const liftable = isSneaking(w) ? !atLeast(bucketOf(w, n), 'alert') : coverAt(w, h.locationId) >= 0.25;
+    if (!spare && liftable && !n.tags.includes('robot') && (n.cash > 0 || n.loadout.length)) {
       out.push({
-        key: `pickpocket:${n.id}`, drives: { greed: 0.95, curiosity: 0.2 }, risk: 0.6 + levelRisk(w, n), intent: { npc: n.name },
+        key: `pickpocket:${n.id}`, drives: { greed: 0.95, curiosity: 0.2 }, risk: 0.6 + levelRisk(w, n) + clamp((perceivedRatio(w, n, 'reflex') + perceivedRatio(w, n, 'int') / 2 - 1.5) * 0.5, 0, 1), intent: { npc: n.name },
         run: (c) => pickpocket(c, n),
       });
     }
@@ -109,25 +115,28 @@ export function gather(w: World): Candidate[] {
       const paper = n.bounty && knowsBounty(w, n.id) ? Math.min(1.2, n.bounty.amount / 250) : 0;
       out.push({
         key: `challenge:${n.id}`, drives: { bravery: 1.0, pride: 0.8, greed: paper ? 0.6 : 0 }, bonus: (n.affinity < -10 ? 0.4 : 0) + paper + fightWorth(w, n),
-        risk: 0.4 + levelRisk(w, n) + (n.power > heroPower(w) * 1.5 ? 1 : 0),
+        risk: 0.4 + levelRisk(w, n) + (n.power > heroPower(w) * 1.5 ? 1 : 0) + clamp((perceivedRatio(w, n, 'muscle') - 1) * 0.5, 0, 0.8),
         run: (c) => {
           c.emit('challenge', 'mixed', { npc: n.name, role: n.role, variant: String(c.rng.int(1, 6)) });
           fight(c, [n], { cause: `picking a fight with ${n.name}`, assault: true });
         },
       });
       out.push({
-        key: `threaten:${n.id}`, drives: { bravery: 0.5, pride: 0.6, greed: 0.6 }, risk: 0.5 + levelRisk(w, n), intent: { npc: n.name },
+        key: `threaten:${n.id}`, drives: { bravery: 0.5, pride: 0.6, greed: 0.6 }, risk: 0.5 + levelRisk(w, n) + clamp((perceivedRatio(w, n, 'muscle') - 1) * 0.8, 0, 1.2), intent: { npc: n.name },
         run: (c) => threaten(c, n),
       });
     }
     if (n.tags.includes('strong')) {
-      out.push({ key: `armwrestle:${n.id}`, drives: { pride: 0.9, bravery: 0.2 }, risk: 0.1, intent: { npc: n.name }, run: (c) => armWrestle(c, n) });
+      out.push({ key: `armwrestle:${n.id}`, drives: { pride: 0.9, bravery: 0.2 }, risk: 0.1 + clamp((perceived(w, n, 'muscle') - h.muscle) * 0.1, 0, 1.5), intent: { npc: n.name }, run: (c) => armWrestle(c, n) });
     }
     if ((n.tags.includes('augmented') || n.tags.includes('robot')) && !n.flags.includes('hacked')) {
       out.push({
-        key: `hack:${n.id}`, drives: { curiosity: 0.75, greed: 0.5 }, risk: 0.3 + levelRisk(w, n) * 0.7, intent: { npc: n.name },
+        key: `hack:${n.id}`, drives: { curiosity: 0.75, greed: 0.5 }, risk: 0.3 + levelRisk(w, n) * 0.7 + clamp((perceived(w, n, 'int') - h.int) * 0.1, 0, 1.5), intent: { npc: n.name },
         run: (c) => hackNpc(c, n),
       });
+    }
+    if (talkable(n) && readQuality(w, n) < 0.7 && !cooling(w, `analyze:${n.id}`)) {
+      out.push({ key: `analyze:${n.id}`, drives: { curiosity: 0.45, pride: 0.1 }, smart: 0.3, risk: 0.05, intent: { npc: n.name }, run: (c) => analyze(c, n) });
     }
     if (n.tags.includes('fixer')) {
       if (!w.flags.job_taken) {
@@ -199,6 +208,7 @@ export function gather(w: World): Candidate[] {
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));
   out.push(...discretionCandidates(w));
+  out.push(...stealthCandidates(w));
   out.push(...hustleCandidates(w));
   out.push(...gymCandidates(w));
   out.push(...vehicleCandidates(w));
@@ -223,7 +233,7 @@ export function gather(w: World): Candidate[] {
   for (const e of loc.exits) {
     if (e.hidden) continue;
     if (e.to === 'overpass' && !w.flags.dragon_known) continue;
-    if (isShut(w, e.to)) continue; // locked up, or taped off by the police
+    if (isClosed(w, e.to)) continue; // locked up, or taped off by the police
     const dest = w.locations[e.to]!;
     const toDragon = e.to === 'overpass';
     const dragonRisk = toDragon && alive(dragon) ? clamp(dragonPower / heroPower(w) - 0.6, 0, 4) : 0;
@@ -251,7 +261,7 @@ export function gather(w: World): Candidate[] {
   // ------------------------------------------------------------------- across the hex grid
   // Not doors: over the fence, along the ducts, through the building next door. On wheels she can only take the ways a vehicle can.
   for (const e of loc.links ?? []) {
-    if (e.hidden || isShut(w, e.to) || !w.locations[e.to]) continue;
+    if (e.hidden || isClosed(w, e.to) || !w.locations[e.to]) continue;
     const mode = h.vehicle ? (h.vehicle.body === 'bike' ? 'bike' : 'car') : 'foot';
     if (!Number.isFinite(VIA[e.via ?? 'open'][mode]) || (h.vehicle && e.via !== 'open' && e.via !== 'ramp')) continue;
     const dest = w.locations[e.to]!;
@@ -319,7 +329,7 @@ function chat(c: Ctx, n: Npc): void {
 function flirt(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08 + romanceMod(w, n), 0.03, 0.9);
+  const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08 + romanceMod(w, n) - 0.1 * (ratio(n, 'charm') - 1), 0.03, 0.9);
   train(c, 'romance', 1);
   kindle(h, 0.05);
   if (rng.chance(p)) {
@@ -361,15 +371,27 @@ function kiss(c: Ctx, n: Npc): void {
 function pickpocket(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.reflex * 0.02 + 0.045 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + (n.flags.includes('marked') ? 0.15 : 0) - n.level * 0.05 - h.drunk * 0.02, 0.08, 0.88);
+  if (!h.stealth) enterStealth(c);
+  // Too many eyes, or theirs are on her: she lets it go.
+  if (atLeast(bucketOf(w, n), 'alert')) {
+    c.emit('pickpocket', 'mixed', { variant: 'abort', npc: n.name });
+    return;
+  }
+  const wary = bucketOf(w, n) === 'suspicious';
+  const p = clamp(0.3 + h.reflex * 0.02 + 0.045 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + (n.flags.includes('marked') ? 0.15 : 0) - n.level * 0.02 - 0.035 * npcPerception(n) - (wary ? 0.15 : 0) - h.drunk * 0.02, 0.08, 0.88);
   train(c, 'sleight', 1);
   if (!rng.chance(p)) {
+    awareness(w, n).v = 1;
+    awareness(w, n).fix = true;
     n.affinity -= 30;
     remember(n, 'caught Blackbird\'s hand in their pocket');
     c.emit('pickpocket', 'bad', { variant: 'caught', npc: n.name });
     fight(c, [n], { cause: `getting caught robbing ${n.name}`, assault: true });
     return;
   }
+  // The mark feels something, and whoever is looking might too.
+  awareness(w, n).v += 0.12;
+  spatialStir(c, 0.05, [n]);
   const items = n.loadout.filter((i) => i.kind !== 'armor' || !h.armor);
   if (items.length && rng.chance(0.55)) {
     const it = rng.pick(items);
@@ -389,7 +411,8 @@ function pickpocket(c: Ctx, n: Npc): void {
 function threaten(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.22 + h.muscle * 0.02 + 0.05 * synergy(h, ['intimidation', ['stat:muscle', 0.5]]) + h.level * 0.03 - n.level * 0.07, 0.05, 0.88);
+  const st = statsOf(n);
+  const p = clamp(0.22 + h.muscle * 0.02 + 0.05 * synergy(h, ['intimidation', ['stat:muscle', 0.5]]) + h.level * 0.03 - n.level * 0.03 - 0.03 * (st.muscle + st.int / 2), 0.05, 0.88);
   train(c, 'intimidation', 1);
   if (rng.chance(p)) {
     const take = Math.round(n.cash * 0.8);
@@ -407,7 +430,8 @@ function threaten(c: Ctx, n: Npc): void {
 function armWrestle(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.45 + (h.muscle + h.level - n.level * 1.5) * 0.05 - h.drunk * 0.02, 0.05, 0.9);
+  const st = statsOf(n);
+  const p = clamp(0.45 + (h.muscle - st.muscle) * 0.07 + (h.level - n.level) * 0.02 + (skillLevel(h, 'athletics') - skillOf(n, 'athletics')) * 0.01 - h.drunk * 0.02, 0.05, 0.9);
   if (rng.chance(p)) {
     const prize = rng.int(10, 40);
     h.cash += prize;
@@ -426,7 +450,7 @@ function hackNpc(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   n.flags.push('hacked');
-  const p = clamp(0.3 + h.hack * 0.06 + (hasAlly(w, 'hack') ? 0.08 : 0) + skillLevel(h, 'tinkering') * 0.02 - n.level * 0.04, 0.05, 0.85);
+  const p = clamp(0.3 + h.int * 0.06 + (hasAlly(w, 'hack') ? 0.08 : 0) + skillLevel(h, 'tinkering') * 0.02 - statsOf(n).int * 0.05, 0.05, 0.85);
   const corp = n.tags.includes('monitored') || n.tags.includes('corp');
   if (!rng.chance(p)) {
     h.hp -= 8;
@@ -491,7 +515,7 @@ function getPatched(c: Ctx, n: Npc): void {
   h.cash -= cost;
   h.hp = h.maxHp;
   if (rng.chance(0.2)) {
-    const stats = ['muscle', 'reflex', 'hack', 'charm'] as const;
+    const stats = ['muscle', 'reflex', 'int', 'charm'] as const;
     const up = rng.pick(stats);
     const down = rng.pick(stats.filter((s) => s !== up));
     h[up] += 2;
@@ -516,7 +540,7 @@ function stealPuppy(c: Ctx, pup: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   const dutch = dutchHere(w);
-  const p = clamp(0.4 + h.hack * 0.05 + h.charm * 0.03 - (dutch ? 0.15 : 0), 0.1, 0.85);
+  const p = clamp(0.4 + h.int * 0.05 + h.charm * 0.03 - (dutch ? 0.15 : 0), 0.1, 0.85);
   if (!rng.chance(p)) {
     h.hp -= 6;
     pup.affinity -= 10;

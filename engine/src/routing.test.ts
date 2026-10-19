@@ -8,6 +8,7 @@ import { ROAD, parkedVehicle, roadClass, roadsFrom, scene, trafficAt, trafficWor
 import { policeChase } from './chase';
 import { DEFAULT_SPEED, chooseSpeed, daringOf, driveAlong, hopChance, routeChance, routeMinutes, routesFrom, rushOf } from './drivefx';
 import { always } from './testkit';
+import { typeFromName } from './streettypes';
 import type { Ctx, Id, Location, Vehicle } from './types';
 
 const ctxOf = (w: World, rng: Rng = new Rng('c')): { c: Ctx; events: GameEvent[] } => {
@@ -26,7 +27,7 @@ function strip(w: World, names: string[]): Id[] {
   const ids: Id[] = [];
   names.forEach((name, i) => {
     const id = `T_${i}`;
-    const loc: Location = { ...base, id, name, road: name === 'Highway' ? 'highway' : undefined, exits: [{ to: prev.id, label: 'back', hidden: false, gate: null }], gen: undefined, crowded: false, cameras: 0 };
+    const loc: Location = { ...base, id, name, street: name === 'Highway' ? 'highway' : typeFromName(name, false), road: name === 'Highway' ? 'highway' : undefined, exits: [{ to: prev.id, label: 'back', hidden: false, gate: null }], gen: undefined, crowded: false, cameras: 0 };
     w.locations[id] = loc;
     prev.exits.push({ to: id, label: name, hidden: false, gate: null });
     prev = loc;
@@ -153,7 +154,7 @@ describe('where a car can go', () => {
     // On a bike the quick way is down the alley and the careful way is the two streets round.
     const w = createWorld({ seed: 'two', competence: 0.5 });
     const base = w.locations.street_main!;
-    const mk = (id: string, name: string, to: Id): Location => ({ ...base, id, name, exits: [{ to, label: 'back', hidden: false, gate: null }], gen: undefined, crowded: false, cameras: 0 });
+    const mk = (id: string, name: string, to: Id): Location => ({ ...base, id, name, street: typeFromName(name, false), exits: [{ to, label: 'back', hidden: false, gate: null }], gen: undefined, crowded: false, cameras: 0 });
     const alley = mk('W', 'Brass Alley', 'street_main');
     const s1 = mk('S1', 'Tin Street', 'street_main');
     const s2 = mk('S2', 'Rust Street', 'S1');

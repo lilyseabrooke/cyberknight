@@ -67,7 +67,8 @@ describe('fighting during a chase', () => {
   it('a weak runner on foot stops running and fights; a strong one is hit as it runs', () => {
     let stood = 0;
     let struck = 0;
-    for (let i = 0; i < 200; i++) {
+    // (A foe stands only now and then, so it takes a good few chases to see it.)
+    for (let i = 0; i < 800; i++) {
       const w = world(`stand-${i}`, 8);
       const runner = guy(w, `s${i}`, i % 2 ? 'ganger' : 'patron');
       const { c, events } = ctxOf(w, new Rng(`stand-${i}`));

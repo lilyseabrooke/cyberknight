@@ -87,19 +87,19 @@ describe('what low meters cost', () => {
     for (let v = 95; v >= 0; v -= 5) {
       h.hunger = v;
       const p = penaltyFor(h, s.w.legacy);
-      const total = p.power + p.muscle + p.reflex + p.hack + p.charm;
+      const total = p.power + p.muscle + p.reflex + p.int + p.charm;
       expect(total).toBeGreaterThanOrEqual(last);
       last = total;
     }
     expect(penaltyFor({ ...h, hunger: 89 }, s.w.legacy).power).toBe(0);
-    expect(pow[4]!.muscle + pow[4]!.reflex + pow[4]!.hack + pow[4]!.charm).toBeGreaterThan(pow[2]!.muscle + pow[2]!.reflex + pow[2]!.hack + pow[2]!.charm);
+    expect(pow[4]!.muscle + pow[4]!.reflex + pow[4]!.int + pow[4]!.charm).toBeGreaterThan(pow[2]!.muscle + pow[2]!.reflex + pow[2]!.int + pow[2]!.charm);
     expect(hungerTier(0)).toBe('wasting');
   });
 
   it('is applied to her stats and given back when she eats', () => {
     const s = scenario();
     const h = s.w.hero;
-    const before = { muscle: h.muscle, reflex: h.reflex, hack: h.hack, charm: h.charm };
+    const before = { muscle: h.muscle, reflex: h.reflex, int: h.int, charm: h.charm };
     h.hunger = 5;
     h.sleep = 10;
     refreshFx(s.w);
@@ -109,22 +109,22 @@ describe('what low meters cost', () => {
     h.hunger = 100;
     h.sleep = 100;
     refreshFx(s.w);
-    expect({ muscle: h.muscle, reflex: h.reflex, hack: h.hack, charm: h.charm }).toEqual(before);
+    expect({ muscle: h.muscle, reflex: h.reflex, int: h.int, charm: h.charm }).toEqual(before);
     expect(h.needsFx!.power).toBe(0);
   });
 
   it('never takes a stat below one', () => {
     const s = scenario();
     const h = s.w.hero;
-    h.hack = 1;
+    h.int = 1;
     h.hunger = 1;
     h.sleep = 1;
     refreshFx(s.w);
-    expect(h.hack).toBe(1);
+    expect(h.int).toBe(1);
     h.hunger = 100;
     h.sleep = 100;
     refreshFx(s.w);
-    expect(h.hack).toBe(1);
+    expect(h.int).toBe(1);
   });
 
   it('is softened by the lab', () => {
@@ -404,7 +404,7 @@ describe('sleep debt', () => {
     wearDown(s.w, 60);
     expect(debtOf(s.w.hero)).toBe(6);
     const worn = penaltyFor(s.w.hero, s.w.legacy);
-    expect(worn.power + worn.reflex + worn.hack).toBeGreaterThan(0);
+    expect(worn.power + worn.reflex + worn.int).toBeGreaterThan(0);
     s.w.hero.sleepDebt = 0;
     expect(penaltyFor(s.w.hero, s.w.legacy).power).toBe(0);
     let t = night('pod', 9.9);

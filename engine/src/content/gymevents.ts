@@ -69,7 +69,7 @@ export const SITUATIONAL: Affordance<GymView>[] = [
   }),
   row({
     id: 'charm-inspector', where: { situation: 'inspector', room: 'floor' }, pace: 'session',
-    needs: ['stat:charm', 'skill:haggling', 'stat:hack', 'skill:grifting', 'drive:greed'],
+    needs: ['stat:charm', 'skill:haggling', 'stat:int', 'skill:grifting', 'drive:greed'],
     sees: 'An Atlas inspector with a tablet and an unhurried smile.', stakes: 'A glowing review or a quiet fine; Atlas\'s attention.', consequence: 'Atlas now has an opinion of her.',
     drives: { pride: 0.5, greed: 0.5, curiosity: 0.4 }, bonus: 0.05, risk: 0.5, intent: ['Blackbird sees an Atlas inspector going down a row of machines, nodding.'],
     check: { parts: [['stat:charm', 1], ['haggling', 0.5], ['grifting', 0.4]], base: 0.3, per: 0.07,
@@ -311,10 +311,10 @@ export const VARIANT_ROWS: Affordance<GymView>[] = [
   }),
   row({
     id: 'wellness-score', where: { variant: 'atlasfit', feature: 'member_terminal' }, pace: 'quick',
-    needs: ['stat:hack', 'skill:streetwise', 'skill:grifting', 'drive:greed'],
+    needs: ['stat:int', 'skill:streetwise', 'skill:grifting', 'drive:greed'],
     sees: 'A Wellness Score that unlocks coupons when it climbs.', stakes: 'Atlas reward credits; Atlas\'s attention.', consequence: 'Atlas now has her data.',
     drives: { greed: 0.6, curiosity: 0.2 }, bonus: 0.1, intent: ['Blackbird sees her Wellness Score on a screen: 61. It is a number, and she hates it.'],
-    check: { parts: [['stat:hack', 1], ['grifting', 0.4]], base: 0.4, per: 0.07,
+    check: { parts: [['stat:int', 1], ['grifting', 0.4]], base: 0.4, per: 0.07,
       win: R(['Blackbird gets her Wellness Score at {gym} to 99 by walking in a very small circle. The reward is {amount}nd in credits and a drink voucher.'], { cash: [15, 60], train: [['grifting', 1]], xp: 3 }),
       lose: R(['Blackbird\'s Wellness Score at {gym} drops to 40 on account of "irregular optimism".'], { heat: ['atlas', 1] }) },
   }),

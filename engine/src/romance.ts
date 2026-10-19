@@ -6,6 +6,7 @@ import { moveNpc } from './population';
 import { bondEvent, lovedHere, romanceMod, scruples, ensureBond } from './bonds';
 import { isFairGame } from './people';
 import { learnHome } from './homes';
+import { workingCameras } from './witness';
 
 /**
  * Romance with consequences. Kissing leads to making a move; a move that lands leaves her sated for a while
@@ -139,7 +140,7 @@ function catcherAt(c: Ctx, spot: Spot): { npc?: Npc; kind: 'staff' | 'band' | 'g
 export function caughtChance(w: World, spot: Spot): number {
   const loc = w.locations[spot.to]!;
   let p = spot.tier === 'forbidden' ? 0.36 : 0.09;
-  if (loc.cameras && !w.flags.blackout) p += 0.14;
+  if (workingCameras(w, loc.id)) p += 0.14;
   if (loc.outdoors) p += 0.08;
   return clamp(p, 0, 0.7);
 }

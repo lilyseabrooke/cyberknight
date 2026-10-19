@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slow } from './testkit';
+import { inCameraView, slow } from './testkit';
 import { Rng, runToEnd, hasTemplate, type World, type GameEvent } from './index';
 import { createWorld } from './world';
 import { spawnNpc } from './content/archetypes';
@@ -10,6 +10,7 @@ import { discretion, exposure, sweepOdds, caution } from './discretion';
 import { score } from './run';
 import { IMPLANTS } from './content/implants';
 import { addNpc, moveNpc } from './population';
+import { camerasSeeHer, placeOf } from './placeboard';
 
 const at = (loc: string, seed = 'dc') => {
   const w = createWorld({ seed, competence: 0.5 });
@@ -134,6 +135,7 @@ describe('hitting someone with paper on them', () => {
     const w = at('street_main');
     empty(w);
     person(w, 'v', 'ganger', { bounty: { amount: 200, hidden: false } });
+    inCameraView(w);
     const evs = brawl(w, 'v');
     expect(evs.find((e) => e.type === 'crime_seen')?.data.variant).toBe('camera');
     expect(evs.some((e) => e.type === 'bounty_hit')).toBe(true);
@@ -145,6 +147,7 @@ describe('hitting someone with paper on them', () => {
     const w = at('street_main');
     empty(w);
     person(w, 'v', 'ganger');
+    inCameraView(w);
     brawl(w, 'v');
     expect(w.heat.npd).toBeGreaterThanOrEqual(1);
   });
@@ -170,6 +173,11 @@ describe('hitting someone with paper on them', () => {
     const w = at('helix_lobby');
     empty(w);
     person(w, 'v', 'ganger', { bounty: { amount: 200, hidden: false } });
+    // (The cameras sweep: wait for a beat when one of them is on her.)
+    const p = placeOf(w)!;
+    p.board.hero = { x: Math.floor(p.layout.grid.w / 2), y: Math.floor(p.layout.grid.h / 2) };
+    for (let t = 0; t < 8 && !camerasSeeHer(w); t++) w.beat = t;
+    expect(camerasSeeHer(w)).toBe(true);
     brawl(w, 'v');
     expect(w.heat.atlas).toBeGreaterThanOrEqual(1);
   });

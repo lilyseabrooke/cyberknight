@@ -8,6 +8,7 @@ import { footChance, isBump, stumble } from './footfx';
 import { onFoot, policeChase, pursuers, runChase } from './chase';
 import { registerGetaways, getawayCandidates } from './getaway';
 import { perform } from './run';
+import { typeFromName } from './streettypes';
 import type { Ctx, Id, Location } from './types';
 
 const ctxOf = (w: World, rng: Rng): { c: Ctx; events: GameEvent[] } => {
@@ -21,7 +22,7 @@ function strip(w: World, names: string[], district = 'nightlife'): Id[] {
   let prev: Location = base;
   return names.map((name, i) => {
     const id = `F_${i}`;
-    const loc: Location = { ...base, id, name, road: name === 'Highway' ? 'highway' : undefined, exits: [{ to: prev.id, label: 'back', hidden: false, gate: null }], gen: { district } as never, crowded: false, cameras: 0, populated: true };
+    const loc: Location = { ...base, id, name, street: name === 'Highway' ? 'highway' : typeFromName(name, true), road: name === 'Highway' ? 'highway' : undefined, exits: [{ to: prev.id, label: 'back', hidden: false, gate: null }], gen: { district } as never, crowded: false, cameras: 0, populated: true };
     w.locations[id] = loc;
     prev.exits.push({ to: id, label: name, hidden: false, gate: null });
     prev = loc;
@@ -201,8 +202,8 @@ describe('a chase on foot', () => {
       const k = events.findIndex((e) => e.type === 'chase_mount' && e.data.variant === 'dismount_alley');
       if (k >= 0) {
         out++;
-        expect(w.hero.vehicle).toBeUndefined();
-        expect(w.hero.parked?.some((p) => p.id === `mine-${i}`)).toBe(true);
+        if (!w.over && !events.slice(k).some((e) => e.type === 'chase_start')) expect(w.hero.vehicle).toBeUndefined();
+        if (!w.over && !events.slice(k).some((e) => e.type === 'chase_start')) expect(w.hero.parked?.some((p) => p.id === `mine-${i}`)).toBe(true);
         if (events.slice(k).some((e) => e.type === 'chase_round' && e.data.body === 'foot')) after++;
       }
       for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);

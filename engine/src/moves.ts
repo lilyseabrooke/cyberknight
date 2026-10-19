@@ -55,7 +55,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
         arrive(c, to, 'invited', { npc: madame.name });
         return;
       }
-      const pick = 0.1 + h.hack * 0.03 + h.reflex * 0.02 + 0.055 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]);
+      const pick = 0.1 + h.int * 0.03 + h.reflex * 0.02 + 0.055 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]);
       train(c, 'lockpicking', 1);
       if (rng.chance(pick)) {
         arrive(c, to, 'picked');

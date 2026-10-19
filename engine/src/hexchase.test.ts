@@ -120,7 +120,7 @@ describe('chases move through the grid, and cut across it', () => {
     const { w } = city('read');
     const low = readingOf(w);
     w.hero.skills.calculate = 400;
-    w.hero.hack = 9;
+    w.hero.int = 9;
     expect(skillValue(w.hero, 'calculate')).toBeGreaterThan(3);
     expect(readingOf(w)).toBeGreaterThan(low + 0.2);
   });

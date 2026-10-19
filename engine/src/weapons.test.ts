@@ -220,13 +220,14 @@ describe('using them', () => {
     expect(edge(plain(10, { crit: 0.3, critMult: 3 }))).toBeGreaterThan(1.5);
   });
 
-  it('a silent weapon is noticed less than a loud one', () => {
+  it('while she sneaks, a silent weapon is noticed less than a loud one', () => {
     const seen = (noise: number) => {
       let n = 0;
       for (let i = 0; i < 120; i++) {
         const w = world(`noise${i}`);
         w.hero.weapon = plain(8, { noise });
         w.hero.locationId = 'halo_alley';
+        w.hero.stealth = true; // out of stealth everyone in the room sees, whatever the noise
         for (const x of Object.values(w.npcs)) if (x.locationId === 'halo_alley') moveNpc(w, x, '_gone');
         const patrons = [foe(`a${i}`, 'patron'), foe(`b${i}`, 'patron'), foe(`c${i}`, 'patron')].map((p) => (addNpc(w, p), moveNpc(w, p, 'halo_alley'), p));
         const victim = foe(`v${i}`, 'mugger', { locationId: 'halo_alley' });

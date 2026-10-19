@@ -142,8 +142,8 @@ Decision (the author deferred this to me): **hero `level` becomes a derived head
 - `level` = the mean of her best five skills (rounded). It is shown on the status panel and used for the run report, and
   it replaces `h.level` in the odd formula (intimidation, pickpocket) that reads it.
 - `gainXp` stays as an event hook but pays out as combat-skill XP, not as a level.
-- Stats (`muscle`, `reflex`, `hack`, `charm`) grow on the same 0-100 scale and **by use**: muscle from melee, athletics
-  and intimidation; reflex from shooting, athletics and sneaking; hack from tinkering and lockpicking; charm from the
+- Stats (`muscle`, `reflex`, `int` (Intelligence), `charm`) grow on the same 0-100 scale and **by use**: muscle from melee, athletics
+  and intimidation; reflex from shooting, athletics and sneaking; intelligence from tinkering and lockpicking; charm from the
   social group. A helper `stat10(h, 'charm')` returns `stat/10`, so existing inline formulas (`h.charm x 0.03`) keep
   working unchanged until they are individually retuned.
 

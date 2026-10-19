@@ -216,7 +216,7 @@ describe('killing the people the house protects', () => {
   const want = (s: ReturnType<typeof scenario>, id: string, mode: 'kill' | 'beat_up') => s.run((c) => void adoptContract(c, id, mode, 'test', 0.9));
 
   it('lets her kill the owner when she means to, and shuts the building for good', () => {
-    const s = scenario({ seed: 'kill-dutch', at: 'halo_floor' });
+    const s = scenario({ seed: 'kill-dutch4', at: 'halo_floor' });
     mighty(s.w);
     want(s, 'dutch', 'kill');
     layOut(s, s.w.npcs.dutch!);
@@ -340,7 +340,7 @@ describe('a bar whose owner is dead', () => {
   it('comes back as something else more often than not, with a new name that sticks to the rooms and the house', () => {
     let renamed = 0;
     let same = 0;
-    for (const r of several('rebrand', 28)) {
+    for (const r of several('rebrand', 60)) {
       const d = r.days.find((x) => x.run === r.reopenRun)!;
       if (d.name === 'The Rusty Halo') {
         same++;

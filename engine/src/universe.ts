@@ -1,3 +1,4 @@
+import { streetTypeOf } from './streettypes';
 import { Rng } from './rng';
 import { rollGovernmentName, rollPersonality } from './personality';
 import { genShelf } from './weapons';
@@ -46,6 +47,8 @@ export function upgradeUniverse(u: Universe): Universe {
   l.upgrades ??= {};
   l.spent ??= 0;
   u.dungeons ??= {};
+  // Streets know what sort of street they are.
+  for (const loc of Object.values(u.locations)) if (loc.kind === 'street') loc.street ??= streetTypeOf(loc);
   for (const [kind, d] of Object.entries(DROPS)) {
     if (!u.features[kind] && u.locations[d.at]) u.features[kind] = { id: kind, name: d.name, kind, locationId: d.at, uses: 0, flags: [] };
   }

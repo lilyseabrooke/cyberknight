@@ -63,7 +63,7 @@ function mighty(w: World): void {
   h.level = 14;
   h.maxHp = h.hp = 400;
   h.muscle = 9;
-  h.hack = 9;
+  h.int = 9;
   h.weapon = genWeapon(new Rng('mighty'), { tier: 6.5, cls: 'blade' });
   h.armor = null;
 }
@@ -393,8 +393,8 @@ describe('in the real loop', () => {
   /** Some night in which a job of this kind is taken, done and reported, with nothing but the loop to drive her. */
   function someNight(kind: QuestKind, wantKind: FactKind) {
     // A flatline job going all the way through in a night she wanders is rare; this is where the search finds one.
-    const from = kind === 'flatline' ? 1302 : 0;
-    for (let seed = from; seed < from + 14; seed++) {
+    const from = kind === 'flatline' ? 2727 : 0;
+    for (let seed = from; seed < from + 120; seed++) {
       const w = createWorld({ seed: `loop-${kind}-${seed}`, competence: 0.5 });
       w.flags.quiet_skies = true; // this follows a job through a night, and a job only gets done on a night nothing else interrupts
       mighty(w);

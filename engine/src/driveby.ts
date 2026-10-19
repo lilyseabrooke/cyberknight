@@ -17,7 +17,7 @@ import { scoutSaves } from './extras';
 export type Attacker = 'npd' | 'gang';
 
 /** A street a car can come down. */
-export const drivable = (loc: Pick<Location, 'kind' | 'name' | 'road' | 'gen'>): boolean => loc.kind === 'street' && roadClass(loc) !== 'alley';
+export const drivable = (loc: Pick<Location, 'kind' | 'name' | 'road' | 'gen' | 'street'>): boolean => loc.kind === 'street' && roadClass(loc) !== 'alley';
 
 /**
  * How likely a gang's car is to come round the corner on her this beat. Their own turf, and the more they have against her, the likelier;

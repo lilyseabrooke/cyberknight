@@ -339,6 +339,9 @@ export function tickStatus(s: Sim, u: Unit): boolean {
   if (u.pinned > 0) u.pinned--;
   if (u.marked > 0) u.marked--;
   if (u.supp > 0) u.supp--;
+  if (u.blind > 0) u.blind--;
+  if (u.turned > 0) u.turned--;
+  if (u.over > 0) u.over--;
   if (u.stagger > 0 && !u.stunned) u.stagger--;
   return true;
 }

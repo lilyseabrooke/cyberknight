@@ -1,3 +1,4 @@
+import { streetHunt } from './streethunt';
 import type { Ctx, Hero, Item, Npc, World } from './types';
 import { acquire, addHeat, fight, here, relocate, remember } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
@@ -298,7 +299,7 @@ export function ambientGraffiti(c: Ctx): void {
       if (scoutSaves(c)) return;
       const crew = spawnGroup(c, 'ganger', rng.int(2, 3), g);
       c.emit('gang_hunt', 'bad', { gang: g, count: crew.length, place: loc.name, turf: loc.territory === g });
-      fight(c, crew, { cause: 'gangers looking for the vandal', joiners: false });
+      streetHunt(c, crew, 'gangers looking for the vandal');
       return;
     }
   }

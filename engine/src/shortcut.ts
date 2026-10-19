@@ -229,7 +229,7 @@ export function cross(c: Ctx, who: Crosser, leg: Leg): Crossing {
 /** How well she works out where somebody is going: Calculate, helped by the Hack stat. */
 export function readingOf(w: World): number {
   const h = w.hero;
-  return clamp(0.3 + 0.06 * synergy(h, ['calculate', ['stat:hack', 0.5]]) + 0.01 * h.hack, 0.15, 0.92);
+  return clamp(0.3 + 0.06 * synergy(h, ['calculate', ['stat:int', 0.5]]) + 0.01 * h.int, 0.15, 0.92);
 }
 
 export interface Cut {
@@ -249,6 +249,8 @@ export interface Cut {
   at: Id;
   /** What she crossed it as: if that is not what she started as, she got off. */
   mode: Mode;
+  /** The first street the way leads to from where she started, and what is in the way of getting onto it (so it can be run to on the board). */
+  first?: { to: Id; via: Via | null };
 }
 
 /**
@@ -305,7 +307,8 @@ export function cutAcross(c: Ctx, o: { who: Crosser | Crosser[]; from: Id; route
   const margin = runner - took;
   const arrived = at === waypoint && !wrecked && !thrown;
   const kind: Cut['kind'] = !right ? 'wrong' : arrived && margin >= -0.7 ? 'cut_off' : 'late';
-  return { kind, waypoint, idx, took, margin, hurt, told, wrecked, thrown, at, mode: who.mode };
+  const first = plan.legs[0];
+  return { kind, waypoint, idx, took, margin, hurt, told, wrecked, thrown, at, mode: who.mode, ...(first ? { first: { to: first.to, via: first.via } } : {}) };
 }
 
 /** A gap in tiles, as rounds behind. */

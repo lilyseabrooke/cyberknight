@@ -25,6 +25,9 @@ import { ensureDungeon } from './dungeons';
 import { afterTakedown, downFor, isShut } from './shutdown';
 import { dropFlights, modelOf } from './dragonmodels';
 import { markKilled } from './dragonlog';
+import { loseContact } from './stealth';
+import { enterPlace, placeOf, syncPlace, describeSpot, keepPositions, layBodies } from './placeboard';
+import { cloneGrid } from './layout';
 
 export { npcsAt };
 
@@ -45,6 +48,7 @@ export function relocate(w: World, to: string): void {
   // A shut door stays shut however she came to be at it: thrown, fleeing, or lost.
   for (let i = 0; i < 6 && isShut(w, to); i++) to = w.locations[to]?.tossTo ?? 'street_main';
   const from = h.locationId;
+  if (from !== to) loseContact(w, from); // whoever had her, hasn't
   // Whoever she's looking at stays where she left them for a while; where she's headed catches up on the time she's been away.
   pinAt(w, from, w.clock);
   h.previousLocationId = from;
@@ -65,6 +69,7 @@ export function relocate(w: World, to: string): void {
   }
   for (const e of w.locations[from]?.exits ?? []) if (e.to === to) e.hidden = false;
   for (const e of dest?.exits ?? []) if (e.to === from) e.hidden = false;
+  if (from !== to) enterPlace(w, from, to); // in the doorway, if the place has a layout
 }
 
 export const hasInjury = (w: World, i: Injury): boolean => w.hero.injuries.includes(i);
@@ -130,7 +135,7 @@ export function gainXp(c: Ctx, amount: number): void {
     h.xp -= levelCost(h.level);
     h.level++;
     h.maxHp += hpPerLevel(h.level); // a bigger tank, not a refill: healing costs a med pack or a street doc
-    const stat = (['muscle', 'reflex', 'charm', 'hack'] as const)[h.level % 4]!;
+    const stat = (['muscle', 'reflex', 'charm', 'int'] as const)[h.level % 4]!;
     h[stat]++;
     c.w.stats.maxLevel = Math.max(c.w.stats.maxLevel, h.level);
     c.emit('level_up', 'good', { level: h.level, stat });
@@ -251,6 +256,16 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   const h = w.hero;
   const loc = w.locations[h.locationId]!;
   w.stats.fights++;
+  // A place with a layout: it starts where she is standing, with everyone where they were.
+  const placed = placeOf(w, loc);
+  if (placed) {
+    syncPlace(w, placed);
+    // (Only a place with something in it to be next to has anything to say about where she is.)
+    if (placed.layout.role === 'club') {
+      const where = describeSpot(placed, w);
+      c.emit('place_spot', 'mixed', { variant: 'fight', spot: where.variant, label: where.label, place: loc.name });
+    }
+  }
   // Whoever she fights starts to matter: they get a character, and people who care about them.
   for (const f of foes) ensureDeep(w, f);
 
@@ -282,7 +297,8 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   const names = foes.map((f) => f.name).join(', ');
 
   const factions = new Set(foes.map((f) => f.faction).filter((f): f is string => !!f));
-  const backup = () =>
+  // (A sanctioned bout, with nobody invited, is nobody's cue to call for friends.)
+  const backup = o.joiners === false ? undefined : () =>
     npcsAt(w, loc.id).filter(
       (n) =>
         !foes.includes(n) &&
@@ -295,8 +311,9 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
         !n.tags.some((t) => ['kid', 'pet', 'robot', 'dragon'].includes(t)),
     );
   const maxRounds = (foes.some((f) => f.tags.includes('boss')) ? 26 : 14) + 2;
-  const sim = new Sim(c, HOOKS, { foes, arrivals, lethal, assault: !!o.assault || !!o.ambush, maxRounds, backup });
+  const sim = new Sim(c, HOOKS, { foes, arrivals, lethal, assault: !!o.assault || !!o.ambush, maxRounds, backup, ...(placed ? { board: placed } : {}) });
   const res = sim.run();
+  if (placed) keepPositions(placed, res.ended.hero, res.ended.others);
   let result: FightResult = res.result;
   const wield = res.wield;
   const { backfires, crits, ammoSpent } = res.stats;
@@ -405,7 +422,12 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
     const road = res.droveOff ? roadsFrom(w, loc.id, 2).filter((r) => r.hops === 2)[0] : undefined;
     const chasers = res.droveOff && res.cruiser ? foes.filter((f) => f.alive && f.tags.includes('cop')) : [];
     if (road) for (const id of road.path) relocate(w, id);
-    else relocate(w, loc.fleeTo);
+    else {
+      // Out by whichever door she got to, if it goes somewhere she could just walk to.
+      const door = placed && res.fledAt ? placed.layout.doors.find((d) => d.at.x === res.fledAt!.x && d.at.y === res.fledAt!.y) : undefined;
+      const way = door ? loc.exits.find((e) => e.to === door.exit && !e.gate && !e.hidden) : undefined;
+      relocate(w, way ? way.to : loc.fleeTo);
+    }
     c.emit('fight_end', 'mixed', { ...base, variant: res.droveOff ? 'drove_off' : 'flee', to: w.locations[h.locationId]!.name });
     for (const f of chasers) f.hostile = true;
     if (chasers.length && h.vehicle && !w.over) policeChase(c, 'drive_off', chasers);
@@ -441,6 +463,8 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   }
 
   for (const f of foes) f.flags = f.flags.filter((x) => x !== 'disabled');
+  // Whoever she left on the floor stays where they fell.
+  if (placed) layBodies(placed, w, foes.filter((f) => !res.fled.has(f.id) && (!f.alive || res.down.has(f.id))).map((f) => f.id), res.ended.others);
   const style = weaponStyle(wield.tags);
   // What a fight teaches depends on who she was fighting: nothing from the trivial, the most from people a little ahead of her.
   const foeGrade = foes.length ? foes.reduce((a, f) => a + f.level, 0) / foes.length : 0;

@@ -165,7 +165,7 @@ export default function Lab({ universe, onChange, onSendOut }: { universe: Unive
             <dt>Level</dt><dd>{body.level}</dd>
             <dt>Muscle</dt><dd>{body.muscle}</dd>
             <dt>Reflex</dt><dd>{body.reflex}</dd>
-            <dt>Hack</dt><dd>{body.hack}</dd>
+            <dt>Intelligence</dt><dd>{body.int}</dd>
             <dt>Charm</dt><dd>{body.charm}</dd>
             <dt>Competence</dt><dd>{Math.round(body.competence * 100)}%</dd>
             <dt>Pocket cash</dt><dd>{body.cash}nd</dd>

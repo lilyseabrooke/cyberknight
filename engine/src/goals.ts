@@ -1,3 +1,4 @@
+import { enterStealth, exitStealth } from './stealth';
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
 import type { AskOption, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Location, Npc, Ware, World, GameEvent } from './types';
@@ -12,7 +13,7 @@ import { flameOf } from './traits';
 import { isFairGame } from './people';
 import { buyGear, supplyUrge } from './supply';
 import { heatUrge } from './laylow';
-import { isShut } from './shutdown';
+import { isClosed } from './hours';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { possessive } from './mapgen';
@@ -696,6 +697,7 @@ const KINDS: Record<GoalKind, Kind> = {
       if (!d) return;
       if (g.mode === 'approach' || g.mode === 'retreat' || g.mode === undefined) {
         g.mode = questStyle(c, d, q.kind, pressureNow());
+        if (g.mode === 'sneak') enterStealth(c); // quiet means quiet
         g.lastProgress = w.beat;
         if (!g.entered) c.emit('goal_note', 'mixed', goalData(w, g, { variant: 'quest_in', dungeon: d.kind }));
         g.entered = true;
@@ -704,6 +706,7 @@ const KINDS: Record<GoalKind, Kind> = {
       // Quiet, and it has gone loud: no point being shy now.
       if (g.mode === 'sneak' && d.alert >= 2) {
         g.mode = 'clear';
+        exitStealth(c, 'noisy');
         c.emit('goal_note', 'bad', goalData(w, g, { variant: 'quest_blown', dungeon: d.kind }));
         return;
       }
@@ -772,7 +775,7 @@ const KINDS: Record<GoalKind, Kind> = {
 
 /** Places she has never been that she could walk to: streets and rooms, not other people's homes, dungeons or corp floors. */
 function unexplored(w: World): Location[] {
-  return Object.values(w.locations).filter((l) => l.visits === 0 && !l.dungeon && !['home', 'corp', 'boss', 'lair'].includes(l.kind) && !isShut(w, l.id) && !hasGoal(w, 'explore', l.id));
+  return Object.values(w.locations).filter((l) => l.visits === 0 && !l.dungeon && !['home', 'corp', 'boss', 'lair'].includes(l.kind) && !isClosed(w, l.id) && !hasGoal(w, 'explore', l.id));
 }
 
 /** A new place worth the walk: the nearer the better, streets (which turn up doors) a bit better still. */
