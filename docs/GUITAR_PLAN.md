@@ -147,9 +147,9 @@ Per `board.md`, no board member has a required path, and they can be met in any 
 
 | Member | How music gets her in the room | How music might beat them |
 |---|---|---|
-| **Pride** (Public Image) | Atlas's synthetic idol ANGEL//SAFE (PROPOSED) headlines the Atlas Safety Showcase; outsell or out-play her and Pride presents the award, in person, on stage, on live TV | humiliation: a song about Pride goes viral, and her billboard face can't stop displaying it. A brand that can't stop playing a diss track of itself is finished |
+| **Pride** (Public Image) | Atlas's synthetic idol ANGEL//SAFE (PROPOSED) headlines the Atlas Safety Showcase; outsell or out-play her and Pride presents the award, in person, on stage, on live TV | humiliation: a song about Pride goes viral, and Pride's billboard face can't stop displaying it. A brand that can't stop playing a diss track of itself is finished |
 | **Sloth** (Police Liaison) | the noise ordinance appeal is heard in person, eventually | the complaint storm: so many forms that Sloth has to personally get up |
-| **Greed** (Premiums) | Greed wants to insure her hands. The policy interview is in his office | a benefit concert that pays every fan's Atlas deductible, live: the premiums business collapses in one night |
+| **Greed** (Premiums) | Greed wants to insure her hands. The policy interview is in Greed's office | a benefit concert that pays every fan's Atlas deductible, live: the premiums business collapses in one night |
 | **Lust** (Government Relations) | the entertainment at a councillors' gala Lust is working | a love song so good the councillor defects mid-courtship, and Lust is, for once, not wanted |
 | **Envy** (Surveillance) | Envy is a secret superfan with a full file on her, and invites her to a private session | a fan base so big every surveillance feed in the city shows only her; Envy's whole department becomes a fan account |
 | **Gluttony** (M&A) | Gluttony tries to acquire her label: a meeting over dinner, with her as the after-dinner act | she poisons the deal (figuratively); or an acquisition so indigestible (a punk label) it gives the company heartburn |
