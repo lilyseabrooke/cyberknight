@@ -1,6 +1,6 @@
 # Callings: the long game she carries
 
-Status: **proposed, not started.** Written against the engine as of `ca5976d`. Per the "feel over balance" stance in
+Status: **built** (see "As built" at the end). Written against the engine as of `ca5976d`. Per the "feel over balance" stance in
 `CLAUDE.md`, every number here is a starting guess to be felt out. A Calling that bends her whole life around one idea
 is the point, not a bug.
 
@@ -158,7 +158,6 @@ likelier. "Needs counter" marks anything the engine doesn't yet track.
 |---|---|---|---|---|---|
 | **The One** | "find the one and keep her" | a great date; a heartbreak | `romance` goals, but chooses fewer people more carefully | a long-running `together` bond | romantic |
 | **Heartbreaker** | "be the girl every girl in Neo remembers" | a night that went very well | `romance` goals, constantly, with impress acts | distinct girls kissed (`kisses_` exists) | impress, vanity |
-| **Crew nobody can break** | "build a crew that never loses anyone" | a companion joining; a rescue of one | recruits, keeps companions alive, avoids risky fights with them along | slots full for N days (counter) | loyalty, kindness |
 | **A puppy for every stray** | "every stray in Neo gets a home" | bonding with a robot puppy | `steal_puppy` (it exists), rescues strays | N rehomed (counter) | animal, kindness |
 
 ### Body, wheels, and the rest of Neo
@@ -173,7 +172,7 @@ likelier. "Needs counter" marks anything the engine doesn't yet track.
 | **See it all** | "see every street in this city" | stumbling on somewhere secret | `explore`, ever further from home | fraction of the map seen | curiosity |
 | **Cook for Neo** | "make Neo's best noodles" | a meal that goes over well | `cook`, stalls, ingredients | dishes served (counter) | appetite, sociable |
 
-That is 27, enough to cover the traits without repeating, and several are deliberately small and silly (the tone doc's
+That is 26 with the one added in the build (**Banned from everywhere**), enough to cover the traits without repeating, and several are deliberately small and silly (the tone doc's
 whole joke is the gap between how big she thinks it is and how big it is). A Calling doesn't have to be grand to be a Calling.
 
 ## Sequels
@@ -185,7 +184,6 @@ Finishing, or being made impossible, can hand off:
 - **Break a gang** done -> **Topple Atlas** (rare), or **Guardian of the block**.
 - **Voice of Neo** (any performance Calling) done -> a rarer bigger form ("sing in front of the board").
 - **Heartbreaker** done, or disillusioned -> **The One**. **The One** lost -> **Avenge a name** if it's death, else **Heartbreaker**.
-- **Crew nobody can break**, after a companion dies anyway -> **Avenge a name**. A quiet tragedy engine.
 
 ## Build plan
 
@@ -207,9 +205,39 @@ death clears it. No balance or Monte Carlo tests.
 
 ## Open questions
 
-- **Should the lab tech be able to nudge or bless a Calling?** Currently only the optional "back me?" ask. A cipher-spend
-  to *plant* one would be a very different, probably stronger, relationship between player and hero.
-- **Does Calling progress ever carry over a death?** Proposed: no. The record on the wall is the only trace, with the
-  echo extension above as an optional later hook.
-- **How loud can a Calling get?** The stance says leave it lopsided: a hard-pulled cop-killer will path-find to the
-  NPD all day. If it feels too railroaded, `fervor x focusFactor` is the single dial. Not tuning it until it's played.
+Decided with the author:
+
+- **The lab's say** is the "back me?" ask on a spark or a whim, and that is the right amount of control. (A wound is never
+  asked about: grief doesn't wait for permission.)
+- **Nothing carries over a death.** The Calling lives on `Mind` and dies with the body. The lab's report for the night
+  just says what she was chasing, once; it is not kept and does not touch the next body.
+- **Callings should lean a little strong and a little unhinged, and be varied.** Moments that fit her take most of the
+  time, wounds nearly always, and the finish lines run big (500 cops).
+- **"Crew nobody can break" is cut**, pending the companions extension. Companion deaths still feed wounds.
+
+Still open: how loud they get. `fervor x focusFactor` is the single dial and nothing has been tuned.
+
+## As built
+
+| Piece | Where |
+|---|---|
+| `Calling` state, `Mind.calling`, `AskKind 'calling'`, `AskOption.calling`, `Goal.calling` | `engine/src/types.ts` |
+| The table: lines, sparks, fit, finish lines, bias, pull, goals it wants, sequels, tallies | `engine/src/content/callings.ts` |
+| Catching, carrying, finishing, wavering, whims, the ask, status view | `engine/src/callings.ts` |
+| Hooks: `callingAfter` / `callingTick` (goals.ts), `callingBias` (run.ts), `adoptWant` (goals.ts), pull in `steer` | `engine/src/goals.ts`, `engine/src/run.ts` |
+| Who killed a companion; kills counted by crew | `engine/src/companions.ts`, `engine/src/combat.ts` |
+| Log text | `engine/src/text.ts` (`calling*`, `goal_new:calling`, `advice_ask:calling`) |
+| Status panel, lab report | `components/NightViewer.tsx`, `components/Lab.tsx`, `engine/src/lab.ts` |
+| Tests | `engine/src/callings.test.ts`, `engine/src/stage.test.ts` |
+
+Departures from the sketch above:
+
+- **`Mind.passion` and the old `CALLING` table are gone.** The five performance Callings are the old passion: their
+  fervor drives `passionBias` (the draw to those acts), the fame multiplier and the fame goal's choice of act.
+  `SPOTLIGHT_LINE` is the old `CALLING` text.
+- **No save migration.** `Mind` is per-run, not part of the universe, so there is nothing to bring forward. A saved night
+  from before simply has no Calling (a leftover `passion` is ignored).
+- **Added: Banned from everywhere** (get banned from N bars), which fits the unhinged brief and uses the existing `banned` event.
+- **Kills are tallied in `kill()`** by tag and crew (`cal.cop`, `cal.corp`, `cal.f_<faction>`); the rest are tallied from the
+  beat's events (`TALLY` in the table). Counters live in `w.counters` under `cal.*`.
+- **Goals she sets for a Calling are ordinary goals** marked `calling`, which `weakestOf` lets go last when she is overloaded.

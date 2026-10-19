@@ -12,6 +12,7 @@ import { addAmmo, wielded } from './arms';
 import { fxOf, rating } from './weapons';
 import { Sim, highlights, type Arrival, type Hooks, type LogEntry, type RoundRecord } from './tactics';
 import { nested } from './events';
+import { tallyKill } from './callings';
 import { witnessAssault } from './witness';
 import { collectBounties } from './bounty';
 import { npcsAt } from './population';
@@ -171,6 +172,7 @@ export function kill(c: Ctx, w: World, npc: Npc, by: string): void {
   npc.alive = false;
   npc.hp = 0;
   w.stats.kills++;
+  tallyKill(w, npc);
   for (const other of npcsAt(w, npc.locationId)) {
     if (other.faction && other.faction === npc.faction) {
       other.affinity -= 25;
@@ -493,7 +495,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   if (!w.over) {
     for (const a of [...h.companions]) {
       if (a.hp <= 0) {
-        removeCompanion(c, a, 'lost');
+        removeCompanion(c, a, 'lost', foes.find((f) => f.alive) ?? foes[0]);
         continue;
       }
       if (result === 'win') a.loyalty = Math.min(100, a.loyalty + 3);

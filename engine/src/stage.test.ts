@@ -3,11 +3,14 @@ import { slow } from './testkit';
 import { Rng, personalityFrom, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { createRun, step } from './run';
-import { ACT_SKILL, CALLING, fameFrom, freshness, passionBias, prestige, stageCandidates, tickVenues, tipScale } from './stage';
-import { mindAfter, mindBefore, goalLabel } from './goals';
+import { ACT_SKILL, fameFrom, freshness, passionBias, prestige, stageCandidates, tickVenues, tipScale } from './stage';
+import { adoptWant, mindAfter, mindBefore, goalLabel } from './goals';
+import { callingTick } from './callings';
+import { SPOTLIGHT_LINE } from './content/callings';
+import { resolveAsk } from './advice';
 import { pursuitTick } from './pursuit';
 import { spawnNpc } from './content/archetypes';
-import type { Goal, Npc } from './types';
+import type { Calling, Goal, Npc } from './types';
 import { addNpc, moveNpc } from './population';
 import { isFairGame } from './people';
 
@@ -151,27 +154,30 @@ describe('more to do with a voice, a guitar, a deck', () => {
   });
 });
 
-describe('a calling', () => {
+describe('a performance calling', () => {
+  const calling = (skill: string, fervor: number): Calling => ({
+    id: skill, since: 0, fervor, goal: 30, base: 0, target: { skill, text: SPOTLIGHT_LINE[skill] }, origin: { kind: 'spark', text: 'test', beat: 0 }, lastProgress: 0, last: 0, said: 0,
+  });
   const big = (w: World, fam: string, gained: number, extra: GameEvent[] = []) => {
     const { c, events } = ctxOf(w, `big${fam}`);
     const snap = mindBefore(w);
+    w.beat = 40;
     w.hero.fame += gained;
     mindAfter(c, { key: fam, drives: {}, run() {} }, snap, [{ beat: w.beat, type: fam, outcome: 'good', data: {} }, ...extra]);
+    // She may stop to ask the lab first; nobody answering is the same as saying yes.
+    if (w.mind.ask) resolveAsk(c, w.mind.ask.lean, 'self');
     return events;
   };
 
-  it('a big showing from someone who can sing lights her up, and her fame goal becomes a calling', () => {
+  it('a big showing from someone who can sing can light her up, and the calling is hers', () => {
     let lit = 0;
     for (let i = 0; i < 40; i++) {
       const w = world(`calling${i}`, { artistry: 0.9, fame: 0.9, impulsive: 0.7 });
       w.hero.skills.vocals = 40;
       const events = big(w, 'karaoke', 2.5);
-      if (w.mind.passion?.skill === 'vocals') {
+      if (w.mind.calling?.id === 'vocals') {
         lit++;
-        expect(events.some((e) => e.type === 'passion' && hasTemplate(e))).toBe(true);
-        const g = w.mind.goals.find((x) => x.kind === 'fame')!;
-        expect(g.mode).toBe('vocals');
-        expect(goalLabel(w, g)).toBe(CALLING.vocals);
+        expect(events.some((e) => e.type === 'calling' && hasTemplate(e))).toBe(true);
       }
     }
     expect(lit).toBeGreaterThan(12);
@@ -181,27 +187,25 @@ describe('a calling', () => {
     for (let i = 0; i < 30; i++) {
       const w = world(`fluke${i}`, { artistry: 0.9, fame: 0.9 });
       big(w, 'karaoke', 2.5);
-      expect(w.mind.passion).toBeUndefined();
+      expect(w.mind.calling).toBeUndefined();
     }
   });
 
-  it('feeds on success, starves on flops, and fades with time', () => {
+  it('feeds on a good showing and ebbs with time', () => {
     const w = world('feed');
-    w.mind.passion = { skill: 'vocals', level: 0.5, since: 0 };
-    big(w, 'karaoke', 1);
-    expect(w.mind.passion!.level).toBeGreaterThan(0.55);
-    const { c } = ctxOf(w, 'flop');
-    const snap = mindBefore(w);
-    const lvl = w.mind.passion!.level;
-    mindAfter(c, { key: 'karaoke', drives: {}, run() {} }, snap, [{ beat: w.beat, type: 'karaoke', outcome: 'bad', data: {} }]);
-    expect(w.mind.passion!.level).toBeLessThan(lvl);
-    for (let i = 0; i < 400; i++) tickVenues(w);
-    expect(w.mind.passion).toBeUndefined();
+    w.mind.calling = calling('vocals', 0.5);
+    w.hero.skills.vocals = 40;
+    big(w, 'karaoke', 2.5);
+    expect(w.mind.calling!.fervor).toBeGreaterThan(0.55);
+    const { c } = ctxOf(w, 'ebb');
+    const before = w.mind.calling!.fervor;
+    for (let i = 0; i < 200; i++) callingTick(c);
+    expect(w.mind.calling!.fervor).toBeLessThan(before);
   });
 
-  it('draws her to every act of that skill, and a calling goal picks those acts over the others', () => {
+  it('draws her to every act of that skill, and the fame goal she sets for it picks those acts over the others', () => {
     const w = world('draw');
-    w.mind.passion = { skill: 'vocals', level: 0.8, since: 0 };
+    w.mind.calling = calling('vocals', 0.8);
     w.hero.locationId = 'halo_alley';
     for (const l of ['halo_floor', 'street_main', 'neon_pharaoh', 'club_backlot', 'club_greenroom']) w.locations[l]!.visits = 1;
     expect(passionBias(w, { key: 'sing_busk' })).toBeGreaterThan(1.5);
@@ -209,11 +213,11 @@ describe('a calling', () => {
     const picks: Record<string, number> = {};
     for (let i = 0; i < 40; i++) {
       const w2 = world(`calldraw${i}`);
-      w2.mind.passion = { skill: 'vocals', level: 0.8, since: 0 };
+      w2.mind.calling = calling('vocals', 0.8);
       w2.hero.locationId = 'halo_alley';
       for (const l of ['halo_floor', 'street_main', 'neon_pharaoh', 'club_backlot', 'club_greenroom']) w2.locations[l]!.visits = 1;
-      const g = { id: 1, kind: 'fame', parent: null, amount: 50, mode: 'vocals', why: 't', desire: 0.8, frustration: 0, born: 0, lastProgress: 0, metric: 0, delayUntil: 0, setbacks: 0, revisions: 0, lastFocus: 0 } as Goal;
-      w2.mind.goals.push(g);
+      const g = adoptWant(ctxOf(w2, `w${i}`).c, { kind: 'fame', skill: 'vocals', why: 't' }, w2.mind.calling)!;
+      expect(goalLabel(w2, g)).toBe(SPOTLIGHT_LINE.vocals);
       pursuitTick(ctxOf(w2, `c${i}`).c, g);
       const act = g.pursuit?.act ?? 'none';
       picks[ACT_SKILL[act] ?? act] = (picks[ACT_SKILL[act] ?? act] ?? 0) + 1;
