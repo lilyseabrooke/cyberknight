@@ -15,6 +15,7 @@ import { skillValue, train } from './skills';
 import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
+import { BEHIND, coverOf, follow, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
@@ -59,7 +60,7 @@ export interface ChaseOpts {
   watch?: (board: ChaseBoard | null, round: number) => void;
 }
 
-const ESCAPE_GAP = 14;
+const ESCAPE_GAP = 30;
 
 const power = (ch: Chaser): number => ch.crew.reduce((a, n) => a + n.power, 0);
 const wings = (ch: Chaser): boolean => !ch.car && !ch.foot;
@@ -77,7 +78,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   const { w, rng } = c;
   const h = w.hero;
   let result: ChaseResult | null = null;
-  const maxRounds = o.maxRounds ?? 8;
+  const maxRounds = o.maxRounds ?? 12;
   const place = w.locations[h.locationId]!.name;
   const mounted = (): Vehicle | null => (h.vehicle && h.vehicle.hp > 0 ? normalize(h.vehicle) : null);
   let last = mounted();
@@ -86,6 +87,32 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   let hid = false;
   // Rounds in a row that none of them could see her, and the last place they could.
   let unseen = 0;
+  // What each of them has made of the trail, and how many times they have tried to pick it up.
+  const trails = new Map<Chaser, Trail>();
+  const tries = new Map<Chaser, number>();
+  // A chaser's check on her trail: the best of their crew. They get three goes in a chase.
+  const tracked = (f: Chaser, why: 'sight' | 'far'): Trail => {
+    const n = (tries.get(f) ?? 0) + (why === 'far' ? 1 : 0);
+    if (n > 3) return 'none';
+    if (why === 'far') tries.set(f, n);
+    const cover = heroCover(w, squeeze) + (hid ? 2 : 0);
+    const best = f.crew.filter((x) => x.alive).reduce((a, x) => Math.max(a, trackerOf(x)), f.crew.some((x) => x.alive) ? 0 : -9) + (f.foot ? 0 : -1);
+    const r = follow(rng, best, cover);
+    trails.set(f, r.trail);
+    return r.trail;
+  };
+  // Hers on theirs, when it is her doing the chasing: she picks up what they left, or she does not.
+  const trackedByHer = (live: Chaser[]): Chaser[] => {
+    const lead0 = live[0];
+    if (!lead0) return [];
+    const n = (tries.get(lead0) ?? 0) + 1;
+    if (n > 3) return [];
+    for (const f of live) tries.set(f, n);
+    train(c, 'tracking', 1);
+    const r = follow(rng, heroTracker(w), Math.max(...live.map((f) => Math.max(...f.crew.map((x) => coverOf(x, squeeze))))));
+    for (const f of live) trails.set(f, r.trail);
+    return r.trail === 'none' ? [] : live;
+  };
   let lastSeen: Pos | null = null;
   // People she knocked into who are coming after her when this is over.
   const owed: Npc[] = [];
@@ -933,8 +960,12 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             c.emit('chase_search', 'bad', { variant: 'found', place: here.name, foe: lead.name });
           } else {
             // Not there. Did she keep running, or stop to hide? Each of them makes the guess for themselves: on after her, or out to search.
-            const p = hideGuess(w, board, from);
-            const fan = live.filter(() => rng.chance(p));
+            // Whoever can track her has some idea which it was, and she kept running.
+            const guess = hideGuess(w, board, from);
+            const fan = live.filter((f) => {
+              const t = tracked(f, 'sight');
+              return rng.chance(t === 'hot' ? 0 : t === 'warm' ? guess * 0.35 : guess);
+            });
             const names = (fs: Chaser[]): string => fs.map((f) => f.name).join(' and ');
             if (fan.length) leaveSearching(w, board, fan, from);
             for (const f of fan) {
@@ -956,8 +987,14 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         }
       }
       const caughtOnFoot = foot && o.mode === 'pursued' && live.some((f) => bandOf(f.gap) === 'locked') && rng.chance(0.7);
-      if (!result && o.mode === 'pursued' && live.every((f) => f.gap >= ESCAPE_GAP)) result = 'escaped';
-      else if (!result && o.mode === 'pursuer' && live.every((f) => f.gap >= ESCAPE_GAP)) result = 'lost';
+      // So far behind that nobody can see anything: unless somebody can follow the trail.
+      if (!result && live.every((f) => f.gap >= ESCAPE_GAP)) {
+        const kept = o.mode === 'pursued' ? live.filter((f) => tracked(f, 'far') !== 'none') : trackedByHer(live);
+        if (kept.length) {
+          for (const f of kept) f.gap = Math.min(f.gap, ESCAPE_GAP * BEHIND[trails.get(f) ?? 'cold']);
+          c.emit('chase_track', 'mixed', { variant: trails.get(kept[0]!) ?? 'cold', hero: o.mode === 'pursuer', foe: kept.map((f) => f.name).join(' and '), place: here.name, count: kept.length });
+        } else result = o.mode === 'pursued' ? 'escaped' : 'lost';
+      }
       else if (!result && o.mode === 'pursuer' && live.some((f) => wings(f) && bandOf(f.gap) === 'locked') && action !== 'shoot') result = 'caught';
       else if (!result && (caughtOnFoot || (o.mode === 'pursued' && live.some((f) => bandOf(f.gap) === 'locked') && round >= maxRounds - 1 && rng.chance(0.5)))) result = 'caught';
 

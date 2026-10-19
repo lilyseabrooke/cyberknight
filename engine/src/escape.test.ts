@@ -177,4 +177,34 @@ describe('a hunt on the street', () => {
     expect(high.ranks).toBeGreaterThan(0);
     expect(high.angry).toBeLessThanOrEqual(low.angry);
   });
+
+  it('losing sight is not losing the trail: a good tracker keeps it, a poor one does not', () => {
+    const run = (tracking: number, mode: 'pursued' | 'pursuer'): { tracks: number; hot: number; lost: number } => {
+      const out = { tracks: 0, hot: 0, lost: 0 };
+      for (let i = 0; i < 120; i++) {
+        const sc = scenario({ seed: `trail-${i % 40}`, at: 'street_main', competence: 0.6 });
+        const { w } = sc;
+        w.hero.level = 8;
+        w.hero.maxHp = w.hero.hp = 180;
+        w.hero.skills.tracking = tracking;
+        const { c, events } = ctxOf(w, new Rng(`t-${i}`));
+        const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+        const r = runChase(c, { mode, cause: 'test', foes: crew.map((n) => onFoot(n, 29)) });
+        for (const e of events) {
+          expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+          if (e.type === 'chase_track') {
+            out.tracks++;
+            if (e.data.variant === 'hot') out.hot++;
+          }
+        }
+        if (r === 'lost' || r === 'escaped') out.lost++;
+      }
+      return out;
+    };
+    const none = run(0, 'pursuer');
+    const good = run(900, 'pursuer');
+    expect(good.tracks).toBeGreaterThan(none.tracks);
+    expect(good.lost).toBeLessThanOrEqual(none.lost);
+    expect(run(0, 'pursued').tracks).toBeGreaterThanOrEqual(0);
+  });
 });

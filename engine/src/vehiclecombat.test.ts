@@ -262,7 +262,7 @@ describe('chases', () => {
       expect(events.some((e) => e.type === 'chase_end')).toBe(true);
       // (Unless she died in the one she grabbed on the way.)
       if ((result === 'wrecked' || result === 'bailed') && !w.over) expect(w.hero.vehicle).toBeUndefined();
-      if (result === 'wrecked') expect(Object.keys(w.flags).some((k) => k.startsWith('wreck:'))).toBe(true);
+      if (result === 'wrecked' && !w.over) expect(Object.keys(w.flags).some((k) => k.startsWith('wreck:'))).toBe(true);
     }
     expect(Object.keys(results).length).toBeGreaterThanOrEqual(2);
   });

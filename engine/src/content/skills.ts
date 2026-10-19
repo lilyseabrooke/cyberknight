@@ -34,6 +34,7 @@ export const SKILLS = {
   tinkering: { label: 'tinkering', group: 'craft', spill: { lockpicking: 0.1 }, titles: ['can use a screwdriver safely', 'fixes a jukebox with a boot', 'rewires fuse boxes for fun', 'has a lab assistant, probably'] },
   analyze: { label: 'analyzing', group: 'craft', spill: { streetwise: 0.1, calculate: 0.1 }, titles: ['can tell a big person from a small one', 'notices who lifts and who types', 'reads a stranger like a spec sheet', 'knows your stats before you do'] },
   perception: { label: 'perception', group: 'stealth', spill: { sneak: 0.1 }, titles: ['notices the obvious, eventually', 'spots the camera before the camera spots her', 'sees the guard behind the guard', 'nothing hides in a room she is in'] },
+  tracking: { label: 'tracking', group: 'stealth', spill: { perception: 0.15, streetwise: 0.1 }, titles: ['can follow a trail of dropped fries', 'reads scuffs and wet footprints', 'knows which way the bag-snatcher went', 'could track a rumour through the rain'] },
   hijack: { label: 'hijacking', group: 'stealth', spill: { driving: 0.3, lockpicking: 0.15, tinkering: 0.1 }, titles: ['has locked her keys in a car, from the outside', 'knows which wire is the red one', 'cars start for her, eventually', 'a parking lot is a buffet'] },
   // ---- social
   romance: { label: 'romance', group: 'social', spill: { streetwise: 0.1 }, titles: ['has a decent opening line', 'knows the three-second look', 'a legend in three bars', 'could talk a dragon into dinner'] },

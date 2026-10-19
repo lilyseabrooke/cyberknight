@@ -126,3 +126,15 @@ chase is the same scene: `hideScene` puts the street's board up with her in her 
 round, not looking, until something reaches them (a sight or a noise raises their awareness) and they stop and look about. Goal `hide` has her hold still
 and take whoever comes within reach. Whoever has her at the end is `seen` (the chase goes on), whoever ran on has `gone` (off the street), whoever
 stopped to look is `left` (searching), whoever she put down is `down`. Bodies stay on the board.
+
+### Tracking
+
+A new skill (`tracking`, in the stealth group; spills into perception and streetwise) and `tracking.ts`. Chases now stay chases out to 30 tiles of gap
+(`ESCAPE_GAP`, was 14) and run 12 rounds by default (was 8). When somebody loses their target, they roll to follow the trail: their tracker rating
+(`trackerOf`: tracking, int, +1 police, +2 robots; hers is `heroTracker`) against how well it was covered (`coverOf`/`heroCover`: sneaking, how tight and
+crowded the street is, and more if she hid). The result is a trail, `none`, `cold`, `warm` or `hot`.
+
+- **Lost sight** (two rounds unseen): warm trackers rarely guess she hid, hot ones never do; they know she kept running.
+- **Out of range** (gap at 30): instead of the chase ending, anyone who picks up the trail keeps it, with the gap pulled in to 85 %, 65 % or 45 % of that
+  distance by how specific it is (`BEHIND`), told as `chase_track`. Three tries per chaser per chase. For her chasing them, the same, with tracking
+  trained each time.
