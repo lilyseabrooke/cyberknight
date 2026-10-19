@@ -112,3 +112,7 @@ On foot, whoever is standing on the chase line tiles she covers this round (`inT
 room beside the line she weaves round (a small loss of ground), otherwise she shoves through (`stepAside` moves them off the line, affinity down),
 and a failed roll is a proper `bump` with the usual hurt/angry/heat results (angry bystanders join the chase). Foot chasers lose a little ground to
 anyone still on the line behind her. Told with `chase_crowd` (weave, shove); the random bump roll still happens too.
+
+Charm: each person on the line may simply make way for her (`clamp(0.06 * (charm - 2))`, times 0.4 for police and security), with no cost, no affinity loss
+and no anger; they then close up behind her (`chase_crowd:ranks`), costing every pursuer 0.6 of gap per person who did. A charmed shove loses no
+affinity, and a charmed bump never makes anyone angry.

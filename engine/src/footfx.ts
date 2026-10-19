@@ -80,15 +80,15 @@ export function stumble(c: Ctx, loc: Location, cls: RoadClass, s: number): Stumb
 }
 
 /** She goes into somebody in particular. */
-export function bump(c: Ctx, who: Npc, loc: Location, cls: RoadClass, s: number): Stumble {
+export function bump(c: Ctx, who: Npc, loc: Location, cls: RoadClass, s: number, gentle = false): Stumble {
   const { w, rng } = c;
   const t = trafficAt(w, loc);
   const data = { road: cls, place: loc.name, speed: Math.round(s * 100), traffic: trafficWord(t), scene: scene(cls, t), body: 'foot' };
   const law = isLaw(who);
   // She puts a police officer or an Atlas agent on the ground more often than not, and that is the sort of thing that is noticed.
   const hurt = law ? rng.chance(0.7) : rng.chance(0.25);
-  const angry = rng.chance(clamp(0.3 + 0.35 * t + (law ? 0.3 : 0) + (hurt ? 0.2 : 0), 0, 0.95));
-  who.affinity -= hurt ? 15 : 5;
+  const angry = !gentle && rng.chance(clamp(0.3 + 0.35 * t + (law ? 0.3 : 0) + (hurt ? 0.2 : 0), 0, 0.95));
+  if (!gentle) who.affinity -= hurt ? 15 : 5;
   if (hurt && law) {
     const faction = who.faction === 'atlas' || who.tags.includes('corp') ? 'atlas' : 'npd';
     addHeat(w, faction, 1);

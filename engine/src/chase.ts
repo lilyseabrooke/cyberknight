@@ -724,9 +724,18 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
           const crew = o.foes.flatMap((f) => f.crew.map((n) => n.id));
           const people = inTheWay(board, ran[0], ran[1], [...crew, ...h.companions.flatMap((a) => (a.npcId ? [a.npcId] : []))]).slice(0, 2);
           let slowed = 0;
+          let closed = 0;
           for (const p of people) {
             const who = w.npcs[p.id];
             if (!who) continue;
+            // Charm: some of them get out of her way, and then close up behind her where her pursuers are going. Officers are harder to talk round.
+            const law = who.tags.includes('cop') || who.tags.includes('security');
+            const charm = clamp(0.06 * (h.charm - 2) * (law ? 0.4 : 1), 0, 0.85);
+            if (o.mode === 'pursued' && rng.chance(charm)) {
+              closed++;
+              c.emit('chase_crowd', 'good', { variant: 'clear', who: who.name, role: who.role, place: here.name });
+              continue;
+            }
             const skill = clamp(0.6 + 0.03 * skillValue(h, 'athletics') + 0.01 * h.reflex - 0.2 * squeeze, 0.2, 0.92);
             if (p.room && rng.chance(skill + 0.1)) {
               slowed += 0.3;
@@ -735,12 +744,12 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             }
             // No room: she goes through. Most times it's a shoulder and a shout; sometimes they both go down.
             if (rng.chance(skill)) {
-              who.affinity -= 3;
+              if (!rng.chance(charm)) who.affinity -= 3;
               slowed += 0.2;
               c.emit('chase_crowd', 'mixed', { variant: 'shove', who: who.name, role: who.role, place: here.name });
               stepAside(board, p.id);
             } else {
-              const st = bump(c, who, here, cls, pace);
+              const st = bump(c, who, here, cls, pace, rng.chance(charm));
               slowed += st.lost;
               told.push('down');
               if (st.angry && !o.foes.some((f) => f.crew.includes(st.angry!))) {
@@ -753,6 +762,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             }
           }
           if (slowed) for (const f of live) f.gap = Math.max(0, f.gap + (o.mode === 'pursuer' ? slowed : -slowed));
+          // The ones who let her by are not letting them by.
+          if (closed && o.mode === 'pursued') {
+            for (const f of live) if (f.foot || f.car) f.gap += 0.6 * closed;
+            c.emit('chase_crowd', 'mixed', { variant: 'ranks', who: live[0]?.name ?? 'them', place: here.name, count: closed });
+          }
           // Whoever is still on the line behind her is in their way too.
           if (!result && o.mode === 'pursued') {
             for (const f of live) {

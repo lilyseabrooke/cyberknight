@@ -141,4 +141,35 @@ describe('a hunt on the street', () => {
     }
     expect((seen.weave ?? 0) + (seen.shove ?? 0)).toBeGreaterThan(0);
   });
+
+  it('with the Charm for it, people let her through and then close up on her pursuers; without, they do not', () => {
+    const run = (charm: number): { clear: number; ranks: number; angry: number } => {
+      const out = { clear: 0, ranks: 0, angry: 0 };
+      for (let i = 0; i < 120; i++) {
+        const sc = scenario({ seed: `charm-${i % 40}`, at: 'street_main', competence: 0.6 });
+        const { w } = sc;
+        w.clock = 20 * 60;
+        w.hero.charm = charm;
+        w.hero.level = 8;
+        w.hero.maxHp = w.hero.hp = 180;
+        const { c, events } = ctxOf(w, new Rng(`ch-${i}`));
+        const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+        for (let k = 0; k < 8; k++) spawnGroup(c, 'patron', 1);
+        runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 4)) });
+        for (const e of events) {
+          expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+          if (e.type === 'chase_crowd' && e.data.variant === 'clear') out.clear++;
+          if (e.type === 'chase_crowd' && e.data.variant === 'ranks') out.ranks++;
+          if (e.type === 'accident' && e.data.variant === 'bump' && e.data.angry) out.angry++;
+        }
+      }
+      return out;
+    };
+    const low = run(0);
+    const high = run(14);
+    expect(low.clear).toBe(0);
+    expect(high.clear).toBeGreaterThan(5);
+    expect(high.ranks).toBeGreaterThan(0);
+    expect(high.angry).toBeLessThanOrEqual(low.angry);
+  });
 });
