@@ -186,6 +186,14 @@ export default function Lab({ universe, onChange, onSendOut }: { universe: Unive
             {perk(l, 'xp') > 0 && (<><dt>XP</dt><dd>+{perk(l, 'xp')}%</dd></>)}
             {perk(l, 'heal') > 0 && (<><dt>Med kits</dt><dd>+{perk(l, 'heal')}% healing</dd></>)}
           </dl>
+          {(l.deeds?.length ?? 0) > 0 && (
+            <>
+              <h3>Deeds</h3>
+              <dl>
+                {l.deeds!.map((d) => (<Fragment key={d.id}><dt>{d.kind === 'pod' ? 'Pod' : 'Townhouse'}</dt><dd>{d.name} · {Math.round(d.quality * 100)}% bed</dd></Fragment>))}
+              </dl>
+            </>
+          )}
           <h3>Body upkeep</h3>
           <dl>
             <dt>Hunger</dt><dd>{Math.round((hungerRate(l) / hungerRate({ upgrades: {} })) * 100)}% speed · empty in {Math.round(100 / hungerRate(l) / 60)}h</dd>

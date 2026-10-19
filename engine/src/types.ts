@@ -5,6 +5,7 @@ import type { Phase } from './clock';
 import type { StreetType } from './streettypes';
 import type { Trait } from './personality';
 import type { Faction } from './factions';
+import type { HomeKind } from './content/realty';
 
 /**
  * All world state is plain JSON (no classes, Sets or Maps) so a run can be saved to
@@ -446,7 +447,7 @@ export interface Location {
   /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
   street?: StreetType;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty';
   exits: Exit[];
   /** Where it stands on the hex grid (outdoor places only): every cell it covers, and the cell it is anchored on. See hexmap.ts. */
   hex?: { q: number; r: number; cells: [number, number][]; /** The way it runs, for streets: the direction it grew in. */ dir: number };
@@ -590,7 +591,7 @@ export interface GymInfo {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -844,8 +845,27 @@ export interface Legacy {
   upgrades: Record<string, number>;
   /** Neodollars spent in the lab, ever. */
   spent: number;
+  /** Deeds she owns (see content/deeds.ts): bought once, kept through every death. Absent before the first. */
+  deeds?: Deed[];
   /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
   report?: RunReport;
+}
+
+/** A home she bought from a property office. It is on the map for good and hers through every death. See realty.ts. */
+export interface Deed {
+  /** The listing it was: the office and the place on its board. Once sold, it is off the board. */
+  id: string;
+  kind: HomeKind;
+  /** What the deed calls it. */
+  name: string;
+  /** The place on the map. */
+  home: Id;
+  /** 0..1: how good a night in it is, like a bed's (see content/lodging.ts). */
+  quality: number;
+  price: number;
+  district: District;
+  /** The run she bought it in. */
+  run: number;
 }
 
 /** The books on one night, settled when it ends. */

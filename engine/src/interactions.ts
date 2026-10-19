@@ -19,6 +19,7 @@ import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
+import { realtyCandidates, realtyPull } from './realty';
 import { vehicleCandidates } from './vehicles';
 import { getawayCandidates } from './getaway';
 import { goalCandidates } from './goals';
@@ -214,6 +215,7 @@ export function gather(w: World): Candidate[] {
   out.push(...vehicleCandidates(w));
   out.push(...getawayCandidates(w));
   out.push(...pawnCandidates(w));
+  out.push(...realtyCandidates(w));
 
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.
@@ -248,7 +250,9 @@ export function gather(w: World): Candidate[] {
     const supply = supplyUrge(w, e.to);
     const need = needsUrge(w, e.to);
     const urge = { bonus: supply.bonus + need.bonus, smart: supply.smart + need.smart };
-    const pull = bankPull(w, e.to);
+    const bank = bankPull(w, e.to);
+    const homes = realtyPull(w, e.to);
+    const pull = { bonus: bank.bonus + homes.bonus, smart: bank.smart + homes.smart };
     out.push({
       key: `go:${e.to}`,
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },
