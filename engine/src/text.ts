@@ -105,6 +105,36 @@ export const BLURBS: Record<string, string> = {
   overpass: 'The Kowloon Overpass. The air tastes like ozone. Up above, a shape blots out the neon.',
 };
 
+/** What she says to herself about each Calling, in her own voice. */
+const CALLING_VOWS: Record<string, string> = {
+  vocals: 'They will hear me from the other side of the Wall.',
+  guitar: 'My hands know. They have always known.',
+  djing: 'Every floor in Neo. One at a time. In order.',
+  beatbox: 'The city will never be the same again. I will make sure of it with my mouth.',
+  art: 'Every wall in this city is a canvas that has not met me yet.',
+  cops: 'One. Then another. I am not going to stop counting.',
+  gang: 'They have a name. I am going to be the reason they stop having one.',
+  avenge: 'I will carry that name until I can put it on someone else.',
+  dragon: 'Big. Loud. Atlas-stencilled. Mine.',
+  guardian: 'Not on my streets. Not tonight, not any night.',
+  atlas: 'Eight of them. One of me. That is not a problem, that is a schedule.',
+  score: 'The kind of job they write songs about. After they finish the paperwork.',
+  ghost: 'No witnesses. No traces. Not even a vibe.',
+  kit: 'Best chrome, best iron. The rest is footnotes.',
+  net: 'There is nothing in this city that cannot be jacked.',
+  one: 'Somewhere out there is the person this was all for.',
+  heartbreaker: 'Every one of them will remember my name. Some of them will say it out loud.',
+  puppies: 'No stray left behind. Not one.',
+  strongest: 'Nobody in this city is allowed to be stronger than me. I will check each of them personally.',
+  roof: 'Nobody gets to catch me, ever. That is not a boast, it is a plan.',
+  road: 'Anything with wheels. As fast as it will go and then some.',
+  table: 'Every table in Neo owes me money. They just do not know it yet.',
+  drink: 'Every bar. Every last one. In order.',
+  banned: 'A list of every bar that has thrown me out. I want it longer.',
+  explore: 'Every street, every alley, every rooftop. Then the sewers. Then the other sewers.',
+  cook: 'Noodles. Real ones. The kind that make people cry in the good way.',
+};
+
 const T: Record<string, Entry> = {
   depart: e(
     (d) => [
@@ -1026,8 +1056,62 @@ const T: Record<string, Entry> = {
   'beat_battle:won': e((d) => [`Blackbird and ${d.npc} go head to head with only mouths. Hers is the faster mouth. The whole bar shouts the verdict.`], ['Kick, snare, victory.']),
   'beat_battle:lost': e((d) => [`${d.npc} out-beats Blackbird so thoroughly she loses her place. The bar offers condolences.`], ['It was a good loss. Very musical.']),
   'crowd_tired': e((d) => [`${d.place} has heard a lot of Blackbird lately. The applause is polite, and a few people have gone to refill their drinks.`, `The regulars at ${d.place} clap the way people clap for a delayed train. Time to find a new stage.`], ['They are tired of me. How is that possible.', 'A good performer knows when to leave the building.']),
-  'passion:ignite': e((d) => [`Something clicks. Blackbird feels it in the back of the throat and the soles of the feet: ${d.skill}. This is the thing. She is going to ${d.calling}.`, `The night rearranges around one idea. Blackbird decides, with feeling, to ${d.calling}.`], ['I was born for this. Possibly just now, but still.', 'There is a feeling you get when it starts working. This is it.']),
-  'goal_new:passion': e((d) => [`New life goal, announced to nobody: ${d.calling}.`], ['Starting tonight.']),
+  // Callings: what she has decided to do with her life.
+  'calling:spark': e(
+    (d) => [
+      `Something clicks. ${cap(String(d.why))}, and for one long second the whole city holds still. Blackbird knows what she is for. She is going to ${d.line}.`,
+      `Then it happened: ${lc(d.why)}. That was all it took. Blackbird's life now has a direction, and the direction is: ${d.line}.`,
+      `Blackbird stands very still, then says it out loud to nobody. She is going to ${d.line}. She does not say it as a joke.`,
+    ],
+    (d) => [CALLING_VOWS[String(d.id)] ?? 'This is the one.', 'I was born for this. Possibly just now, but still.', 'Funny how the whole thing turns on one moment.'],
+  ),
+  'calling:wound': e(
+    (d) => [
+      `${cap(String(d.why))}. Blackbird does not cry, she does not shout, she does not do anything at all for a while. Then she decides: she is going to ${d.line}.`,
+      `Blackbird goes very quiet. Something has been taken, and she has done the arithmetic. From here on she is going to ${d.line}.`,
+      `It is not a plan yet. It is a direction. Blackbird is going to ${d.line}, and nothing between here and there is going to be allowed to matter.`,
+      ...(d.cause === 'brush' ? [`That was too close. Blackbird sits with her back to a wall and her heart in her throat and works out what that was for. ${cap(String(d.why))}. She is going to ${d.line}.`, `${cap(String(d.why))}. Whatever happens next, Blackbird has decided it will happen to someone else. She is going to ${d.line}.`] : []),
+    ],
+    (d) => [CALLING_VOWS[String(d.id)] ?? 'No more waiting.', 'This is not grief. This is a schedule.', 'I will carry this until I put it down. Or until it puts me down.'],
+  ),
+  'calling:whim': e(
+    (d) => [
+      `Blackbird wakes up certain. No reason, no event, nothing at all: ${d.line}. That is what she is going to do with her life.`,
+      `Out of nowhere, in the middle of a perfectly ordinary night, Blackbird knows. She is going to ${d.line}. She has no idea where it came from.`,
+      `Blackbird stops mid-stride and decides her whole life. ${cap(String(d.line))}. Just like that.`,
+    ],
+    (d) => [CALLING_VOWS[String(d.id)] ?? 'It was just there.', 'No signs. No portents. Just: yes.', 'I would explain, but it is obvious.'],
+  ),
+  'calling:sequel': e(
+    (d) => [
+      `That was never the end of it. ${cap(String(d.why))}, Blackbird sets herself something bigger: ${d.line}.`,
+      `A finished dream is only a better view of the next one. Blackbird is going to ${d.line}.`,
+    ],
+    (d) => [CALLING_VOWS[String(d.id)] ?? 'Now it starts.', 'Smaller dreams were a warm-up.'],
+  ),
+  'calling_beat:q1': e((d) => [`A quarter of the way to it: Blackbird is going to ${d.line}. (${d.count} so far, out of ${d.goal}.) She considers this the warm-up.`], ['A start. A very good start.', 'Warm. I am just getting warm.']),
+  'calling_beat:q2': e((d) => [`Halfway. ${d.count} down, ${d.goal} to go, and Blackbird has begun to talk about it in the past tense. She is going to ${d.line}.`], ['Halfway is a place you only stand once.', 'If I stop now it was all for nothing, so I will not stop now.']),
+  'calling_beat:q3': e((d) => [`Three quarters of the way to it. ${d.count} of ${d.goal}. Blackbird can see the end of it from here, and the end of it can see her.`], ['Almost. Almost, almost.', 'I can smell it.']),
+  'calling_waver': e((d) => [`It has been a while since anything came of it, and Blackbird notices she has stopped saying it out loud. She is going to ${d.line}. Probably.`, `Some nights the thing she is for feels further off than others. Blackbird is meant to ${d.line}. Tonight it feels a little like homework.`], ['Rest. Just resting.', 'The calling is patient. I am patient. We are patient.']),
+  'calling_crisis': e((d) => [`Blackbird tries to remember why she was going to ${d.line}, and cannot. It is gone. She stands in the neon with a hole where it was.`, `Quietly, without any ceremony, she stops. She was going to ${d.line}. She does not know any more who she was doing it for.`], ['Well. That was a whole thing.', 'There will be another one. There is always another one.']),
+  'calling_done': e(
+    (d) => [
+      `It is done. Blackbird ${d.line}. It took ${$(d.beats)} beats and everything she had, and she stands there for a long time not knowing what to do with her hands.`,
+      `${cap(String(d.line))}: done. The city goes on exactly as before, except in all the places where it does not.`,
+    ],
+    ['I did it. I actually did it.', 'Write it on something. Not a small something.'],
+  ),
+  'goal_new:calling': e((d) => [`Blackbird works out what her life needs next. New objective: ${d.goal}. (${cap(String(d.why))}.)`, `For the Calling, a step: ${d.goal}. ${cap(String(d.why))}.`], ['One thing at a time. This one.', 'It is a long road. I brought snacks.']),
+  'advice_ask:calling': e(
+    (d) => [`Blackbird stops dead in the street and taps her earpiece. "Lab. I think I know what I'm for. I'm going to ${d.line}. You with me?"`, `"Lab," says Blackbird, in the voice of a woman who has just seen God. "I'm going to ${d.line}. Say yes."`],
+    ['It is a big decision. I like having it witnessed.', 'I am asking out of respect. The answer is yes.'],
+  ),
+  'advice_taken:calling': e(
+    (d) => (d.pick === 'no'
+      ? [`The lab says not that one. Blackbird looks at the thing she was for a moment ago, and puts it down. Gently. For now.`]
+      : [`The lab says yes. Blackbird does not even pretend to have been unsure.`, `"Go for it," says the lab. Blackbird takes a breath that she has been saving her whole life.`]),
+    ['Good. That settles it. That was never in doubt.', 'A staff member who believes in me. Rare.'],
+  ),
   'ambush:atlas': e((d) => [`Black vans, matte-black armor, no insignia but the Atlas logo stitched on every sleeve. A Helix retrieval team (${d.count}) steps out of the dark.`], ['A real hero has real enemies. Welcome to my fan club.']),
   banned: e((d) => [`${d.npc} blocks the door of ${d.place ?? 'the Rusty Halo'}. "You're banned." Blackbird\'s name has been on the wall since Tuesday.`], ["Banned? I've never even been..."]),
   security_closes_in: e((d) => [`${d.npc} and the rest of Neon Pharaoh security close in around Blackbird, tapping stunners against their palms.`], ["I can hear them coming. Flattering."]),

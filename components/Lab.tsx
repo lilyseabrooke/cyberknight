@@ -127,6 +127,11 @@ export default function Lab({ universe, onChange, onSendOut }: { universe: Unive
             <p>
               Night {r.run}: level {r.level}, {r.kills} kill{r.kills === 1 ? '' : 's'}, {r.beats} beats. {verdict(r)}
             </p>
+            {r.calling && (
+              <p className="muted">
+                {r.ending === 'dead' ? 'She died chasing' : 'She was chasing'}: {r.calling.label} ({Math.round(r.calling.progress * 100)}% there). It does not come with her.
+              </p>
+            )}
             <dl className="books">
               <dt>Banked at drop points</dt><dd>+{r.deposited}{r.fees > 0 && <span className="muted"> (after {r.fees} in cuts)</span>}</dd>
               <dt>In her pockets</dt><dd>{r.carried}{r.ending === 'dead' && <span className={r.recovered ? 'good' : 'bad'}> → {r.recovered} recovered</span>}{r.ending !== 'dead' && <span className="good"> → all of it</span>}</dd>

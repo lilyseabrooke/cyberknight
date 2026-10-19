@@ -1299,7 +1299,7 @@ function finish(c: Ctx, o: ChaseOpts, result: ChaseResult, car: Vehicle | null, 
     const mk = left?.car && ALL_MAKES.find((m) => m.name === left.car!.name);
     if (left?.car && mk && !w.strays?.[loc] && !w.flags[`stolen:${loc}`]) (w.strays ??= {})[loc] = { ...vehicleOf(mk, left.car.id), hp: left.car.hp };
   }
-  for (const a of [...h.companions]) if (a.hp <= 0) removeCompanion(c, a, 'lost');
+  for (const a of [...h.companions]) if (a.hp <= 0) removeCompanion(c, a, 'lost', o.foes.flatMap((f) => f.crew).find((n) => n.alive));
   c.emit('chase_end', result === 'escaped' || result === 'won' ? 'good' : result === 'lost' ? 'mixed' : 'bad', { variant: result, mode: o.mode, taken, car: car?.name ?? 'on foot', body: car?.body ?? 'foot', rounds, foe: o.foes[0]?.name ?? 'them', state: car ? stateOf(car) : 'sound' });
 }
 
