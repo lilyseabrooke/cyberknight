@@ -3,6 +3,8 @@ import { Rng, personalityFrom, hasTemplate, type GameEvent, type World } from '.
 import { createWorld } from './world';
 import { speakingCandidates, talkDown, billboardSpeech } from './speaking';
 import { spawnGroup } from './candidate';
+import { spawnNpc } from './content/archetypes';
+import { addNpc, moveNpc } from './population';
 import { newCompanion, allyPower } from './companions';
 
 const world = (seed: string): World => createWorld({ seed, competence: 0.8, personality: personalityFrom({}) });
@@ -109,7 +111,7 @@ describe('speaking', () => {
     let cooled = 0;
     for (let i = 0; i < 200; i++) {
       const w = world(`talk-${i}`);
-      w.hero.skills.speaking = 100;
+      w.hero.skills.speaking = 5000;
       w.hero.charm = 10;
       w.heat.npd = 4;
       w.hero.locationId = 'street_main';
@@ -139,7 +141,9 @@ describe('speaking', () => {
     const { c, events } = ctxOf(w, 'n');
     const squad = spawnGroup(c, 'npd_officer', 2);
     for (let i = 0; i < 50; i++) expect(talkDown(c, squad)).toBe(false);
-    w.hero.skills.speaking = 100;
+    w.hero.skills.speaking = 300; // level 11: not enough nerve yet
+    for (let i = 0; i < 50; i++) expect(talkDown(c, squad)).toBe(false);
+    w.hero.skills.speaking = 5000;
     const drones = spawnGroup(c, 'npd_drone', 2);
     for (let i = 0; i < 50; i++) expect(talkDown(c, drones)).toBe(false);
     expect(events).toEqual([]);
@@ -156,14 +160,67 @@ describe('speaking', () => {
     expect(events).toEqual([]);
     w.hero.skills.speaking = 5000;
     w.hero.charm = 10;
-    let fame = 0;
-    for (let i = 0; i < 30; i++) {
-      const f0 = w.hero.fame;
-      billboardSpeech(c);
-      if (events.at(-1)!.data.variant === 'speech') fame = Math.max(fame, w.hero.fame - f0);
-    }
+    for (let i = 0; i < 30; i++) billboardSpeech(c);
     expect(events.some((e) => e.type === 'billboard_speech' && e.data.variant === 'speech')).toBe(true);
     for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
-    expect(fame).toBeGreaterThan(1.2);
+  });
+
+  const crowdAt = (w: World, n: number): void => {
+    for (let i = 0; i < n; i++) {
+      const id = `listener_${i}`;
+      addNpc(w, spawnNpc(new Rng(id), id, 'patron', 'street_main', {}));
+    }
+  };
+
+  it('a stump speech puts a goal in the heads of the crowd, with fame as the bonus', () => {
+    let moved = 0;
+    let nobody = 0;
+    for (let i = 0; i < 40; i++) {
+      const w = world(`crowd-${i}`);
+      w.hero.skills.speaking = 5000;
+      w.hero.charm = 10;
+      w.hero.locationId = 'street_main';
+      for (const n of Object.values(w.npcs)) if (n.locationId === 'street_main') moveNpc(w, n, '_gone');
+      const { c, events } = ctxOf(w, `c${i}`);
+      const stump = speakingCandidates(w).find((x) => x.key === 'stump_speech')!;
+      stump.run(c);
+      expect(w.influenced ?? []).toEqual([]);
+      nobody += events.filter((e) => e.type === 'stump_speech' && e.data.variant === 'crowd').length;
+      crowdAt(w, 5);
+      for (let k = 0; k < 4; k++) stump.run(c);
+      for (const id of w.influenced ?? []) {
+        const n = w.npcs[id]!;
+        expect(n.goals!.some((g) => g.method === 'persuasion')).toBe(true);
+        moved++;
+      }
+      for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+    }
+    expect(nobody).toBe(0);
+    expect(moved).toBeGreaterThan(20);
+  });
+
+  it('a billboard speech moves a bigger crowd for longer', () => {
+    let stump = 0;
+    let board = 0;
+    let stumpLen = 0;
+    let boardLen = 0;
+    for (let i = 0; i < 40; i++) {
+      for (const kind of ['stump', 'board'] as const) {
+        const w = world(`big-${i}`);
+        w.hero.skills.speaking = 5000;
+        w.hero.charm = 10;
+        w.hero.locationId = 'street_main';
+        for (const n of Object.values(w.npcs)) if (n.locationId === 'street_main') moveNpc(w, n, '_gone');
+        crowdAt(w, 12);
+        const { c } = ctxOf(w, `b${i}`);
+        if (kind === 'stump') speakingCandidates(w).find((x) => x.key === 'stump_speech')!.run(c);
+        else for (let k = 0; k < 20 && !(w.influenced ?? []).length; k++) billboardSpeech(c);
+        const goals = (w.influenced ?? []).flatMap((id) => w.npcs[id]!.goals!);
+        if (kind === 'stump') { stump += goals.length; stumpLen += goals.reduce((a, g) => a + g.until - g.born, 0); }
+        else { board += goals.length; boardLen += goals.reduce((a, g) => a + g.until - g.born, 0); }
+      }
+    }
+    expect(board).toBeGreaterThan(stump);
+    expect(boardLen / board).toBeGreaterThan(stumpLen / stump);
   });
 });

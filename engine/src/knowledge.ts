@@ -17,7 +17,7 @@ import type { Ctx, Fact, Id, Npc, World } from './types';
 export type Via = 'saw' | 'asked' | 'overheard' | 'paid' | 'tip';
 
 export const knows = (w: World, id: Id, factId: string): boolean => !!w.mind.known?.[id]?.includes(factId);
-const unknownFacts = (w: World, n: Npc): Fact[] => (n.facts ?? []).filter((f) => !knows(w, n.id, f.id));
+export const unknownFacts = (w: World, n: Npc): Fact[] => (n.facts ?? []).filter((f) => !knows(w, n.id, f.id));
 
 export function aboutName(w: World, f: Fact): { about?: string; about_g?: string } {
   if (!f.about) return {};

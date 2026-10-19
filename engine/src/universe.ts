@@ -190,6 +190,7 @@ function wakeTheWorld(u: Universe): void {
     n.hp = n.maxHp;
     n.hostile = false;
     n.downUntil = 0; // measured in beats, and the beats start over
+    delete n.goals; // so are the errands Blackbird put in people's heads
     // People without a routine of their own go back to where they live.
     if (!n.haunts && !n.routine && n.home && n.home !== n.locationId && u.locations[n.home] && !isSealed(u, n.home)) moveNpc(u, n, n.home);
   }

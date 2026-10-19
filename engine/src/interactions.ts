@@ -19,6 +19,7 @@ import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
+import { realtyCandidates, realtyPull } from './realty';
 import { vehicleCandidates } from './vehicles';
 import { getawayCandidates } from './getaway';
 import { goalCandidates } from './goals';
@@ -34,6 +35,7 @@ import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './ro
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
 import { questCandidates } from './quests';
+import { influenceCandidates } from './influence';
 import { isFairGame } from './people';
 import { isBadGuy } from './traits';
 import { isClosed } from './hours';
@@ -94,6 +96,7 @@ export function gather(w: World): Candidate[] {
     if (!talkable(n)) continue;
 
     out.push({ key: `chat:${n.id}`, drives: { curiosity: 0.5, lust: 0.05 }, run: (c) => chat(c, n) });
+    out.push(...influenceCandidates(w, n));
 
     if (isFairGame(n)) {
       out.push({ key: `flirt:${n.id}`, drives: { lust: 1.0, curiosity: 0.1 }, bonus: scruples(w, n), intent: { npc: n.name }, run: (c) => flirt(c, n) });
@@ -216,6 +219,7 @@ export function gather(w: World): Candidate[] {
   out.push(...vehicleCandidates(w));
   out.push(...getawayCandidates(w));
   out.push(...pawnCandidates(w));
+  out.push(...realtyCandidates(w));
 
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.
@@ -250,7 +254,9 @@ export function gather(w: World): Candidate[] {
     const supply = supplyUrge(w, e.to);
     const need = needsUrge(w, e.to);
     const urge = { bonus: supply.bonus + need.bonus, smart: supply.smart + need.smart };
-    const pull = bankPull(w, e.to);
+    const bank = bankPull(w, e.to);
+    const homes = realtyPull(w, e.to);
+    const pull = { bonus: bank.bonus + homes.bonus, smart: bank.smart + homes.smart };
     out.push({
       key: `go:${e.to}`,
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },

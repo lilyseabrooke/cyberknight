@@ -1,4 +1,4 @@
-import type { Ctx, District, Hero, Id, Location, Npc, World } from './types';
+import type { Ctx, Deed, District, Hero, Id, Location, Npc, World } from './types';
 import { spawnGroup, type Candidate } from './candidate';
 import { nested } from './events';
 import { Rng, hashString } from './rng';
@@ -13,6 +13,7 @@ import { expireBuffs, price as haggle } from './supply';
 import { isShut } from './shutdown';
 import { workingCameras } from './witness';
 import { hungerUrge, sleepUrge } from './urges';
+import { homeDeed, ownedHomes } from './deeds';
 import {
   CELL_QUALITY, FAINT_HOURS, FAINT_QUALITY, FOOD, LODGING, LODGING_IDS, LODGING_NAMES, ROUGH_QUALITY, STREET_QUALITY,
   type FoodId, type LodgingId,
@@ -137,7 +138,7 @@ const errandMemo = new WeakMap<World, { key: string; food: Errand | null; bed: E
 /** The nearest meal and the nearest bed, other than where she is standing, that she can pay for. */
 export function errands(w: World): { food: Errand | null; bed: Errand | null } {
   const h = w.hero;
-  const key = `${w.beat}:${h.locationId}:${h.cash >= LODGING.pod.price}:${h.cash >= 6}`;
+  const key = `${w.beat}:${h.locationId}:${h.cash >= LODGING.pod.price}:${h.cash >= 6}:${ownedHomes(w).length}`;
   const memo = errandMemo.get(w);
   if (memo?.key === key) return memo;
   let food: Errand | null = null;
@@ -146,12 +147,14 @@ export function errands(w: World): { food: Errand | null; bed: Errand | null } {
   // Where she stands might already do. If so there's no errand: the candidate for it is on offer right here.
   const here0 = w.locations[h.locationId]!;
   const fedHere = eatCandidates(w, true).some((c) => c.key !== 'scrounge');
-  const bedHere = h.cash >= cheapestBed && lodgingAt(w, here0).length > 0;
+  const homes = new Set(ownedHomes(w).map((d) => d.home));
+  const bedHere = homes.has(here0.id) || (h.cash >= cheapestBed && lodgingAt(w, here0).length > 0);
   for (const [id, r] of reachFrom(w, h.locationId, 14)) {
     if (id === h.locationId) continue;
     const loc = w.locations[id]!;
     if (!fedHere && h.cash >= FOOD.bagel.price && foodSpot(w, loc) && (!food || r.dist < food.dist)) food = { loc: id, ...r };
-    if (!bedHere && h.cash >= cheapestBed && lodgingAt(w, loc).length && (!bed || r.dist < bed.dist)) bed = { loc: id, ...r };
+    // A home she owns is a bed whatever is in her pocket.
+    if (!bedHere && (homes.has(id) || (h.cash >= cheapestBed && lodgingAt(w, loc).length)) && (!bed || r.dist < bed.dist)) bed = { loc: id, ...r };
   }
   const fresh = { key, food, bed };
   errandMemo.set(w, fresh);
@@ -173,7 +176,7 @@ export function needsUrge(w: World, dest: Id): { bonus: number; smart: number } 
   return bonus ? { bonus, smart: 1 } : none;
 }
 
-const NEED_FAMILIES = new Set(['sleep_pod', 'sleep_hostel', 'sleep_hotel', 'sleep_street', 'sleep_rough', 'eat_stall', 'eat_bagel', 'eat_plate', 'eat_noodles', 'eat_dish', 'scrounge', 'buy_noodles', 'cook']);
+const NEED_FAMILIES = new Set(['sleep_home', 'sleep_pod', 'sleep_hostel', 'sleep_hotel', 'sleep_street', 'sleep_rough', 'eat_stall', 'eat_bagel', 'eat_plate', 'eat_noodles', 'eat_dish', 'scrounge', 'buy_noodles', 'cook']);
 
 /** Added to every candidate's score. Hungry and tired, nothing else is quite as interesting (walking somewhere included, bar the way to a meal or a bed: see `needsUrge`). */
 export function needsBias(w: World, cand: { key: string }): number {
@@ -271,6 +274,17 @@ export function restCandidates(w: World): Candidate[] {
   const su = sleepUrge(h);
   if (su <= 0 || loc.dungeon) return out;
   let paid = false;
+  // Her own bed, if this is it: free, and nobody comes in.
+  const own = homeDeed(w, loc);
+  if (own) {
+    paid = true;
+    const q = effectiveQuality(w.legacy, own.quality);
+    out.push({
+      key: 'sleep_home', drives: {}, smart: 0.3 * su,
+      bonus: decided(su) * 1.2 + (q - DEBT_PIVOT) * 4 * (1 + debtOf(h)) + wantsBetter(h, q) + 0.5,
+      run: (c) => sleepOut(c, homePlan(own, loc)),
+    });
+  }
   for (const id of lodgingAt(w, loc)) {
     const def = LODGING[id];
     const cost = lodgingPrice(w, id);
@@ -296,7 +310,7 @@ export function restCandidates(w: World): Candidate[] {
 // ===================================================================== a night's sleep
 
 type Mode = 'lodging' | 'street' | 'rough' | 'hostile';
-type Venue = LodgingId | 'street' | 'rough' | 'faint';
+type Venue = LodgingId | 'home' | 'street' | 'rough' | 'faint';
 
 interface Plan {
   venue: Venue;
@@ -313,6 +327,11 @@ interface Plan {
 
 const lodgingPlan = (w: World, loc: Location, id: LodgingId): Plan => ({
   venue: id, mode: 'lodging', quality: LODGING[id].quality, nominal: NIGHT_HOURS, price: lodgingPrice(w, id), rob: LODGING[id].rob, name: lodgingName(w, loc, id),
+});
+
+/** A night in a home she owns: a bed with a lock, nothing to pay, and a quality that is the home's. */
+const homePlan = (own: Deed, loc: Location): Plan => ({
+  venue: 'home', mode: 'lodging', quality: own.quality, nominal: NIGHT_HOURS, price: 0, rob: 0, name: loc.name,
 });
 
 /** Lie down where she is: out in the open (`street`) or in a corner nobody is likely to look into (`rough`). Free, and it shows. */

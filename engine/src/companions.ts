@@ -64,7 +64,7 @@ export function addCompanion(c: Ctx, comp: Companion, how: string, quiet = false
 }
 
 /** An ally leaves or is lost. NPC-born allies go home. */
-export function removeCompanion(c: Ctx, comp: Companion, why: 'left' | 'lost'): void {
+export function removeCompanion(c: Ctx, comp: Companion, why: 'left' | 'lost', by?: Npc): void {
   const { w } = c;
   w.hero.companions = w.hero.companions.filter((a) => a !== comp);
   if (why === 'left' && comp.npcId && w.npcs[comp.npcId]) {
@@ -72,5 +72,9 @@ export function removeCompanion(c: Ctx, comp: Companion, why: 'left' | 'lost'): 
     moveNpc(w, n, comp.home ?? 'halo_floor');
     n.alive = true;
   }
-  c.emit(why === 'lost' ? 'companion_lost' : 'companion_leaves', 'bad', { name: comp.name, kind: comp.kind });
+  c.emit(why === 'lost' ? 'companion_lost' : 'companion_leaves', 'bad', {
+    name: comp.name, kind: comp.kind,
+    // Who did it, for the vengeance it might start (see callings.ts).
+    ...(why === 'lost' && by ? { by: by.name, by_id: by.id, by_faction: by.faction ?? '', ...(by.tags.includes('dragon') ? { by_dragon: true } : {}) } : {}),
+  });
 }

@@ -1,15 +1,22 @@
-import type { Ctx, Hero, Npc, World } from './types';
+import type { Ctx, Hero, Npc, NpcGoalKind, World } from './types';
 import { addHeat, gainXp, here, remember } from './combat';
 import { clamp, type Candidate } from './candidate';
 import { odds, skillLevel, synergy, train } from './skills';
 import { fameFrom } from './stage';
 import { sleepOf } from './needs';
+import { canDeepen, ensureDeep } from './deepen';
+import { isPerson } from './roads';
+import { cool } from './mind';
+import { ERRAND_KINDS, barNear, carStreet } from './errands';
+import { addGoal, goalOf, oddsWith, phrasing, wishes, type Wish } from './influence';
 
 /**
- * Speaking: public speeches, rousing ones. Three ways to use it.
- * - On a soapbox in the street: nothing but a bit of fame (for now).
+ * Speaking: public speeches, rousing ones. Four ways to use it.
+ * - On a soapbox in the street (or from a hijacked billboard): the point is the crowd. A speech that lands puts a goal in the
+ *   heads of the people listening, all at once (see `moveCrowd`, on top of the influence in influence.ts). Fame is the bonus.
  * - To her companions: if it lands they fight harder for a while and like her more.
  * - To the mirror: nothing happens, except that she gets a little better and thinks very well of herself.
+ * - To the people who have come for her: talking them down, if she is good enough to dare.
  */
 const ODDS = {
   stump: (h: Hero) => odds(0.2, 0.065, synergy(h, ['speaking', ['streetwise', 0.3], ['stat:charm', 0.6]])),
@@ -20,6 +27,9 @@ const ODDS = {
 const billboardOdds = (h: Hero): number => odds(0.35, 0.07, synergy(h, ['speaking', ['streetwise', 0.3], ['stat:charm', 0.6]]));
 /** How good she has to be before she grabs the mic when she has hijacked a billboard. */
 export const BILLBOARD_SPEECH_LEVEL = 12;
+
+/** Skills run 0 to 100. Talking down people who are trying to hurt her takes real nerve and real command of a room. */
+export const TALK_DOWN_LEVEL = 15;
 
 /** Skills run 0 to 100 (levels 1, 3, 5, 8, 12... are the milestones). Past this level her speeches read as polished. */
 const POLISHED = 8;
@@ -47,7 +57,7 @@ export function speakingCandidates(w: World): Candidate[] {
 
   // ---- a soapbox on any street
   if (loc.outdoors && !['overpass', 'halo_roof'].includes(loc.id)) {
-    out.push({ key: 'stump_speech', drives: { pride: 0.6, curiosity: 0.3, bravery: 0.3 }, bonus: Math.min(lvl, 30) * 0.01, risk: 0.15, intent: {}, run: stumpSpeech });
+    out.push({ key: 'stump_speech', drives: { pride: 0.6, curiosity: 0.3, bravery: 0.3 }, bonus: Math.min(lvl, 30) * 0.01 + 0.08 * Math.min(5, audience(w).length), risk: 0.15, intent: {}, run: stumpSpeech });
   }
 
   // ---- the troops
@@ -67,10 +77,12 @@ function stumpSpeech(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   if (rng.next() < ODDS.stump(h)) {
-    fameFrom(c, 1.2, 'stump_speech');
+    const moved = moveCrowd(c, { cap: 8, stretch: 1, edge: 0 });
+    const n = moved?.count ?? 0;
+    fameFrom(c, 0.4 + 0.3 * Math.min(n, 6), 'stump_speech');
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 4;
-    train(c, 'speaking', 2);
-    c.emit('stump_speech', 'good', { variant: 'rousing', level: skillLevel(h, 'speaking') });
+    train(c, 'speaking', 2 + Math.min(n, 3));
+    c.emit('stump_speech', 'good', { variant: n ? 'crowd' : 'rousing', level: skillLevel(h, 'speaking'), ...crowdData(moved) });
   } else if (rng.chance(0.3)) {
     addHeat(w, 'npd', 1);
     train(c, 'speaking', 1);
@@ -148,7 +160,7 @@ export function talkDown(c: Ctx, foes: Npc[]): boolean {
   const h = w.hero;
   const live = foes.filter((f) => f.alive);
   const lvl = skillLevel(h, 'speaking');
-  if (!live.length || lvl < 1 || live.some((f) => f.tags.some((t) => ['robot', 'dragon', 'pet'].includes(t)))) return false;
+  if (!live.length || lvl < TALK_DOWN_LEVEL || live.some((f) => f.tags.some((t) => ['robot', 'dragon', 'pet'].includes(t)))) return false;
   const wants = clamp(0.08 + (h.personality.weights.pride - 0.5) * 0.3 + (h.personality.weights.bravery - 0.5) * 0.3 + Math.min(lvl, 30) * 0.01, 0, 0.6);
   if (!rng.chance(wants)) return false;
   const lead = live[0]!;
@@ -188,15 +200,106 @@ export function billboardSpeech(c: Ctx): void {
   const h = w.hero;
   if (skillLevel(h, 'speaking') < BILLBOARD_SPEECH_LEVEL) return;
   if (rng.chance(billboardOdds(h))) {
-    const gain = fameFrom(c, 3, 'stump_speech');
+    // Everyone in earshot, a bigger voice, and it lasts longer.
+    const moved = moveCrowd(c, { cap: 14, stretch: 1.6, edge: 0.15 });
+    const n = moved?.count ?? 0;
+    const gain = fameFrom(c, 1.5 + 0.5 * Math.min(n, 8), 'stump_speech');
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 8;
     addHeat(w, 'atlas', 1);
-    train(c, 'speaking', 4);
+    train(c, 'speaking', 4 + Math.min(n, 4));
     gainXp(c, 8);
-    c.emit('billboard_speech', 'good', { variant: 'speech', fame: Math.round(gain * 10) / 10, level: skillLevel(h, 'speaking') });
+    c.emit('billboard_speech', 'good', { variant: n ? 'crowd' : 'speech', fame: Math.round(gain * 10) / 10, level: skillLevel(h, 'speaking'), ...crowdData(moved) });
   } else {
     h.fame = Math.max(0, h.fame - 0.5);
     train(c, 'speaking', 1);
     c.emit('billboard_speech', 'bad', { variant: 'flop' });
   }
 }
+
+// ===================================================================== the crowd
+
+/** The things a crowd can be sent off to do. (Not "tell her a secret", and not "go and kiss somebody": that wants one person.) */
+const CRY: NpcGoalKind[] = ['back_me_up', 'go_after', 'cover', 'give_cash', 'steal_car', 'take_deck', 'buy_round', 'tag_wall', 'karaoke'];
+
+/** Who is in earshot and can be moved. */
+export function audience(w: World): Npc[] {
+  const h = w.hero;
+  return here(w).filter((n) => n.alive && !n.hostile && n.downUntil <= w.beat && canDeepen(n) && isPerson(n.tags, n.archetype) && !h.companions.some((a) => a.npcId === n.id));
+}
+
+/** What she asks of this one person for this cry, if it is something they could do. */
+function wishFor(w: World, n: Npc, kind: NpcGoalKind): Wish | null {
+  if (goalOf(n, kind) || (ERRAND_KINDS.has(kind) && n.goals?.some((g) => ERRAND_KINDS.has(g.kind)))) return null;
+  const real = wishes(w, n).find((x) => x.kind === kind);
+  if (real) return real;
+  const loc = w.locations[w.hero.locationId];
+  switch (kind) {
+    case 'tag_wall': return loc && loc.kind !== 'home' ? { kind, urge: 0.3, magnitude: 0.4, loc: loc.id } : null;
+    case 'karaoke': return w.features.karaoke && w.locations[w.features.karaoke.locationId] ? { kind, urge: 0.3, magnitude: 0.35 } : null;
+    case 'take_deck': return w.features.dj_booth && w.locations[w.features.dj_booth.locationId] ? { kind, urge: 0.3, magnitude: 0.6 } : null;
+    case 'steal_car': return carStreet(w, w.hero.locationId) ? { kind, urge: 0.3, magnitude: 0.75 } : null;
+    case 'buy_round': return n.cash >= 40 && barNear(w, w.hero.locationId) ? { kind, urge: 0.3, magnitude: 0.35 + 0.3 * clamp(30 / n.cash, 0, 1) } : null;
+    default: return null;
+  }
+}
+
+/** What she tells them to do: the biggest thing she wants that a crowd can help with, or else whatever she feels like. */
+function pickCry(c: Ctx, crowd: Npc[]): NpcGoalKind | null {
+  const { w, rng } = c;
+  let best: { kind: NpcGoalKind; urge: number } | null = null;
+  for (const n of crowd) {
+    for (const x of wishes(w, n)) if (CRY.includes(x.kind) && (!best || x.urge > best.urge)) best = { kind: x.kind, urge: x.urge };
+  }
+  if (best && best.urge >= 0.2) return best.kind;
+  const t = w.hero.personality.traits;
+  const mood = ([
+    { kind: 'steal_car', w: 0.3 + t.mischief + t.thrill },
+    { kind: 'take_deck', w: 0.3 + t.fame + t.mischief },
+    { kind: 'buy_round', w: 0.3 + t.sociable + t.impress },
+    { kind: 'tag_wall', w: 0.2 + t.artistry + t.mischief },
+    { kind: 'karaoke', w: 0.3 + t.fame + t.mischief },
+  ] as { kind: NpcGoalKind; w: number }[]).filter((o) => crowd.some((n) => wishFor(w, n, o.kind)));
+  return mood.length ? rng.weighted(mood, (o) => Math.max(0.05, o.w)).kind : null;
+}
+
+export interface Moved {
+  kind: NpcGoalKind;
+  count: number;
+  of: number;
+  names: string[];
+  deed: string;
+}
+
+/**
+ * The real win of a speech: a goal in the head of everyone listening. She picks the cry (what she wants done, or what she
+ * fancies) and each person in earshot weighs it the way they would a one-to-one ask: how big it is, how it sits with who they
+ * are, how they feel about her. A crowd carries itself, so the more of them there are the likelier each is to go along.
+ */
+export function moveCrowd(c: Ctx, o: { cap: number; stretch: number; edge: number }): Moved | null {
+  const { w, rng } = c;
+  const h = w.hero;
+  const crowd = audience(w).sort((a, b) => b.affinity - a.affinity).slice(0, o.cap);
+  if (!crowd.length) return null;
+  const kind = pickCry(c, crowd);
+  if (!kind) return null;
+  const voice = synergy(h, ['speaking', ['stat:charm', 0.6]]);
+  const swell = Math.min(0.2, 0.04 * (crowd.length - 1));
+  const taken: Npc[] = [];
+  let deed = '';
+  for (const n of crowd) {
+    const wish = wishFor(w, n, kind);
+    if (!wish) continue;
+    ensureDeep(w, n);
+    cool(w, `influence:${n.id}:${kind}`, 35);
+    if (!rng.chance(clamp(oddsWith(w, n, wish, 'persuasion', voice) + swell + o.edge, 0.03, 0.95))) continue;
+    addGoal(c, n, wish, 'persuasion', o.stretch);
+    n.affinity += 2;
+    remember(n, 'was swept up by a speech of Blackbird\'s');
+    taken.push(n);
+    deed ||= kind === 'give_cash' ? 'passing the hat' : phrasing(w, wish).deed;
+  }
+  if (!taken.length) return { kind, count: 0, of: crowd.length, names: [], deed: '' };
+  return { kind, count: taken.length, of: crowd.length, names: taken.map((n) => n.name), deed };
+}
+
+const crowdData = (m: Moved | null): Record<string, string | number> => (m?.count ? { count: m.count, of: m.of, deed: m.deed, who: m.names.slice(0, 2).join(' and '), kind: m.kind } : {});
