@@ -5,6 +5,7 @@ import { inheritInfluence, pickFaction } from './factions';
 import { ENTRANCE_BLURB, OUTPOST_CODE, hideoutName, outpostName, rollTier } from './content/dungeons';
 import { SPOTS, SPOT_AGAIN, SPOT_CHANCE, pickSpot, rollSpotTier, type SpotDef } from './content/spots';
 import { CONDITIONS, GYM_CHANCE, ROOMS, rollGym, roomTitle } from './content/gyms';
+import { OFFICE_BLURBS, REALTY_CHANCE, officeName } from './content/realty';
 import { PAWN_CHANCE, ROOMS as PAWN_ROOMS, rollPawn, roomTitle as pawnRoomTitle } from './content/pawns';
 import { CHOP_CHANCE, rollChop } from './content/chops';
 import { DISTRICT_DANGER, START_DEPTH, dangerOf, meanDanger, stepDanger } from './grade';
@@ -54,7 +55,7 @@ const NEXT_TO: Record<District, District[]> = {
   slum: ['tenement', 'industrial', 'nightlife'],
 };
 
-export type Lot = Exclude<GenRole, 'street' | 'clinic' | 'unit' | 'backroom' | 'cellar' | 'vip' | 'chamber' | 'spot' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'chop'>;
+export type Lot = Exclude<GenRole, 'street' | 'clinic' | 'unit' | 'backroom' | 'cellar' | 'vip' | 'chamber' | 'spot' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop'>;
 
 /** What stands along a street, by district. */
 export const LOTS: Record<District, Record<Lot, number>> = {
@@ -146,6 +147,7 @@ const BLURB: Record<Exclude<GenRole, 'street'>, string[]> = {
   pawnroom: ['{name}: a room in a pawn shop.'],
   // Chop shops write their own (content/chops.ts).
   chop: ['{name}: a chop shop, of sorts.'],
+  realty: OFFICE_BLURBS,
 };
 
 // ===================================================================== ids
@@ -296,6 +298,8 @@ export function expand(w: MapWorld, loc: Location): void {
       if (!highway && new Rng(`gymchance:${w.worldSeed}:${loc.id}`).chance(GYM_CHANCE[here])) add('gym', here, g.depth);
       // And, a little less often, a pawn shop. (Its own stream, and its slot after the gym's, for the same reason.)
       if (!highway && new Rng(`pawnchance:${w.worldSeed}:${loc.id}`).chance(PAWN_CHANCE[here])) add('pawn', here, g.depth);
+      // And, now and then, somebody selling homes. (Its own stream, and its slot after the pawn shop's, for the same reason.)
+      if (!highway && new Rng(`realtychance:${w.worldSeed}:${loc.id}`).chance(REALTY_CHANCE[here])) add('realty', here, g.depth);
       // And a chop shop, now and then, after that one for the same reason. (Its own stream again.)
       if (!highway && new Rng(`chopchance:${w.worldSeed}:${loc.id}`).chance(CHOP_CHANCE[here])) add('chop', here, g.depth);
       // Loops. Everything here is decided now, from this street's own stream, between places that
@@ -434,7 +438,7 @@ interface ChildOpts {
 
 const KIND: Record<GenRole, Location['kind']> = {
   street: 'street', clinic: 'clinic', shop: 'shop', bar: 'bar', club: 'club', corp: 'corp', flat: 'home', unit: 'home', tunnel: 'tunnel', backroom: 'bar', cellar: 'tunnel', vip: 'club',
-  outpost: 'lair', hideout: 'lair', spot: 'lair', chamber: 'lair', gym: 'gym', gymroom: 'gym', pawn: 'pawn', pawnroom: 'pawn', chop: 'chop',
+  outpost: 'lair', hideout: 'lair', spot: 'lair', chamber: 'lair', gym: 'gym', gymroom: 'gym', pawn: 'pawn', pawnroom: 'pawn', realty: 'realty', chop: 'chop',
 };
 
 const clampSec = (n: number): number => Math.max(0, Math.min(9, Math.round(n)));
@@ -485,6 +489,7 @@ function sketch(
     case 'corp': security = o.rank ? parent.security + rng.int(1, 2) : 5 + rng.int(0, 1) + deep; break;
     case 'flat': security = 0; break;
     case 'unit': security = o.security ?? 1; break;
+    case 'realty': security = 1 + (district === 'corporate' ? 1 : 0) + rng.int(0, 1); break;
     case 'tunnel': security = o.rank ? parent.security : 1 + rng.int(0, 1); break;
     case 'backroom': security = parent.security + 2; break;
     case 'cellar': security = 1; break;
@@ -525,6 +530,7 @@ function sketch(
     name = o.name ?? spotName(spot, drng!, faction ? w.factions[faction]?.name : undefined);
   } else if (role === 'shop') faction = 'shop';
   else if (role === 'clinic') faction = undefined;
+  else if (role === 'realty') faction = 'shop';
   else if (role === 'corp') faction = 'atlas';
   else if (role === 'bar' || role === 'club') {
     faction = `v:${id}`;
@@ -650,7 +656,7 @@ export function addChamber(
 }
 
 /** The nearest outdoor place back up the tree, for being thrown out onto. */
-function streetOf(w: Pick<World, 'locations'>, from: Location): Id {
+export function streetOf(w: Pick<World, 'locations'>, from: Location): Id {
   let cur: Location | undefined = from;
   for (let i = 0; cur && i < 40; i++) {
     if (cur.outdoors) return cur.id;
@@ -669,6 +675,7 @@ function nameFor(rng: Rng, role: GenRole, district: District, parent: Location, 
     case 'shop': return rng.chance(0.6) ? `${possessive(pick(rng, OWNER))} ${pick(rng, SHOP_THING)}` : pick(rng, SHOP_THING);
     case 'bar': return `The ${pick(rng, BAR_ADJ)} ${pick(rng, BAR_NOUN)}`;
     case 'club': return pick(rng, CLUB_NAME);
+    case 'realty': return officeName(rng);
     case 'corp': return rank ? `${parent.name.split(' ').slice(0, 2).join(' ')} ${FLOOR[(rng.int(0, FLOOR.length - 1) + rank) % FLOOR.length]}` : `${pick(rng, CORP)} ${pick(rng, DIVISION)}`;
     case 'flat': return `${pick(rng, FLAT_WORD)} ${pick(rng, FLAT_NAME)}`;
     case 'tunnel': return rank ? `${parent.name.replace(/, further in$/, '')}, further in` : `the ${pick(rng, TUNNEL_ADJ)} ${pick(rng, TUNNEL_NAME)}`;
@@ -729,6 +736,21 @@ export function addDwelling(w: MapWorld, street: Location, owner: { id: Id; name
   if (!block) block = sketch(w, street, 200 + (tag % 700), 'flat', district, depth);
   const name = `${possessive(owner.name)} ${DWELLING[size].label}`;
   return addUnit(w, block, 100 + (tag % 900), size, name, `${possessive(owner.name)} door`, owner.id);
+}
+
+/**
+ * A home somebody has bought, on a street that already exists: a door in the street's apartment block (made if it has none).
+ * `key` is the deed, so the same purchase is the same place; if the slot it hashes to is taken, it takes the next.
+ */
+export function addHome(w: MapWorld, street: Location, key: string, o: { name: string; label: string; blurb: string; security: number; cameras: number }): Location {
+  expand(w, street);
+  const district: District = street.gen?.district ?? 'tenement';
+  const depth = street.gen?.depth ?? 1;
+  let block = street.exits.map((e) => w.locations[e.to]).find((l): l is Location => l?.gen?.role === 'flat' && l.gen.parent === street.id);
+  if (!block) block = sketch(w, street, 200 + (hashString(`dwelling:${key}`) % 700), 'flat', district, depth);
+  let slot = 100 + (hashString(`dwelling:${key}`) % 900);
+  while (w.locations[childId(block.id, slot)]) slot++;
+  return sketch(w, block, slot, 'unit', district, depth, { name: o.name, security: o.security, cameras: o.cameras, blurb: o.blurb, label: o.label });
 }
 
 /** A door in an apartment block: somebody's home, made to order. `key` seeds how it looks and how well it's locked. */

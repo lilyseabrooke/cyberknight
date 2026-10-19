@@ -22,6 +22,8 @@ import {
   type Universe,
   gangName,
   goalViews,
+  callingView,
+  type CallingView,
   type GoalView,
   IMPLANTS,
   SKILL_LABELS,
@@ -103,6 +105,8 @@ interface Snapshot {
   skills: [string, number][];
   implants: string[];
   goals: GoalView[];
+  /** What she has decided to do with her life, if anything. */
+  calling: CallingView | null;
   satiety: number;
   /** 0..1, from training; see gym.ts. */
   sore: number;
@@ -136,7 +140,7 @@ const SPEEDS = [
 
 const HEAT_NAMES: Record<string, string> = { npd: 'Police', atlas: 'Atlas', halo: 'The Halo', club: 'Neon Pharaoh' };
 const heatName = (k: string) => HEAT_NAMES[k] ?? gangName(k);
-const DRAMA = new Set(['advice_ask', 'need', 'rest_incident', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout', 'quest']);
+const DRAMA = new Set(['advice_ask', 'need', 'rest_incident', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout', 'quest', 'calling', 'calling_done']);
 const MAX_LINES = 600;
 
 function snap(w: World): Snapshot {
@@ -176,6 +180,7 @@ function snap(w: World): Snapshot {
     skills: (Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((k) => [SKILL_LABELS[k], skillLevel(h, k)] as [string, number]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]),
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
     goals: goalViews(w),
+    calling: callingView(w),
     satiety: h.satiety ?? 0,
     sore: h.sore ?? 0,
     hunger: hungerOf(h),
@@ -512,6 +517,16 @@ export default function NightViewer() {
             <Bar label={`LVL ${status.level}`} value={status.xp} max={status.xpNeed} kind="xp" />
             <Bar label={status.hungerTier === 'fed' ? 'Hunger' : `Hunger · ${status.hungerTier}`} value={status.hunger} max={100} kind={`hunger ${status.hungerTier}`} />
             <Bar label={status.sleepTier === 'rested' ? 'Sleep' : `Sleep · ${status.sleepTier}`} value={status.sleep} max={100} kind={`sleep ${status.sleepTier}`} />
+            {status.calling && (
+              <div className="goals calling">
+                <h3>Her calling</h3>
+                <p>
+                  <b>{status.calling.label.charAt(0).toUpperCase() + status.calling.label.slice(1)}.</b>
+                  <span className="muted"> · {status.calling.how === 'whim' ? 'for no reason' : status.calling.how === 'wound' ? 'a wound' : 'a spark'}: {status.calling.origin}{status.calling.wavering ? ' · wavering' : ''}</span>
+                </p>
+                <Bar label={status.calling.goal > 1 ? `${status.calling.count} / ${status.calling.goal}` : status.calling.progress >= 1 ? 'done' : 'not yet'} value={Math.round(status.calling.progress * 100)} max={100} kind="xp" />
+              </div>
+            )}
             {status.goals.length > 0 && (
               <div className="goals">
                 <h3>On her mind</h3>

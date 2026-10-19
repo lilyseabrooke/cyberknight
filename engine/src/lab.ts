@@ -1,4 +1,6 @@
 import { SKILLS, type SkillId } from './content/skills';
+import { callingLine } from './content/callings';
+import { progressOf } from './callings';
 import { hpPerLevel, skillXp } from './grade';
 import { IMPLANTS, MAX_IMPLANTS } from './content/implants';
 import { makeItem } from './content/items';
@@ -222,6 +224,7 @@ export function settleAccount(w: World): RunReport {
     level: w.hero.level,
     kills: w.stats.kills,
     beats: w.beat,
+    ...(w.mind.calling ? { calling: { label: callingLine(w.mind.calling), progress: Math.min(1, Math.max(0, progressOf(w, w.mind.calling))) } } : {}),
     before,
     after: l.account,
   };

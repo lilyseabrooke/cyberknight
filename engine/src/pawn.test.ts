@@ -159,7 +159,7 @@ describe('rolling a pawn shop', () => {
 });
 
 describe('where pawn shops grow', () => {
-  it('turns up in the city, on a stream of its own, after everything else on its street (the gym included)', () => {
+  it('turns up in the city, on a stream of its own, after everything else on its street (the gym included; the property office comes after it)', () => {
     let pawns = 0;
     for (let i = 0; i < 25; i++) {
       const sc = scenario({ seed: `grow-${i}`, setup: (w) => void findPawn(w, 100) });
@@ -167,7 +167,7 @@ describe('where pawn shops grow', () => {
         const kids = street.exits.map((e) => sc.w.locations[e.to]).filter((l) => l?.gen?.parent === street.id && l.gen.role !== 'street');
         for (const p of kids.filter((l) => l!.gen!.role === 'pawn')) {
           pawns++;
-          for (const other of kids.filter((l) => l!.gen!.role !== 'pawn' && l!.gen!.role !== 'pawnroom' && l!.gen!.role !== 'chop')) expect(p!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
+          for (const other of kids.filter((l) => l!.gen!.role !== 'pawn' && l!.gen!.role !== 'pawnroom' && l!.gen!.role !== 'realty' && l!.gen!.role !== 'chop')) expect(p!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
         }
       }
     }

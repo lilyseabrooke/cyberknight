@@ -82,6 +82,7 @@ export const ROSTERS: Record<Location['kind'], SlotDef[]> = {
   home: [],
   lair: [], // dungeons furnish their own rooms; see dungeons.ts
   gym: [], // a gym's people depend on what it is and which room this is; see gymRoster in content/gyms.ts
+  realty: [{ role: 'realtor', count: [1, 1], resident: true }],
   pawn: [], // so do a pawn shop's; see pawnRoster in content/pawns.ts
   chop: [], // and a chop shop's: the door depends on the shop; see chopRoster in content/chops.ts
 };
