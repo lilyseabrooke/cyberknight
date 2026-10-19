@@ -453,6 +453,19 @@ Most people are somebody she saw. When one starts to matter they're **deepened**
 - **Facts as hooks.** `buy_info` (pay a dealer, fixer or prophet for something unknown about them or their circle). **Contracts**: someone who *wants revenge* will pay her to settle it, once she knows. She takes the job as a kill goal, and the client pays when she beats the target; if the client's gone, the money isn't. The other wants are narrative and feed gossip for now.
 - **Not yet:** wants that act on their own (a person who wants out actually trying), debts that come due, stubs being cast into newly generated places on purpose, ties shifting with time, and NPC-to-NPC events.
 
+### Influence: putting a goal in somebody's head (`influence.ts`)
+Blackbird can give an NPC a goal of her own choosing. She does it with one of four skills under Charm: **persuasion** (it's a good idea), **intimidation** (do it or else), **flirting** (the `romance` skill; do it for me) or **grifting** (a story in which they want to). Her wishes come out of what she is already after, so it is never random:
+
+| Goal | She wants it when | What they do |
+|---|---|---|
+| `give_cash` | a cash goal, or an empty pocket | hand over the money when next with her |
+| `cover` | a heist, burgle, quest or raid is on | their awareness of her stays at zero, and as a witness they don't call the law or step in |
+| `back_me_up` | a kill, dragon or raid goal | add to her power and join her next fights (and get hurt doing it) |
+| `go_after` | a kill goal on someone else | walk out, find the target and scrap with them (stats decide), offscreen if need be; a win counts as her kill goal being struck |
+| `spill` | they have something she doesn't know | tell her a fact, secrets included |
+
+Whether it takes is `influenceOdds`: **magnitude** of the ask (a share of their purse, how secret the fact, how hard the target is), how far it **conflicts with their character** (each goal has a trait profile: `go_after` wants kindness low, `give_cash` wants greed low), how much they **like her**, and her skill against their stat. Method colours the rest: the brave don't fold, the greedy are easy marks, flirting runs through `romanceMod`. How she got there is remembered: the frightened hold a grudge and the conned may work it out later (`influence_end:wise`). Errands last a night (`Npc.goals`, cleared in `wakeTheWorld`); `World.influenced` lists carriers so the beat doesn't scan everyone.
+
 ### Not built yet
 1. **NPC wants that act.** Wants beyond revenge contracts don't yet make anyone do anything on their own.
 2. **Stubs cast into new places.** `populate` doesn't yet prefer to materialize a stub that fits a vacancy.

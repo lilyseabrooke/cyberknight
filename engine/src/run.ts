@@ -38,6 +38,7 @@ import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
 import { art } from './lab';
 import { gate, tickStealth } from './stealth';
+import { influenceTick } from './influence';
 import { positionFor, tickPlace } from './placeboard';
 
 /** Only for headless loops and tests (runToEnd, sims). The game itself never caps a run: it ends when Blackbird does. */
@@ -195,6 +196,7 @@ export function step(w: World): GameEvent[] {
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambient(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientMind(c);
   if (!w.over) adviceTick(c);
+  if (!w.over) influenceTick(c);
   if (!w.over) mindTick(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) {
     const cands = gather(w);

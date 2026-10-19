@@ -353,6 +353,33 @@ export interface Npc {
   post?: Id;
   /** A job they have for Blackbird, once they've told her about it. Persists with them: the world remembers a job even when she doesn't. See quests.ts. */
   quest?: Quest;
+  /** What Blackbird has talked them into wanting, tonight. See influence.ts. */
+  goals?: NpcGoal[];
+}
+
+export type NpcGoalKind = 'give_cash' | 'cover' | 'back_me_up' | 'go_after' | 'spill';
+/** The four ways she gets round somebody: the skills under Charm that make people do things. */
+export type InfluenceMethod = 'persuasion' | 'intimidation' | 'romance' | 'grifting';
+
+/** Something Blackbird has put in somebody's head. They carry it out in their own way, for as long as it lasts. */
+export interface NpcGoal {
+  id: number;
+  kind: NpcGoalKind;
+  /** How she got them to take it on. */
+  method: InfluenceMethod;
+  /** go_after: the person they are going after. spill: the person whose business it is, if it's somebody else's. */
+  target?: Id;
+  /** give_cash: how much. */
+  amount?: number;
+  born: number;
+  /** The beat it wears off. */
+  until: number;
+  /** They did it because they were frightened. Fear leaves a grudge. */
+  coerced?: boolean;
+  /** They did it because she lied. They may work that out. */
+  conned?: boolean;
+  /** go_after: they are on their way. */
+  sent?: boolean;
 }
 
 /**
@@ -969,6 +996,8 @@ export interface World {
   chaseTire?: { rounds: number; beat: number };
   /** Everyone whose awareness of Blackbird is currently worth tracking, so the beat only has to look at them. */
   watchers?: Id[];
+  /** Everyone carrying a goal Blackbird gave them, so the beat only has to look at them. See influence.ts. */
+  influenced?: Id[];
   stats: { kills: number; fights: number; maxLevel: number; deposited: number; fees: number };
   over: boolean;
   ending: null | 'dead' | 'victory' | 'dawn';

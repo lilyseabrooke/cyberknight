@@ -33,6 +33,7 @@ import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './ro
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
 import { questCandidates } from './quests';
+import { influenceCandidates } from './influence';
 import { isFairGame } from './people';
 import { isBadGuy } from './traits';
 import { isClosed } from './hours';
@@ -93,6 +94,7 @@ export function gather(w: World): Candidate[] {
     if (!talkable(n)) continue;
 
     out.push({ key: `chat:${n.id}`, drives: { curiosity: 0.5, lust: 0.05 }, run: (c) => chat(c, n) });
+    out.push(...influenceCandidates(w, n));
 
     if (isFairGame(n)) {
       out.push({ key: `flirt:${n.id}`, drives: { lust: 1.0, curiosity: 0.1 }, bonus: scruples(w, n), intent: { npc: n.name }, run: (c) => flirt(c, n) });
