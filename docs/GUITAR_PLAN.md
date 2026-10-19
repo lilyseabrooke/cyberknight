@@ -1,339 +1,208 @@
-# Guitar: the long game
+# Guitar: what it opens up
 
 Status: **plan, nothing built.** Feel over balance: every number here is a first guess, to be felt out (or never tuned
 at all). Names marked PROPOSED are drafts for the author to veto, as in `docs/setting/`.
 
-## The idea in one paragraph
+## The idea
 
-Combat is not a storyline. It is a **space**: a skill that climbs to 100, weapons that roll classes, tiers and traits,
-techniques that open up, enemies at the local grade, places that get nastier with distance, bosses that can be beaten
-more than one way, and a world that remembers. Guitar gets the **same shape**. She gets better, finds better gear,
-learns new moves, meets bigger crowds and nastier rivals in further districts, and the things she can *do* with a
-guitar keep widening until a good enough player can bend the city with one. Nothing is a required path. A run where
-she never touches a guitar is fine; a run where she plays a rooftop set during an acid storm, starts a riot outside an
-Atlas showroom and then electrocutes an Artemis with a feedback loop is also fine, and much louder.
+Combat is valuable because of what it opens: a fight gets her into a hideout, a bounty pays, a dead CINDERJAW opens the
+cordon. Guitar should work the same way. **Being good at guitar opens doors**, and the doors lead to the same places
+combat and stealth do (money, access, allies, a gap in the cordon, a shot at a board member), by a different road.
 
-## Design rules for this plan
+The game never asks her to play a guitar. But a good player keeps finding opportunities only a good player gets: she's
+booked as the entertainment at a party she could never break into, a gang lets her in because she won the call-and-response,
+a dragon goes quiet because she found its frequency, a board member puts their own hand out to give her a prize on live
+TV. No storyline holds these together. They're entries in a catalogue, gated by skill, fame, place and circumstance,
+the way fights are gated by grade and danger.
 
-1. **Parallel ladders, not a plot.** There are about eight independent tracks (craft, gear, moves, crowds, rivals,
-   money, fans, legend). Each is fun alone; they multiply when they meet.
-2. **Guitar is a way of acting on the world**, not a minigame in a box. Every ladder should reach out into some other
-   system: combat, stealth, romance, heat, the economy, Atlas, the lab.
-3. **The guitar grade is a real grade.** "Guitar 40 in a grade-40 district" means the crowds there are a fair fight.
-   It is the same unit `docs/PROGRESSION.md` uses for everything else.
-4. **Rule of cool beats plausibility.** If it would look good on an album cover, it is allowed. A double-neck guitar
-   with a chainsaw on one neck is allowed. Playing a dragon to death is allowed.
-5. **The world supplies the limits** (crowd fatigue, heat, broken strings, grudges, stolen gear), never timers or
-   fairness clamps. Same as everywhere else.
-6. **Silly, but played straight.** Blackbird is certain she is a legend from the first chord. The field report knows
-   better, for a while.
+## Canon: fame survives death, skill doesn't
 
-## What exists today (what we are extending)
+(The author's call.) Blackbird is rebuilt from a cached copy of herself. To Neo, nothing happened: it's the same
+Blackbird, with the same name, the same fans, the same bookings, the same songs on the jukebox. But the body is new,
+and **her hands don't remember**. She knows every song she ever wrote. She can't play most of them any more.
 
-| Piece | Where |
+So the long game splits in two:
+
+| Carries over (Neo's memory of her) | Resets (her body) |
 |---|---|
-| `guitar` skill (music group, spills 0.4 into `music`), four titles | `content/skills.ts` |
-| Acts: `jam` and `steal_guitar` (the green room), `gig` (with a band that likes her), `busk` (outdoors, owns an instrument), `guitar_duel` (band members) | `hobbies.ts`, DESIGN.md "tenth pass" |
-| Odds via `synergy` over guitar, music, vocals, charm | `hobbies.ts` `ODDS` |
-| Crowd fatigue per skill per place, stage prestige (club 1.5, bar 1, street 0.8), `fameFrom` | `stage.ts` |
-| Callings: "become a guitar legend" (`mind.passion`), act weighting by passion | `stage.ts`, `mind.ts`, `ACT_SKILL` / `FAME_ACTS` / `CALLING` |
-| Affordance rows: gym `class-gig`, pawn `test-an-instrument` and `busk-practice-amp` | `content/gymafford.ts`, `content/pawnafford.ts` |
-| Items: `vintage_guitar`, `relic_guitar` ("a guitar with a famous dent"), tag `instrument` | `content/items.ts` |
-| Fame (`hero.fame`, per run), the `fame` goal and its learned act values | `types.ts`, `goals.ts` |
-| What survives death: `legacy` (account, world, gate, dragons, deaths) and people who remember her (`revenant.ts`) | `types.ts`, `universe.ts` |
+| fame, fans, superfans, fan clubs per district | guitar skill (and every skill) |
+| songs she wrote and recordings she made; who's covering them | the gear she was carrying |
+| bookings, residencies, deals, sponsorships, a record contract | the band's patience, if she flakes on them (see below) |
+| reputations: who loves her music, who she dissed, who's suing | |
+| royalties (paid into `legacy.account`) | |
 
-So: a handful of acts at the bottom of the ladder, one fame number, and nothing above about grade 10. The plan is the
-rest of the ladder.
+This is the most interesting thing in the plan, because it makes **expectation** a mechanic:
+
+- **Fame opens doors; skill decides whether she walks through them.** Fame is the long ladder (it grows across many
+  lives). Skill is the short one (it rebuilds each life). The biggest opportunities need both, so a famous Blackbird with
+  fresh hands is constantly invited to things she can't yet pull off.
+- **Disappointment.** Every set is judged against what the crowd expects, which is set by her fame. A legend who plays
+  like a beginner loses fans and gets reviews ("Blackbird has lost it, again"); a legend who plays like a legend gets
+  the full payout. Early in a life she mostly disappoints people. That's the joke, and Blackbird doesn't see it ("They're
+  stunned. You can tell they're stunned.").
+- **Ways around it,** each a little opportunity of its own:
+  - *Unplugged:* an "intimate acoustic set" lowers expectations. Fans call it brave.
+  - *The backing track:* DJing or tinkering fakes the hard parts. Getting caught is a scandal (and a fame event).
+  - *The ghost guitarist:* a hired player behind the curtain. They want credit eventually.
+  - *The experimental phase:* after a few flops in a row the city reframes them. Her new direction is "challenging".
+    A reviewer calls it genius. She agrees.
+  - *The comeback:* once her skill catches up with her fame, the first real set after a slump pays a comeback bonus:
+    fans who left return, and the press can't stop writing about it.
+- **Fame decays a little** when she disappoints, so it isn't a pure ratchet, but the songs never go away.
+
+This applies to fame in general, not just guitar (singing, DJing, graffiti, parkour all feed `fame`). Engine-wise,
+fame and fans move from `hero` to `legacy`, plus a per-run "expectation" read from them.
 
 ---
 
-## Ladder 1: Craft (the skill to 100)
+## The opportunity catalogue
 
-The guitar skill already runs to 100 on the grade curve. What's missing is a reason to care past 10. Titles grow to
-about ten (like the combat titles), and **each band unlocks new kinds of act**, not just better odds:
+Each entry: what opens it (**skill**, **fame**, a place, an item, a moment), and what it gets her. Grades follow
+`docs/PROGRESSION.md`; "guitar 25" means the grade, and checks in high-danger districts subtract the place's grade as
+usual. Everything is soft: a lower-skilled Blackbird can try anything, and usually something funny happens.
 
-| Grade | Title (PROPOSED) | What opens up |
+### 1. Getting in (access)
+
+The music version of picking a lock.
+
+- **The entertainment** (guitar 8+ or fame): she's booked to play somewhere she couldn't get into: a corp penthouse
+  party, a gang leader's birthday, a precinct retirement do, a dungeon's officers' mess, eventually an Atlas gala. She
+  walks in the front door with a guitar case. What's in the case is her business (rule of cool: **the guitar case full of
+  guns** is an item, and a classic). Once inside, the place is a heist, a hit or a theft site with her already past the
+  door.
+- **Draw them out** (guitar 5+, an instrument with volume): a set in the street outside a hideout pulls some of the
+  garrison out to watch, or to complain. Fewer guards inside; some of the ones outside become fans.
+- **Backstage** (fame): every venue's green room connects to a loading dock, an office and a safe. Famous people are
+  waved through.
+- **Gang doors:** the Rust Choir lets in anyone who wins a call-and-response at the gate; Neon Marrow raves let in
+  whoever keeps the floor moving; Saint Sixers let in a good hymn. A win means a hideout she can enter without fighting
+  (and a gang that might hire her).
+- **The cordon, the polite way** (fame, before CINDERJAW is dead): the Atlas cordon guards are bored, and one of them has
+  her song as a ringtone. A famous Blackbird can talk or sign her way through a checkpoint for a night ("a tour date").
+  It doesn't open the gate for good; it's a peek past it.
+- **The cordon, the loud way** (guitar 40ish, a `jacked` or very loud instrument, the Overpass): **she plays the
+  cordon down.** CINDERJAW's control signal holds the lockdown, and a sustained set into the Overpass PA drowns it out.
+  The cordon drops as if CINDERJAW were dead (`legacy.gate = 'open'`), and CINDERJAW is still up there, furious and
+  out of a job. Fighting it afterwards is optional.
+
+### 2. Leverage (bending people)
+
+- **Serenade** (guitar plus romance): already exists in miniature. Higher grades turn it into real leverage: a love song
+  for a person changes how they feel about her, and a love song *about* a person, played in public, changes how
+  everyone else sees them (good or bad, depending on the song).
+- **The diss track** (guitar 10+, a song about someone): ruins a reputation. A corrupt sergeant becomes a district joke
+  and gets transferred; a gang boss loses face and their crew splits; a shopkeeper's prices drop out of embarrassment.
+  Also the surest way to make someone come looking for her, which is useful when she wants a fight on her terms
+  (bounty marks flushed out by a song).
+- **The jingle** (fame): a company pays well for a jingle. An independent company becomes an ally. An Atlas front
+  becomes a sabotage opportunity: the jingle has a hidden message, or she plays it backwards at the launch.
+- **The superfan inside:** past about fame 30, some generated NPCs in institutions are fans (a desk sergeant, a Helix
+  lab tech, a dragon technician, an Atlas middle manager). A superfan can be asked one favour: a door left open, a file
+  leaked, a patrol re-routed. Signing something for them helps.
+- **The song as blackmail:** "It'd be a shame if this one charted." A threatened song works like a threat, aimed at
+  someone's career instead of their kneecaps.
+
+### 3. Allies and crowds
+
+- **Fans as cover:** in a district where she has fans, a crowd hides her (pursuers lose her in a sea of people
+  chanting her name). A big enough fan base makes her *harder* to hide everywhere else: she can't buy noodles without
+  a selfie line.
+- **A couch in every district:** fans offer somewhere to lay low (`laylow.ts`).
+- **The grapevine:** fans tell her things (`knowledge.ts`): where the dragon went, which cop is bent, which green room
+  has the good guitar.
+- **The flash mob** (fame, a phone, a reason): she calls her fans to a place. A heist distraction, a human wall in
+  front of an NPD response, a crowd swarming an Atlas showroom, a few hundred people standing between a Demeter and a
+  street.
+- **The band:** bandmates are companions who also fight (a drummer is someone who hits things for a living).
+- **Gangs that adopt her:** the Rust Choir after a won battle of the bands; the street kids who follow her from gig to
+  gig and start acting as lookouts.
+- **The riot** (fame, guitar 30+, an anthem, an Atlas building in sight): the right song at the right moment and a
+  district boils over. Atlas presence drops for a while, heat rises everywhere, a few shops she liked get looted, and
+  she is extremely proud of herself.
+
+### 4. Obstacles removed
+
+- **Dragons, out-played:** the `resonance` trait (or a very high music skill) finds a dragon's frequency. An Artemis
+  can be shaken out of the sky; a Demeter's broadcast can be hijacked so it announces her gig instead of the winter
+  tithe; a Hermes courier can be lured by a song it mistakes for its delivery chime.
+- **Apollo "CHORUS"** (PROPOSED: Apollo is the god of music, and Atlas would lean into that): a public-address dragon that
+  plays Atlas Harmony over a district at 140 dB. It can be shot down. Or out-played, in a duel the whole district hears.
+- **Curfews and crackdowns:** a street festival with her name on it makes a curfew unenforceable for a night.
+- **The noise ordinance** (Sloth's): a famous enough Blackbird generates so many complaints the NPD's forms system jams,
+  and nobody can file anything (including arrests) for a while.
+- **Gear for free:** sponsorships. A guitar company sends her a guitar; an amp company, an amp; a stim company, something
+  she shouldn't take before a show.
+
+### 5. Money
+
+Tips, then gig fees, then a residency (steady money from one venue, which then cares whether she shows up), merch
+(including a counterfeit market she didn't authorise and secretly loves), a record deal (an advance and a clause she
+didn't read), and **royalties, which keep paying after she dies** into `legacy.account`. A long-dead rock star funds
+the lab. Lopsided, and fine.
+
+### 6. A shot at the board
+
+Per `board.md`, no board member has a required path, and they can be met in any order. Music is one of the roads to
+**getting in the room**, and sometimes one of the ways to **win**. Each sin has a weakness music can reach.
+
+| Member | How music gets her in the room | How music might beat them |
 |---|---|---|
-| 0-3 | knows three chords | busking, jamming, open mics, getting thrown out of open mics |
-| 3-8 | can play a whole song, in order | bar gigs, duels, song-writing (Ladder 4), the first moves (Ladder 3) |
-| 8-15 | plays like she means it | headlining a club, a demo tape, a band (Ladder 6), the first hostile crowds |
-| 15-25 | melts faces, professionally | touring districts, house shows past the cordon, record-label interest, sonic moves in fights |
-| 25-40 | has a sound people steal | radio, a fan club per district, rival legends start noticing, sabotage gigs |
-| 40-60 | a genre with legs | festivals, pirate broadcasts, mass crowd acts (Ladder 7), dragon duels |
-| 60-80 | the reason the noise ordinance exists | stadiums, broadcast takeovers, songs that move markets, board-level hooks |
-| 80-100 | a weather system with a pick | myth acts: songs that change the city overnight (see "Myth tier") |
+| **Pride** (Public Image) | Atlas's synthetic idol ANGEL//SAFE (PROPOSED) headlines the Atlas Safety Showcase; outsell or out-play her and Pride presents the award, in person, on stage, on live TV | humiliation: a song about Pride goes viral, and her billboard face can't stop displaying it. A brand that can't stop playing a diss track of itself is finished |
+| **Sloth** (Police Liaison) | the noise ordinance appeal is heard in person, eventually | the complaint storm: so many forms that Sloth has to personally get up |
+| **Greed** (Premiums) | Greed wants to insure her hands. The policy interview is in his office | a benefit concert that pays every fan's Atlas deductible, live: the premiums business collapses in one night |
+| **Lust** (Government Relations) | the entertainment at a councillors' gala Lust is working | a love song so good the councillor defects mid-courtship, and Lust is, for once, not wanted |
+| **Envy** (Surveillance) | Envy is a secret superfan with a full file on her, and invites her to a private session | a fan base so big every surveillance feed in the city shows only her; Envy's whole department becomes a fan account |
+| **Gluttony** (M&A) | Gluttony tries to acquire her label: a meeting over dinner, with her as the after-dinner act | she poisons the deal (figuratively); or an acquisition so indigestible (a punk label) it gives the company heartburn |
+| **Wrath** (the dragon program) | CHORUS's handlers want her to record the next Atlas Harmony | a song that de-syncs a dragon squadron, live; the dragons start playing her instead |
+| **The CEO** | the CEO was a cyberknight once, and (PROPOSED) was in a band. Blackbird has the bootleg | playing her old anthem at her. Maybe she remembers who she was. Maybe it just gets Blackbird close enough to swing. Both count |
 
-Training sources, by analogy with fight XP: **XP by the crowd's grade relative to hers** (nothing for a bar she's
-already won over, most for a crowd a little out of her league, little for a stadium she can't hold). Practice alone
-(the lab, a squat, a stolen guitar on a fire escape) is slow and safe, like the gym.
+None of these is the way. All are hooks that the freeform rules already allow.
 
-## Ladder 2: Gear (guitars are weapons)
+### 7. Myth tier (fame and skill both very high)
 
-Guitars are rolled the way weapons are (`weapons.ts`): a **class**, a **tier**, and up to three **traits**. They're
-also, when it matters, weapons: every guitar has a melee profile (it is a `club` with opinions).
+Deliberately absurd, uncapped, each one a story the player will tell:
 
-**Classes** (PROPOSED): acoustic (quiet, busks anywhere, no amp needed), electric (needs an amp or a jack, loud),
-bass (crowds dance, rivals underestimate it), twelve-string (romance bonus, hard to tune in the rain), double-neck
-(two traits per neck), keytar (counts as guitar and DJing, nobody respects it, it doesn't care), flying-V (a melee
-weapon first), cigar-box (scrap-built; tinkering made it), and **chainsaw guitar** (a real chainsaw; plays one chord).
-
-**Traits** (the "trait bought out of base quality" rule from weapons):
-
-| Trait | Does |
-|---|---|
-| volume | how far the sound carries. Draws crowds from neighbouring streets; also draws the NPD (the `noise` trait in reverse: loud is the point) |
-| tone | flat bonus to winning a crowd |
-| sustain | longer solos; a held note can break glass, and at high grade, things larger than glass |
-| feedback | sonic attack in fights: a chance to stun everyone in a cone, hers included if she's careless |
-| resonance (vs-type) | bonus against one kind of thing: punks, corpos, ravers, robots, **dragons** |
-| hardened | survives being swung at someone (guitars that aren't hardened break on the first hit, gloriously) |
-| jacked | plugs into city systems: PA towers, billboards, a car stereo, a dragon's loudspeaker (needs Override / tinkering) |
-| signature | carries a famous player's reputation; crowds who know it give her the benefit of the doubt |
-| cursed | plays itself at 3 a.m. Comes back if pawned (like the cursed charm) |
-
-**Around the guitar:** amps (armor analogue: a big amp makes a hostile crowd survivable), pedals (cheap traits:
-distortion, delay, a "riot" pedal of uncertain legality), strings (a consumable, like ammo; a set breaks on a big
-fail), and **implants**: cyber-fingers (+skill), a subdermal pickup (she *is* the amp), a chest-cavity subwoofer, a
-spinal audio jack that lets her play a building's wiring. Implants already have a slot system; these are new entries.
-
-Where gear comes from: the pawn shop's instrument wall (already there), a music store as a future location (a
-PROTOCOL candidate), the green room (steal it), rivals she beats (they drop their guitar, like a weapon), relics (the
-famous dent), Atlas showrooms ("SafeSound Starter Guitar, tuned to approved frequencies"), and her own bench
-(tinkering builds the cigar-box and the chainsaw guitar).
-
-## Ladder 3: Moves (the techniques list for a stage)
-
-Combat has `techniquesFor`; a performance gets the same thing. A **move** is an entry with who has it, what it costs,
-what it's worth against this crowd and what it does. Unlocked by grade, by gear and by weird events (a move learned
-from a legend she beat, a move invented while on stims).
-
-- **Stage moves:** power chord, the windmill, behind-the-head, with-her-teeth, the bottle slide (needs a bottle,
-  mixology adjacent), the knee slide (athletics), the stage dive (athletics, the crowd catches her if she's won them;
-  if not, the floor does), the climb (scaffolding, a speaker stack, a parked car, a dragon's leg), the smash finale
-  (destroys the guitar for a huge payoff; a guitar with `hardened` survives and the crowd feels cheated).
-- **Crowd moves:** call-and-response (beats the Rust Choir at their own game), the slow one (calms a fight about to
-  start), the anthem (rallies; Ladder 7), the diss track (targets one person or faction in the room), the cover (cheap
-  win, little fame), the deep cut (only works on a crowd that knows her).
-- **Fight moves (from about 15):** usable on the tactical board when she's holding a guitar.
-  - *feedback scream*: cone stun (the `feedback` trait).
-  - *the brown note*: one person-target loses their next two actions, and their dignity.
-  - *resonance*: find a robot's or a car's frequency; damage over time. Needs `resonance (robots)` or high music.
-  - *wall of sound*: everyone in range is pushed back a tile. Cover gets knocked over.
-  - *battle hymn*: allies and companions get a damage bonus while she plays instead of attacking.
-  - *swing*: she hits someone with it (melee, uses the guitar's club profile; see `hardened`).
-- **Chase moves:** playing from the back of a moving car (stun pursuers, the cops get distracted and start
-  head-banging), a sound-system drive-by on an Atlas billboard.
-
-## Ladder 4: Songs (the loot)
-
-The best idea in the plan, probably: **songs are procedural objects written from what actually happened to her.**
-The memory and callback systems already know what she did; song-writing turns that into an item.
-
-- A song has a **title**, a **subject** (a person, a place, an event from this run's log), a **genre**, a
-  **quality** (her guitar and music at writing time, plus the drama of the event) and a **hook** (how catchy).
-- "Ballad of the Overpass" after CINDERJAW dies. "Bao Doesn't Love Me Back (Live)". "Six Separate Groups". "[Her
-  Government Name] Is Not My Name" (filled in per save; it is her worst song and her biggest hit).
-- Songs wear out like crowds do: a song that's been played to death in a district stops landing there, so she keeps
-  writing.
-- **Diss tracks** name a person, gang or company. They hit affinity, raise or lower heat, and can start a fight
-  (with the subject or with their fans). A diss track about a board member is a hook (see Ladder 8).
-- **Love songs** name a romanceable person. Played to them it's a serenade with a huge upside; played to everyone
-  else, it's a public declaration, and the person may or may not appreciate that.
-- **Recording:** a song recorded at a studio, a pirate station or a stolen Atlas booth becomes a **master**: an item
-  she can sell, leak, upload or hand to a fan. Masters are the bridge to persistence (Ladder 9).
-
-## Ladder 5: Crowds and venues (the danger field, for music)
-
-A crowd is the music equivalent of an enemy: it has a **grade** (from the place's `gen.danger`, so further districts
-mean tougher, richer crowds), a **type**, and a mood. A set is a short contest against it.
-
-**Crowd types** (PROPOSED), each with what wins them and what goes wrong:
-
-| Crowd | Wins them | Goes wrong |
-|---|---|---|
-| tenement locals | sincerity, a cover they know | they're polite, which is worse than booing |
-| punks | speed, volume, the stage dive | the pit; she comes out with someone else's tooth |
-| ravers (Neon Marrow turf) | a groove that doesn't stop | they don't notice the song ended, three hours later |
-| corpos | nothing; they're here for networking | an offer of a jingle contract, which is the bad ending |
-| Rust Choir | call-and-response, welded instruments | a battle of the bands nobody agreed to |
-| Saint Sixers | a hymn, any hymn | they tithe her tips |
-| street kids | anything loud | they follow her to the next gig, and the one after |
-| cops at a noise complaint | the slow one | a fine with a subscription tier |
-| an Atlas wellness audience | nothing approved | a wellness check |
-
-**Venues as a ladder** (each a kind of place, never a fixed address): the street, an open mic, a dive bar, a house
-show, a basement under a laundromat, a rooftop, a club main stage, a pirate radio tower, a warehouse rave, a
-festival, a stadium, and the absurd tier: the top of a moving freight train, a dragon hangar, Atlas HQ's lobby PA.
-
-**The set as a mini-contest** (engine sketch): like `runChase` with its stretches, a set is three to seven **songs**,
-each a round. The crowd has **hype** (her "damage") and **patience** (its hit points, in reverse); she picks a move or
-a song each round; hecklers, a bouncer, a thrown bottle, a broken string and a power cut are the "terrain". The log
-gets a proper beat-by-beat for good sets and a single deadpan line for flops. A won crowd pays tips, fame and fans; a
-lost crowd pays nothing and sometimes throws things.
-
-## Ladder 6: Band (companions who play)
-
-Bandmates are companions (`companions.ts` `KINDS`), and they do two jobs: they lift sets, and they fight.
-
-- **Recruitable** (PROPOSED): a drummer (an actual person; hits things for a living, in and out of fights), a bass
-  player (silent, loyal, carries a crowbar), a drum machine with a scrapper-bot chassis, a hacker who runs the lights
-  and also the building's cameras, the cyber-pigeon on tambourine (`pigeon` already exists; it gets a hat).
-- **Band drama** is a feature: creative differences, a bandmate who wants to go solo, a bandmate dating her ex, a
-  bandmate poached by an Atlas label. Loyalty already exists; this is what spends it.
-- The **band name** is generated and terrible, and the band votes on a new one after every big win.
-- A rival band is a rival party: battle-of-the-bands is a set where the other side has moves too.
-
-## Ladder 7: Fans (a resource she can spend)
-
-Fame is a number; **fans are people**. Past about grade 15, a won crowd leaves behind fans: a count per district plus
-a few named superfans (generated NPCs who remember gigs, show up, and have opinions about the new direction).
-
-What fans do for her, by analogy with allies, informants and cover:
-
-- **Cover:** a crowd of fans is a place to disappear into (stealth bonus in her districts; pursuers lose her in a
-  crowd that's chanting her name).
-- **Shelter:** a fan's couch is a safehouse (`laylow.ts`).
-- **Tips:** fans tell her things (`knowledge.ts`): where the dragon flew, which cop is on the take, where the green
-  room keeps its good guitar.
-- **Muscle:** at a big enough gig, fans join a fight as a crowd unit (unarmed, enthusiastic, numerous).
-- **Flash mobs:** she calls a crowd to a place. Uses: a distraction for a heist, blocking an NPD response, swarming an
-  Atlas showroom, a human wall between a dragon and a street.
-- **Riots** (the top of the fans ladder): an anthem at the right moment, in front of the right Atlas building, and
-  the district boils over. Heat everywhere, Atlas presence drops for a while, shops get looted (including ones she
-  likes), and she is very proud of herself.
-- **The downside:** fans are fickle (a flop or a sell-out costs fans), some are stalkers (silly, never menacing), and
-  a big enough fanbase makes her impossible to hide (`fame` already makes bouncers notice; a stadium-level Blackbird
-  can't buy noodles without a selfie line).
-
-## Ladder 8: Rivals and bosses (who she plays against)
-
-Combat has mooks, commanders, dragons and the board. Music gets the same strata.
-
-- **Mooks:** hecklers, open-mic regulars, a busker who thinks this is their corner.
-- **Rivals:** generated guitarists at the local grade with a gimmick, a guitar and a grudge. A **guitar duel** is the
-  music version of a fight (there's an act already); beating a rival takes their crowd and sometimes their guitar.
-  Rivals remember, improve and come back.
-- **Legends** (PROPOSED, a handful of named high-grade NPCs, roaming, never pinned to a place): *Saint Feedback*, a
-  retired chrome shredder who only plays for the dying; *Mother Distortion*, Rust Choir's founder, sixty and welded
-  to her amp; *Velvet Halo*, a crooner who is technically a hologram and contractually a person. Beating one is a
-  set-piece; learning from one is a move.
-- **Atlas music** (Pride's business line, Public Image): **SafeSound**, the subscription streaming service with
-  approved frequencies; **ANGEL//SAFE** (PROPOSED), Atlas's synthetic pop idol, a boss-grade "artist" who tours with a
-  dragon escort and sings about compliance. Out-playing ANGEL//SAFE at her own concert is a boss fight with a
-  stage.
-- **Dragons:** the Apollo line is named for the god of music, and Atlas would absolutely lean into that.
-  *Apollo Mk. III "CHORUS"* (PROPOSED): a public-address platform that hovers over districts playing Atlas Harmony
-  at 140 dB. It can be shot down like any dragon, or **out-played**: a guitar with `volume` and `resonance
-  (dragons)` drowns its broadcast, and a high enough grade finds its resonant frequency and shakes it apart. Same
-  dragon, a different fight.
-- **The board:** per `board.md`, no member has a required path, and music is one of the paths.
-  - *Pride* (Public Image): humiliate her with a viral song; outsell ANGEL//SAFE; get her to sign Blackbird, then
-    sabotage the launch on stage.
-  - *Sloth* (Police Liaison): the noise ordinance is hers. A song so popular the complaint queue crashes the NPD's
-    forms system.
-  - *Greed* (Premiums): a benefit concert that pays every fan's Atlas deductible, live, in public.
-  - *Lust* (Government Relations): a love song so good a councillor defects.
-  - *Envy* (Surveillance): a fan base big enough that the surveillance feeds are nothing but her face.
-  - Hooks, never requirements.
-
-## Ladder 9: Money and the industry
-
-The money ladder, for players who like numbers going up: tips (busking, today) → gig fees (a cut of the door) →
-merch (a table, then a stall, then a counterfeit market she didn't authorise and secretly loves) → a record deal
-(advances, a contract with a clause she didn't read) → royalties.
-
-The industry has its own NPCs and its own vices: the promoter who doesn't pay, the A&R rep from an independent label
-(a real ally), the A&R rep from the Atlas label (the devil's bargain: money and reach, but Blackbird never works for
-Atlas, so signing is always a long con that ends with her setting fire to the contract on stage), the bootlegger who
-sells her masters, and the jingle agency.
-
-## Ladder 10: Legend (what survives death)
-
-Skills, fame and fans reset on death, by design. But a roguelike that remembers is the point of `legacy` and
-`revenant.ts`, and music is the most natural thing in the game to outlive her.
-
-- **Discography** (`legacy.discography`, PROPOSED): recorded masters survive. Her songs are still on jukeboxes in the
-  next run. NPCs hum them. A street kid covers one, badly.
-- **The legend of the last Blackbird:** after a death at stadium level, the next run opens with tribute nights,
-  murals, and a cover band called something like *Blackbird Lives*. She can crash their gig. They don't believe it's
-  her. She's offended that they're better at the bridge.
-- **Royalties** pay into `legacy.account` between runs, so a dead rock star funds the lab (feel over balance: this is
-  lopsided, and fun).
-- **Covers as rivals:** past a certain fame, another guitarist in Neo is playing her songs for money. A duel with
-  your own cover act is a set-piece.
-- A legend run starts with a **head start of reputation, not skill**: bouncers know the name, crowds give her a song
-  or two of benefit of the doubt, Atlas has a file on her from the start.
-
----
-
-## Where guitar reaches into other systems
-
-The multidimensionality principle from `docs/locations/PROTOCOL.md`, applied to a skill instead of a place:
-
-| System | Guitar meets it as |
-|---|---|
-| Combat | the guitar as a club, fight moves, bandmates and fans as allies, the `resonance` trait against robots and dragons |
-| Stealth | fans as cover, a gig as a heist distraction, an acoustic set as a way into a building ("the entertainment") |
-| Chases | playing from a moving car; fans block the pursuers |
-| Romance | serenades, love songs as public declarations, groupies, a bandmate crush |
-| Heat / NPD | noise complaints, ordinances, riots, a fan petition that gets a cop transferred |
-| Gangs | the Rust Choir as rivals and natural allies, Neon Marrow raves, Saint Sixer hymns |
-| Override / tinkering | jacking into PA towers, billboards and dragon loudspeakers; building guitars and amps |
-| Economy | tips, fees, merch, deals, royalties; gear as loot |
-| Lab | royalties into the account; future nodes for "absolute pitch", "callused fingers", "stage presence" |
-| Other music skills | vocals, DJing and beatboxing slot into the same set system (a set is just "a performance"); this plan's machinery is shared |
-
-## Myth tier (80+): rule of cool, uncapped
-
-A grab bag for the top of the ladder, deliberately absurd. None needed; any one would be a story the player tells.
-
-- A rooftop solo during an acid storm so loud a lightning strike hits the right building.
+- A rooftop solo in an acid storm so loud the lightning picks the right building.
 - Out-playing a Hera Mk. V's broadcast so hard it lands to listen.
-- A stadium encore that turns into a march on Atlas HQ.
-- A song that charts so high SafeSound adds it to the approved list by accident, and every Atlas dragon in the city
-  starts playing it.
-- She plays the cordon down: CINDERJAW's control signal drowned out at the gate (an alternative to killing it, for a
-  Blackbird who can).
-- The CEO, who was once a cyberknight, turns out to have been in a band. Blackbird has the bootleg. (Hook, not a
-  scene.)
+- A stadium encore that turns into a march on Atlas HQ, with her at the front, still playing.
+- A song that charts so high Atlas's SafeSound service approves it by accident, and every dragon in the city plays it.
+- A citywide tribute night in which every bar in Neo plays her songs at once, and the NPD quietly takes the night off.
 
-## Engine sketch (for when it's built)
+---
 
-Not a commitment, just where things would go:
+## What it takes (the machinery, briefly)
 
-- **`perform.ts`**: the set as a contest (crowd hype and patience, songs as rounds, moves as entries), modelled on
-  `chase.ts` (`runChase` and its stretches). All the music skills use it; existing acts (`gig`, `busk`, `class-gig`)
-  can migrate when convenient or stay as quick one-roll acts.
-- **`instruments.ts`**: guitar classes, tiers, traits; `rating()`-style comparison so she can pick the right guitar
-  for a crowd (like picking the right weapon for a foe). Guitars carry a club profile for `weapons.ts`.
-- **`songs.ts`**: writing songs from the event log, wear per district, masters as items.
-- **`fans.ts`**: fans by district, superfans as NPCs, the spend actions (cover, shelter, tips, muscle, mobs, riots).
-- **Techniques:** fight moves are new entries in `techniquesFor` gated on "holding a guitar".
-- **Companions:** band kinds in `KINDS`.
-- **Legacy:** `discography` and legend fields, a save upgrade.
-- **Grades:** crowd grade from `gen.danger`; XP by relative grade, as `combat.ts` does for fights.
-- Own random streams for everything rolled on the map (as gyms and pawn shops do), so existing saves don't reshuffle.
+The opportunities need a little machinery underneath. Kept short on purpose; each is a means, not the point.
+
+- **Skill to 100,** with titles up the ladder and training from crowds by relative grade (like fight XP).
+- **Instruments** rolled like weapons (class, tier, traits). Traits that open doors: `volume` (draws crowds and guards),
+  `jacked` (plugs into PA towers, billboards, a dragon's speaker; with Override), `resonance` (vs robots, vs dragons),
+  `hardened` (survives being swung), and the guitar case that holds more than a guitar.
+- **Songs** written from what happened this run (the log already knows): diss tracks, love songs, anthems. Songs and
+  recordings live in `legacy`.
+- **Crowds** with a grade from `gen.danger` and a type (punks, ravers, corpos, Rust Choir, cops at a noise complaint),
+  and **expectation** from fame. A set compares how she plays to both.
+- **Fans** by district, with named superfans, in `legacy`.
+- **Bookings:** an invitation is a small object (where, when, what they expect) that makes an opportunity appear,
+  and that survives death. Missing one costs fans and the venue's goodwill.
 
 ## Suggested build order
 
-Each step is fun on its own and doesn't need the next one.
-
-1. **Instruments**: classes, traits, guitars as clubs, a few on the pawn wall and in the green room. Cheap, visible,
-   and gives the existing acts something to vary.
-2. **The set** (`perform.ts`), crowd types and crowd grade from the danger field; migrate `gig` and `busk` onto it.
-3. **Moves**: the stage list first, then fight moves on the tactical board.
-4. **Songs**: writing from the log, diss tracks, love songs.
-5. **Fans**: per-district counts, superfans, cover and shelter first, mobs and riots later.
-6. **Rivals and legends**, then the band.
-7. **Atlas music**: SafeSound, ANGEL//SAFE, Apollo "CHORUS".
-8. **Legacy**: discography, royalties, the cover band.
-9. **Myth tier**, one piece at a time, whenever one sounds fun.
+1. **Fame and fans in `legacy`**, plus expectation and disappointment. Small change, big effect on every fame act
+   that already exists.
+2. **The entertainment:** bookings at places she couldn't otherwise enter, and the guitar case. The clearest example of
+   guitar opening a door.
+3. **Instruments** with door-opening traits.
+4. **Playing the cordon down.**
+5. **Fans as a resource:** cover, couches, grapevine, then flash mobs.
+6. **Songs:** diss tracks and love songs as leverage.
+7. **Dragons out-played** (resonance, the Demeter hijack, CHORUS).
+8. **Board hooks,** one member at a time, as each board member is built.
+9. **Myth tier,** whenever one sounds fun.
 
 ## Open questions for the author
 
-- Should fans persist across deaths at all (a small fraction?), or only songs and the legend?
-- Is a full set contest (several rounds) welcome in the log, or should most sets stay one line with a long version
-  only for big ones?
-- A music store as its own location (via `PROTOCOL: new location`)?
-- Apollo "CHORUS" and ANGEL//SAFE: keep, rename, or veto?
-- Does the "music path past CINDERJAW" idea fit the gate, or should the gate stay a fight?
+- How fast should disappointment cost fans? Gently (it's mostly comedy) or sharply (a reason to rebuild skill)?
+- Should old bookings wait for her after a death ("she's back, the residency's back"), or lapse after a while?
+- ANGEL//SAFE, CHORUS, and the CEO having been in a band: keep, rename, or veto?
+- Does the band (bandmates as companions) survive her death too? They'd notice she's worse.
