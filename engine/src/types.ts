@@ -850,12 +850,26 @@ export interface Legacy {
   slump?: Record<string, { sets: number; lost: number }>;
   /** Gigs she's been booked for. They wait for her through a death: the calendar doesn't know. See bookings.ts. */
   bookings?: Booking[];
+  /** What Muse, the entertainment conglomerate, makes of her. Absent until she's worth a letter. See muse.ts. */
+  muse?: MuseFile;
   /** Lab upgrades she has, by node id, with the number of ranks bought. See content/tree.ts. */
   upgrades: Record<string, number>;
   /** Neodollars spent in the lab, ever. */
   spent: number;
   /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
   report?: RunReport;
+}
+
+/** Muse's file on her. Like her fame, it outlives her: a new body is the same Blackbird to Muse. */
+export interface MuseFile {
+  /** The Clearance letter has been sent ("We noticed you're making music! That's so brave"). */
+  lettered?: boolean;
+  /** The run in which the A&R scout last made an offer, and whether she signed. */
+  offered?: number;
+  /** She signed with Muse. The contract survives her death. */
+  signed?: boolean;
+  /** She said no, this many times. Muse takes the legal route after the first. */
+  refused?: number;
 }
 
 /** A night she's been booked to play somewhere. */

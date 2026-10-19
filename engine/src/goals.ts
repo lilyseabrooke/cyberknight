@@ -5,6 +5,7 @@ import type { AskOption, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Locatio
 import { armBest, edge, rating } from './weapons';
 import { ACT_SKILL, CALLING } from './stage';
 import { judgeSet } from './renown';
+import { museAfterSet } from './muse';
 import { bookingAt } from './bookings';
 import type { Booking } from './types';
 import { SKILL_LABELS, skillLevel } from './skills';
@@ -1524,6 +1525,7 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
   if (pick && ACT_SKILL[fam]) {
     passionAfter(c, fam, h.fame - before.fame, events);
     judgeSet(c, fam, ACT_SKILL[fam]!, events);
+    museAfterSet(c, fam, ACT_SKILL[fam]!, events);
   }
   if (pick && FAME_FAMILIES.has(fam)) {
     learnFame(w, fam, h.fame - before.fame);

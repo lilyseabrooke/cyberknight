@@ -67,9 +67,9 @@ fight it, dodge it, or sign with it, and none of that breaks the Atlas rule.
   Atlas's safety-speak. Lethal, deadpan, never gory (hard rule 2), and the joke is always Muse, never the musician.
 - Muse's idol is **LUMINA**, a synthetic pop star on every screen, released in version numbers ("LUMINA 6.2:
   now with more feelings").
-- PROPOSED: **Muse Clearance** (the licensing office: glittery letters, officers who confiscate guitars "for
+- **Muse Clearance** (the licensing office: glittery letters, officers who confiscate guitars "for
   safekeeping"), **Muse Broadcast** (the channels) and **Muse A&R** (scouts with pre-uncapped pens).
-- PROPOSED: **Muse and Atlas** are partners who don't trust each other. Atlas's announcements, dragon broadcasts and hold
+- **Muse and Atlas** are partners who don't trust each other. Atlas's announcements, dragon broadcasts and hold
   music are licensed from Muse; Muse's channels carry Atlas's safety ads; Gluttony (M&A) has been circling Muse for
   years.
 - Musical progression, Muse's attention ladder and what Blackbird can do about Muse are in

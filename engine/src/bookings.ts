@@ -83,7 +83,8 @@ export function offerBooking(c: Ctx, skill: string, kind: 'gig' | 'private'): Bo
   const exp = expectation(w, skill);
   const night = w.legacy.runs + (rng.chance(0.4) ? 0 : rng.int(1, 3));
   const host = hostAt(w, loc);
-  const pay = Math.round(kind === 'private' ? 60 + 25 * exp + rng.int(0, 40) : (20 + 12 * exp) * prestige(loc) + rng.int(0, 20));
+  const fee = kind === 'private' ? 60 + 25 * exp + rng.int(0, 40) : (20 + 12 * exp) * prestige(loc) + rng.int(0, 20);
+  const pay = Math.round(fee * (w.legacy.muse?.signed ? 1.5 : 1));
   const b: Booking = { id: `bk${w.legacy.runs}.${w.beat}.${loc.id}`, loc: loc.id, night, skill, kind, pay, ...(host ? { host: host.id } : {}) };
   open(w).push(b);
   c.emit('booking', 'good', {
@@ -121,7 +122,9 @@ export function tickBookings(c: Ctx): void {
   if (!skill) return;
   const exp = expectation(w, skill);
   if (exp < 2 || (list?.filter((b) => !b.played).length ?? 0) >= MAX_OPEN) return;
-  if (!rng.chance(0.003 * Math.min(4, exp / 2))) return;
+  // Signed to Muse, the bookings come to her: more of them, and better paid.
+  const muse = w.legacy.muse?.signed ? 2 : 1;
+  if (!rng.chance(0.003 * muse * Math.min(4, exp / 2))) return;
   offerBooking(c, skill, exp >= 4 && rng.chance(0.4) ? 'private' : 'gig');
 }
 

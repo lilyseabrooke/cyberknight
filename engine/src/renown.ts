@@ -60,7 +60,7 @@ export function fansWhere(w: World, test: (loc: Location) => boolean): number {
 export const totalFans = (w: World): number => fansWhere(w, () => true);
 
 /** How many people saw it: whoever's in the room, and a crowd if the place draws one. */
-const audience = (w: World, loc: Location): number => here(w).filter((n) => n.alive && !n.hostile).length + (loc.crowded ? 4 : 0);
+export const audience = (w: World, loc: Location): number => here(w).filter((n) => n.alive && !n.hostile).length + (loc.crowded ? 4 : 0);
 
 /**
  * After a performing act: judge it against what the crowd came for. Called from `mindAfter` with the act's family and

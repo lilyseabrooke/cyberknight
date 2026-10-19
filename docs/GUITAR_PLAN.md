@@ -1,7 +1,20 @@
 # Guitar: what it opens up
 
-Status: **plan, nothing built.** Feel over balance: every number here is a first guess, to be felt out (or never tuned
-at all). Names marked PROPOSED are drafts for the author to veto, as in `docs/setting/`.
+Status: **in progress.** The first three steps of the build order are built (see "As built"); the rest is plan.
+Feel over balance: every number here is a first guess, to be felt out (or never tuned at all).
+
+## As built
+
+| Piece | Where |
+|---|---|
+| Fame carries over (`legacy.fame`); renown per performing skill (`legacy.renown`, fed by `fameFrom`); fans on the places she won them (`Location.fans`) | `renown.ts`, `stage.ts`, `universe.ts` |
+| Expectation from renown; sharp letdowns (fame, renown, fans; a big room empties the block), "underwhelm", slumps and comebacks, judged after every music act in `mindAfter` | `renown.ts` `judgeSet`, `goals.ts` |
+| Bookings on the legacy: gigs at bars and clubs she knows, private functions behind gated doors; the `booking` goal; the door waves her through; the booked set (`booked_<skill>` acts); missed bookings cost fans, fame and the host's goodwill | `bookings.ts`, `moves.ts`, `goals.ts` |
+| Muse's first rungs: the Clearance letter, Clearance officers (fines, a guitar taken "for safekeeping"), the A&R scout and the sign-or-refuse choice (by personality), the contract outliving her, the warrant after a refusal; signed, Muse books her twice as often at half again the fee | `muse.ts` |
+| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts` |
+
+Not yet: the guitar case, Inspiration teams, LUMINA, breaking a Muse contract, and everything from step 4 of the build
+order on.
 
 ## The idea
 
@@ -95,7 +108,7 @@ A freshly rebuilt Blackbird with three chords may still have a strike team that 
 now with more feelings"). She is the face Muse puts on everything, and eventually something Blackbird can duet with,
 out-sell, out-play, or take apart on live TV.
 
-**Muse and Atlas** (PROPOSED): separate companies with a cosy partnership. Atlas's public announcements, dragon
+**Muse and Atlas**: separate companies with a cosy partnership. Atlas's public announcements, dragon
 broadcasts and hold music are licensed from Muse; Muse's channels carry Atlas's safety ads; Atlas's Gluttony has been
 circling Muse for years, and Muse knows it. Two megacorps who need each other and don't trust each other are a wedge
 Blackbird can drive.
