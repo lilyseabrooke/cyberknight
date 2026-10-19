@@ -1803,6 +1803,17 @@ const T: Record<string, Entry> = {
     },
     (d) => (d.flavor === 'interrupted' ? ['Rain check. A heroic rain check.', 'The universe has a sense of humor and it is aimed squarely at me.'] : d.flavor === 'wallet' ? ['Cheap at the price. I think.', "She took my money. I took the rest of the night. We're even."] : ['Okay. Okay. Wow. Okay.', 'I could save the whole city right now. After a nap.', "That's the stuff. That's what I was fighting for. Probably."]),
   ),
+  // ---------------------------------------------------------------- property offices (realty.ts)
+  realty_buy: e(
+    (d) => d.variant === 'townhouse'
+      ? [`${cap(String(d.npc))} walks Blackbird through the paperwork at ${d.place} with the gentle pace of someone who has done this for people with more money. ${$(d.price)}nd, and ${d.home} on ${d.building} is hers: gate, stairs, the lot. Deeds owned: ${d.owned}.`, `Blackbird signs for ${d.home}. ${cap(String(d.npc))} says "welcome to the neighbourhood" in a voice that suggests the neighbourhood has not been consulted. ${$(d.price)}nd. It is hers.`]
+      : [`${cap(String(d.npc))} slides a tablet across the desk at ${d.place}. Blackbird thumbs it. ${$(d.price)}nd, and ${d.home} is hers: a lock with her name on it, in ${d.building}. Deeds owned: ${d.owned}.`, `${$(d.price)}nd to ${d.place}, and ${d.home} goes on Blackbird's name. The key is a card the size of a stamp. She holds it like a medal.`],
+    (d) => (d.variant === 'townhouse' ? ['I own a lawn. I own a lawn.', 'The gate knows me now. The gate!'] : ['Mine. Three metres by two. Mine.', 'A door. With a lock. That only I can open. Probably.']),
+  ),
+  realty_view: e(
+    (d) => [`${cap(String(d.npc))} turns the screen at ${d.place} toward Blackbird: ${d.count} home${d.count === 1 ? '' : 's'} on the board, ${$(d.cheapest)}nd to ${$(d.dearest)}nd. ${d.pods ? `${d.pods} pod apartment${d.pods === 1 ? '' : 's'}` : ''}${d.pods && d.townhouses ? ' and ' : ''}${d.townhouses ? `${d.townhouses} townhouse${d.townhouses === 1 ? '' : 's'}` : ''}. "A very good time to buy," ${d.npc} says, as if it has ever not been.`],
+    ['Prices like a typo. In the wrong direction.', 'Somebody lives in each of these. Eventually.'],
+  ),
   // ---------------------------------------------------------------- the bank
   deposit: e(
     (d) => {

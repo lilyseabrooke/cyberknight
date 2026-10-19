@@ -1,4 +1,4 @@
-import type { Ctx, District, Hero, Id, Location, Npc, World } from './types';
+import type { Ctx, Deed, District, Hero, Id, Location, Npc, World } from './types';
 import { spawnGroup, type Candidate } from './candidate';
 import { nested } from './events';
 import { Rng, hashString } from './rng';
@@ -13,7 +13,7 @@ import { expireBuffs, price as haggle } from './supply';
 import { isShut } from './shutdown';
 import { workingCameras } from './witness';
 import { hungerUrge, sleepUrge } from './urges';
-import { homeDeed, ownedHomes, type DeedDef } from './deeds';
+import { homeDeed, ownedHomes } from './deeds';
 import {
   CELL_QUALITY, FAINT_HOURS, FAINT_QUALITY, FOOD, LODGING, LODGING_IDS, LODGING_NAMES, ROUGH_QUALITY, STREET_QUALITY,
   type FoodId, type LodgingId,
@@ -147,7 +147,7 @@ export function errands(w: World): { food: Errand | null; bed: Errand | null } {
   // Where she stands might already do. If so there's no errand: the candidate for it is on offer right here.
   const here0 = w.locations[h.locationId]!;
   const fedHere = eatCandidates(w, true).some((c) => c.key !== 'scrounge');
-  const homes = new Set(ownedHomes(w).map((d) => d.home.id));
+  const homes = new Set(ownedHomes(w).map((d) => d.home));
   const bedHere = homes.has(here0.id) || (h.cash >= cheapestBed && lodgingAt(w, here0).length > 0);
   for (const [id, r] of reachFrom(w, h.locationId, 14)) {
     if (id === h.locationId) continue;
@@ -330,7 +330,7 @@ const lodgingPlan = (w: World, loc: Location, id: LodgingId): Plan => ({
 });
 
 /** A night in a home she owns: a bed with a lock, nothing to pay, and a quality that is the home's. */
-const homePlan = (own: DeedDef, loc: Location): Plan => ({
+const homePlan = (own: Deed, loc: Location): Plan => ({
   venue: 'home', mode: 'lodging', quality: own.quality, nominal: NIGHT_HOURS, price: 0, rob: 0, name: loc.name,
 });
 

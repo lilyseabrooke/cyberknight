@@ -31,7 +31,6 @@ export { makeSave, serialize, deserialize, resume, MemoryStore, type Save, type 
 export { TREE, NODES, NODE_IDS, describeFx, parseNeed, type UpgradeDef, type BranchDef, type LineDef, type Fx, type PerkId } from './content/tree';
 export { DROPS } from './content/drops';
 export { buy, priceOf, stateOf, missing, rankOf, perk, growthPct, dropCut, ownedNodes, treeSize, settleAccount, applyUpgrades, BASE_CUT, type NodeState, type BuyResult } from './lab';
-export { buyDeed, ownsDeed, deedsOf, ensureHomes, DEEDS, DEED_IDS, type DeedDef, type DeedId, type DeedResult } from './deeds';
 export { FLOAT, worthDepositing } from './bank';
 export { hungerOf, sleepOf, hungerTier, sleepTier, hungerRate, sleepRate, nightHours, penaltyFor, debtOf, type HungerTier, type SleepTier } from './needs';
 export { LODGING, FOOD } from './content/lodging';

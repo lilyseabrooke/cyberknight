@@ -16,7 +16,6 @@ import { remember } from './combat';
 import { tiesFrom } from './ties';
 import { DROPS } from './content/drops';
 import { applyUpgrades, settleAccount } from './lab';
-import { ensureHomes } from './deeds';
 import type { DeathRecord, Flight, Id, Npc, World } from './types';
 
 /**
@@ -47,7 +46,6 @@ export function upgradeUniverse(u: Universe): Universe {
   l.account ??= 0;
   l.upgrades ??= {};
   l.spent ??= 0;
-  ensureHomes(u);
   u.dungeons ??= {};
   // Streets know what sort of street they are.
   for (const loc of Object.values(u.locations)) if (loc.kind === 'street') loc.street ??= streetTypeOf(loc);
@@ -232,7 +230,6 @@ export function beginRun(u: Universe, opts: BeginOptions = {}): World {
   u.legacy.runs = runNo;
   const seed = opts.seed ?? `${u.worldSeed}#${runNo}`;
   u.clock = nextEvening(u.clock);
-  ensureHomes(u);
   wakeTheWorld(u);
 
   const rng = new Rng(`run-start:${u.worldSeed}:${runNo}`);
