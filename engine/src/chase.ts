@@ -17,6 +17,7 @@ import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { streetHunt } from './streethunt';
 import { bystand } from './bystanders';
+import { patrolArrives, sendAway, shootEveryone } from './callins';
 import { BEHIND, addTire, ambientNoise, carries, coverOf, eased, follow, rest, standTired, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
@@ -100,6 +101,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   let lost = false;
   // Bystanders who have already had their say.
   const said = new Set<string>();
+  // The round a patrol will turn up, if somebody called it in.
+  let patrolAt: number | null = null;
   const trails = new Map<Chaser, Trail>();
   const tries = new Map<Chaser, number>();
   // A chaser's check on her trail: the best of their crew. They get three goes in a chase.
@@ -840,6 +843,33 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             if (r.kind === 'trip') for (const f of live) f.gap = Math.max(0, f.gap - 0.8);
             else if (r.kind === 'help') for (const f of live) f.gap += 1;
             else if (r.kind === 'point') loud += 0.8;
+            else if (r.kind === 'call') {
+              // They can tell what they can see, which is that something is going on. A patrol takes a few rounds, and the law calling it in gets one there sooner.
+              const eta = round + (r.who.tags.includes('cop') || r.who.tags.includes('security') ? rng.int(2, 3) : rng.int(3, 6));
+              patrolAt = patrolAt === null ? eta : Math.max(round + 1, Math.min(patrolAt, eta) - 1);
+            }
+          }
+          // And if it goes on long enough for them to get here, they do.
+          if (!result && patrolAt !== null && round >= patrolAt) {
+            patrolAt = null;
+            const foes = live.flatMap((f) => f.crew.filter((n) => n.alive));
+            const a = patrolArrives(c, foes, here);
+            c.emit('chase_police', a.side === 'her' ? 'bad' : a.side === 'all' ? 'bad' : 'good', { variant: a.side, force: a.force, kind: a.kind, place: here.name, count: a.officers.length, foe: lead.name });
+            if (a.side === 'her') {
+              for (const n of a.officers) o.foes.push(onFoot(n, 2.5));
+            } else if (a.side === 'foes') {
+              for (const f of live) {
+                if (!rng.chance(0.6)) continue;
+                f.off = true;
+                f.gap = ESCAPE_GAP + 1;
+                for (const n of f.crew) n.downUntil = Math.max(n.downUntil, w.beat + 20);
+              }
+              sendAway(c, a.officers);
+            } else if (a.side === 'all') {
+              shootEveryone(c, foes);
+              if (dead(c)) result = 'wrecked';
+              sendAway(c, a.officers);
+            } else sendAway(c, a.officers);
           }
         }
         if (car && h.vehicle) {

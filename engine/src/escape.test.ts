@@ -3,6 +3,7 @@ import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { scenario } from './testkit';
 import { spawnGroup } from './candidate';
 import { onFoot, runChase } from './chase';
+import { weighSides } from './callins';
 import { addTire, ambientNoise, carries, eased, standTired, tire } from './tracking';
 import { streetHunt } from './streethunt';
 import { spawnNpc } from './content/archetypes';
@@ -350,5 +351,32 @@ describe('a hunt on the street', () => {
     expect(seen.scatter ?? 0).toBeGreaterThan(0);
     expect(seen.help ?? 0).toBeGreaterThan(0);
     expect(seen.trip ?? 0).toBeGreaterThan(0);
+  });
+
+  it('a call brings a patrol after a few rounds, and what it does depends on who is chasing whom and how hot she is', () => {
+    const hot = weighSides(8, 'npd', 'other', 0);
+    const cool = weighSides(0, 'npd', 'other', 0);
+    expect(hot.her / hot.foes).toBeGreaterThan(cool.her / cool.foes);
+    expect(weighSides(2, 'npd', 'crook', 0).foes).toBeGreaterThan(weighSides(2, 'npd', 'other', 0).foes);
+    expect(weighSides(2, 'npd', 'law', 0).her).toBeGreaterThan(weighSides(2, 'npd', 'other', 0).her);
+    expect(weighSides(2, 'atlas', 'corp', 0).her).toBeGreaterThan(weighSides(2, 'npd', 'corp', 0).her);
+    const seen: Record<string, number> = {};
+    for (let i = 0; i < 400; i++) {
+      const sc = scenario({ seed: `patrol-${i % 40}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.clock = 20 * 60;
+      w.hero.level = 10;
+      w.hero.maxHp = w.hero.hp = 220;
+      w.heat.npd = i % 4 === 0 ? 8 : i % 4 === 1 ? 0 : 3;
+      const { c, events } = ctxOf(w, new Rng(`pt-${i}`));
+      const crew = spawnGroup(c, i % 2 ? 'mugger' : 'ganger', 2, 'vipers');
+      for (const n of spawnGroup(c, 'patron', 8)) n.affinity = -30;
+      runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 6)), maxRounds: 16 });
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'chase_police') seen[String(e.data.variant)] = (seen[String(e.data.variant)] ?? 0) + 1;
+      }
+    }
+    expect(Object.keys(seen).length).toBeGreaterThanOrEqual(2);
   });
 });

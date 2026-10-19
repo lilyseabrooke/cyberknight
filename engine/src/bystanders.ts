@@ -1,13 +1,12 @@
 import type { Ctx, Id, Npc } from './types';
 import { dist } from './grid';
-import { addHeat } from './combat';
 import { nerve } from './character';
 import { timid } from './prowl';
 import { stepAside, tileAt, type ChaseBoard } from './chaseboard';
 
 /**
  * People on the street have opinions about a chase going past them. Each one who can see it reacts once: the timid get out of the way, someone who
- * dislikes her sticks out a foot, someone who likes her gets in the pursuers' way, a few film it or call it in, and if she is out of sight of
+ * dislikes her sticks out a foot, someone who likes her gets in the pursuers' way, a few film it or call it in (which brings a patrol, in a while: see `callins.ts`), and if she is out of sight of
  * the chasers somebody may point them the way she went (which makes her easier to follow).
  */
 export type Bystand = 'scatter' | 'point' | 'trip' | 'help' | 'film' | 'call' | 'none';
@@ -57,9 +56,6 @@ export function bystand(c: Ctx, cb: ChaseBoard, o: { except: Id[]; done: Set<Id>
     if (kind === 'trip') n.affinity -= 3;
     if (kind === 'help') n.affinity += 1;
     if (kind === 'film') w.hero.fame += 1;
-    if (kind === 'call') {
-      if (law(n) || rng.chance(0.35)) addHeat(w, cb.placed.board.loc && w.locations[cb.placed.board.loc]?.kind === 'corp' ? 'atlas' : 'npd', 1);
-    }
     out.push({ who: n, kind });
   }
   return out;

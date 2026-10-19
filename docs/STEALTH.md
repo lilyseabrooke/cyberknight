@@ -172,5 +172,13 @@ Each round of a chase, up to two people within seven tiles of her who have not y
 companions, a robot, dragon or boss) pick a reaction once, by who they are and how they feel about her: **scatter** (the timid and the unnerved step off
 the line), **point** (only once the pursuers have lost her: the ones who dislike her, and the law, tell them which way she went, which counts as noise to the
 tracker), **trip** (affinity -15 or worse: she loses ground), **help** (affinity 15 or better, and Charm: the pursuers lose ground), **film** (fame +1),
-**call** (the law always, others sometimes: NPD heat +1, Atlas on its own premises), or nothing. Told as `chase_bystander`. Not yet: reactions to takedowns and
+**call** (the law always, others sometimes: starts a countdown for a patrol, see below), or nothing. Told as `chase_bystander`. Not yet: reactions to takedowns and
 bodies in stealth scenes (those people are not units on the board), or to a chase that she is the one running after.
+
+### A call brings a patrol (`callins.ts`)
+
+A bystander who calls it in doesn't know what is going on, so there is no heat. It starts a countdown (3 to 6 rounds; 2 or 3 if the caller is law; another call
+shortens it). If the chase is still going when it runs out, two officers arrive (NPD, or Atlas troopers on corp premises) and pick a side by `weighSides`:
+**against her** (more with her heat with that force, and more when the pursuers are police or corp security), **against the pursuers** (more when they are
+muggers or gangers, and when her heat is low), **against everyone** (a little always, more with heat, more for Atlas: she and the pursuers are both shot at),
+or **ignore it**. Against her they join the chase on foot; against the pursuers, most of them are stopped for a while; they then go on. Told as `chase_police`.
