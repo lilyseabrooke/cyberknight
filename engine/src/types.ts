@@ -357,7 +357,7 @@ export interface Npc {
   goals?: NpcGoal[];
 }
 
-export type NpcGoalKind = 'give_cash' | 'cover' | 'back_me_up' | 'go_after' | 'spill';
+export type NpcGoalKind = 'give_cash' | 'cover' | 'back_me_up' | 'go_after' | 'spill' | 'kiss' | 'steal_car' | 'take_deck' | 'buy_round' | 'tag_wall' | 'karaoke';
 /** The four ways she gets round somebody: the skills under Charm that make people do things. */
 export type InfluenceMethod = 'persuasion' | 'intimidation' | 'romance' | 'grifting';
 
@@ -380,6 +380,12 @@ export interface NpcGoal {
   conned?: boolean;
   /** go_after: they are on their way. */
   sent?: boolean;
+  /** Errands: where it is to be done, when it needs a place of its own. */
+  loc?: Id;
+  /** Errands: how many ways they have tried and failed. */
+  tries?: number;
+  /** Errands: not before this beat. */
+  wait?: number;
 }
 
 /**

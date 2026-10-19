@@ -464,6 +464,20 @@ Blackbird can give an NPC a goal of her own choosing. She does it with one of fo
 | `go_after` | a kill goal on someone else | walk out, find the target and scrap with them (stats decide), offscreen if need be; a win counts as her kill goal being struck |
 | `spill` | they have something she doesn't know | tell her a fact, secrets included |
 
+**Errands (`errands.ts`).** Some goals are things to go and do, and for those the carrier simulates it: each beat they find where it is done and walk there (at their own pace, offscreen if need be), then look at the ways they could go about it, score each (their own odds from their stats and skills, how much it suits their character, how bad failure would be for someone of their nerve), pick softmax like she does, and roll. A failed way costs them and they try again, maybe differently; three failures, or getting hurt, and they give up; someone who dislikes the whole idea may simply refuse. In the room every attempt is told; away, only the outcome.
+
+| Errand | Where | Ways | Effect |
+|---|---|---|---|
+| `go_after` | the target | brawl, ambush | scuffle decided by power; a win strikes her kill goal |
+| `kiss` | the target | smooth, steal a kiss (may get slapped), ask | tie with the kissed warms; the turned down remember it |
+| `steal_car` | a street with a car nearby | hotwire, smash, lurk | the car is taken and left for her (at her feet if she's on a street); a loud attempt in front of her is her heat |
+| `take_deck` | the DJ booth | ask, elbow, swap the drive | a set that wins or sours the room; the displaced DJ is sore |
+| `buy_round` | a bar or club | pay, put it on a tab | the room warms to her name; their pocket pays |
+| `tag_wall` | where she asked | quick tag, a proper piece | graffiti on the place |
+| `karaoke` | the karaoke stage | sing, belt it | the crowd warms or boos |
+
+Besides what she needs, she has **whims**: with mischief in her, any NPC in front of her may get an idea (a kiss for someone in the room, a car, the decks, a round, a wall, the mic) that lasts a stretch of the night and is chosen by her traits. They are cheap and often pointless, which is the point.
+
 Whether it takes is `influenceOdds`: **magnitude** of the ask (a share of their purse, how secret the fact, how hard the target is), how far it **conflicts with their character** (each goal has a trait profile: `go_after` wants kindness low, `give_cash` wants greed low), how much they **like her**, and her skill against their stat. Method colours the rest: the brave don't fold, the greedy are easy marks, flirting runs through `romanceMod`. How she got there is remembered: the frightened hold a grudge and the conned may work it out later (`influence_end:wise`). Errands last a night (`Npc.goals`, cleared in `wakeTheWorld`); `World.influenced` lists carriers so the beat doesn't scan everyone.
 
 ### Not built yet

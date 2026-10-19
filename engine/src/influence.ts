@@ -1,4 +1,5 @@
 import type { Candidate } from './candidate';
+import { Rng } from './rng';
 import { clamp, levelRisk } from './candidate';
 import type { Ctx, Id, InfluenceMethod, Npc, NpcGoal, NpcGoalKind, World } from './types';
 import type { Trait } from './personality';
@@ -9,10 +10,11 @@ import { fight, heroPower, here, remember } from './combat';
 import { synergy, train, type Part } from './skills';
 import { ratio, statsOf, type NpcStat } from './npcstats';
 import { cool, cooling, priority } from './mind';
-import { moveNpc, AWAY } from './population';
-import { romanceMod } from './bonds';
+
+import { heartOf, romanceMod } from './bonds';
 import { learn, unknownFacts } from './knowledge';
 import { regard } from './ties';
+import { ERRAND_KINDS, barNear, carStreet, finish, runErrand } from './errands';
 
 /**
  * Influence. Blackbird can put a goal in somebody else's head: get them to pay her, look the other way, have her back,
@@ -64,6 +66,13 @@ const GOALS: Record<NpcGoalKind, GoalDef> = {
   back_me_up: { ttl: 90, nature: { courage: 1, loyalty: 0.4, temper: 0.3, kindness: 0.2 } },
   go_after: { ttl: 60, nature: { kindness: -1, temper: 0.7, grudge: 0.6, courage: 0.5, honesty: -0.2 } },
   spill: { ttl: 8, nature: { sociable: 1, loyalty: -0.8, honesty: 0.3, curiosity: 0.2 } },
+  // The kind of thing she might ask just because she's Blackbird.
+  kiss: { ttl: 70, nature: { sociable: 0.6, courage: 0.5, mischief: 0.4, loyalty: -0.4 } },
+  steal_car: { ttl: 80, nature: { honesty: -1, mischief: 0.7, courage: 0.4, greed: 0.4 } },
+  take_deck: { ttl: 80, nature: { courage: 0.5, sociable: 0.5, mischief: 0.3, temper: 0.2 } },
+  buy_round: { ttl: 70, nature: { greed: -1, sociable: 0.7, kindness: 0.3 } },
+  tag_wall: { ttl: 70, nature: { mischief: 1, honesty: -0.3, curiosity: 0.2 } },
+  karaoke: { ttl: 70, nature: { sociable: 1, courage: 0.6, mischief: 0.3 } },
 };
 
 /** Something she'd like somebody to take on, and how big a thing it is to ask. */
@@ -75,10 +84,10 @@ export interface Wish {
   magnitude: number;
   target?: Id;
   amount?: number;
+  loc?: Id;
 }
 
 const AUTHORITY = ['cop', 'security', 'owner', 'staff'];
-const FAR = new Set<Id>([AWAY, '_gone']);
 
 const nameOf = (w: World, id: Id | undefined): string => (id && w.npcs[id]?.name) || 'someone';
 
@@ -178,17 +187,59 @@ export function wishes(w: World, n: Npc): Wish[] {
     if (f) out.push({ kind: 'spill', urge: 0.2 + 0.25 * traitOf(w, n, 'curiosity') + 0.2 * (h.personality.traits.curiosity - 0.5), magnitude: factMagnitude[f.vis] });
   }
 
-  return out.filter((x) => x.urge > 0.05 && !goalOf(n, x.kind) && !cooling(w, `influence:${n.id}:${x.kind}`));
+  out.push(...whims(w, n));
+  // One errand at a time.
+  const busy = !!n.goals?.some((g) => ERRAND_KINDS.has(g.kind));
+  return out.filter((x) => x.urge > 0.05 && !goalOf(n, x.kind) && !(busy && ERRAND_KINDS.has(x.kind)) && !cooling(w, `influence:${n.id}:${x.kind}`));
+}
+
+/**
+ * Things she asks for because she is Blackbird. Nothing she needs: a mood, and whoever is standing there. A whim holds for a
+ * stretch of the night (so it is still her idea when she gets round to it) and the more mischief in her, the more of them.
+ */
+function whims(w: World, n: Npc): Wish[] {
+  const t = w.hero.personality.traits;
+  const rng = new Rng(`whim:${w.worldSeed}:${n.id}:${Math.floor(w.beat / 40)}`);
+  const mood = clamp(0.08 + 0.5 * t.mischief + 0.15 * t.thrill, 0.05, 0.6);
+  if (!rng.chance(mood)) return [];
+  const urge = 0.15 + 0.3 * t.mischief;
+  const loc = w.locations[w.hero.locationId];
+  const options: { w: number; make: () => Wish | null }[] = [
+    {
+      w: 0.4 + t.impress + t.romantic,
+      make: () => {
+        const pool = here(w).filter((x) => x.id !== n.id && x.alive && !x.hostile && x.archetype !== 'puppy' && !x.tags.some((g) => ['robot', 'dragon', 'boss', 'pet'].includes(g)) && x.gender !== 'none');
+        if (!pool.length) return null;
+        const target = rng.pick(pool);
+        return { kind: 'kiss', urge, target: target.id, magnitude: 0.35 + (heartOf(w, target).partner ? 0.25 : 0) };
+      },
+    },
+    { w: 0.3 + t.mischief + t.thrill, make: () => (carStreet(w, w.hero.locationId) ? { kind: 'steal_car', urge, magnitude: 0.75 } : null) },
+    { w: 0.3 + t.fame + t.mischief, make: () => (w.features.dj_booth && w.locations[w.features.dj_booth.locationId] ? { kind: 'take_deck', urge, magnitude: 0.6 } : null) },
+    { w: 0.3 + t.sociable + t.impress, make: () => (n.cash >= 40 && barNear(w, w.hero.locationId) ? { kind: 'buy_round', urge, magnitude: 0.35 + 0.3 * clamp(30 / n.cash, 0, 1) } : null) },
+    { w: 0.2 + t.artistry + t.mischief, make: () => (loc && loc.kind !== 'home' ? { kind: 'tag_wall', urge, magnitude: 0.4, loc: loc.id } : null) },
+    { w: 0.3 + t.fame + t.mischief, make: () => (w.features.karaoke && w.locations[w.features.karaoke.locationId] ? { kind: 'karaoke', urge, magnitude: 0.35 } : null) },
+  ];
+  const pick = rng.weighted(options, (o) => Math.max(0.05, o.w));
+  const wish = pick.make();
+  return wish ? [wish] : [];
 }
 
 /** What the ask sounds like, to her ("to hand over 120 neodollars") and as the thing they end up doing ("handing over 120 neodollars"). */
 export function phrasing(w: World, wish: Wish): { ask: string; deed: string } {
+  const who = nameOf(w, wish.target);
   switch (wish.kind) {
     case 'give_cash': return { ask: `to hand over ${wish.amount} neodollars`, deed: `handing over ${wish.amount} neodollars` };
     case 'cover': return { ask: 'to look the other way', deed: 'looking the other way' };
     case 'back_me_up': return { ask: 'to have her back', deed: 'having her back' };
-    case 'go_after': return { ask: `to go and deal with ${nameOf(w, wish.target)}`, deed: `dealing with ${nameOf(w, wish.target)}` };
+    case 'go_after': return { ask: `to go and deal with ${who}`, deed: `dealing with ${who}` };
     case 'spill': return { ask: 'to talk', deed: 'talking' };
+    case 'kiss': return { ask: `to go and kiss ${who}`, deed: `kissing ${who}` };
+    case 'steal_car': return { ask: 'to go and steal a car', deed: 'stealing a car' };
+    case 'take_deck': return { ask: 'to go and take over the DJ deck', deed: 'taking over the decks' };
+    case 'buy_round': return { ask: 'to buy the room a round', deed: 'buying a round' };
+    case 'tag_wall': return { ask: 'to go and tag a wall', deed: 'tagging a wall' };
+    case 'karaoke': return { ask: 'to get up and sing karaoke', deed: 'getting up to sing' };
   }
 }
 
@@ -228,7 +279,7 @@ function addGoal(c: Ctx, n: Npc, wish: Wish, method: InfluenceMethod): NpcGoal {
   const { w } = c;
   const g: NpcGoal = {
     id: w.mind.nextId++, kind: wish.kind, method, born: w.beat, until: w.beat + GOALS[wish.kind].ttl,
-    ...(wish.target ? { target: wish.target } : {}), ...(wish.amount !== undefined ? { amount: wish.amount } : {}),
+    ...(wish.target ? { target: wish.target } : {}), ...(wish.amount !== undefined ? { amount: wish.amount } : {}), ...(wish.loc ? { loc: wish.loc } : {}),
     ...(method === 'intimidation' ? { coerced: true } : {}), ...(method === 'grifting' ? { conned: true } : {}),
   };
   (n.goals ??= []).push(g);
@@ -276,56 +327,9 @@ function attempt(c: Ctx, n: Npc, wish: Wish, method: InfluenceMethod): void {
 
 // ===================================================================== carrying it out
 
-function drop(w: World, n: Npc, g: NpcGoal): void {
-  n.goals = (n.goals ?? []).filter((x) => x !== g);
-  if (!n.goals.length) {
-    delete n.goals;
-    w.influenced = (w.influenced ?? []).filter((id) => id !== n.id);
-  }
-}
-
-/** It's over, one way or another. A person who was conned may work out that they were. */
-function finish(c: Ctx, n: Npc, g: NpcGoal, how: 'done' | 'lapsed' | 'moot'): void {
-  const { w, rng } = c;
-  drop(w, n, g);
-  if (how === 'moot' || !g.conned) return;
-  if (rng.chance(clamp(0.2 + 0.35 * (ratio(n, 'int') - 1) + 0.3 * (traitOf(w, n, 'curiosity') - 0.5), 0.05, 0.8))) {
-    n.affinity -= 15;
-    remember(n, 'was conned by Blackbird');
-    if (n.locationId === w.hero.locationId) c.emit('influence_end', 'bad', { variant: 'wise', npc: n.name, method: g.method, kind: g.kind });
-  }
-}
-
-/** A scrap between two people she is not in. */
-function scuffle(c: Ctx, a: Npc, b: Npc): { winner: Npc; loser: Npc } {
-  const { w, rng } = c;
-  const pa = a.power * (0.7 + 0.6 * rng.next());
-  const pb = b.power * (0.7 + 0.6 * rng.next());
-  const [winner, loser] = pa >= pb ? [a, b] : [b, a];
-  loser.hp = Math.max(1, loser.hp - Math.round(loser.maxHp * (0.3 + 0.3 * rng.next())));
-  loser.downUntil = w.beat + rng.int(25, 60);
-  winner.hp = Math.max(1, winner.hp - Math.round(winner.maxHp * 0.15 * rng.next()));
-  return { winner, loser };
-}
-
-function deed(c: Ctx, n: Npc, t: Npc, g: NpcGoal): void {
-  const { w } = c;
-  const seen = n.locationId === w.hero.locationId;
-  const { winner, loser } = scuffle(c, n, t);
-  const won = winner === n;
-  if (won) {
-    t.affinity -= 8;
-    // She wanted him seen to, and he has been.
-    for (const goal of w.mind.goals) if (goal.kind === 'kill' && goal.npc === t.id) goal.struck = true;
-    remember(t, 'was set on by someone Blackbird sent');
-  } else n.affinity -= 2;
-  c.emit('influence_deed', won ? 'good' : 'bad', { variant: won ? 'won' : 'lost', npc: n.name, target: t.name, method: g.method, seen, loser: loser.name });
-  finish(c, n, g, 'done');
-}
-
 /** Once a beat: everyone carrying one of her errands gets on with it. */
 export function influenceTick(c: Ctx): void {
-  const { w, rng } = c;
+  const { w } = c;
   if (!w.influenced?.length) return;
   const hero = w.hero.locationId;
   for (const id of [...w.influenced]) {
@@ -356,26 +360,8 @@ export function influenceTick(c: Ctx): void {
         const f = unknownFacts(w, n)[0];
         if (f) learn(c, n, f, 'asked');
         finish(c, n, g, f ? 'done' : 'moot');
-      } else if (g.kind === 'go_after') {
-        const t = g.target ? w.npcs[g.target] : undefined;
-        if (!t?.alive) {
-          finish(c, n, g, 'moot');
-          continue;
-        }
-        if (n.locationId === t.locationId) {
-          deed(c, n, t, g);
-          continue;
-        }
-        if (!g.sent) {
-          g.sent = true;
-          if (near) c.emit('influence_depart', 'good', { npc: n.name, target: t.name, method: g.method });
-        }
-        // Travelling takes however long it takes.
-        if (!FAR.has(t.locationId) && rng.chance(0.3)) {
-          moveNpc(w, n, t.locationId);
-          if (t.locationId === hero) c.emit('influence_arrive', 'mixed', { npc: n.name, target: t.name });
-          deed(c, n, t, g);
-        }
+      } else if (ERRAND_KINDS.has(g.kind)) {
+        runErrand(c, n, g, alignment(w, n, g.kind));
       }
     }
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { always, never, scenario, type Scenario } from './testkit';
+import { always, never, rolls, scenario, type Scenario } from './testkit';
 import { Rng } from './rng';
 import { hasTemplate } from './text';
 import { spawnNpc } from './content/archetypes';
@@ -249,7 +249,7 @@ describe('what they do once they have taken it on', () => {
       s.w.beat++;
       seen.push(...s.run((c) => influenceTick(c), always()).map((e) => e.type));
     }
-    expect(seen).toContain('influence_deed');
+    expect(seen).toContain('errand');
     expect(n.locationId).toBe(target.locationId);
     expect(target.downUntil).toBeGreaterThan(s.w.beat);
     expect(target.hp).toBeLessThan(target.maxHp);
@@ -299,7 +299,204 @@ describe('the words for it', () => {
     for (const m of ['persuasion', 'intimidation', 'romance', 'grifting']) {
       keys.push(['influence', { ...base, variant: `${m}_ok` }], ['influence', { ...base, variant: `${m}_no` }], ['influence_pay', { ...base, method: m, variant: m }], ['intent', { ...base, method: m, variant: 'influence' }]);
     }
-    keys.push(['influence_depart', base], ['influence_arrive', base], ['influence_deed', { ...base, variant: 'won' }], ['influence_deed', { ...base, variant: 'lost' }], ['influence_backup', base], ['influence_end', { ...base, variant: 'wise' }]);
+    keys.push(['influence_depart', base], ['influence_arrive', base], ['influence_backup', base], ['influence_end', { ...base, variant: 'wise' }], ['errand_balk', base], ['errand_giveup', base]);
     for (const [type, data] of keys) expect(hasTemplate({ beat: 0, type, outcome: 'good', data }), `${type}:${data.variant}`).toBe(true);
+  });
+});
+
+// ===================================================================== errands
+
+import { vehicleOf, ALL_MAKES } from './cars';
+import type { NpcGoal } from './types';
+
+/** Give somebody an errand directly, as if she had talked them into it. */
+const give = (s: Scenario, n: Npc, kind: NpcGoal['kind'], extra: Partial<NpcGoal> = {}): NpcGoal => {
+  const g: NpcGoal = { id: s.w.mind.nextId++, kind, method: 'persuasion', born: s.w.beat, until: s.w.beat + 500, ...extra };
+  (n.goals ??= []).push(g);
+  (s.w.influenced ??= []).push(n.id);
+  return g;
+};
+const tickOnce = (s: Scenario, rng = always()) => {
+  s.w.beat++;
+  return s.run((c) => influenceTick(c), rng);
+};
+const errands = (ev: { type: string }[]) => ev.filter((e) => e.type === 'errand') as { type: string; data: Record<string, unknown> }[];
+
+describe('errands: what they do with it', () => {
+  it('a kiss lands, and the kissed remembers', () => {
+    const { s, n } = room();
+    const t = person(s, 'smooched');
+    give(s, n, 'kiss', { target: t.id });
+    const ev = tickOnce(s);
+    expect(errands(ev)[0]!.data.variant).toMatch(/^kiss_.*_ok$/);
+    expect(t.memories.some((m) => m.startsWith('was kissed by'))).toBe(true);
+    expect(n.goals).toBeUndefined();
+  });
+
+  it('walks to wherever the target is first', () => {
+    const { s, n } = room();
+    const t = person(s, 'far');
+    moveNpc(s.w, t, 'halo_alley');
+    give(s, n, 'kiss', { target: t.id });
+    const first = tickOnce(s);
+    expect(first.some((e) => e.type === 'influence_depart')).toBe(true);
+    expect(n.locationId).toBe('halo_alley');
+    // At the other end, they get on with it; she is not there, so only the outcome would be told.
+    const second = tickOnce(s);
+    expect(n.goals).toBeUndefined();
+    expect(errands(second)[0]!.data.seen).toBe(false);
+  });
+
+  it('weighs its options: a failed way is followed by another try, and three failures end it', () => {
+    const { s, n } = room();
+    const t = person(s, 'cold');
+    const g = give(s, n, 'kiss', { target: t.id });
+    // First option every time, and it never works.
+    const fail = () => rolls(0, 0.999999);
+    tickOnce(s, fail());
+    expect(g.tries).toBe(1);
+    expect(n.goals).toBeDefined();
+    // Not until it has had a moment.
+    expect(tickOnce(s, fail()).length).toBe(0);
+    s.w.beat += 5;
+    tickOnce(s, fail());
+    s.w.beat += 5;
+    const last = tickOnce(s, fail());
+    expect(last.some((e) => e.type === 'errand_giveup')).toBe(true);
+    expect(n.goals).toBeUndefined();
+  });
+
+  it('may just refuse', () => {
+    const { s, n } = room({ honesty: 1, mischief: 0, courage: 0 });
+    const g = give(s, n, 'steal_car');
+    s.w.strays = { street_main: vehicleOf(ALL_MAKES[0]!) };
+    g.loc = 'street_main';
+    moveNpc(s.w, n, 'street_main');
+    // The last option is always the one where they don't bother.
+    const ev = tickOnce(s, never());
+    expect(ev.some((e) => e.type === 'errand_balk')).toBe(true);
+    expect(n.goals).toBeUndefined();
+  });
+
+  it('steals the car and brings it to her', () => {
+    const { s, n } = room();
+    s.w.strays = { street_main: vehicleOf(ALL_MAKES[0]!) };
+    const g = give(s, n, 'steal_car', { loc: 'street_main' });
+    expect(g.loc).toBe('street_main');
+    tickOnce(s); // walks
+    expect(n.locationId).toBe('street_main');
+    const ev = tickOnce(s);
+    expect(errands(ev)[0]!.data.variant).toMatch(/^steal_car_.*_ok$/);
+    expect(s.w.flags['stolen:street_main']).toBe(true);
+    // She's indoors, so it waits for her where it was taken.
+    expect(s.w.strays?.street_main).toBeDefined();
+    expect(n.goals).toBeUndefined();
+  });
+
+  it('takes over the deck', () => {
+    const s = scenario({ at: PLACE });
+    const booth = s.w.features.dj_booth!;
+    expect(booth).toBeDefined();
+    for (const x of Object.values(s.w.npcs)) if (x.locationId === booth.locationId) moveNpc(s.w, x, '_gone');
+    s.w.hero.locationId = booth.locationId;
+    const n = person(s, 'dj');
+    moveNpc(s.w, n, booth.locationId);
+    const listener = person(s, 'listener');
+    moveNpc(s.w, listener, booth.locationId);
+    const before = listener.affinity;
+    give(s, n, 'take_deck');
+    const ev = tickOnce(s);
+    expect(errands(ev)[0]!.data.variant).toMatch(/^take_deck_.*_ok$/);
+    expect(booth.flags).toContain(`held:${n.id}`);
+    expect(listener.affinity).not.toBe(before);
+  });
+
+  it('buys the round, from their own pocket', () => {
+    const { s, n } = room();
+    const listener = person(s, 'thirsty');
+    const before = listener.affinity;
+    const cash = n.cash;
+    give(s, n, 'buy_round');
+    const ev = tickOnce(s);
+    expect(errands(ev)[0]!.data.variant).toMatch(/^buy_round_/);
+    expect(n.cash).toBeLessThan(cash);
+    expect(listener.affinity).toBe(before + 2);
+  });
+
+  it('tags the wall', () => {
+    const { s, n } = room();
+    const before = s.w.locations[PLACE]!.graffiti;
+    give(s, n, 'tag_wall', { loc: PLACE });
+    tickOnce(s);
+    expect(s.w.locations[PLACE]!.graffiti).toBeGreaterThan(before);
+  });
+
+  it('gets up and sings', () => {
+    const { s, n } = room();
+    const listener = person(s, 'audience');
+    const before = listener.affinity;
+    give(s, n, 'karaoke');
+    const ev = tickOnce(s);
+    expect(errands(ev)[0]!.data.variant).toMatch(/^karaoke_.*_ok$/);
+    expect(listener.affinity).toBeGreaterThan(before);
+  });
+});
+
+describe('whims', () => {
+  it('a mischievous Blackbird asks for all sorts', () => {
+    const { s, n } = room();
+    s.w.hero.personality.traits.mischief = 1;
+    const target = person(s, 'bystander');
+    void target;
+    const kinds = new Set<string>();
+    for (let b = 0; b < 4000; b += 40) {
+      s.w.beat = b;
+      for (const x of wishes(s.w, n)) kinds.add(x.kind);
+    }
+    for (const k of ['kiss', 'steal_car', 'take_deck', 'buy_round', 'tag_wall', 'karaoke']) expect(kinds, k).toContain(k);
+  });
+
+  it('a placid one asks for fewer', () => {
+    const count = (mischief: number) => {
+      const { s, n } = room();
+      s.w.hero.personality.traits.mischief = mischief;
+      s.w.hero.personality.traits.thrill = mischief;
+      let k = 0;
+      for (let b = 0; b < 4000; b += 40) {
+        s.w.beat = b;
+        k += wishes(s.w, n).length;
+      }
+      return k;
+    };
+    expect(count(0)).toBeLessThan(count(1));
+  });
+
+  it('every way of going about it has something to say', () => {
+    const missing: string[] = [];
+    for (const kind of ['kiss', 'steal_car', 'take_deck', 'buy_round', 'tag_wall', 'karaoke', 'go_after'] as const) {
+      for (let i = 0; i < 40; i++) {
+        const s = scenario({ at: PLACE, seed: `txt-${kind}-${i}` });
+        for (const x of Object.values(s.w.npcs)) if (x.locationId === PLACE) moveNpc(s.w, x, '_gone');
+        const n = person(s, 'mark', { power: 20 }, {});
+        const t = person(s, 'tgt');
+        const booth = s.w.features.dj_booth;
+        if (kind === 'take_deck' && booth) s.w.hero.locationId = booth.locationId;
+        if (kind === 'take_deck' && booth) moveNpc(s.w, n, booth.locationId);
+        if (kind === 'take_deck' && booth) moveNpc(s.w, t, booth.locationId);
+        if (kind === 'karaoke' && s.w.features.karaoke) {
+          s.w.hero.locationId = s.w.features.karaoke.locationId;
+          moveNpc(s.w, n, s.w.hero.locationId);
+        }
+        if (kind === 'steal_car') s.w.strays = { [PLACE === 'halo_floor' ? 'street_main' : PLACE]: vehicleOf(ALL_MAKES[i % ALL_MAKES.length]!) };
+        const g = give(s, n, kind, { target: t.id, ...(kind === 'steal_car' ? { loc: 'street_main' } : {}) });
+        if (kind === 'steal_car') moveNpc(s.w, n, 'street_main');
+        for (let k = 0; k < 6 && n.goals?.includes(g); k++) {
+          s.w.beat += 6;
+          const ev = s.run((c) => influenceTick(c), new Rng(`r${i}:${k}`));
+          for (const e of ev) if (!hasTemplate(e)) missing.push(`${e.type}:${e.data.variant}`);
+        }
+      }
+    }
+    expect([...new Set(missing)]).toEqual([]);
   });
 });
