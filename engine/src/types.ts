@@ -5,6 +5,7 @@ import type { Phase } from './clock';
 import type { StreetType } from './streettypes';
 import type { Trait } from './personality';
 import type { Faction } from './factions';
+import type { DeedId } from './content/deeds';
 
 /**
  * All world state is plain JSON (no classes, Sets or Maps) so a run can be saved to
@@ -844,6 +845,8 @@ export interface Legacy {
   upgrades: Record<string, number>;
   /** Neodollars spent in the lab, ever. */
   spent: number;
+  /** Deeds she owns (see content/deeds.ts): bought once, kept through every death. Absent before the first. */
+  deeds?: DeedId[];
   /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
   report?: RunReport;
 }

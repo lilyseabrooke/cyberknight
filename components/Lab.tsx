@@ -8,6 +8,11 @@ import {
   SKILL_LABELS,
   applyUpgrades,
   buy,
+  buyDeed,
+  DEEDS,
+  DEED_IDS,
+  ownsDeed,
+  LODGING,
   describeFx,
   describePersonality,
   dropCut,
@@ -92,6 +97,17 @@ export default function Lab({ universe, onChange, onSendOut }: { universe: Unive
     }
   };
 
+  const purchaseDeed = (id: string) => {
+    const r = buyDeed(universe, id);
+    if (r.ok) {
+      setFlash({ id, text: `Deed to ${DEEDS[id as keyof typeof DEEDS].name} bought for ${r.paid}nd. It is hers for good.` });
+      setTick((t) => t + 1);
+      onChange();
+    } else {
+      setFlash({ id, text: r.reason === 'poor' ? `${r.need}nd short.` : r.reason === 'owned' ? 'Already hers.' : 'Not a thing.', bad: true });
+    }
+  };
+
   const matches = (d: UpgradeDef): boolean => !q || d.name.toLowerCase().includes(q) || d.blurb.toLowerCase().includes(q) || effects(d).some((e) => e.toLowerCase().includes(q));
   const shown = (d: UpgradeDef): boolean => {
     if (!matches(d)) return false;
@@ -135,6 +151,25 @@ export default function Lab({ universe, onChange, onSendOut }: { universe: Unive
             </dl>
           </div>
         )}
+      </section>
+
+      <section className="deeds" aria-label="Deeds">
+        <h3>Deeds <small className="muted">· bought once, kept through every death</small></h3>
+        <div className="nodes wrap">
+          {DEED_IDS.map((id) => {
+            const d = DEEDS[id];
+            const has = ownsDeed(l, id);
+            const afford = l.account >= d.price;
+            return (
+              <button key={id} className={['node', has ? 'maxed has' : 'available', !has && afford ? 'can' : ''].filter(Boolean).join(' ')} onClick={() => purchaseDeed(id)} disabled={has} aria-label={`${d.name}, ${has ? 'owned' : `${d.price} neodollars`}`}>
+                <span className="nm">{d.name}</span>
+                <span className="fx"><span>Home: sleeps free · {Math.round(d.quality * 100)}% bed (a pod is {Math.round(LODGING.pod.quality * 100)}%, a hotel {Math.round(LODGING.hotel.quality * 100)}%)</span></span>
+                <span className="bl">{d.blurb}</span>
+                <span className={`cost ${has || afford ? '' : 'poor'}`}>{has ? 'OWNED' : `${d.price.toLocaleString('en-US')}nd`}</span>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       <div className="labgrid">

@@ -1965,6 +1965,12 @@ const T: Record<string, Entry> = {
     (d) => [`${cap(String(d.name))} gives Blackbird a room, a door that locks itself and a bed with more pillows than she has opinions. ${d.cost}nd. She is out before the lights finish dimming.`, `${d.cost}nd buys Blackbird a room at ${d.name}: clean sheets, blackout glass, a lock that logs everyone who touches it. She does not touch the minibar. Much.`],
     ['This is what winning feels like.', 'So this is what the corpos have been hiding from us.'],
   ),
+  'sleep:home': e(
+    (d) => Number(d.quality) >= 95
+      ? [`Blackbird lets herself into ${d.name}. The door logs her, the lights go down on their own, and the bed takes her weight like it has been waiting. Nothing to pay. ${d.hours} hours.`, `${cap(String(d.name))}: the gate, the stairs, the good mattress. Blackbird is asleep before she has finished taking her boots off.`]
+      : [`Blackbird lets herself into ${d.name} and the lock beeps its approval. A real mattress, a door that is hers, and nobody's elbow in her ribs. ${d.hours} hours.`, `${cap(String(d.name))} is small and it is hers. Blackbird drops her gear by the door and her face into the pillow.`],
+    ['Free. Mine. Mine and free.', 'There is no place like a home you hold the deed to.'],
+  ),
   'sleep:street': e(
     (d) => [`Blackbird picks a patch of ${d.place}, drags her jacket over her face and lies down on the pavement. The city goes on around her.`, `No bed she can afford, so ${d.place} will have to do. Blackbird lies down on the concrete with her hand on her pocket.`],
     ['Nobody sleeps on the street on purpose. Which is why nobody will look.', 'Home sweet pavement.'],
