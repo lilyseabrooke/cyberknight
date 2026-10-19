@@ -6,6 +6,7 @@ import { kindle } from './romance';
 import { SKILLS } from './content/skills';
 import { isFairGame } from './people';
 import { bondEvent, romanceMod } from './bonds';
+import { addRenown } from './renown';
 
 /**
  * Performing. Two things keep her from singing in one spot forever, and one thing makes a good night run away with her.
@@ -96,6 +97,7 @@ export function fameFrom(c: Ctx, base: number, act: string): number {
   const fire = w.mind.passion?.skill === skill ? 1 + 0.15 * w.mind.passion.level : 1;
   const gain = base * prestige(loc) * fresh * fire;
   h.fame += gain;
+  addRenown(w, skill, gain);
   const f = (loc.fatigue ??= {});
   f[skill] = (f[skill] ?? 0) + FATIGUE_PER_ACT + 0.04 * base;
   if (fresh < 0.5 && w.beat - (w.counters.tired_msg ?? -99) >= 12 && rng.chance(0.7)) {

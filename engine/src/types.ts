@@ -477,6 +477,8 @@ export interface Location {
   fatigue?: Record<string, number>;
   /** How wary this place is of tricks she's pulled here (scams, fake goods, fortune-telling). Fades. */
   wary?: Record<string, number>;
+  /** People who saw her play here and liked it: her fans, as Neo counts them. Outlives her, like the place does. See renown.ts. */
+  fans?: number;
   /** Pieces of her graffiti up here. Drives diminishing fame and local consequences. */
   graffiti: number;
   /** Guard dogs and traps. Absent until somebody has had to find out. */
@@ -840,6 +842,12 @@ export interface Legacy {
   account: number;
   /** The starting district's lockdown: `'open'` once CINDERJAW is dead. It carries over between runs. */
   gate?: 'open';
+  /** Her fame as Neo remembers it. She is rebuilt from a cached copy, so to everyone else she never left: each new body starts with it. */
+  fame?: number;
+  /** The part of her fame that is about one performing skill ("Blackbird, the guitarist"), which sets what a crowd expects of her. See renown.ts. */
+  renown?: Record<string, number>;
+  /** Letdowns in a row per skill, and the fame they cost, so a set that finally delivers can be a comeback. */
+  slump?: Record<string, { sets: number; lost: number }>;
   /** Lab upgrades she has, by node id, with the number of ranks bought. See content/tree.ts. */
   upgrades: Record<string, number>;
   /** Neodollars spent in the lab, ever. */

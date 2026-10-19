@@ -4,6 +4,7 @@ import { clamp } from './candidate';
 import type { AskOption, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Location, Npc, Ware, World, GameEvent } from './types';
 import { armBest, edge, rating } from './weapons';
 import { ACT_SKILL, CALLING } from './stage';
+import { judgeSet } from './renown';
 import { SKILL_LABELS, skillLevel } from './skills';
 import { medPacks, wielded } from './arms';
 import type { EventData } from './events';
@@ -1497,7 +1498,10 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
   const h = w.hero;
   const [fam, id] = (pick?.key ?? '').split(':') as [string, string | undefined];
   if (pick && fam !== 'go' && fam) learnEarning(w, fam, wealth(h) - before.wealth);
-  if (pick && ACT_SKILL[fam]) passionAfter(c, fam, h.fame - before.fame, events);
+  if (pick && ACT_SKILL[fam]) {
+    passionAfter(c, fam, h.fame - before.fame, events);
+    judgeSet(c, fam, ACT_SKILL[fam]!, events);
+  }
   if (pick && FAME_FAMILIES.has(fam)) {
     learnFame(w, fam, h.fame - before.fame);
     for (const g of m.goals) if (g.kind === 'fame' && g.pursuit?.act === fam) g.pursuit.arrived = undefined;

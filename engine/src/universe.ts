@@ -124,6 +124,8 @@ function recordDeath(w: World): void {
  */
 export function endRun(w: World): Universe {
   if (w.ending === 'dead') recordDeath(w);
+  // Neo remembers her as she was tonight; the next body walks out with it.
+  w.legacy.fame = Math.max(0, w.hero.fame);
   settleAccount(w);
   // The dragons that are kept sleep until the next night.
   w.legacy.dragons = w.flights.filter((f) => f.persist);
@@ -241,6 +243,8 @@ export function beginRun(u: Universe, opts: BeginOptions = {}): World {
   const hero = makeHero(personality, realName, opts.competence);
   // The body comes off the printer with whatever the lab has paid for.
   applyUpgrades(hero, u.legacy);
+  // To everyone else she never left: same name, same fame. (The lab's head start doesn't stack on top of it.)
+  hero.fame = Math.max(hero.fame, u.legacy.fame ?? 0);
   if (!u.locations[hero.locationId]) hero.locationId = Object.keys(u.locations)[0]!;
   const run: RunState = {
     seed,
