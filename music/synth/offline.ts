@@ -4,6 +4,7 @@
  */
 import { Conductor } from '../score/conductor';
 import type { BankId } from '../score/harmony';
+import type { BassStyle } from '../score/roles/bass';
 import type { StabFeel } from '../score/roles/stabs';
 import type { BusId, RoleId } from '../score/types';
 import { Graph } from './graph';
@@ -23,6 +24,8 @@ export interface RenderSpec {
   progression?: { bank: BankId; index: number };
   /** Pin the stabs' feel instead of letting syncopation choose. */
   stabFeel?: StabFeel;
+  /** Pin the bass style instead of taking the seed's. */
+  bassStyle?: BassStyle;
   keyframes: Keyframe[];
   solo?: BusId[];
   mute?: RoleId[];
@@ -47,6 +50,7 @@ export interface RenderResult {
     pedal: boolean;
     stabs: string;
     drone: boolean;
+    bass: string;
     /** Stab onsets that land on a bass onset, and stab onsets in all. */
     stabsOnBass: number;
     stabOnsets: number;
@@ -78,6 +82,7 @@ export async function renderMusic(spec: RenderSpec): Promise<RenderResult> {
   const conductor = new Conductor({ seed: spec.seed, bpm, key: spec.key, progression: spec.progression });
   for (const r of spec.mute ?? []) conductor.muted.add(r);
   if (spec.stabFeel) conductor.stabs.forced = spec.stabFeel;
+  if (spec.bassStyle) conductor.setBassStyle(spec.bassStyle);
 
   const bars: RenderResult['bars'] = [];
   let t = 0.05;
@@ -101,6 +106,7 @@ export async function renderMusic(spec: RenderSpec): Promise<RenderResult> {
       pedal: bar.harmony.pedal,
       stabs: conductor.last.stabs,
       drone: conductor.last.drone,
+      bass: conductor.last.bass,
       stabsOnBass: stabOnsets.filter((t) => bassOnsets.has(t)).length,
       stabOnsets: stabOnsets.length,
       pad: bar.notes.filter((n) => n.role === 'pad' && n.t === 0).map((n) => n.note!),

@@ -21,36 +21,38 @@ export const SUB: Patch = {
 };
 
 /**
- * The character bass: two detuned saws and a square an octave down, through a resonant lowpass, a tanh drive and a crusher,
- * then a highpass so the drive never muddies the sub's floor. Aggression takes it from round and clean to feral.
+ * The character bass: two lightly detuned saws and a square at pitch for body, through a lowpass that stays low (the growl lives
+ * between 100 Hz and 1 kHz), a tanh drive, a little crush at the very top, then a band split: a highpass at 72 Hz that lets the
+ * bass's own fundamental through but keeps it off the sub's floor, and a lowpass at 2.4 kHz that takes the fizz off the drive.
+ * Aggression mostly adds weight and teeth (drive, resonance, a deeper pluck), not brightness.
  */
 export const BASS: Patch = {
   id: 'bass',
   poly: 1,
   osc: [
-    { wave: 'saw', octave: 0, detune: -6, level: 0.5 },
-    { wave: 'saw', octave: 0, detune: 6, level: 0.5 },
-    { wave: 'square', octave: -1, detune: 0, level: 0.15 },
+    { wave: 'saw', octave: 0, detune: -4, level: 0.45 },
+    { wave: 'saw', octave: 0, detune: 4, level: 0.35 },
+    { wave: 'square', octave: 0, detune: 0, level: 0.35 },
   ],
-  filter: { type: 'lowpass', cutoff: 300, q: 1, env: 1 },
-  env: { amp: { a: 0.003, d: 0.12, s: 0.7, r: 0.04 }, filterDecay: 0.18 },
-  drive: { amount: 1, crush: 0 },
-  post: { hp: 110 },
-  glide: 0.04,
+  filter: { type: 'lowpass', cutoff: 220, q: 0.8, env: 0.8 },
+  env: { amp: { a: 0.004, d: 0.25, s: 0.85, r: 0.07 }, filterDecay: 0.22 },
+  drive: { amount: 1.5, crush: 0 },
+  post: { hp: 72, lp: 2400 },
+  glide: 0.05,
   accent: 0,
   bus: 'bass',
   level: 1.25,
   mods: [
-    { src: 'macro:aggression', dst: 'filter.cutoff', range: [300, 900], curve: 'exp' },
-    { src: 'macro:aggression', dst: 'filter.q', range: [1, 12], curve: 'exp' },
-    { src: 'macro:aggression', dst: 'filter.env', range: [0.8, 3.2] },
-    { src: 'macro:aggression', dst: 'env.filterDecay', range: [0.22, 0.09], curve: 'exp' },
-    { src: 'macro:aggression', dst: 'drive.amount', range: [1, 20], curve: 'exp' },
-    { src: 'macro:aggression', dst: 'drive.crush', range: [0, 0.45], window: [0.75, 1] },
-    { src: 'macro:aggression', dst: 'osc.0.detune', range: [-2, -18] },
-    { src: 'macro:aggression', dst: 'osc.1.detune', range: [2, 18] },
-    { src: 'macro:aggression', dst: 'osc.2.level', range: [0.1, 0.4] },
-    { src: 'macro:aggression', dst: 'accent', range: [0, 0.4] },
+    { src: 'macro:aggression', dst: 'filter.cutoff', range: [200, 560], curve: 'exp' },
+    { src: 'macro:aggression', dst: 'filter.q', range: [0.7, 5], curve: 'exp' },
+    { src: 'macro:aggression', dst: 'filter.env', range: [0.6, 2.1] },
+    { src: 'macro:aggression', dst: 'env.filterDecay', range: [0.26, 0.12], curve: 'exp' },
+    { src: 'macro:aggression', dst: 'drive.amount', range: [1.5, 16], curve: 'exp' },
+    { src: 'macro:aggression', dst: 'drive.crush', range: [0, 0.18], window: [0.85, 1] },
+    { src: 'macro:aggression', dst: 'osc.0.detune', range: [-3, -12] },
+    { src: 'macro:aggression', dst: 'osc.1.detune', range: [3, 12] },
+    { src: 'macro:aggression', dst: 'osc.2.level', range: [0.3, 0.45] },
+    { src: 'macro:aggression', dst: 'accent', range: [0, 0.3] },
   ],
 };
 

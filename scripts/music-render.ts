@@ -58,6 +58,22 @@ const PRESETS: Record<string, { about: string; spec: RenderSpec }> = {
     about: 'i-VII-VI-V (harmonic V) at full tilt',
     spec: { ...base, bars: 16, progression: { bank: 'peak', index: 1 }, keyframes: [{ bar: 0, axes: { intensity: 0.9, danger: 0.3, heat: 0.3 } }] },
   },
+  'bass-hold': {
+    about: 'the held bass: half-bar and whole-bar notes, swelling and wobbling, then silence',
+    spec: { ...base, bars: 8, bassStyle: 'hold', progression: { bank: 'tense', index: 1 }, keyframes: [{ bar: 0, axes: { intensity: 0.45, danger: 0.6, heat: 0.45 } }] },
+  },
+  'bass-roll': {
+    about: 'the rolling bass: growly straight 8ths on the root',
+    spec: { ...base, bars: 8, bassStyle: 'roll', progression: { bank: 'tense', index: 1 }, keyframes: [{ bar: 0, axes: { intensity: 0.6, danger: 0.6, heat: 0.2 } }] },
+  },
+  'bass-pulse': {
+    about: 'the pulsing bass: locked offbeats',
+    spec: { ...base, bars: 8, bassStyle: 'pulse', keyframes: [{ bar: 0, axes: groove }] },
+  },
+  'bass-riff': {
+    about: 'the riff: syncopated, the busiest style, now the rarest',
+    spec: { ...base, bars: 8, bassStyle: 'riff', keyframes: [{ bar: 0, axes: { intensity: 0.7, danger: 0.4, heat: 0.2 } }] },
+  },
   'stabs-lock': {
     about: 'stabs locked to the bass accents',
     spec: { ...base, bars: 8, stabFeel: 'lock', keyframes: [{ bar: 0, axes: { intensity: 0.65, danger: 0.2, heat: 0 } }] },
@@ -118,7 +134,8 @@ async function main(): Promise<void> {
     ];
 
     // The score's side of it: stabs where they should be, and a pad that moves by small steps.
-    const stabbed = result.bars.filter((b) => b.stabOnsets > 0);
+    // Bars the bass sits out don't count: there is nothing to lock to or answer.
+    const stabbed = result.bars.filter((b) => b.stabOnsets > 0 && b.bassNotes > 0);
     if (spec.stabFeel === 'lock') {
       const off = stabbed.reduce((n, b) => n + b.stabOnsets - b.stabsOnBass, 0);
       checks.push({ name: 'stabs: onsets off the bass (locked)', value: String(off), ok: off === 0 && stabbed.length > 0 });
@@ -142,11 +159,14 @@ async function main(): Promise<void> {
       const sub = decode(await render({ ...spec, solo: ['sub'] }));
       const bass = decode(await render({ ...spec, solo: ['bass'] }));
       const subHigh = bandShare(sub, sr, 200, 20000);
-      const bassLow = bandShare(bass, sr, 20, 80);
+      // The sub's core (E1 to C2). Above 65 Hz the bass's own E2 fundamental (82 Hz) is meant to be there.
+      const bassLow = bandShare(bass, sr, 20, 65);
+      const bassHigh = bandShare(bass, sr, 2500, 20000);
       checks.push(
         { name: 'sub: energy above 200 Hz', value: `${subHigh.toFixed(1)} dB`, ok: subHigh < -30 },
         { name: 'sub: largest sample step (clicks)', value: maxStep(sub).toFixed(4), ok: maxStep(sub) < 0.06 },
-        { name: 'bass: energy below 80 Hz (the sub band)', value: `${bassLow.toFixed(1)} dB`, ok: bassLow < -18 },
+        { name: 'bass: energy below 65 Hz (the sub core)', value: `${bassLow.toFixed(1)} dB`, ok: bassLow < -18 },
+        { name: 'bass: energy above 2.5 kHz (fizz)', value: `${bassHigh.toFixed(1)} dB`, ok: bassHigh < -24 },
       );
       checks.push({ name: 'balance: bass stem vs sub stem', value: `${(db(rms(bass)) - db(rms(sub))).toFixed(1)} dB`, ok: true });
       writeFileSync(join(out, 'sweep-sub.wav'), wav(Int16Array.from(sub, (v) => Math.round(v * 32767)), sr));
@@ -177,7 +197,7 @@ async function main(): Promise<void> {
       console.log(
         `    bar ${String(b.index).padStart(2)}  aggr ${m.aggression!.toFixed(2)}  sync ${m.syncopation!.toFixed(2)}  dark ${m.darkness!.toFixed(2)}  ` +
           `kick ${b.kick.padEnd(5)}  bass ${String(b.bassNotes).padStart(2)} (${b.offKick} off)  ${b.chords.padEnd(8)} ${b.mode.slice(0, 4)}` +
-          `${b.pedal ? ' pedal' : ''}${b.drone ? ' drone' : ''}  stabs ${b.stabs.padEnd(6)}  ${loud[b.index]?.toFixed(1)} dB`,
+          `${b.pedal ? ' pedal' : ''}${b.drone ? ' drone' : ''}  bass ${b.bass.padEnd(12)} stabs ${b.stabs.padEnd(6)}  ${loud[b.index]?.toFixed(1)} dB`,
       );
     }
   }

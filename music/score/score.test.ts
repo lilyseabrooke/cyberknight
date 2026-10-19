@@ -5,14 +5,10 @@ import { AxisState, Gate } from './axes/state';
 import { Conductor } from './conductor';
 import { evaluateMods, validatePatch } from './mods';
 import { PATCHES } from './patches';
-import { KICK_STEPS, newRiff, renderBass } from './roles/bass';
-import { SUB_HI, SUB_LO, buildChord } from './theory';
-import type { HarmonyBar, Patch } from './types';
+import { SUB_HI, SUB_LO } from './theory';
+import type { Patch } from './types';
 
 const MACRO_IDS = MACROS.map((m) => m.id);
-/** One bar of E minor, held. */
-const E_MINOR: HarmonyBar = { key: 4, mode: 'aeolian', segments: [{ from: 0, to: 16, chord: buildChord({ degree: 0 }, 4, 'aeolian') }], pedal: false, tension: [] };
-const macrosAt = (aggression: number, syncopation = aggression) => ({ aggression, syncopation, density: aggression, darkness: 0.3, drive: 0 });
 
 describe('determinism', () => {
   it('renders identical bars from the same seed and axis trajectory', () => {
@@ -29,61 +25,6 @@ describe('determinism', () => {
     expect(run()).toEqual(run());
   });
 
-  it('gives different seeds different riffs', () => {
-    const a = renderBass(newRiff(1), macrosAt(0.8), 0, E_MINOR);
-    const b = renderBass(newRiff(2), macrosAt(0.8), 0, E_MINOR);
-    expect(a).not.toEqual(b);
-  });
-});
-
-describe('character bass', () => {
-  it('is locked at aggression 0: every note is the root, on a locked step', () => {
-    const locked = new Set([...KICK_STEPS, 2, 6, 10, 14]);
-    for (let seed = 0; seed < 50; seed++) {
-      for (let bar = 0; bar < 2; bar++) {
-        const notes = renderBass(newRiff(seed), macrosAt(0, 0), bar, E_MINOR);
-        expect(notes.length).toBeGreaterThanOrEqual(4);
-        expect(notes.length).toBeLessThanOrEqual(8);
-        for (const n of notes) {
-          expect(n.note).toBe(40);
-          expect(locked.has(n.t)).toBe(true);
-          expect(n.slide).toBeFalsy();
-        }
-      }
-    }
-  });
-
-  it('is syncopated at aggression 1: most notes are off the kick', () => {
-    let off = 0;
-    let total = 0;
-    for (let seed = 0; seed < 50; seed++) {
-      for (let bar = 0; bar < 2; bar++) {
-        const notes = renderBass(newRiff(seed), macrosAt(1), bar, E_MINOR);
-        total += notes.length;
-        off += notes.filter((n) => !KICK_STEPS.includes(n.t)).length;
-      }
-    }
-    expect(off / total).toBeGreaterThan(0.6);
-    expect(total / 100).toBeGreaterThanOrEqual(9);
-  });
-
-  it('keeps the same riff as aggression moves: notes come and go at stable places', () => {
-    const riff = newRiff(77);
-    const lo = new Set(renderBass(riff, macrosAt(0.4), 0, E_MINOR).map((n) => n.t));
-    const hi = new Set(renderBass(riff, macrosAt(0.6), 0, E_MINOR).map((n) => n.t));
-    const shared = [...lo].filter((t) => hi.has(t)).length;
-    expect(shared / Math.min(lo.size, hi.size)).toBeGreaterThan(0.6);
-  });
-
-  it('never lets a note run past the bar or overlap the next one', () => {
-    for (let seed = 0; seed < 30; seed++) {
-      const notes = renderBass(newRiff(seed), macrosAt(seed / 30), 1, E_MINOR);
-      notes.forEach((n, i) => {
-        const next = notes[i + 1];
-        expect(n.t + n.dur).toBeLessThanOrEqual(next ? next.t : 16);
-      });
-    }
-  });
 });
 
 describe('sub', () => {

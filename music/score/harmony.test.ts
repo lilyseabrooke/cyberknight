@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { evaluateMacros } from './axes/macros';
 import { Conductor } from './conductor';
 import { BANKS, HarmonyState, chordAt, type BankId } from './harmony';
-import { renderBass, newRiff } from './roles/bass';
+import { BassPart, newBass } from './roles/bass';
 import { PAD_WINDOW, PadPart, padPcs } from './roles/beds';
 import { DrumPart, newKit } from './roles/drums';
 import { StabPart } from './roles/stabs';
@@ -10,6 +10,8 @@ import { buildChord, inScale, pc } from './theory';
 import type { HarmonyBar } from './types';
 import { LOW_INTERVAL_FLOOR, movement, respectsLowLimit, voice } from './voicing';
 
+/** A riff-style bass bar, for the stabs to lock to or answer. */
+const riffBar = (seed: number, macros: Record<string, number>, h: HarmonyBar) => new BassPart(newBass(seed, 'riff')).render(h, macros, 0, 300).notes;
 const m = (o: Record<string, number>) => ({ aggression: 0, syncopation: 0, density: 0, darkness: 0.2, drive: 0, ...o });
 const labels = (h: HarmonyBar) => h.segments.map((s) => s.chord.label).join(' ');
 
@@ -117,7 +119,7 @@ describe('stabs', () => {
 
   it('lock to the bass: every stab lands with a bass note', () => {
     for (let seed = 0; seed < 40; seed++) {
-      const bass = renderBass(newRiff(seed), macros, 0, h);
+      const bass = riffBar(seed, macros, h);
       const stabs = new StabPart();
       stabs.forced = 'lock';
       const onsets = new Set(bass.map((n) => n.t));
@@ -129,7 +131,7 @@ describe('stabs', () => {
 
   it('answer the bass: no stab lands with a bass note', () => {
     for (let seed = 0; seed < 40; seed++) {
-      const bass = renderBass(newRiff(seed), macros, 0, h);
+      const bass = riffBar(seed, macros, h);
       const stabs = new StabPart();
       stabs.forced = 'answer';
       const onsets = new Set(bass.map((n) => n.t));
@@ -141,7 +143,7 @@ describe('stabs', () => {
 
   it('drop the third once it gets aggressive: power chords under distortion', () => {
     const stabs = new StabPart();
-    const hits = stabs.render(h, m({ aggression: 0.9, density: 0.7 }), renderBass(newRiff(1), m({ aggression: 0.9 }), 0, h));
+    const hits = stabs.render(h, m({ aggression: 0.9, density: 0.7 }), riffBar(1, m({ aggression: 0.9, density: 0.7 }), h));
     expect(new Set(hits.map((n) => pc(n.note!)))).toEqual(new Set([4, 11]));
   });
 

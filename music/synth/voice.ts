@@ -4,6 +4,10 @@
  *
  * Envelopes use only `setTargetAtTime`, which starts from wherever the value is, so events compose without cancelling (Firefox has
  * no `cancelAndHoldAtTime`). That needs events in time order, which the score guarantees: a note never overlaps the next one.
+ *
+ * The cutoff has two parts: its base, automated by the bar's parameter events (contours included), and an offset added on top by a
+ * ConstantSource, which carries each note's envelope, sweep and wobble. The two never write to the same AudioParam, so a contour and
+ * a pluck can't trample each other.
  */
 import { baseValue, paramPaths } from '../score/mods';
 import { midiToHz } from '../score/theory';
@@ -43,8 +47,12 @@ export class MonoVoice {
   private readonly dry?: GainNode;
   private readonly wet?: GainNode;
   private readonly amp: GainNode;
-  /** The current value of every parameter, as set by the bar's mod routes. */
-  private readonly p: Record<string, number> = {};
+  /** Every parameter's value over time, as set by the bar's parameter events: notes read the value at their own start. */
+  private readonly track: Record<string, { t: number; v: number }[]> = {};
+  /** Added to the filter cutoff: the per-note envelope, sweep and wobble. */
+  private readonly offset?: ConstantSourceNode;
+  /** -cos: a wave that starts at its trough, so a wobble opens from the note's own cutoff. */
+  private readonly trough: PeriodicWave;
   /** When the last note's release is due, if it hasn't been committed: a note starting exactly then ties onto it instead. */
   private pendingOff: number | null = null;
 
@@ -57,7 +65,8 @@ export class MonoVoice {
     dest: AudioNode,
     sends: { reverb?: AudioNode } = {},
   ) {
-    for (const path of paramPaths(patch)) this.p[path] = baseValue(patch, path);
+    for (const path of paramPaths(patch)) this.track[path] = [{ t: -Infinity, v: baseValue(patch, path) }];
+    this.trough = ctx.createPeriodicWave(new Float32Array([0, -1]), new Float32Array([0, 0]), { disableNormalization: true });
 
     const sum = ctx.createGain();
     for (const layer of patch.osc) {
@@ -86,6 +95,10 @@ export class MonoVoice {
       // For lowpass and highpass, Web Audio's Q is the resonance peak in dB.
       this.filter.Q.value = patch.filter.q;
       chain = chain.connect(this.filter);
+      this.offset = ctx.createConstantSource();
+      this.offset.offset.value = 0;
+      this.offset.connect(this.filter.frequency);
+      this.offset.start();
     }
     if (patch.drive) {
       this.pre = ctx.createGain();
@@ -159,12 +172,27 @@ export class MonoVoice {
 
   private lastOff = -Infinity;
 
-  /** Apply the bar's mod-route values, gliding to them over `ramp` seconds from `t`. */
+  /** A parameter's value at time `t`: the last one set at or before it. */
+  private at(path: string, t: number): number {
+    const tr = this.track[path];
+    if (!tr) return 0;
+    let v = tr[0]!.v;
+    for (const e of tr) {
+      if (e.t > t + 1e-6) break;
+      v = e.v;
+    }
+    return v;
+  }
+
+  /** Apply parameter values at `t`, gliding to them over `ramp` seconds. Calls must come in time order. */
   setParams(values: Record<string, number>, t: number, ramp: number): void {
     const tc = Math.max(0.005, ramp / 3);
     for (const [path, v] of Object.entries(values)) {
-      if (!(path in this.p)) continue;
-      this.p[path] = v;
+      const tr = this.track[path];
+      if (!tr) continue;
+      tr.push({ t, v });
+      // Keep a few seconds of history: enough for any note scheduled ahead to find its value.
+      while (tr.length > 2 && tr[1]!.t < t - 8) tr.shift();
       const [head, a, b] = path.split('.');
       if (head === 'level') this.out.gain.setTargetAtTime(v, t, tc);
       else if (head === 'osc') {
@@ -197,7 +225,7 @@ export class MonoVoice {
    * Play a note. A mono voice ties a note that starts exactly when the last one ends; a pool passes `tie` to decide for itself
    * (a held common tone ties, a voice taken for a new note re-attacks).
    */
-  play(n: NoteEvent, t: number, dur: number, tie?: boolean): void {
+  play(n: NoteEvent, t: number, dur: number, tie?: boolean, stepDur = 0.125): void {
     const { amp } = this.patch.env;
     const touching = this.pendingOff !== null && Math.abs(this.pendingOff - t) < 1e-4;
     const legato = tie ?? touching;
@@ -206,7 +234,7 @@ export class MonoVoice {
 
     const hz = midiToHz(n.note ?? 60);
     this.note = n.note ?? null;
-    const glide = n.slide ? Math.max(0.005, this.p.glide ?? 0.03) : 0;
+    const glide = n.slide ? Math.max(0.005, this.at('glide', t) || 0.03) : 0;
     for (const o of this.oscs) {
       const f = hz * 2 ** o.octave;
       for (const { node } of o.nodes) {
@@ -215,22 +243,46 @@ export class MonoVoice {
       }
     }
 
-    const accent = n.accent ? (this.p.accent ?? 0) : 0;
+    const shape = n.shape;
+    const accent = n.accent ? this.at('accent', t) : 0;
     const peak = n.vel * (1 + accent);
+    const attack = shape?.attack ? shape.attack * stepDur : amp.a;
     if (!legato) {
-      this.amp.gain.setTargetAtTime(peak, t, Math.max(0.001, amp.a / 3));
-      if (amp.a < dur) this.amp.gain.setTargetAtTime(peak * amp.s, t + amp.a, amp.d / 3);
+      this.amp.gain.setTargetAtTime(peak, t, Math.max(0.001, attack / 3));
+      // A swelled note holds at its peak instead of decaying: the swell is the gesture.
+      if (attack < dur && !shape?.attack) this.amp.gain.setTargetAtTime(peak * amp.s, t + attack, amp.d / 3);
     }
 
-    if (this.filter && this.patch.filter && (this.p['filter.env'] ?? 0) > 0) {
-      const base = this.p['filter.cutoff'] ?? this.patch.filter.cutoff;
-      const depth = (this.p['filter.env'] ?? 0) * (1 + 1.5 * accent) * n.vel;
-      const top = Math.min(16000, base * 2 ** depth);
-      const decay = this.p['env.filterDecay'] ?? 0.15;
-      // Legato notes don't re-pluck the filter: a slide is one gesture.
-      if (!legato) {
-        this.filter.frequency.setTargetAtTime(top, t, 0.001);
-        this.filter.frequency.setTargetAtTime(base, t + 0.004, decay / 3);
+    const off = this.offset?.offset;
+    if (off && this.filter) {
+      const base = this.at('filter.cutoff', t);
+      const end = t + dur;
+      if (shape?.sweep || shape?.wobble) {
+        // The held bass's gesture: the filter opens across the whole note, with a wobble riding on top, then closes at the end.
+        const sweepHz = base * ((shape.sweep ?? 1) - 1);
+        const wob = shape.wobble ? (base * (2 ** shape.wobble.depth - 1)) / 2 : 0;
+        off.setTargetAtTime(Math.min(12000, sweepHz + wob), t, Math.max(0.01, dur / 3));
+        off.setTargetAtTime(0, end, 0.06);
+        if (shape.wobble && wob > 0) {
+          const lfo = this.ctx.createOscillator();
+          lfo.setPeriodicWave(this.trough);
+          const f0 = 1 / (shape.wobble.period * stepDur);
+          lfo.frequency.setValueAtTime(f0, t);
+          if (shape.wobble.periodTo) lfo.frequency.linearRampToValueAtTime(1 / (shape.wobble.periodTo * stepDur), end);
+          const depth = this.ctx.createGain();
+          depth.gain.setValueAtTime(0, t);
+          depth.gain.setTargetAtTime(wob, t, Math.min(0.05, dur / 6));
+          depth.gain.setTargetAtTime(0, end, 0.04);
+          lfo.connect(depth).connect(this.filter.frequency);
+          lfo.start(t);
+          lfo.stop(end + 0.3);
+        }
+      } else if (!legato && this.at('filter.env', t) > 0) {
+        // A pluck. Legato notes don't re-pluck the filter: a slide is one gesture.
+        const depth = this.at('filter.env', t) * (1 + 1.5 * accent) * n.vel;
+        const top = Math.min(16000, base * 2 ** depth);
+        off.setTargetAtTime(top - base, t, 0.001);
+        off.setTargetAtTime(0, t + 0.004, this.at('env.filterDecay', t) / 3);
       }
     }
     this.pendingOff = t + dur;

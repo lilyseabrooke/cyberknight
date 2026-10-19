@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AXIS_REGISTRY } from '../music/score/axes/registry';
 import { MACROS } from '../music/score/axes/macros';
 import { BANKS, type BankId } from '../music/score/harmony';
+import { BASS_STYLES, type BassStyle } from '../music/score/roles/bass';
 import type { StabFeel } from '../music/score/roles/stabs';
 import { NOTE_NAMES, noteName } from '../music/score/theory';
 import type { Bar, RoleId } from '../music/score/types';
@@ -29,6 +30,7 @@ interface Readout {
   kick: string;
   stabs: string;
   drone: boolean;
+  bass: string;
   axes: Record<string, number>;
 }
 
@@ -46,6 +48,7 @@ export default function MusicLab() {
   const [key, setKey] = useState(4);
   const [progression, setProgression] = useState('rest:0');
   const [stabFeel, setStabFeel] = useState<StabFeel | 'auto'>('auto');
+  const [bassStyle, setBassStyle] = useState<BassStyle | 'auto'>('auto');
   const [muted, setMuted] = useState<RoleId[]>([]);
   const [volume, setVolume] = useState(0.8);
   const [readout, setReadout] = useState<Readout | null>(null);
@@ -55,7 +58,11 @@ export default function MusicLab() {
   const get = (): MusicEngine => {
     if (!engine.current) {
       const e = new MusicEngine({ seed, bpm, key });
-      e.onBar = (b) => setReadout({ bar: b, kick: e.conductor.last.kick, stabs: e.conductor.last.stabs, drone: e.conductor.last.drone, axes: { ...e.conductor.axes.values() } });
+      e.onBar = (b) => {
+        const l = e.conductor.last;
+        const m = e.conductor.bass.material;
+        setReadout({ bar: b, kick: l.kick, stabs: l.stabs, drone: l.drone, bass: `${l.bass} · velocity ${m.phraseCurve}/${m.barCurve} · cutoff ${m.contour}`, axes: { ...e.conductor.axes.values() } });
+      };
       engine.current = e;
     }
     return engine.current;
@@ -77,6 +84,7 @@ export default function MusicLab() {
     c.setProgression(p.bank, p.index);
     c.stabs.forced = stabFeel === 'auto' ? null : stabFeel;
     if (c.seed !== seed) c.reseed(seed);
+    c.setBassStyle(bassStyle === 'auto' ? null : bassStyle);
     c.muted.clear();
     for (const r of muted) c.muted.add(r);
   };
@@ -120,7 +128,7 @@ export default function MusicLab() {
           <h1 className="logo">
             MUSIC <span>LAB</span>
           </h1>
-          <p className="tag">Phase 2: harmony and the beds. The rhythm section, a pad, stabs and a drone over an 8-bar loop.</p>
+          <p className="tag">Phase 2: harmony and the beds. The rhythm section, a pad, stabs and a drone over an 8-bar loop. The bass has four styles.</p>
         </div>
         <div className="controls">
           <button className="btn primary" onClick={() => void toggle()}>
@@ -196,6 +204,7 @@ export default function MusicLab() {
             Rows: hats, clap/snare, kick, stabs, bass (bright = accent, underline = slide). Kick {readout?.kick ?? '-'} · stabs {readout?.stabs ?? '-'} ·
             drone {readout?.drone ? 'on' : 'off'} · pad {pad.join(' ') || '-'}
           </p>
+          <p className="muted small">Bass: {readout?.bass ?? '-'}</p>
         </section>
 
         <section className="panel" aria-label="Setup">
@@ -227,6 +236,17 @@ export default function MusicLab() {
             <input type="range" min={90} max={140} step={1} value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
           </label>
           <label className="inline">
+            Bass{' '}
+            <select value={bassStyle} onChange={(e) => setBassStyle(e.target.value as BassStyle | 'auto')}>
+              <option value="auto">the seed&apos;s style</option>
+              {BASS_STYLES.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="inline">
             Stabs{' '}
             <select value={stabFeel} onChange={(e) => setStabFeel(e.target.value as StabFeel | 'auto')}>
               <option value="auto">follow syncopation</option>
@@ -244,7 +264,7 @@ export default function MusicLab() {
               New material
             </button>
           </div>
-          <p className="muted small">Seed {seed}: the riff, the drum kit and the pad&apos;s articulation. Changes land on the next bar line.</p>
+          <p className="muted small">Seed {seed}: the bassline (style, shape, curves), the drum kit and the pad&apos;s articulation. Changes land on the next bar line.</p>
         </section>
       </div>
     </main>

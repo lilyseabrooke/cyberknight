@@ -32,13 +32,29 @@ export interface NoteEvent {
   tension?: boolean;
   /** Which sound, for roles with more than one (perc: 0 clank, 1 rim). */
   variant?: number;
+  /** A gesture across the note itself: the held bass's swell, filter sweep and wobble. */
+  shape?: NoteShape;
 }
 
-/** A patch parameter set for the coming bar, ramped to over the first part of the bar. */
+/** Modulation that lives inside one note. Times are in steps. */
+export interface NoteShape {
+  /** A slower attack than the patch's: a swell into the note. */
+  attack?: number;
+  /** The filter opens across the note to this multiple of the cutoff, then closes when it ends. */
+  sweep?: number;
+  /** A tempo-synced wobble on the cutoff: one cycle every `period` steps (speeding up to `periodTo`), `depth` octaves deep. */
+  wobble?: { period: number; periodTo?: number; depth: number };
+}
+
+/** A patch parameter change. Without `t` it lands at the bar line; with it, at that step, so a bar can carry a contour. */
 export interface ParamEvent {
   role: RoleId;
   path: string;
   value: number;
+  /** Step within the bar. Default 0. */
+  t?: number;
+  /** Steps to glide to the value. Default 2. */
+  glide?: number;
 }
 
 /** What the conductor hands the scheduler for one bar. */

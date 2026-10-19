@@ -1336,3 +1336,48 @@ Where it differs from the plan:
   - `--stems` renders each bus alone and reports its level.
   - Starting balance in the groove clip: sub -14, bass -19, drums -20, beds -20 dBFS RMS. Stabs come in around -22 when on.
 
+### Bass revision (after phase 2, from the author's listening)
+
+The author heard the bass as too similar across pieces, too groovy (and in the same few patterns), too bright, and bouncy enough to
+sound cheerful under dark progressions. It also had no shaping over time beyond each note's velocity. The bass (`music/score/roles/bass.ts`)
+was rebuilt around **styles**:
+
+| Style | What it plays |
+|---|---|
+| `hold` | A huge note held for half a bar or a whole one: it swells in when quiet, its filter sweeps open across it, and a tempo-synced wobble (1/4, 1/8, 1/16 by drive, speeding up when it's busy) rides on top. Then it drops out. |
+| `roll` | Growly straight 8ths on the root, pumping inside each beat, with 16th roll-ins when busy. |
+| `pulse` | Locked offbeats (or 8ths, or on the kick), with rare 16th pickups when it's rough. |
+| `riff` | The old syncopated line, calmer (lower off-grid weights) and now the rarest style (about 20% of seeds). |
+
+- **Style is material.** It's chosen per seed (hold 30%, roll 30%, pulse 20%, riff 20%), or pinned in MusicLab and renders. Choosing a
+  different style per piece is the song layer's job later (§11).
+- **Every style plays a 4-bar shape** of `full`, `half`, `rest` (a whole bar of silence), `tail` (a pickup on beat 4) or `fill` (riffs).
+  - Below density 0.35 the shape thins toward silence.
+  - Above 0.7 it fills its gaps.
+  - **The sub follows the shape,** so when the bass drops out the whole low end goes with it. The sub also shares the held bass's
+    swell.
+- **Aggression changes the sound more than the busyness:** drive, resonance, pluck depth and wobble depth. Only riffs get busier.
+- **Shaping over time:**
+  - Velocity curves across the phrase (`flat`, `rise`, `fall`, `arch`) and inside the bar (`pump`, `swell`).
+  - A cutoff contour across the phrase (`open`, `close`, `breathe`), drawn as parameter events at steps 0, 4, 8 and 12. `ParamEvent`
+    gained `t` and `glide`, so any part can now draw a contour through a bar.
+  - Per-note shapes (`NoteShape`: attack, sweep, wobble).
+  - The voice keeps each parameter's value over time, so a note reads the value at its own start. The filter envelope, sweep and
+    wobble ride on a separate ConstantSource offset, so they never trample the cutoff automation.
+- **It moves less.**
+  - At aggression 0 it plays roots only. With aggression and darkness come the near neighbours: the ♭2 above (diatonic, or a tagged
+    rub over the tonic) and the diatonic seventh below.
+  - Only riffs leap, and only a little, to the octave and the fifth.
+  - Rolls anchor on the root at every beat, and gates lengthen as it gets darker.
+- **It's darker:**
+  - The square sits at pitch instead of an octave down.
+  - The highpass dropped from 110 Hz to 72 Hz, so the bass's own fundamental comes through.
+  - A 2.4 kHz lowpass takes the fizz off the drive.
+  - The cutoff range is 200-560 Hz (it was 300-900), resonance tops out at 5 (it was 12), and the crush is lighter and only above
+    aggression 0.85.
+  - The sweep's energy above 2.5 kHz went from about -14 dB to -29 dB. The render script now checks it (below -24 dB).
+  - The sub-leak check measures below 65 Hz (the sub's core), because the bass's own E2 (82 Hz) now belongs there.
+- **Locked stabs** play one hit on the downbeat in a bar the bass sits out.
+- **The music's hash** (`music/score/rng.ts`) now fully mixes the seed and each part before they meet. Before this, neighbouring seeds
+  (1, 2, 3...) clustered, and five of the first seven seeds got the same bass style.
+

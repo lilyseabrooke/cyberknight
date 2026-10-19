@@ -38,7 +38,8 @@ export class StabPart {
       const accents = bass.filter((n) => n.accent).map((n) => n.t);
       const strong = bass.map((n) => n.t).sort((a, b) => (a % 4) - (b % 4) || a - b);
       steps = [...new Set([...accents, ...strong])].slice(0, count);
-      if (!bass.length) steps = [0, 8];
+      // A bar the bass sits out gets one hit on the downbeat, then space.
+      if (!bass.length) steps = [0];
     } else {
       steps = ANSWER_STEPS.filter((s) => !onsets.has(s) && !sounding(s)).slice(0, count);
       if (!steps.length) steps = ANSWER_STEPS.filter((s) => !onsets.has(s)).slice(0, Math.min(2, count));

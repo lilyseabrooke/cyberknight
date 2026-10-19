@@ -27,7 +27,7 @@ export class VoicePool {
     });
     plan.forEach((a) => {
       const n = notes[a.index]!;
-      this.voices[a.slot]!.play(n, t, n.dur * stepDur, a.tie);
+      this.voices[a.slot]!.play(n, t, n.dur * stepDur, a.tie, stepDur);
       if (!a.tie) this.started[a.slot] = t;
     });
   }

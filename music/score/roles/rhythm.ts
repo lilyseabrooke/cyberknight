@@ -33,14 +33,26 @@ export function renderKick(feel: KickFeel, key: number): NoteEvent[] {
 
 /**
  * The sub holds each chord's root (or the tonic under a pedal) for as long as the chord lasts, so a repeated root ties into one long
- * clean tone; the kick's sidechain duck gives it its pulse. It never leaves E1-E2.
+ * clean tone; the kick's sidechain duck gives it its pulse. It plays only where the bass does (`range`), so when the bass sits out
+ * the whole low end goes with it, and it shares a held bass's swell. It never leaves E1-E2.
  */
-export function renderSub(h: HarmonyBar): NoteEvent[] {
-  return h.segments.map((s) => ({
-    t: s.from,
-    role: 'sub' as const,
-    note: foldInto(SUB_LO + (((h.pedal ? h.key : s.chord.root) - SUB_LO) % 12 + 12) % 12, SUB_LO, SUB_HI),
-    vel: 1,
-    dur: s.to - s.from,
-  }));
+export function renderSub(h: HarmonyBar, range: [number, number] | null = [0, 16], attack?: number): NoteEvent[] {
+  if (!range) return [];
+  const [lo, hi] = range;
+  const out: NoteEvent[] = [];
+  for (const s of h.segments) {
+    const from = Math.max(lo, s.from);
+    const to = Math.min(hi, s.to);
+    if (to <= from) continue;
+    const n: NoteEvent = {
+      t: from,
+      role: 'sub',
+      note: foldInto(SUB_LO + (((h.pedal ? h.key : s.chord.root) - SUB_LO) % 12 + 12) % 12, SUB_LO, SUB_HI),
+      vel: 1,
+      dur: to - from,
+    };
+    if (attack !== undefined && from === lo) n.shape = { attack };
+    out.push(n);
+  }
+  return out;
 }

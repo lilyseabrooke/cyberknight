@@ -3,16 +3,25 @@
  * (seed, what, where) without carrying a stream around. That is what lets a riff stay the same riff while the axes move it.
  */
 
-/** A 32-bit hash of a seed and some integers (murmur-style finalizer). */
-export function hash(seed: number, ...parts: number[]): number {
-  let h = seed >>> 0 || 0x9e3779b9;
-  for (const p of parts) {
-    h = Math.imul(h ^ (p >>> 0), 0x85ebca6b);
-    h ^= h >>> 13;
-    h = Math.imul(h, 0xc2b2ae35);
-    h ^= h >>> 16;
-  }
+/** murmur3's finalizer: every input bit reaches every output bit. */
+function fmix(x: number): number {
+  let h = x >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
   return h >>> 0;
+}
+
+/**
+ * A 32-bit hash of a seed and some integers. The seed and each part are fully mixed before they meet, so neighbouring seeds (1, 2,
+ * 3...) give unrelated results.
+ */
+export function hash(seed: number, ...parts: number[]): number {
+  let h = fmix((seed >>> 0) ^ 0x9e3779b9);
+  for (const p of parts) h = fmix(h ^ fmix(((p >>> 0) + 0x7f4a7c15) >>> 0));
+  return h;
 }
 
 /** A uniform number in [0, 1) from a seed and some integers. */

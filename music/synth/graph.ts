@@ -37,14 +37,12 @@ export class Graph {
     const stepDur = 60 / bar.bpm / 4;
     const barDur = stepDur * STEPS_PER_BAR;
 
-    const byRole = new Map<PatchedRole, Record<string, number>>();
-    for (const p of bar.params) {
+    // Parameter events in time order: bar-line values first, then any contour points later in the bar.
+    const params = [...bar.params].sort((a, b) => (a.t ?? 0) - (b.t ?? 0));
+    for (const p of params) {
       if (!isPatched(p.role)) continue;
-      const m = byRole.get(p.role) ?? {};
-      m[p.path] = p.value;
-      byRole.set(p.role, m);
+      this.voices[p.role].setParams({ [p.path]: p.value }, start + (p.t ?? 0) * stepDur, (p.glide ?? PARAM_RAMP_STEPS) * stepDur);
     }
-    for (const [role, values] of byRole) this.voices[role].setParams(values, start, PARAM_RAMP_STEPS * stepDur);
 
     for (const t of bar.kicks) this.mixer.duck(start + t * stepDur, bar.macros.density ?? 0, stepDur);
     this.mixer.gateBeds(start, stepDur, bar.bedGate);
@@ -62,7 +60,7 @@ export class Graph {
         continue;
       }
       const v = this.voices[n.role];
-      if (v instanceof MonoVoice) v.play(n, t, n.dur * stepDur);
+      if (v instanceof MonoVoice) v.play(n, t, n.dur * stepDur, undefined, stepDur);
       else {
         const k = `${n.role}@${n.t}`;
         chords.set(k, [...(chords.get(k) ?? []), n]);
