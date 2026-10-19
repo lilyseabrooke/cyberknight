@@ -10,6 +10,7 @@ import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { awareness } from './stealth';
 import { witnessBodies } from './witnesses';
+import { MAKES, vehicleOf } from './cars';
 import { makeNoise, makeUnit, prowlBoard, type Board, type Light } from './prowl';
 import { placeOf, syncPlace } from './placeboard';
 import type { Ctx } from './types';
@@ -473,5 +474,30 @@ describe('a hunt on the street', () => {
     }
     expect(kinds.size).toBeGreaterThan(0);
     expect(Object.keys(used).length).toBeGreaterThan(0);
+  });
+
+  it('there are machines on the street she can Override, and she uses them in a chase, on foot or in a car', () => {
+    const kinds = new Set<string>();
+    const used = new Set<string>();
+    for (let i = 0; i < 360; i++) {
+      const at = ['street_main', 'club_backlot', 'halo_alley'][i % 3]!;
+      const sc = scenario({ seed: `hack-${i % 40}`, at, competence: 0.6 });
+      const { w } = sc;
+      w.hero.level = 8;
+      w.hero.maxHp = w.hero.hp = 180;
+      w.hero.int = 9;
+      const p = placeOf(w)!;
+      for (const pr of p.layout.props) kinds.add(pr.kind);
+      if (i % 2) w.hero.vehicle = vehicleOf(MAKES.civilian[0]!, `h${i}`);
+      const { c, events } = ctxOf(w, new Rng(`hk-${i}`));
+      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 5)) });
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'chase_prop') used.add(String(e.data.variant));
+      }
+    }
+    expect([...kinds].some((k) => ['parked_car', 'barrier', 'turret', 'signal'].includes(k))).toBe(true);
+    expect([...used].some((k) => ['parked_car', 'barrier', 'turret', 'signal'].includes(k))).toBe(true);
   });
 });

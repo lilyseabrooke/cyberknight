@@ -207,3 +207,12 @@ few tiles of her line; with the pursuers 1.5 to 12 tiles back she may use it (`u
 roll): `slows` adds to every pursuer's gap (half for those in cars), `darkens` makes a dark patch (`ChaseBoard.dim`, which `chaserSees` reads, so she is
 harder to see for four rounds), and a noisy one sets a decoy (the tracking check is harder for three rounds). A failure costs her half a tile. Told as `chase_prop`.
 Not yet: the pursuers using props against her, or props in car chases.
+
+### Things she can Override
+
+`PropDef.override` is true by default (the indoor machines) and false for the street furniture anyone can push over. New street props that need an Override: `parked_car`
+(from vehicle fixtures: a driverless car pulls out across the street), `barrier` (from barrier fixtures: raised behind her), `turret` (on a lamp pole in gang
+territory and the corporate and industrial districts: shoots at the nearest pursuer, 10 damage and a tile gained) and `signal` (on a lamp at junctions on avenues,
+boulevards, streets and terraces: it stops cross traffic; big for vehicles). `slowsCar` is the extra for pursuers in vehicles (otherwise half of `slows`).
+In a chase `use_prop` rolls `overrideChance` for machines (and trains tinkering) and athletics for the rest; a car can use only machines, since she can't reach out
+of the window and kick a stall over. The stealth scenes use the same roll.

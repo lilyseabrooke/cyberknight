@@ -16,6 +16,7 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { PROPS } from './content/props';
+import { overrideChance } from './override';
 import { streetHunt } from './streethunt';
 import { bystand } from './bystanders';
 import { patrolArrives, sendAway, shootEveryone } from './callins';
@@ -502,7 +503,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         outs = board ? outsFrom(w, board).filter((x) => x.kind !== 'cover' || !car) : [];
         scores.lose_them = (tight || outs.some((x) => x.kind !== 'crowd')) && lead.gap >= 3 ? (foot ? 7.5 : 6.5) + (outs.some((x) => x.kind === 'door' || x.kind === 'up') ? 1 : 0) + (board && blockIn(board) !== null && outs.some((x) => x.kind !== 'crowd') ? 3 : 0) : 0;
         // Something on the street to pull down behind her, or put out.
-        const handy = foot && board && !boarded ? propNear(board) : null;
+        const handy = board && !boarded ? propNear(board, { car: !foot }) : null;
         scores.use_prop = handy && lead.gap >= 1.5 && lead.gap <= 12 ? 4.5 + (band === 'close' ? 1.5 : 0) + (PROPS[handy.kind as keyof typeof PROPS]?.slows ? 0.5 : 0) : 0;
         scores.shoot = armedBack && (band === 'near' || band === 'close') ? 4 : 0;
         if (band === 'locked' && lead.car && hpRatio > 0.5) scores.board = 2;
@@ -770,18 +771,29 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
           }
         }
       } else if (action === 'use_prop' && board) {
-        const pr = propNear(board);
+        const pr = propNear(board, { car: !foot });
         const def = pr ? PROPS[pr.kind as keyof typeof PROPS] : null;
         if (pr && def) {
-          if (rng.chance(clamp(0.7 + 0.03 * skillValue(h, 'athletics') + 0.01 * h.reflex - 0.1 * squeeze, 0.3, 0.95))) {
+          const machine = def.override !== false;
+          const p = machine ? overrideChance(w, 0.5) : clamp(0.7 + 0.03 * skillValue(h, 'athletics') + 0.01 * h.reflex - 0.1 * squeeze, 0.3, 0.95);
+          if (rng.chance(p)) {
             pr.charges--;
-            if (def.slows) for (const f of live) f.gap += def.slows * (f.foot ? 1 : 0.5);
+            if (machine) train(c, 'tinkering', 1);
+            for (const f of live) f.gap += f.car ? def.slowsCar ?? (def.slows ?? 0) * 0.5 : def.slows ?? 0;
             if (def.darkens) (board.dim ??= []).push({ at: { x: pr.x, y: pr.y }, r: def.darkens, until: round + 4 });
             if (def.noise >= 0.25) decoy = 3;
+            if (def.shoots) {
+              const target = live.find((f) => f.crew.some((n) => n.alive))?.crew.find((n) => n.alive);
+              if (target) {
+                target.hp -= Math.round(def.shoots * (0.6 + 0.8 * rng.next()));
+                if (target.hp <= 0) kill(c, w, target, 'a turret');
+              }
+              for (const f of live) f.gap += 1;
+            }
             c.emit('chase_prop', 'good', { variant: pr.kind, ok: true, label: def.label, foe: lead.name, place: here.name });
           } else {
             for (const f of live) f.gap = Math.max(0, f.gap - 0.5);
-            c.emit('chase_prop', 'bad', { variant: pr.kind, ok: false, label: def.label, foe: lead.name, place: here.name });
+            c.emit('chase_prop', 'bad', { variant: pr.kind, ok: false, label: def.label, foe: lead.name, place: here.name, machine });
           }
         }
       } else if (action === 'bail') {

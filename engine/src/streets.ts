@@ -233,7 +233,7 @@ function finishStreet(loc: Location, d: Draft, site: Site, o: { base?: LightLeve
   const poles = l.fixtures.filter((f) => f.kind === 'lamp').map((f) => f.tiles[0]!);
   if (poles.length) l.cams = poles.filter((_, i) => i % 2 === 0).slice(0, Math.max(0, loc.cameras)).map((p, i) => ({ id: `cam${i}`, x: p.x, y: p.y, facing: i % 2 ? 2 : 6 }));
   // The things that stand about on a street are things to pull down, push over or switch off.
-  const FIXTURE_PROP: Partial<Record<Fixture['kind'], PropKind>> = { crate: 'crates', container: 'crates', stall: 'stall', lamp: 'lamp', pipe: 'vent', machine: 'vending' };
+  const FIXTURE_PROP: Partial<Record<Fixture['kind'], PropKind>> = { crate: 'crates', container: 'crates', stall: 'stall', lamp: 'lamp', pipe: 'vent', machine: 'vending', vehicle: 'parked_car', barrier: 'barrier' };
   const taken = new Set<string>();
   const counts: Partial<Record<PropKind, number>> = {};
   for (const f of l.fixtures) {
@@ -245,6 +245,13 @@ function finishStreet(loc: Location, d: Draft, site: Site, o: { base?: LightLeve
     counts[kind] = (counts[kind] ?? 0) + 1;
     l.props.push({ kind, x: at.x, y: at.y });
   }
+  // Gang turf and the corporate and industrial districts keep a turret on a pole; crossings have their lights.
+  const spot = (kind: Fixture['kind']): Pos | undefined => l.fixtures.filter((f) => f.kind === kind).flatMap((f) => f.use).find((p) => passable(l.grid, p.x, p.y) && !taken.has(`${p.x},${p.y}`) && l.grid.cells[p.y * l.grid.w + p.x] !== 'exit');
+  const guarded = !!loc.territory || ['corporate', 'industrial'].includes(loc.gen?.district ?? '');
+  const turret = guarded ? spot('lamp') : undefined;
+  if (turret) l.props.push({ kind: 'turret', x: turret.x, y: turret.y });
+  const light = ['avenue', 'boulevard', 'street', 'terrace'].includes(streetTypeOf(loc)) ? spot('lamp') : undefined;
+  if (light && !(turret && light.x === turret.x && light.y === turret.y)) l.props.push({ kind: 'signal', x: light.x, y: light.y });
   return l;
 }
 

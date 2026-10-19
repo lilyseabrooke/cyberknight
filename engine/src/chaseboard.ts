@@ -411,14 +411,16 @@ export interface NearProp {
 }
 
 /** The nearest thing she could use that is beside the line a little way ahead (or where she is): something to pull down behind her. */
-export function propNear(cb: ChaseBoard): NearProp | null {
+export function propNear(cb: ChaseBoard, o: { car?: boolean } = {}): NearProp | null {
   const her = tileAt(cb, cb.s);
   const ahead = cb.path.slice(Math.floor(cb.s), Math.floor(cb.s) + 7);
   let best: { p: NearProp; d: number } | null = null;
   for (const p of cb.placed.board.props as NearProp[]) {
     if (p.charges <= 0) continue;
     const def = PROPS[p.kind as PropKind];
-    if (!def || (!def.slows && !def.darkens)) continue;
+    if (!def || (!def.slows && !def.darkens && !def.shoots && !def.slowsCar)) continue;
+    // From a vehicle she cannot reach out and kick a stall over, but she can hack something.
+    if (o.car && def.override === false) continue;
     if (!ahead.some((q) => dist(q, p) <= 2)) continue;
     const d = dist(her, p);
     if (!best || d < best.d) best = { p, d };

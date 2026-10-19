@@ -863,7 +863,7 @@ export function useProp(c: Ctx, b: Board, prop: Prop, say: Sink): void {
   const { w, rng } = c;
   const def = PROPS[prop.kind];
   train(c, 'tinkering', 1);
-  if (!rng.chance(overrideChance(w, 0.45))) {
+  if (!rng.chance(def.override === false ? clamp(0.75 + 0.02 * skillValue(w.hero, 'athletics'), 0.4, 0.95) : overrideChance(w, 0.45))) {
     makeNoise(b, prop, 0.12, 'object');
     say('prowl_distract', 'bad', { variant: 'fail', prop: prop.kind, label: def.label });
     return;
