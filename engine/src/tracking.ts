@@ -18,6 +18,9 @@ export const heroTracker = (w: World): number => 1 + 0.7 * skillValue(w.hero, 't
 export const coverOf = (n: Npc, squeeze: number): number => 3 + 0.5 * skillOf(n, 'sneak') + 3 * squeeze;
 export const heroCover = (w: World, squeeze: number): number => 3 + 0.5 * skillValue(w.hero, 'sneak') + 3 * squeeze;
 
+/** Noise she makes after they have lost her gives them something to follow: the cover is that much thinner, more the louder it was. */
+export const eased = (cover: number, noise: number): number => Math.max(0, cover - Math.min(6, 5 * noise));
+
 export const trailOf = (q: number): Trail => (q < 0.3 ? 'none' : q < 0.55 ? 'cold' : q < 0.8 ? 'warm' : 'hot');
 
 /** One check: the result as 0 to 1. */

@@ -3,7 +3,7 @@ import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { scenario } from './testkit';
 import { spawnGroup } from './candidate';
 import { onFoot, runChase } from './chase';
-import { addTire, standTired, tire } from './tracking';
+import { addTire, eased, standTired, tire } from './tracking';
 import { streetHunt } from './streethunt';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
@@ -272,5 +272,37 @@ describe('a hunt on the street', () => {
       }
     }
     expect(Object.keys(seen).length).toBeGreaterThan(0);
+  });
+
+  it('noise she makes after they have lost her makes her easier to follow, the more the louder', () => {
+    expect(eased(8, 0)).toBe(8);
+    expect(eased(8, 0.4)).toBeCloseTo(6);
+    expect(eased(8, 1)).toBe(3);
+    expect(eased(8, 5)).toBe(2);
+    expect(eased(2, 1)).toBe(0);
+    const rate = (heard: number): number => {
+      let got = 0;
+      for (let i = 0; i < 150; i++) {
+        const sc = scenario({ seed: `ear-${i % 10}`, at: 'street_main', competence: 0.6 });
+        const { w } = sc;
+        w.hero.stealth = true;
+        const n = spawnNpc(new Rng(`hound${i}`), `hound${i}`, 'ganger', w.hero.locationId);
+        n.level = 1;
+        addNpc(w, n);
+        const a = awareness(w, n);
+        a.v = 0.6;
+        a.fix = false;
+        const cells = Array(20 * 3).fill('floor') as never;
+        const u = makeUnit(n, { x: 3, y: 1 }, 2);
+        u.behavior = 'search';
+        u.heard = heard;
+        const b: Board = { w, grid: { w: 20, h: 3, cells, exits: [{ x: 19, y: 1 }] }, light: Array<Light>(60).fill(1), units: [u], hero: { x: 15, y: 1 }, posture: 'hold', props: [], bodies: [], round: 1, dark: [], role: 'test', tracking: true, goal: 'leave', ways: [{ at: { x: 19, y: 1 }, to: 'club_backlot' }] };
+        const events: string[] = [];
+        prowlBoard({ w, rng: new Rng(`e${i}`), emit: (t) => events.push(t) }, b, (t) => events.push(t));
+        if (events.includes('prowl_track')) got++;
+      }
+      return got;
+    };
+    expect(rate(1.5)).toBeGreaterThan(rate(0));
   });
 });

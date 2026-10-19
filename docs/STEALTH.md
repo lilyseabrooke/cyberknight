@@ -154,3 +154,10 @@ across chases and the hunts between them (one per chase round, one per hunt scen
 carries a `standTired` chance, 3.5 % per round beyond that up to 70 %, that whoever has been running longest stops and stands: she turns round
 (`chase_mount:hero_stands`, the chase ends as caught and the fight follows) or, when she is chasing, a runner adds it to their chance to stop. A fight, a win
 or a wreck ends the running (`rest`), and so do eight beats of quiet.
+
+### Noise helps the tracker
+
+Once they have lost her, whatever noise she makes thins her cover (`eased` in `tracking.ts`: 5 points off per unit of noise, up to 6). In a hunt, each searcher
+keeps a running total of her noise that reached them (`PUnit.heard`, from `makeNoise`, so distance, walls and how keen their ears are all count) and spends
+it on their next hunch. In a chase, once nobody can see her (`lost`), each round adds what she is doing to `loud` (0.3 running on foot, 0.45 in a car, 0.45 or 0.7
+flat out, 0.6 for blows or ramming, 1 for shooting), which eases the check when sight is lost and when the gap runs out; being seen again resets it.

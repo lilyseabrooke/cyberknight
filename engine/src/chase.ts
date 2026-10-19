@@ -16,7 +16,7 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { streetHunt } from './streethunt';
-import { BEHIND, addTire, coverOf, follow, rest, standTired, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
+import { BEHIND, addTire, coverOf, eased, follow, rest, standTired, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
@@ -94,6 +94,9 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   const searching = new Set<Npc>();
   let searchStreet = '';
   // What each of them has made of the trail, and how many times they have tried to pick it up.
+  // The noise she (or whoever is running) has made since they were last in sight of her: it all helps whoever is following.
+  let loud = 0;
+  let lost = false;
   const trails = new Map<Chaser, Trail>();
   const tries = new Map<Chaser, number>();
   // A chaser's check on her trail: the best of their crew. They get three goes in a chase.
@@ -101,7 +104,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     const n = (tries.get(f) ?? 0) + (why === 'far' ? 1 : 0);
     if (n > 3) return 'none';
     if (why === 'far') tries.set(f, n);
-    const cover = heroCover(w, squeeze) + (hid ? 2 : 0);
+    const cover = eased(heroCover(w, squeeze) + (hid ? 2 : 0), loud);
     const best = f.crew.filter((x) => x.alive).reduce((a, x) => Math.max(a, trackerOf(x)), f.crew.some((x) => x.alive) ? 0 : -9) + (f.foot ? 0 : -1);
     const r = follow(rng, best, cover);
     trails.set(f, r.trail);
@@ -115,7 +118,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     if (n > 3) return [];
     for (const f of live) tries.set(f, n);
     train(c, 'tracking', 1);
-    const r = follow(rng, heroTracker(w), Math.max(...live.map((f) => Math.max(...f.crew.map((x) => coverOf(x, squeeze))))));
+    const r = follow(rng, heroTracker(w), Math.max(...live.map((f) => Math.max(...f.crew.map((x) => eased(coverOf(x, squeeze), loud))))));
     for (const f of live) trails.set(f, r.trail);
     return r.trail === 'none' ? [] : live;
   };
@@ -965,8 +968,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       if (!result && board && !boarded && round > 1 && o.mode === 'pursued') {
         const eyes = camerasSeeHer(w);
         const seen = live.some((f) => chaserSees(w, board!, f.gap, wings(f)) || (eyes && (f.car?.kind === 'police' || f.car?.kind === 'atlas' || f.crew.some((n) => n.tags.includes('cop')))));
+        lost = !seen;
         if (seen) {
           unseen = 0;
+          lost = false;
+          loud = 0;
           lastSeen = tileAt(board, board.s);
         } else if (++unseen >= 2) {
           // They go to where they last had her, and look from there.
@@ -1019,6 +1025,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       else if (!result && o.mode === 'pursuer' && live.some((f) => wings(f) && bandOf(f.gap) === 'locked') && action !== 'shoot') result = 'caught';
       else if (!result && (caughtOnFoot || (o.mode === 'pursued' && live.some((f) => bandOf(f.gap) === 'locked') && round >= maxRounds - 1 && rng.chance(0.5)))) result = 'caught';
 
+      // Whatever she does while they cannot see her, they can hear.
+      if (lost && !result) loud += action === 'shoot' ? 1 : action === 'strike' || action === 'ram' ? 0.6 : action === 'floor_it' ? (car ? 0.7 : 0.45) : car ? 0.45 : 0.3;
       tell(action, told, hurt, round, car, lead);
       const now = mounted();
       if (now && now.hp / now.maxHp <= 0.25 && round < maxRounds && !result) c.emit('car_hit', 'bad', { variant: 'smoking', car: now.name, body: now.body, mine: true });

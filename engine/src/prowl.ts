@@ -2,7 +2,7 @@ import { Rng, hashString } from './rng';
 import type { Awareness, Ctx, Dungeon, Id, Location, Npc, World } from './types';
 import { clamp } from './candidate';
 import { angDiff, dirOf, dist, hasLos, idx, inCover, line, neighbors, passable, pathTo, posOf, reach, stepOf, terrainAt, type Grid, type Pos } from './grid';
-import { follow, heroCover, trackerOf } from './tracking';
+import { eased, follow, heroCover, trackerOf } from './tracking';
 import { V, atLeast, awareness, bucketOf, callForHelp, callWeight, heroPerception, heroStealth, keenness, npcPerception } from './stealth';
 import { PROPS, type PropKind } from './content/props';
 import { commitBoard, placeOf, syncPlace, viewOf } from './placeboard';
@@ -72,6 +72,8 @@ export interface PUnit {
   runner?: { path: Pos[]; i: number; step: number; v: number };
   /** Has had a hunch about where she went (said once). */
   hunched?: boolean;
+  /** How much of her noise has reached them since they last tried to pick up her trail. */
+  heard?: number;
 }
 
 export interface Prop {
@@ -254,6 +256,7 @@ export function makeNoise(b: Board, at: Pos, level: number, from: 'her' | 'objec
     if (hear < 0.1) continue;
     const a = awareness(b.w, u.npc);
     if (from === 'her') {
+      u.heard = (u.heard ?? 0) + hear;
       // A sound they can make out is at least a reason to wonder.
       a.v = Math.min(V.aware - 0.01, Math.max(a.v + hear * 0.8, V.suspicious + 0.01));
     } else {
@@ -387,7 +390,8 @@ export const timid = (n: Npc): boolean => TIMID.has(n.archetype) && !n.hostile;
  */
 function hunch(c: Ctx, b: Board, u: PUnit, say: Sink): void {
   const { w, rng } = c;
-  const cover = heroCover(w, 0.3) + (b.posture === 'hold' ? 1.5 : 0) + (lightAt(b, b.hero) === 0 ? 1 : 0);
+  const cover = eased(heroCover(w, 0.3) + (b.posture === 'hold' ? 1.5 : 0) + (lightAt(b, b.hero) === 0 ? 1 : 0), u.heard ?? 0);
+  u.heard = 0;
   const r = follow(rng, trackerOf(u.npc), cover);
   if (r.trail === 'none') return;
   const spread = r.trail === 'hot' ? 1 : r.trail === 'warm' ? 4 : 7;
