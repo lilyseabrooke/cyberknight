@@ -410,7 +410,7 @@ shelf(arsenal, 'edge', 'Know-how', ['blade.1'], [
 /** Skill trees are made, not written, so every skill in the game has one. The price of a line follows how often the skill matters. */
 const WORTH: Partial<Record<SkillId, number>> = {
   melee: 1.6, marksmanship: 1.6, athletics: 1.5, medicine: 1.5,
-  sneak: 1.3, streetwise: 1.3, throwing: 1.3, intimidation: 1.3, tinkering: 1.3, haggling: 1.3, scavenging: 1.3, hustling: 1.3,
+  sneak: 1.3, streetwise: 1.3, throwing: 1.3, intimidation: 1.3, persuasion: 1.3, tinkering: 1.3, haggling: 1.3, scavenging: 1.3, hustling: 1.3,
   beatbox: 0.6, pool: 0.6, mixology: 0.6, cooking: 0.6, rapport: 0.6,
 };
 

@@ -23,6 +23,12 @@ interface Entry {
   t?: Lines;
 }
 const e = (r: Lines, t?: Lines): Entry => ({ r, t });
+/** Lines for an errand's outcome, told with a lead-in when she isn't there to see it. */
+const errand = (key: string, say: (d: EventData) => string[]): Record<string, Entry> => ({
+  [`errand:${key}`]: e((d) => say(d).map((l) => (d.seen ? l : `Across Neo, at ${d.place}: ${l}`)), key.endsWith('_ok') ? ['Delegation works. Look at me.'] : ['I will pretend that was the plan.']),
+});
+
+
 const $ = (n: unknown): string => Number(n).toLocaleString('en-US');
 /** An act of fame, as a phrase. */
 const ACTS: Record<string, string> = { karaoke: 'a karaoke number', dj_set: 'a DJ set', gig: 'a gig with the band', billboard: 'hijacking a billboard', graffiti: 'a big piece of graffiti', busk: 'busking', parkour: 'some rooftop parkour', sing_busk: 'singing on the street', crash_gig: 'crashing somebody else\'s gig', guitar_duel: 'a guitar duel', backlot_set: 'a set for the kids behind the club', beat_battle: 'a beat battle', jam: 'a jam with the band' };
@@ -832,7 +838,62 @@ const T: Record<string, Entry> = {
   'intent:pickpocket': e((d) => [`Blackbird drifts toward ${d.npc}, hands loose and innocent.`, `Blackbird eyes ${d.npc}'s pockets with professional interest.`]),
   'intent:hack': e((d) => [`Blackbird gets a good look at ${d.npc}'s chrome and starts to wonder what is in it.`, `Blackbird decides ${d.npc} is running outdated firmware. Somebody should do something about that.`]),
   'intent:threaten': e((d) => [`Blackbird decides ${d.npc} looks like {they:npc} {has:npc} money, and that {they:npc} would be happier without it.`, `Blackbird steps into ${d.npc}'s space. Politely, at first.`]),
+  // ---- influence (influence.ts): she gets somebody to want something
+  'influence:persuasion_ok': e((d) => [`Blackbird lays it out for ${d.npc}: calmly, with examples. By the end, ${d.npc} is the one who thinks ${d.deed} was {their} idea.`, `Blackbird makes the case. ${d.npc} nods slowly, then faster. ${cap(String(d.deed))}, then. Obviously.`], ['Reasonable people are so easy to work with.']),
+  'influence:persuasion_no': e((d) => [`Blackbird makes the case for ${d.deed}. ${d.npc} listens to all of it and is unmoved by every word.`, `${d.npc} hears Blackbird out. "No," ${d.npc} says, pleasantly, as if that finished the discussion. It does.`], ['Good argument. Wrong audience.']),
+  'influence:intimidation_ok': e((d) => [`Blackbird does not raise her voice. She just stands where ${d.npc} cannot stop looking at her, and asks ${d.npc} ${d.ask}. ${cap(String(d.deed))} becomes ${d.npc}'s idea very quickly.`, `${d.npc} is told what is going to happen. ${d.npc} agrees. ${d.npc} will remember how that felt.`], ['Fear works. It also keeps.']),
+  'influence:intimidation_no': e((d) => [`Blackbird leans on ${d.npc} about ${d.deed}. ${d.npc} leans right back.`, `${d.npc} looks Blackbird up and down, and does not blink. The threat lands somewhere else.`], ['That was supposed to be scarier.']),
+  'influence:romance_ok': e((d) => [`Blackbird lets a compliment sit, then asks ${d.npc} ${d.ask}, as a favor, with a smile. ${d.npc} could not think of a reason to say no.`, `A hand on an arm, a look held a beat too long. ${d.npc} is suddenly very keen on ${d.deed}.`], ['I would feel bad. I do not.']),
+  'influence:romance_no': e((d) => [`Blackbird tries the look, then the ask. ${d.npc} enjoys the look and declines the ask.`, `${d.npc} laughs, warmly, and shakes {their} head. Whatever that was, it was not enough for ${d.deed}.`], ['The charm works. The favor part, less.']),
+  'influence:grifting_ok': e((d) => [`Blackbird tells ${d.npc} a story. It has a sick relative in it, and a deadline, and a very good reason for ${d.deed}. ${d.npc} is in tears by the end.`, `The pitch is seamless: a name dropped, a panic, a favor owed. ${d.npc} has taken on ${d.deed} before the story has quite finished.`], ['Nothing she said was true. All of it worked.']),
+  'influence:grifting_no': e((d) => [`Blackbird's story about ${d.deed} has a hole in it. ${d.npc} finds the hole and puts a finger in it.`, `${d.npc} listens, then asks one question. Blackbird does not have an answer to it.`], ['The details. Always the details.']),
+  'influence_pay': e(
+    (d) => (d.amount ? (d.method === 'intimidation' ? [`${d.npc} counts out ${d.amount} neodollars with {their} eyes on the floor and presses them into Blackbird's hand.`] : d.method === 'grifting' ? [`${d.npc} hands over ${d.amount} neodollars and thanks Blackbird for the opportunity.`] : [`${d.npc} presses ${d.amount} neodollars into Blackbird's hand, glowing with the pleasure of having decided that for {themself}.`]) : [`${d.npc} reaches for {their} pockets and finds them empty. A look of real distress follows.`]),
+    ['Money: the easiest way to say thank you.'],
+  ),
+  'influence_depart': e((d) => [`${d.npc} sets off to find ${d.target}, with the look of someone doing exactly what they want to do.`, `${d.npc} cracks {their} neck, nods to Blackbird and leaves. ${d.target} is going to have a bad night.`], ['Delegation. Look at me, delegating.']),
+  'influence_arrive': e((d) => [`${d.npc} finds ${d.target} right here.`], []),
+  // ---- errands (errands.ts): what they do once she has put it in their head. `far` marks the ones she isn't there for.
+  ...errand('go_after_brawl_ok', (d) => [`${d.npc} finds ${d.target} and wades straight in. It is short. ${d.target} is on the floor.`, `${d.npc} squares up to ${d.target}, and ${d.target} ends the exchange horizontal.`]),
+  ...errand('go_after_brawl_no', (d) => [`${d.npc} goes at ${d.target} and gets the worst of it. ${d.target} is still standing when it ends.`]),
+  ...errand('go_after_ambush_ok', (d) => [`${d.target} never sees ${d.npc} coming. By the time ${d.target} turns round it is over.`, `${d.npc} waits out of sight, steps out behind ${d.target} and does it properly.`]),
+  ...errand('go_after_ambush_no', (d) => [`${d.npc} lines up the ambush and ${d.target} turns at exactly the wrong moment. It becomes a different sort of fight.`]),
+  ...errand('kiss_smooth_ok', (d) => [`${d.npc} drifts up to ${d.target}, says something low, and gets the kiss {they} came for. ${d.target} looks pleasantly stunned.`, `A look, a line, a laugh. ${d.npc} kisses ${d.target} and ${d.target} kisses back.`]),
+  ...errand('kiss_smooth_no', (d) => [`${d.npc} tries a line on ${d.target}. ${d.target} gives {them} a small, kind smile, and the line goes nowhere.`]),
+  ...errand('kiss_steal_ok', (d) => [d.slapped ? `${d.npc} grabs ${d.target} and kisses {them:target}. ${d.target} slaps ${d.npc} across the face afterwards. It was, on balance, worth it.` : `${d.npc} swoops in and kisses ${d.target} before either of them can think. ${d.target} does not object.`]),
+  ...errand('kiss_steal_no', (d) => [`${d.npc} lunges at ${d.target}, who steps aside. ${d.npc} kisses the air, and then the wall, near enough.`]),
+  ...errand('kiss_ask_ok', (d) => [`"Can I kiss you?" ${d.npc} asks ${d.target}, earnestly. ${d.target} considers it, and says yes.`]),
+  ...errand('kiss_ask_no', (d) => [`"Can I kiss you?" ${d.npc} asks ${d.target}. "No," says ${d.target}, kindly. ${d.npc} nods and takes it like an adult.`]),
+  ...errand('steal_car_hotwire_ok', (d) => [`${d.npc} has the panel off ${d.car} in under a minute. The engine coughs, catches, and ${d.npc} is gone. It ${d.by === 'brought' ? `pulls up where Blackbird is: ${d.dest}` : `sits waiting at ${d.dest}`}.`]),
+  ...errand('steal_car_hotwire_no', (d) => [`${d.npc} crouches by ${d.car} and strips the wrong wire. The alarm starts and ${d.npc} walks away briskly, as if it were not {their} alarm.`]),
+  ...errand('steal_car_smash_ok', (d) => [`${d.npc} puts a brick through the window of ${d.car} and is behind the wheel before the glass has landed. The car ${d.by === 'brought' ? `turns up where Blackbird is: ${d.dest}` : `waits at ${d.dest}`}.`]),
+  ...errand('steal_car_smash_no', (d) => [`${d.npc} takes a swing at ${d.car}. The window holds. ${d.npc}'s hand does not.`]),
+  ...errand('steal_car_lurk_ok', (d) => [`${d.npc} hangs about near ${d.car} until nobody is looking, then gets in like it was always {their} car. It ${d.by === 'brought' ? `rolls up beside Blackbird: ${d.dest}` : `waits at ${d.dest}`}.`]),
+  ...errand('steal_car_lurk_no', (d) => [`${d.npc} loiters near ${d.car} for what feels like an hour. Someone notices the loitering. ${d.npc} leaves.`]),
+  ...errand('take_deck_ask_ok', (d) => [`${d.npc} asks nicely and gets the decks. ${d.good ? 'The room likes what it hears.' : 'The room is not sure what it is hearing.'}`]),
+  ...errand('take_deck_ask_no', (d) => [`${d.npc} asks for the decks. The DJ looks at ${d.npc} the way you look at a request for the safe code.`]),
+  ...errand('take_deck_elbow_ok', (d) => [`${d.npc} moves ${d.dj || 'the DJ'} off the decks with a shoulder and a look. ${d.good ? 'The set is, annoyingly, great.' : 'The set is bad, and everyone can tell.'}`]),
+  ...errand('take_deck_elbow_no', (d) => [`${d.npc} shoulders up to the decks and gets shoved right back. ${d.dj ? `${d.dj} does not move.` : 'The booth does not budge.'}`]),
+  ...errand('take_deck_usb_ok', (d) => [`${d.npc} swaps the drive during a transition. Nobody notices until the room is hearing ${d.npc}'s playlist. ${d.good ? 'It is excellent.' : 'It is not excellent.'}`]),
+  ...errand('take_deck_usb_no', (d) => [`${d.npc} plugs in a drive at the wrong moment and ${d.dj || 'the DJ'} notices a dead second of air in the middle of the set.`]),
+  ...errand('buy_round_cash_ok', (d) => [`${d.npc} slaps ${d.amount} neodollars on the bar and buys the room a round, with a toast. The crowd raises its glass to someone named Blackbird.`]),
+  ...errand('buy_round_cash_no', (d) => [`${d.npc} goes to buy the room a round, pats {their} pockets, and finds nothing in them.`]),
+  ...errand('buy_round_tab_ok', (d) => [`${d.npc} orders for the whole room and puts it on a tab that does not exist. The bartender doesn't check. The room toasts Blackbird.`]),
+  ...errand('buy_round_tab_no', (d) => [`${d.npc} tries to put a round for the room on a tab. The bartender knows the tabs. ${d.npc} leaves without the round.`]),
+  ...errand('tag_wall_tag_ok', (d) => [`${d.npc} drops a quick tag on the wall by ${d.place} and is gone before it has finished dripping.`]),
+  ...errand('tag_wall_tag_no', (d) => [`${d.npc} shakes the can. The can is empty. ${d.npc} looks at the wall as if it were to blame.`]),
+  ...errand('tag_wall_piece_ok', (d) => [`${d.npc} spends a long minute on a proper piece. It is better than anyone expected, ${d.npc} included.`]),
+  ...errand('tag_wall_piece_no', (d) => [`${d.npc} starts an ambitious piece on the wall by ${d.place}, and then the lines go wrong and it turns into a drip.`]),
+  ...errand('karaoke_sing_ok', (d) => [`${d.npc} takes the karaoke mic and sings with feeling. The room claps, mostly.`]),
+  ...errand('karaoke_sing_no', (d) => [`${d.npc} takes the mic and finds the key about a third of the way through the chorus. It is not the song's key.`]),
+  ...errand('karaoke_belt_ok', (d) => [`${d.npc} takes the mic, closes {their} eyes and belts it. The whole bar goes quiet and then loud.`]),
+  ...errand('karaoke_belt_no', (d) => [`${d.npc} goes for the big note. The big note goes for ${d.npc}. Somebody is pouring a drink in sympathy.`]),
+  'errand_balk': e((d) => [`${d.seen ? '' : 'Elsewhere, '}${d.npc} thinks about what Blackbird asked for a while, and decides it was a stupid idea after all.`, `${d.seen ? '' : 'Elsewhere, '}${d.npc} has second thoughts at the door and goes home.`]),
+  'errand_giveup': e((d) => [`${d.seen ? '' : 'Elsewhere, '}${d.npc} has had enough of that errand and quits it.`, `${d.seen ? '' : 'Elsewhere, '}${d.npc} gives up on Blackbird's errand. Some things are not worth a third try.`]),
+  'influence_backup': e((d) => [`${d.npc} falls in beside Blackbird before ${d.foe} has finished squaring up.`, `${d.npc} cracks {their} knuckles and takes the other side of ${d.foe}.`], ['Nobody fights alone who has a friend with a grudge.']),
+  'influence_end:wise': e((d) => [`${d.npc} goes very quiet, then very still. It has come back to {them}, all of it: the story, the hole in it, who told it.`, `Somewhere in the middle of ${d.npc}'s day, the story stops adding up. ${d.npc} looks up. Looks for Blackbird.`], ['Right. Time to be somewhere else.']),
   'intent:flirt': e((d) => [`Blackbird sidles over to ${d.npc}.`, `Blackbird picks a line and heads for ${d.npc}.`]),
+  'intent:influence': e((d) => (d.method === 'intimidation' ? [`Blackbird steps up close to ${d.npc} and lowers her voice.`] : d.method === 'romance' ? [`Blackbird turns on the charm for ${d.npc}, and has a favor in mind.`] : d.method === 'grifting' ? [`Blackbird slides up to ${d.npc} with a story she has just made up.`] : [`Blackbird takes ${d.npc} aside to make a case.`])),
   'intent:pool_date': e((d) => [`Blackbird sees ${d.npc} at the pool table and racks the balls.`, `Blackbird takes a cue off the wall and nods ${d.npc} over to the pool table.`]),
   'intent:grab_cue': e(() => ['Blackbird eyes the house pool cues on the wall.', 'Blackbird has been looking at the cues on the wall for a while. They look like they want to be somewhere.']),
   'intent:darts': e(() => ['Blackbird puts money on the dartboard and picks up the darts.', 'Blackbird steps up to the oche and takes a dart.']),

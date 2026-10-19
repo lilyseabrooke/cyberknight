@@ -27,6 +27,7 @@ import { afterTakedown, downFor, isShut } from './shutdown';
 import { dropFlights, modelOf } from './dragonmodels';
 import { markKilled } from './dragonlog';
 import { loseContact } from './stealth';
+import { backersPower, backupJoins } from './influence';
 import { enterPlace, placeOf, syncPlace, describeSpot, keepPositions, layBodies } from './placeboard';
 import { cloneGrid } from './layout';
 
@@ -92,7 +93,10 @@ export function heroPower(w: World, weapon: Item = wielded(w.hero), allies = tru
   const style = weaponStyle(weapon.tags);
   if (style) p += skillValue(h, style) * 0.6;
   for (const b of h.buffs) if (b.until > w.beat) p += b.power;
-  if (allies) for (const a of h.companions) if (a.hp > 0) p += a.power;
+  if (allies) {
+    for (const a of h.companions) if (a.hp > 0) p += a.power;
+    p += backersPower(w);
+  }
   for (const i of h.implants) p += IMPLANTS[i]?.power ?? 0;
   if (w.situation.weather === 'heatwave' && w.locations[h.locationId]?.outdoors) p -= 2;
   p -= Math.max(0, h.drunk - skillLevel(h, 'tolerance') * 0.4) * 1.2;
@@ -247,6 +251,7 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
       level: h.level,
     },
     () => {
+      backupJoins(c, foes);
       result = playFight(c, foes, o);
     },
   );

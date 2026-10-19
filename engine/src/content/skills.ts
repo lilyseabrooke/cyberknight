@@ -37,8 +37,9 @@ export const SKILLS = {
   tracking: { label: 'tracking', group: 'stealth', spill: { perception: 0.15, streetwise: 0.1 }, titles: ['can follow a trail of dropped fries', 'reads scuffs and wet footprints', 'knows which way the bag-snatcher went', 'could track a rumour through the rain'] },
   hijack: { label: 'hijacking', group: 'stealth', spill: { driving: 0.3, lockpicking: 0.15, tinkering: 0.1 }, titles: ['has locked her keys in a car, from the outside', 'knows which wire is the red one', 'cars start for her, eventually', 'a parking lot is a buffet'] },
   // ---- social
-  romance: { label: 'romance', group: 'social', spill: { streetwise: 0.1 }, titles: ['has a decent opening line', 'knows the three-second look', 'a legend in three bars', 'could talk a dragon into dinner'] },
+  romance: { label: 'flirting', group: 'social', spill: { streetwise: 0.1 }, titles: ['has a decent opening line', 'knows the three-second look', 'a legend in three bars', 'could talk a dragon into dinner'] },
   dancing: { label: 'dancing', group: 'social', spill: { romance: 0.2, athletics: 0.1 }, titles: ['sways, with intent', 'finds the downbeat', 'owns a small corner of the floor', 'a neon blur with great hair'] },
+  persuasion: { label: 'persuasion', group: 'social', spill: { streetwise: 0.1, haggling: 0.1 }, titles: ['can ask nicely', 'has made a bouncer reconsider', 'closes arguments before they open', 'could talk a dragon out of its hoard'] },
   intimidation: { label: 'intimidation', group: 'social', spill: { streetwise: 0.1 }, titles: ['has a Look', 'cracks knuckles meaningfully', 'makes bouncers check the exit', 'the room gets quieter when she squints'] },
   streetwise: { label: 'streetwise', group: 'social', titles: ['knows which alleys to skip', 'knows who owes whom', 'has a guy for everything', 'Neo talks to her first'] },
   haggling: { label: 'haggling', group: 'social', spill: { streetwise: 0.1 }, titles: ['asks for a discount', 'walks away convincingly', 'makes fixers sweat', 'could sell a dragon its own wings'] },
