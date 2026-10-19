@@ -65,7 +65,7 @@ fight it, dodge it, or sign with it, and none of that breaks the Atlas rule.
   🥰"), emoji and all, in the same breath as an Inspiration team opening fire on a guitarist, followed by a heartfelt
   tribute post and a link to stream the tribute single. Nobody at Muse notices the contradiction. Played straight, like
   Atlas's safety-speak. Lethal, deadpan, never gory (hard rule 2), and the joke is always Muse, never the musician.
-- Muse's idol is a synthetic pop star on every screen. PROPOSED: **LUMINA**, released in version numbers ("LUMINA 6.2:
+- Muse's idol is **LUMINA**, a synthetic pop star on every screen, released in version numbers ("LUMINA 6.2:
   now with more feelings").
 - PROPOSED: **Muse Clearance** (the licensing office: glittery letters, officers who confiscate guitars "for
   safekeeping"), **Muse Broadcast** (the channels) and **Muse A&R** (scouts with pre-uncapped pens).

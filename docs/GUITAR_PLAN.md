@@ -31,6 +31,7 @@ So the long game splits in two:
 | the band (see "The band" below: it changes members all the time anyway) | |
 | reputations: who loves her music, who she dissed, who's suing | |
 | Muse's attention (see "Muse" below): a file, a warrant, a strike team that knows her face | |
+| a Muse contract, if she signed one: the new body is still signed | |
 | royalties (paid into `legacy.account`) | |
 
 This is the most interesting thing in the plan, because it makes **expectation** a mechanic:
@@ -90,7 +91,7 @@ A freshly rebuilt Blackbird with three chords may still have a strike team that 
 | too big to ignore | **Inspiration teams** at her gigs, at her bookings, outside her couch. Scales with fame like dungeon garrisons scale with danger. Pastel tactical armour, rifles with heart decals, a jingle before they breach |
 | a legend | a named **Inspiration commander** with a callsign who has taken a personal interest (the Artemis Mk. II of the music business), and then Muse's own executives and idol, as bosses |
 
-**LUMINA** (PROPOSED name): Muse's synthetic pop idol, on every channel, in every shop, in version numbers ("LUMINA 6.2:
+**LUMINA**: Muse's synthetic pop idol, on every channel, in every shop, in version numbers ("LUMINA 6.2:
 now with more feelings"). She is the face Muse puts on everything, and eventually something Blackbird can duet with,
 out-sell, out-play, or take apart on live TV.
 
@@ -132,8 +133,9 @@ holds it open for a night. Killing CINDERJAW is one way. Guitar's way:
 - **The teardown** (fans in the starting district, enough fame to call them, an anthem to coordinate them): she incites
   a flash mob at **every cordon exit at once**. On the drop of the chorus, thousands of fans physically tear the
   barriers down, simultaneously, with their hands, crowbars and one borrowed forklift. A lockdown can't hold a district
-  that has decided it isn't locked down. **CINDERJAW, with nothing left to guard, leaves**: it lifts off the Overpass
-  and flies away, and the Overpass is just an overpass again.
+  that has decided it isn't locked down. **CINDERJAW, with nothing left to guard, leaves**: it lifts off the Overpass,
+  the Overpass is just an overpass again, and CINDERJAW **roams Neo past the cordon** from then on (alive, unemployed
+  and in a mood), a dragon she can meet again on the far side.
 - What it takes: a big enough fan base inside the district (so it's a mid-to-late district goal, built over lives as
   fame carries over), a song people know the words to, and a way to reach them all at once (a broadcast, a pirate
   station, a billboard hijack, or a gig on the Overpass itself with the volume all the way up). A disappointing set
@@ -183,9 +185,6 @@ holds it open for a night. Killing CINDERJAW is one way. Guitar's way:
 - **Dragons, out-played:** the `resonance` trait (or a very high music skill) finds a dragon's frequency. An Artemis
   can be shaken out of the sky; a Demeter's broadcast can be hijacked so it announces her gig instead of the winter
   tithe; a Hermes courier can be lured by a song it mistakes for its delivery chime.
-- **Apollo "CHORUS"** (PROPOSED: Apollo is the god of music, and Atlas would lean into that): a public-address dragon that
-  plays Muse-licensed Atlas Harmony over a district at 140 dB. It can be shot down. Or out-played, in a duel the whole
-  district hears (and Muse files a complaint about the unlicensed half).
 - **Curfews and crackdowns:** a street festival with her name on it makes a curfew unenforceable for a night.
 - **The noise ordinance** (Sloth's): a famous enough Blackbird generates so many complaints the NPD's forms system jams,
   and nobody can file anything (including arrests) for a while.
@@ -206,7 +205,8 @@ Muse is an obstacle, but like everything in this plan it's also a set of doors.
 - **Sign with Muse.** A real option (Muse isn't Atlas). The upside is enormous: money, airtime on every channel (fame
   in every district at once), legal gigs, Muse gear, no more strike teams, and invitations to Muse events where Atlas
   executives mingle. The catch: Muse owns her songs, writes her setlists, books a LUMINA duet, and an unapproved song
-  is a breach of contract (which reverts her to "too big to ignore", with lawyers). She can play it straight and enjoy
+  is a breach of contract (which reverts her to "too big to ignore", with lawyers). **The contract survives her death**:
+  a rebuilt Blackbird is still signed, still owes LUMINA a duet, and now has to play it with fresh hands. She can play it straight and enjoy
   it, or sign as a long con and **detonate it live**: the night of the broadcast, she plays her own song to the whole
   city.
 - **The underground.** Because her music is illegal, a scene grows around it: secret gigs behind a laundromat
@@ -238,8 +238,8 @@ Per `board.md`, no board member has a required path, and they can be met in any 
 | **Lust** (Government Relations) | the entertainment at a councillors' gala Lust is working | a love song so good the councillor defects mid-courtship, and Lust is, for once, not wanted |
 | **Envy** (Surveillance) | Envy is a secret superfan with a full file on her, and invites her to a private session | a fan base so big every surveillance feed in the city shows only her; Envy's whole department becomes a fan account |
 | **Gluttony** (M&A) | Gluttony is trying to swallow Muse. She's the leverage either side wants: dinner at Gluttony's table, with her as the after-dinner act | she makes the deal go through and the meal disagrees with Gluttony; or kills it in public and leaves Gluttony hungry, which for Gluttony is fatal to the brand |
-| **Wrath** (the dragon program) | CHORUS's handlers want her to record the next Atlas Harmony | a song that de-syncs a dragon squadron, live; the dragons start playing her instead |
-| **The CEO** | the CEO was a cyberknight once, and (PROPOSED) was in a band. Blackbird has the bootleg | playing her old anthem at her. Maybe she remembers who she was. Maybe it just gets Blackbird close enough to swing. Both count |
+| **Wrath** (the dragon program) | the dragons' broadcasts are licensed from Muse, and a signed (or famous enough) Blackbird is asked to record the next one, at the dragon program's own studio | a song that de-syncs a dragon squadron, live; the dragons start playing her instead |
+| **The CEO** | the act at a Muse–Atlas gala the CEO attends; or a hijacked broadcast on every screen in the city, which is the one thing the CEO always watches | the whole city singing against Atlas, live: the crowd the CEO once wanted to lead as a cyberknight. Maybe she remembers who she was. Maybe it just gets Blackbird close enough to swing. Both count |
 
 None of these is the way. All are hooks that the freeform rules already allow.
 
@@ -286,13 +286,10 @@ The opportunities need a little machinery underneath. Kept short on purpose; eac
 6. **The cordon teardown.**
 7. **Inspiration teams,** then the underground (secret gigs, contraband records, pirate towers).
 8. **Songs:** diss tracks and love songs as leverage.
-9. **Dragons out-played** (resonance, the Demeter hijack, CHORUS).
+9. **Dragons out-played** (resonance, the Demeter hijack).
 10. **LUMINA, the broadcast hijack, the wedge, and board hooks,** one at a time.
 11. **Myth tier,** whenever one sounds fun.
 
 ## Open questions for the author
 
-- LUMINA (the idol's name), Muse Clearance, the Muse–Atlas partnership, CHORUS, and the CEO having been in a band: keep,
-  rename, or veto?
-- Does CINDERJAW ever turn up again after it leaves (a roaming dragon somewhere past the cordon), or is it simply gone?
-- If she signs with Muse and then dies, is she still signed? (Fame carries over, so presumably the contract does too.)
+- Muse Clearance, Muse Broadcast, Muse A&R and the Muse–Atlas partnership: keep, rename, or veto?
