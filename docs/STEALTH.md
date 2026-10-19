@@ -191,3 +191,9 @@ assault (`pickReaction` in `witness.ts`): flee (off the board), call the police 
 step in (hostile, and the scene ends as detected with them in `ProwlOpts.joined`, who join the fight). A body that one of them finds is not about her, because they
 don't know who did it: most run, the rest shout, which alerts everybody on the board who is looking for trouble to where it is. Told as `prowl_witness`.
 Takedowns on the hide scene in a chase use the same code.
+
+Refinements: only the first three who see a takedown or find a body get the full treatment; everyone past that either runs (70 %) or gets down where they are
+(told once as `prowl_witness:crowd`). A finder of a body (not about her: they don't know who did it) may run, shout, or **call the police**: that puts an arrival on
+the board (`Board.arrivals`, 3 to 6 rounds later, 0 to 2 officers, Atlas troopers on corp premises) at the body's tile. The officers who turn up are Alert, searching
+from the body, and each makes a tracking check at once (`hunch`) to find a trail to whoever did it, so a good one is soon looking right at her. They are ordinary units
+on the board after that: she can slip away, take them down, or be found. Told as `prowl_police`.

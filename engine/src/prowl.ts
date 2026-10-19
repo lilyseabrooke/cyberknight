@@ -2,6 +2,7 @@ import { Rng, hashString } from './rng';
 import type { Awareness, Ctx, Dungeon, Id, Location, Npc, World } from './types';
 import { clamp } from './candidate';
 import { angDiff, dirOf, dist, hasLos, idx, inCover, line, neighbors, passable, pathTo, posOf, reach, stepOf, terrainAt, type Grid, type Pos } from './grid';
+import { spawnGroup } from './candidate';
 import { witnessBodies, witnessTakedown } from './witnesses';
 import { ambientNoise, carries, eased, follow, heroCover, trackerOf } from './tracking';
 import { V, atLeast, awareness, bucketOf, callForHelp, callWeight, heroPerception, heroStealth, keenness, npcPerception } from './stealth';
@@ -114,6 +115,8 @@ export interface Board {
   tracking?: boolean;
   /** People about who are not what she is here for: they see things, and react (see `witnesses.ts`). */
   others?: PUnit[];
+  /** Police on their way to somewhere on the board: when, where, how many (maybe none). */
+  arrivals?: { round: number; at: Pos; count: number; force: 'npd' | 'atlas' }[];
   /** Bystanders who have gone for her. */
   joined?: Npc[];
   /** A bystander has made it a fight. */
@@ -417,6 +420,45 @@ function hunch(c: Ctx, b: Board, u: PUnit, say: Sink): void {
     u.hunched = true;
     say('prowl_track', 'bad', { variant: r.trail, npc: u.npc.name });
   }
+}
+
+/**
+ * Police called to a body turn up at it. They come looking for whoever did it, so each tries to pick up her trail the way anyone searching does, from
+ * where the body is.
+ */
+function arrive(c: Ctx, b: Board, say: Sink): void {
+  const due = (b.arrivals ?? []).filter((a) => b.round >= a.round);
+  if (!due.length) return;
+  b.arrivals = (b.arrivals ?? []).filter((a) => !due.includes(a));
+  for (const a of due) {
+    if (!a.count) {
+      say('prowl_police', 'good', { variant: 'nobody', count: 0 });
+      continue;
+    }
+    const cops = spawnGroup(c, a.force === 'atlas' ? 'atlas_trooper' : 'npd_officer', a.count, a.force);
+    for (const n of cops) {
+      const spot = nearestFree(b, a.at);
+      const u = makeUnit(n, spot, 0);
+      u.behavior = 'search';
+      u.last = { ...a.at };
+      awareness(b.w, n).v = V.alert + 0.05;
+      b.units.push(u);
+      b.tracking = true;
+      hunch(c, b, u, say);
+    }
+    say('prowl_police', 'bad', { variant: 'arrive', count: cops.length, force: a.force });
+  }
+}
+
+function nearestFree(b: Board, p: Pos): Pos {
+  if (walkableFor(b.grid, p) && !occupied(b, p)) return p;
+  for (let r = 1; r <= 4; r++) {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const q = { x: p.x + dx, y: p.y + dy };
+      if (walkableFor(b.grid, q) && !occupied(b, q)) return q;
+    }
+  }
+  return p;
 }
 
 /** Somebody going by along a line, not looking for anything: on along it, until something reaches them (a sight, a sound) and they stop and look. */
@@ -854,6 +896,8 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
         return 'evaded';
       }
     }
+
+    arrive(c, b, say);
 
     // Her turn.
     const p = plan(b, state);

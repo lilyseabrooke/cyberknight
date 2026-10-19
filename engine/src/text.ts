@@ -405,6 +405,7 @@ const T: Record<string, Entry> = {
   'pickpocket:item': e((d) => [d.better ? `Blackbird lifts ${d.item} off ${d.npc} so smoothly {they} keep{s} talking. It's a step up from what she was carrying.` : `Blackbird lifts ${d.item} off ${d.npc}. Whether it's useful is a different question.`], ['Upgrade acquired. Thank you for your service.', "{They}'ll never know. Until {they} check{s}."]),
   'pickpocket:nothing': e((d) => [`${d.npc}'s pockets contain a lint ball and, deep down, regret.`], ['Rude. The least {they} could do is carry something.']),
   'pickpocket:abort': e((d) => [`Blackbird eyes ${d.npc}'s pocket, and ${d.npc} eyes her right back. Not today.`, `${d.npc} is paying far too much attention to be robbed. She finds something else to look at.`], ['A good thief knows when the mark is a good citizen.']),
+  prowl_police: e((d) => d.variant === 'nobody' ? [`Nobody comes. The call went in, and the call went in a drawer.`, `Whoever was called is not on their way.`] : [`${d.count === 1 ? 'An officer arrives' : 'Officers arrive'} at the body, torches up, looking for whoever did it.`, `The ${d.force === 'atlas' ? 'security detail' : 'NPD'} gets there: ${d.count} of them, reading the scene.`], ['Late, but not that late.']),
   prowl_witness: e((d) => {
     const v = String(d.variant);
     const who = String(d.npc);
@@ -415,6 +416,8 @@ const T: Record<string, Entry> = {
     if (v === 'intervene' || v === 'join') return [`${cap(who)} saw what she did to ${victim} and comes for her.`, `${cap(who)} has decided that was not on, and moves in.`];
     if (v === 'shun') return [`${cap(who)} saw it, and looks at Blackbird like something on a shoe.`];
     if (v === 'cheer') return [`${cap(who)} saw it, and approves, quietly, with a very small nod.`];
+    if (v === 'crowd') return [`${d.ran ? `${d.ran} more of them run` : ''}${d.ran && d.hid ? ', and ' : ''}${d.hid ? `${d.hid} get down behind whatever is nearest and stay there` : ''}.`.replace(/^./, (m) => m.toUpperCase())];
+    if (v === 'found_call') return [`${cap(who)} finds ${victim} on the floor, backs away with a phone out, and tells the NPD where. Then they leave.`, `${cap(who)} calls it in: a body, here. They do not wait to explain.`];
     if (v === 'found_run') return [`${cap(who)} trips over ${victim}, understands, and runs for it.`, `${cap(who)} finds ${victim} on the floor and does not stay to ask.`];
     return [`${cap(who)} finds ${victim} on the floor and screams. Everybody who is still looking for trouble now knows where it is.`];
   }, ['A witness is a person with a mouth.']),

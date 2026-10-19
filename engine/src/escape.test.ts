@@ -9,6 +9,7 @@ import { streetHunt } from './streethunt';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { awareness } from './stealth';
+import { witnessBodies } from './witnesses';
 import { makeNoise, makeUnit, prowlBoard, type Board, type Light } from './prowl';
 import { placeOf, syncPlace } from './placeboard';
 import type { Ctx } from './types';
@@ -417,5 +418,38 @@ describe('a hunt on the street', () => {
     }
     expect(takedowns).toBeGreaterThan(0);
     expect(Object.keys(seen).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('finding a body can call the police to it, and a crowd past the first three just runs or hides', () => {
+    const seen: Record<string, number> = {};
+    for (let i = 0; i < 120; i++) {
+      const sc = scenario({ seed: `body-${i % 20}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.hero.stealth = true;
+      const mk = (id: string, arch: string) => {
+        const n = spawnNpc(new Rng(id), id, arch, w.hero.locationId);
+        addNpc(w, n);
+        return n;
+      };
+      const cells = Array(24 * 5).fill('floor') as never;
+      const guard = makeUnit(mk(`g${i}`, 'ganger'), { x: 20, y: 2 }, 2);
+      const others = Array.from({ length: 7 }, (_, k) => makeUnit(mk(`p${i}_${k}`, 'patron'), { x: 8 + (k % 4), y: 1 + (k % 3) }, 6));
+      const victim = mk(`v${i}`, 'ganger');
+      const b: Board = { w, grid: { w: 24, h: 5, cells, exits: [{ x: 23, y: 2 }] }, light: Array<Light>(120).fill(2), units: [guard], others, hero: { x: 2, y: 2 }, posture: 'sneak', props: [], bodies: [{ npcId: victim.id, x: 6, y: 2, found: false }], round: 1, dark: [], role: 'test' };
+      const events: GameEvent[] = [];
+      const say = (type: string, outcome: 'good' | 'bad' | 'mixed', data: Record<string, string | number | boolean>): void => void events.push({ beat: 0, type, outcome, data });
+      witnessBodies({ w, rng: new Rng(`b${i}`), emit: (t, o, d = {}) => events.push({ beat: 0, type: t, outcome: o, data: d }) }, b, say);
+      if (b.arrivals?.length) {
+        b.arrivals[0]!.round = 1;
+        prowlBoard({ w, rng: new Rng(`pb${i}`), emit: (t, o, d = {}) => events.push({ beat: 0, type: t, outcome: o, data: d }) }, b, say);
+      }
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'prowl_witness' || e.type === 'prowl_police') seen[`${e.type}:${e.data.variant}`] = (seen[`${e.type}:${e.data.variant}`] ?? 0) + 1;
+      }
+    }
+    expect(seen['prowl_witness:found_call'] ?? 0).toBeGreaterThan(0);
+    expect(seen['prowl_witness:crowd'] ?? 0).toBeGreaterThan(0);
+    expect((seen['prowl_police:arrive'] ?? 0) + (seen['prowl_police:nobody'] ?? 0)).toBeGreaterThan(0);
   });
 });
