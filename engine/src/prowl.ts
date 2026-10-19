@@ -2,7 +2,7 @@ import { Rng, hashString } from './rng';
 import type { Awareness, Ctx, Dungeon, Id, Location, Npc, World } from './types';
 import { clamp } from './candidate';
 import { angDiff, dirOf, dist, hasLos, idx, inCover, line, neighbors, passable, pathTo, posOf, reach, stepOf, terrainAt, type Grid, type Pos } from './grid';
-import { eased, follow, heroCover, trackerOf } from './tracking';
+import { ambientNoise, carries, eased, follow, heroCover, trackerOf } from './tracking';
 import { V, atLeast, awareness, bucketOf, callForHelp, callWeight, heroPerception, heroStealth, keenness, npcPerception } from './stealth';
 import { PROPS, type PropKind } from './content/props';
 import { commitBoard, placeOf, syncPlace, viewOf } from './placeboard';
@@ -256,7 +256,7 @@ export function makeNoise(b: Board, at: Pos, level: number, from: 'her' | 'objec
     if (hear < 0.1) continue;
     const a = awareness(b.w, u.npc);
     if (from === 'her') {
-      u.heard = (u.heard ?? 0) + hear;
+      u.heard = (u.heard ?? 0) + hear * carries(ambientNoise(b.w, b.w.locations[b.w.hero.locationId]));
       // A sound they can make out is at least a reason to wonder.
       a.v = Math.min(V.aware - 0.01, Math.max(a.v + hear * 0.8, V.suspicious + 0.01));
     } else {

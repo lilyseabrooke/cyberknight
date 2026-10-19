@@ -1,4 +1,5 @@
-import type { Npc, World } from './types';
+import type { Location, Npc, World } from './types';
+import { trafficAt } from './roads';
 import type { Rng } from './rng';
 import { skillValue } from './skills';
 import { skillOf, statsOf } from './npcstats';
@@ -17,6 +18,21 @@ export const heroTracker = (w: World): number => 1 + 0.7 * skillValue(w.hero, 't
 /** How hard they are to follow: the quicker and quieter, the harder; a tight, crowded street muddies every trail. */
 export const coverOf = (n: Npc, squeeze: number): number => 3 + 0.5 * skillOf(n, 'sneak') + 3 * squeeze;
 export const heroCover = (w: World, squeeze: number): number => 3 + 0.5 * skillValue(w.hero, 'sneak') + 3 * squeeze;
+
+/**
+ * How loud the place is already, 0 (you could hear a pin) to 1 (you could not hear a gunshot): traffic and the crowd on a street, road noise on a
+ * highway, rain on anything outdoors, the music in a club or a bar, a hum of machinery or ventilation indoors.
+ */
+export function ambientNoise(w: World, loc: Location | undefined): number {
+  if (!loc) return 0.3;
+  const rain = w.situation.weather === 'acid_rain' ? 0.15 : 0;
+  if (loc.kind === 'street') return Math.max(0, Math.min(1, trafficAt(w, loc) + (loc.road === 'highway' ? 0.3 : 0) + (loc.outdoors ? rain : 0)));
+  const music = loc.kind === 'club' ? 0.7 : loc.kind === 'bar' ? 0.45 : loc.kind === 'gym' ? 0.35 : 0;
+  return Math.min(1, 0.2 + music + (loc.crowded ? 0.15 : 0));
+}
+
+/** How much of a noise carries to the one following it: a lot in a quiet place, very little in a loud one. */
+export const carries = (ambient: number): number => 0.4 + 1.2 * (1 - Math.max(0, Math.min(1, ambient)));
 
 /** Noise she makes after they have lost her gives them something to follow: the cover is that much thinner, more the louder it was. */
 export const eased = (cover: number, noise: number): number => Math.max(0, cover - Math.min(6, 5 * noise));

@@ -3,12 +3,12 @@ import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { scenario } from './testkit';
 import { spawnGroup } from './candidate';
 import { onFoot, runChase } from './chase';
-import { addTire, eased, standTired, tire } from './tracking';
+import { addTire, ambientNoise, carries, eased, standTired, tire } from './tracking';
 import { streetHunt } from './streethunt';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { awareness } from './stealth';
-import { makeUnit, prowlBoard, type Board, type Light } from './prowl';
+import { makeNoise, makeUnit, prowlBoard, type Board, type Light } from './prowl';
 import { placeOf, syncPlace } from './placeboard';
 import type { Ctx } from './types';
 
@@ -304,5 +304,28 @@ describe('a hunt on the street', () => {
       return got;
     };
     expect(rate(1.5)).toBeGreaterThan(rate(0));
+  });
+
+  it('the same noise carries further in a quiet place than in a loud one', () => {
+    expect(carries(0)).toBeGreaterThan(carries(1) * 2);
+    const heardIn = (clock: number, road?: 'highway'): number => {
+      const sc = scenario({ seed: 'quiet', at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.clock = clock;
+      if (road) w.locations[w.hero.locationId]!.road = road;
+      const n = spawnNpc(new Rng('ear'), 'ear', 'ganger', w.hero.locationId);
+      addNpc(w, n);
+      const u = makeUnit(n, { x: 4, y: 1 }, 2);
+      const cells = Array(20 * 3).fill('floor') as never;
+      const b: Board = { w, grid: { w: 20, h: 3, cells, exits: [] }, light: Array<Light>(60).fill(1), units: [u], hero: { x: 6, y: 1 }, posture: 'sneak', props: [], bodies: [], round: 1, dark: [], role: 'test' };
+      makeNoise(b, b.hero, 0.4);
+      return u.heard ?? 0;
+    };
+    const night = heardIn(4 * 60);
+    const rush = heardIn(18 * 60, 'highway');
+    expect(night).toBeGreaterThan(rush);
+    const w0 = scenario({ seed: 'amb', at: 'street_main' }).w;
+    w0.clock = 4 * 60;
+    expect(ambientNoise(w0, w0.locations.neon_pharaoh)).toBeGreaterThan(ambientNoise(w0, w0.locations.street_main));
   });
 });

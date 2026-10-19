@@ -16,7 +16,7 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { streetHunt } from './streethunt';
-import { BEHIND, addTire, coverOf, eased, follow, rest, standTired, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
+import { BEHIND, addTire, ambientNoise, carries, coverOf, eased, follow, rest, standTired, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
@@ -1026,7 +1026,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       else if (!result && (caughtOnFoot || (o.mode === 'pursued' && live.some((f) => bandOf(f.gap) === 'locked') && round >= maxRounds - 1 && rng.chance(0.5)))) result = 'caught';
 
       // Whatever she does while they cannot see her, they can hear.
-      if (lost && !result) loud += action === 'shoot' ? 1 : action === 'strike' || action === 'ram' ? 0.6 : action === 'floor_it' ? (car ? 0.7 : 0.45) : car ? 0.45 : 0.3;
+      if (lost && !result) loud += carries(ambientNoise(w, here)) * (action === 'shoot' ? 1 : action === 'strike' || action === 'ram' ? 0.6 : action === 'floor_it' ? (car ? 0.7 : 0.45) : car ? 0.45 : 0.3);
       tell(action, told, hurt, round, car, lead);
       const now = mounted();
       if (now && now.hp / now.maxHp <= 0.25 && round < maxRounds && !result) c.emit('car_hit', 'bad', { variant: 'smoking', car: now.name, body: now.body, mine: true });

@@ -161,3 +161,7 @@ Once they have lost her, whatever noise she makes thins her cover (`eased` in `t
 keeps a running total of her noise that reached them (`PUnit.heard`, from `makeNoise`, so distance, walls and how keen their ears are all count) and spends
 it on their next hunch. In a chase, once nobody can see her (`lost`), each round adds what she is doing to `loud` (0.3 running on foot, 0.45 in a car, 0.45 or 0.7
 flat out, 0.6 for blows or ramming, 1 for shooting), which eases the check when sight is lost and when the gap runs out; being seen again resets it.
+
+Ambient noise (`ambientNoise` in `tracking.ts`, 0 to 1): traffic and crowd on a street (`trafficAt`, so it follows the hour), +0.3 on a highway, +0.15 rain outdoors;
+indoors 0.2 plus the music (club 0.7, bar 0.45, gym 0.35) and a crowd. How much of her noise carries to a tracker is `carries(ambient)`, from 1.6 in dead
+silence to 0.4 in a din, applied to the noise that adds to `PUnit.heard` and to a chase's `loud`.
