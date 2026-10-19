@@ -8,7 +8,7 @@ import { traitOf } from './character';
 import { isFairGame } from './people';
 import { fight, heroPower, here, remember } from './combat';
 import { synergy, train, type Part } from './skills';
-import { ratio, statsOf, type NpcStat } from './npcstats';
+import { assistMult, ratio, statsOf, type NpcStat } from './npcstats';
 import { cool, cooling, priority } from './mind';
 
 import { heartOf, romanceMod } from './bonds';
@@ -105,7 +105,11 @@ export function backers(w: World): Npc[] {
 }
 
 /** What they add to a fight she is in. */
-export const backersPower = (w: World): number => (w.influenced?.length ? backers(w).reduce((a, n) => a + n.power * 0.6, 0) : 0);
+export const backersPower = (w: World): number =>
+  w.influenced?.length ? backers(w).reduce((a, n) => a + n.power * 0.6 * assistMult(followersOf(w, goalOf(n, 'back_me_up')).length), 0) : 0;
+
+/** The people who came along behind whoever is carrying this goal, and are still about. */
+export const followersOf = (w: World, g: NpcGoal | undefined): Npc[] => (g?.followers ?? []).map((id) => w.npcs[id]).filter((x): x is Npc => !!x && x.alive);
 
 /** −1..1: how much this goal sits with who they are. Negative is a conflict, positive is a fit. */
 export function alignment(w: World, n: Npc, kind: NpcGoalKind): number {
@@ -123,10 +127,15 @@ export function alignment(w: World, n: Npc, kind: NpcGoalKind): number {
  * character, how they feel about her, the skill she brings against what they bring back.
  */
 export function influenceOdds(w: World, n: Npc, wish: Wish, method: InfluenceMethod): number {
+  return oddsWith(w, n, wish, method, synergy(w.hero, METHOD[method].parts));
+}
+
+/** The same, for a method played with some other skill than the method's own (a speech is persuasion, with a bigger voice). */
+export function oddsWith(w: World, n: Npc, wish: Wish, method: InfluenceMethod, skill: number): number {
   const h = w.hero;
   const m = METHOD[method];
   const align = alignment(w, n, wish.kind);
-  let p = 0.62 + 0.05 * synergy(h, m.parts);
+  let p = 0.62 + 0.05 * skill;
   // Liking helps; frightening someone doesn't need them to like her.
   p += (method === 'intimidation' ? 0.3 : 1) * (n.affinity / 180);
   p -= 0.55 * wish.magnitude;
@@ -275,10 +284,11 @@ export function influenceCandidates(w: World, n: Npc): Candidate[] {
   return out;
 }
 
-function addGoal(c: Ctx, n: Npc, wish: Wish, method: InfluenceMethod): NpcGoal {
+/** `stretch` makes it last longer than it would for a one-to-one ask. */
+export function addGoal(c: Ctx, n: Npc, wish: Wish, method: InfluenceMethod, stretch = 1): NpcGoal {
   const { w } = c;
   const g: NpcGoal = {
-    id: w.mind.nextId++, kind: wish.kind, method, born: w.beat, until: w.beat + GOALS[wish.kind].ttl,
+    id: w.mind.nextId++, kind: wish.kind, method, born: w.beat, until: w.beat + Math.round(GOALS[wish.kind].ttl * stretch),
     ...(wish.target ? { target: wish.target } : {}), ...(wish.amount !== undefined ? { amount: wish.amount } : {}), ...(wish.loc ? { loc: wish.loc } : {}),
     ...(method === 'intimidation' ? { coerced: true } : {}), ...(method === 'grifting' ? { conned: true } : {}),
   };
@@ -350,8 +360,14 @@ export function influenceTick(c: Ctx): void {
       if (n.downUntil > w.beat) continue;
       const near = n.locationId === hero;
       if (g.kind === 'give_cash' && near) {
-        const amount = Math.min(g.amount ?? 0, n.cash);
+        let amount = Math.min(g.amount ?? 0, n.cash);
         n.cash -= amount;
+        // Whoever came along behind them puts something in the hat too.
+        for (const f of followersOf(w, g)) {
+          const put = Math.round(f.cash * 0.4);
+          f.cash -= put;
+          amount += put;
+        }
         w.hero.cash += amount;
         c.emit('influence_pay', amount > 0 ? 'good' : 'mixed', { variant: g.method, npc: n.name, amount, method: g.method });
         finish(c, n, g, 'done');

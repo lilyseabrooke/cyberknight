@@ -7,6 +7,7 @@ import { npdResponse } from './laylow';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { always } from './testkit';
+import { beginRun, endRun, newUniverse } from './universe';
 
 const ctxOf = (w: World, rng: Rng = new Rng('f')) => {
   const events: GameEvent[] = [];
@@ -79,6 +80,40 @@ describe('the flash mob', () => {
     expect(flashMobCandidate(onStrand('few', FANS_FOR_MOB - 1), 3)).toBeNull();
     expect(flashMobCandidate(onStrand('calm', 80), 0)).toBeNull();
     expect(flashMobCandidate(onStrand('hot', 80), 3)).not.toBeNull();
+  });
+
+  it('her fans turn up as people, and the crowd takes on what she asks of it', () => {
+    let moved = 0;
+    for (let i = 0; i < 10; i++) {
+      const w = onStrand(`ask${i}`, 100);
+      w.hero.skills.guitar = 3000;
+      w.hero.charm = 10;
+      const before = Object.values(w.npcs).filter((n) => n.tags.includes('fan')).length;
+      const { c, events } = ctxOf(w, new Rng(`a${i}`));
+      const m = flashMob(c);
+      expect(Object.values(w.npcs).filter((n) => n.tags.includes('fan') && n.locationId === 'street_main').length).toBeGreaterThan(before);
+      const e = events.find((x) => x.type === 'flash_mob')!;
+      expect(hasTemplate(e)).toBe(true);
+      if (m?.count) {
+        moved++;
+        expect(e.data.variant).toBe('moved');
+        expect((w.influenced ?? []).length).toBeGreaterThan(0);
+      }
+    }
+    expect(moved).toBeGreaterThan(5);
+  });
+
+  it('the fans who turned up go back into the crowd when the night ends', () => {
+    const u = newUniverse('mobfans');
+    const w = beginRun(u);
+    w.hero.locationId = 'street_main';
+    w.locations.halo_floor!.fans = 100;
+    flashMob(ctxOf(w).c);
+    expect(Object.values(w.npcs).some((n) => n.tags.includes('fan'))).toBe(true);
+    w.ending = 'dead';
+    w.over = true;
+    const after = endRun(w);
+    expect(Object.values(after.npcs).some((n) => n.tags.includes('fan') && n.id.startsWith('tmp_'))).toBe(false);
   });
 
   it('fills the place, holds the police back, costs some fans and a little heat; once a night per block', () => {

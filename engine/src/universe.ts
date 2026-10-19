@@ -132,7 +132,8 @@ export function endRun(w: World): Universe {
   w.legacy.dragons = w.flights.filter((f) => f.persist);
   const companions = new Map(w.hero.companions.filter((c) => c.npcId).map((c) => [c.npcId!, c.home]));
   for (const n of allNpcs(w)) {
-    if (n.id.startsWith('tmp_') && !memorable(n)) {
+    // (Fans who turned up for a flash mob go back into the crowd, whatever they did tonight: there are always more.)
+    if (n.id.startsWith('tmp_') && (!memorable(n) || n.tags.includes('fan'))) {
       removeNpc(w, n.id);
     } else if (n.locationId.startsWith('_') && n.locationId !== AWAY) {
       // Travelling with her, or gone for the night: they go home, or if they never had one, are free to turn up somewhere new.

@@ -4,6 +4,9 @@ import { addHeat, here } from './combat';
 import { routeTo } from './plans';
 import { block, famed, streetOf } from './renown';
 import { slip } from './stealth';
+import { spawnGroup } from './candidate';
+import { synergy } from './skills';
+import { crowdData, moveCrowd, type Moved } from './crowd';
 
 /**
  * Fans as a resource. Fans are counted on the places she won them (`Location.fans`); what matters to her is how many
@@ -14,9 +17,13 @@ import { slip } from './stealth';
  * - **A couch:** somewhere to lie low, anywhere she has enough fans, once a night per block.
  * - **The grapevine:** fans tell her things: where the person she's after was last seen, a hideout off a street she
  *   hasn't walked.
- * - **The flash mob:** she calls them out. For a while the place is a crowd chanting her name: cover for anything, a
- *   wall the police won't push through, a distraction for a heist. Once a night per block, it costs some fans (they
- *   are fickle), and an unlawful assembly is heat. Scaled up, it's how a cordon comes down.
+ * - **The flash mob:** she calls them out, and it's an influence on a crowd (crowd.ts). Some of her fans turn up as people
+ *   in the street, keen on her (they go back into the crowd when the night ends); then she asks the whole crowd in earshot for something (have her back, look the other
+ *   way, deal with somebody, or whatever she fancies), and each of them weighs it as they would a one-to-one ask, with
+ *   her name as a performer for a voice and the occasion for an edge. The willing take it on as their own goal. Around
+ *   that, for a while the place is a crowd chanting her name: cover for anything, a wall the police won't push through.
+ *   Once a night per block, it costs some fans (they are fickle), and an unlawful assembly is heat. Scaled up, it's how a
+ *   cordon comes down.
  */
 
 /** Fans around a place: on her block's streets and the places directly off them. Cheap: a walk of a few dozen rooms. */
@@ -143,12 +150,35 @@ export function flashMobCandidate(w: World, urge: number): Candidate | null {
   };
 }
 
-export function flashMob(c: Ctx, fans = localFans(c.w, c.w.hero.locationId)): void {
+/** Kinds of people who turn up when she calls. */
+const FAN_KINDS = ['patron', 'dancer', 'street_kid', 'drifter'];
+
+/** Her pull as a performer: the best of her performing skills, with charm. It's her name they're answering. */
+const pull = (w: World): number => Math.max(...['guitar', 'vocals', 'djing', 'beatbox'].map((s) => synergy(w.hero, [s as 'guitar', ['stat:charm', 0.6]])));
+
+/** Some of the fans she calls turn up as people on the street, and they're keen. The rest are the crowd around them. */
+function fansArrive(c: Ctx, fans: number): Npc[] {
+  const { w, rng } = c;
+  const n = Math.max(2, Math.min(10, Math.round(Math.sqrt(fans))));
+  const out: Npc[] = [];
+  for (let i = 0; i < n; i++) {
+    const [fan] = spawnGroup(c, FAN_KINDS[i % FAN_KINDS.length]!, 1);
+    if (!fan) continue;
+    fan.hostile = false;
+    fan.affinity = Math.max(fan.affinity, 30 + rng.int(0, 25));
+    if (!fan.tags.includes('fan')) fan.tags.push('fan');
+    out.push(fan);
+  }
+  return out;
+}
+
+export function flashMob(c: Ctx, fans = localFans(c.w, c.w.hero.locationId)): Moved | null {
   const { w } = c;
   const loc = w.locations[w.hero.locationId]!;
   w.counters[`mob:${blockKey(w, loc.id)}`] = 1;
   w.counters[`mob_until:${loc.id}`] = w.beat + MOB_BEATS;
   const turnout = Math.round(fans * 0.6);
+  fansArrive(c, fans);
   // They are fickle: being called out costs some of them.
   for (const sid of block(w, loc)) {
     const street = w.locations[sid];
@@ -160,5 +190,8 @@ export function flashMob(c: Ctx, fans = localFans(c.w, c.w.hero.locationId)): vo
   }
   addHeat(w, 'npd', 1);
   const lost = slip(c);
-  c.emit('flash_mob', 'good', { place: loc.name, amount: turnout, lost });
+  // Then she asks them for something. A crowd that came because she called is a keen one.
+  const moved = moveCrowd(c, { depth: 1, stretch: 1.5, edge: 0.1 + Math.min(0.2, fans / 400), voice: pull(w), memory: 'answered Blackbird\'s call to a flash mob' });
+  c.emit('flash_mob', 'good', { variant: moved?.count ? 'moved' : 'turnout', place: loc.name, amount: turnout, lost, ...crowdData(moved) });
+  return moved;
 }

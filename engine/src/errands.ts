@@ -6,7 +6,7 @@ import { traitOf } from './character';
 import { addHeat, remember } from './combat';
 import { heartOf } from './bonds';
 import { moveNpc, npcsAt, AWAY } from './population';
-import { opposed, ratio, statsOf } from './npcstats';
+import { opposed, ratio, statsOf, withAssist } from './npcstats';
 import { routeTo } from './plans';
 import { parkedVehicle, isPerson } from './roads';
 import { regard, tie } from './ties';
@@ -329,8 +329,13 @@ function appeal(w: World, n: Npc, g: NpcGoal, a: Approach): number {
   return 2.4 * a.odds(w, n, g) + 0.5 * fit - a.risk * (1.6 - nerve) - 0.25 * (g.tries ?? 0) * a.risk;
 }
 
-/** One beat of an errand. */
+/** One beat of an errand. Whoever followed them into it is behind them: they go at it with higher stats. */
 export function runErrand(c: Ctx, n: Npc, g: NpcGoal, align: number): void {
+  const behind = (g.followers ?? []).filter((id) => c.w.npcs[id]?.alive).length;
+  withAssist(n, behind, () => errandBeat(c, n, g, align));
+}
+
+function errandBeat(c: Ctx, n: Npc, g: NpcGoal, align: number): void {
   const { w, rng } = c;
   const hero = w.hero.locationId;
   const spec = ERRANDS[g.kind]!;
