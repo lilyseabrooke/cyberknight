@@ -500,4 +500,37 @@ describe('a hunt on the street', () => {
     expect([...kinds].some((k) => ['parked_car', 'barrier', 'turret', 'signal'].includes(k))).toBe(true);
     expect([...used].some((k) => ['parked_car', 'barrier', 'turret', 'signal'].includes(k))).toBe(true);
   });
+
+  it('cameras give the police her position, and she can Override the one that has her', () => {
+    let hacked = 0;
+    let failed = 0;
+    let withCams = 0;
+    for (let i = 0; i < 300; i++) {
+      const sc = scenario({ seed: `cam-${i % 40}`, at: ['street_main', 'club_backlot', 'halo_alley'][i % 3]!, competence: 0.6 });
+      const { w } = sc;
+      w.hero.level = 8;
+      w.hero.maxHp = w.hero.hp = 180;
+      w.hero.int = 9;
+      w.heat.npd = 5;
+      const loc = w.locations[w.hero.locationId]!;
+      loc.cameras = 3;
+      if (placeOf(w)?.layout.cams.length) withCams++;
+      const { c, events } = ctxOf(w, new Rng(`cm-${i}`));
+      const cops = spawnGroup(c, 'npd_officer', 2, 'npd');
+      runChase(c, { mode: 'pursued', cause: 'test', foes: cops.map((n) => onFoot(n, 5)) });
+      let here = 0;
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'chase_cam') {
+          if (e.data.variant === 'hacked') {
+            hacked++;
+            here++;
+          } else failed++;
+        }
+      }
+      if (here) expect(Object.values(w.locations).some((l) => l.camHacked?.ids.length)).toBe(true);
+    }
+    expect(withCams).toBeGreaterThan(0);
+    expect(hacked + failed).toBeGreaterThan(0);
+  });
 });

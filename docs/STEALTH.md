@@ -216,3 +216,12 @@ territory and the corporate and industrial districts: shoots at the nearest purs
 boulevards, streets and terraces: it stops cross traffic; big for vehicles). `slowsCar` is the extra for pursuers in vehicles (otherwise half of `slows`).
 In a chase `use_prop` rolls `overrideChance` for machines (and trains tinkering) and athletics for the rest; a car can use only machines, since she can't reach out
 of the window and kick a stall over. The stealth scenes use the same roll.
+
+### Cameras in a chase
+
+`camsOnHer` (`placeboard.ts`) lists the working cameras that have her right now (each one's cone, range, line of sight and light). While one does, police and Atlas
+pursuers (the ones with the feed) close up by 0.35 a round and the noise-equivalent for the tracker goes up (`loud` +0.3), so the feed makes her easy to follow.
+`hack_cam` is a new chase action, available when a camera has her and the pursuers are law or corporate: `hackCamera` (`override.ts`) rolls `overrideChance` and, if it
+works, takes that one camera (`Location.camHacked`, by id, 20 beats; `workingCams` leaves it out, so it stops seeing her and stops being the feed), where
+`blackout` takes whichever is first in the list. A failure is a trace: the pursuers close half a tile. Told as `chase_cam`.
+Not yet: using it in a stealth scene, where a camera that keeps her from a safe tile is exactly the kind of thing to take out first.

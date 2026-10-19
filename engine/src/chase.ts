@@ -16,12 +16,12 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { PROPS } from './content/props';
-import { overrideChance } from './override';
+import { hackCamera, overrideChance } from './override';
 import { streetHunt } from './streethunt';
 import { bystand } from './bystanders';
 import { patrolArrives, sendAway, shootEveryone } from './callins';
 import { BEHIND, addTire, ambientNoise, carries, coverOf, eased, follow, rest, standTired, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
-import { camerasSeeHer } from './placeboard';
+import { camerasSeeHer, camsOnHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
 import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, hideGuess, hideScene, inTheWay, propNear, stepAside, openBoard, outsFrom, seesFrom, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
@@ -505,6 +505,10 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         // Something on the street to pull down behind her, or put out.
         const handy = board && !boarded ? propNear(board, { car: !foot }) : null;
         scores.use_prop = handy && lead.gap >= 1.5 && lead.gap <= 12 ? 4.5 + (band === 'close' ? 1.5 : 0) + (PROPS[handy.kind as keyof typeof PROPS]?.slows ? 0.5 : 0) : 0;
+        // A camera has her: the police and the corps see what it sees, and a camera can be taken.
+        const watching = board && !boarded ? camsOnHer(w) : [];
+        const lawful = live.some((f) => f.car?.kind === 'police' || f.car?.kind === 'atlas' || f.crew.some((n) => n.tags.includes('cop') || n.faction === 'atlas'));
+        scores.hack_cam = watching.length && lawful ? 4.5 + (band === 'close' || band === 'near' ? 1 : 0) : 0;
         scores.shoot = armedBack && (band === 'near' || band === 'close') ? 4 : 0;
         if (band === 'locked' && lead.car && hpRatio > 0.5) scores.board = 2;
         if (foot && ride && faster) scores.grab = 8;
@@ -768,6 +772,15 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
           } else if (out.kind === 'up' && board) {
             board.placed.board.hero = { ...out.at };
             hid = true;
+          }
+        }
+      } else if (action === 'hack_cam') {
+        const cam = camsOnHer(w)[0];
+        if (cam) {
+          if (hackCamera(c, cam.id)) c.emit('chase_cam', 'good', { variant: 'hacked', place: here.name, foe: lead.name });
+          else {
+            for (const f of live) f.gap = Math.max(0, f.gap - 0.5);
+            c.emit('chase_cam', 'bad', { variant: 'failed', place: here.name, foe: lead.name });
           }
         }
       } else if (action === 'use_prop' && board) {
@@ -1045,6 +1058,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       // Out of sight for a couple of rounds with nobody on her heels: she has lost them. (They look for her where they last had her.)
       if (!result && board && !boarded && round > 1 && o.mode === 'pursued') {
         const eyes = camerasSeeHer(w);
+        // Whoever has the feed has her: they close up on what they can see, and what they can see is easier to follow.
+        if (eyes) {
+          for (const f of live) if (f.car?.kind === 'police' || f.car?.kind === 'atlas' || f.crew.some((n) => n.tags.includes('cop') || n.faction === 'atlas')) f.gap = Math.max(0, f.gap - 0.35);
+          loud += 0.3;
+        }
         const seen = live.some((f) => chaserSees(w, board!, f.gap, wings(f)) || (eyes && (f.car?.kind === 'police' || f.car?.kind === 'atlas' || f.crew.some((n) => n.tags.includes('cop')))));
         lost = !seen;
         if (seen) {

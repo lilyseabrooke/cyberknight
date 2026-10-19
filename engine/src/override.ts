@@ -32,6 +32,24 @@ export function blackout(c: Ctx): boolean {
   return true;
 }
 
+/**
+ * Take one particular camera: the one that is looking at her. Where `blackout` takes the first of the cameras here, this takes the one that matters.
+ * Returns whether it went down.
+ */
+export function hackCamera(c: Ctx, camId: string): boolean {
+  const { w, rng } = c;
+  const loc = w.locations[w.hero.locationId]!;
+  if (!rng.chance(overrideChance(w, 0.4))) {
+    c.emit('camera_blackout', 'bad', { variant: 'fail', place: loc.name });
+    return false;
+  }
+  const had = loc.camHacked && w.beat < loc.camHacked.until ? loc.camHacked.ids : [];
+  loc.camHacked = { ids: [...had, camId], until: w.beat + CAMERA_DOWNTIME };
+  train(c, 'tinkering', 1);
+  c.emit('camera_blackout', 'good', { variant: 'success', place: loc.name, left: workingCameras(w, loc.id) });
+  return true;
+}
+
 /** Power Cut (learned): the whole grid goes down for a while, and every camera with it. */
 export function powerCut(c: Ctx): boolean {
   const { w, rng } = c;

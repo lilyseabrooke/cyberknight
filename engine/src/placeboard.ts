@@ -379,7 +379,18 @@ export function workingCams(w: World, loc: Location): CamMount[] {
   const layout = layoutOf(w, loc);
   if (!layout) return [];
   const down = loc.camsDown && w.beat < loc.camsDown.until ? loc.camsDown.n : 0;
-  return layout.cams.slice(down);
+  const hacked = loc.camHacked && w.beat < loc.camHacked.until ? loc.camHacked.ids : [];
+  return layout.cams.slice(down).filter((cam) => !hacked.includes(cam.id));
+}
+
+/** The working cameras that have her right now, from where they are and the way each is turned. */
+export function camsOnHer(w: World): CamMount[] {
+  const loc = w.locations[w.hero.locationId];
+  const board = loc ? w.boards?.[loc.id] : undefined;
+  const layout = board && loc ? layoutOf(w, loc) : undefined;
+  if (!loc || !board || !layout) return [];
+  const lit = w.flags.blackout ? 0 : (layout.light[idx(layout.grid, board.hero)] ?? 1);
+  return workingCams(w, loc).filter((cam) => camView(layout.grid, { x: cam.x, y: cam.y, facing: camFacing(cam, tickOf(w)) }, board.hero, lit as 0 | 1 | 2) > 0);
 }
 
 /** Whether a camera has her right now, from where it is and the way it is turned. Where there is no board to say, any working camera does. */

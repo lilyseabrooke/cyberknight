@@ -467,6 +467,8 @@ export interface Location {
   cameras: number;
   /** Cameras Blackbird has shut down for now (Blackout), and the beat they come back on. */
   camsDown?: { n: number; until: number };
+  /** Particular cameras she has Overridden (by id), and until when: the ones that were looking at her. */
+  camHacked?: { ids: string[]; until: number };
   /** How much there is to hide behind, 0..1 (the crowd, the dark and the weather add to it). Absent means a little. See stealth.ts. */
   cover?: number;
   /** What the cameras here know about Blackbird while she sneaks, 0..1. */
