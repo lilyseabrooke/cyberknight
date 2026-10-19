@@ -6,9 +6,11 @@
  *   npm run music:render -- sweep dread  # just these
  *   npm run music:render -- --out=dir
  *   npm run music:render -- groove --stems   # also render each bus alone, and report the balance
+ *   npm run music:render -- audition         # every bass sound in its style, over drums and sub only
  *
- * Each clip is checked for clipping, DC and loudness; the sweep is also rendered as stems to check the sub stays a clean, click-free
- * low tone and the bass stays out of its band. Any failed check makes the script exit non-zero.
+ * Clips are stereo. Each is checked for clipping, DC, loudness and its stereo image (low end mono, a sane width, little lost in a mono
+ * fold-down). The sweep is also rendered as stems to check the sub stays a clean, click-free low tone and the bass stays out of its
+ * band. Any failed check makes the script exit non-zero.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -16,8 +18,10 @@ import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { chromium } from 'playwright-core';
 import type { RenderResult, RenderSpec } from '../music/synth/offline';
+import type { BassSound } from '../music/score/patches';
+import type { BassStyle } from '../music/score/roles/bass';
 import type { BusId } from '../music/score/types';
-import { bandShare, clipped, db, envelope, maxStep, mean, peak, rms, wav } from '../music/tools/analysis';
+import { bandShare, clipped, db, envelope, lowEndSide, maxStep, mean, midSide, monoLoss, peak, rms, wav, width, type Stereo } from '../music/tools/analysis';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -84,16 +88,74 @@ const PRESETS: Record<string, { about: string; spec: RenderSpec }> = {
   },
 };
 
+/**
+ * The bass audition: every sound in the style it was made for, over the drums and the sub alone (no pad, stabs or drone), on one
+ * progression. Four bars moderate, then four hard, so each sound is heard calm and pushed.
+ */
+const AUDITION: [BassSound, BassStyle][] = [
+  ['classic', 'roll'],
+  ['reese', 'hold'],
+  ['talker', 'hold'],
+  ['fm', 'roll'],
+  ['fm', 'pulse'],
+  ['growl', 'roll'],
+  ['growl', 'riff'],
+  ['knock', 'pulse'],
+  ['acid', 'riff'],
+];
+for (const [sound, style] of AUDITION) {
+  PRESETS[`audition-${sound}-${style}`] = {
+    about: `${sound} bass, ${style} style: 4 bars moderate, 4 bars hard`,
+    spec: {
+      ...base,
+      bars: 8,
+      bassSound: sound,
+      bassStyle: style,
+      progression: { bank: 'tense', index: 1 },
+      mute: ['pad', 'stabs', 'drone'],
+      keyframes: [
+        { bar: 0, axes: { intensity: 0.5, danger: 0.55, heat: 0.3 } },
+        { bar: 3, axes: { intensity: 0.5, danger: 0.55, heat: 0.3 } },
+        { bar: 4, axes: { intensity: 0.95, danger: 0.75, heat: 0.6 } },
+      ],
+    },
+  };
+}
+
 interface Check {
   name: string;
   value: string;
   ok: boolean;
 }
 
-const decode = (r: RenderResult): Float32Array => {
+const decode = (r: RenderResult): Stereo => {
   const bytes = Buffer.from(r.pcm, 'base64');
   const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2);
-  return Float32Array.from(pcm, (v) => v / 32767);
+  const n = pcm.length / 2;
+  const left = new Float32Array(n);
+  const right = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    left[i] = pcm[2 * i]! / 32767;
+    right[i] = pcm[2 * i + 1]! / 32767;
+  }
+  return { left, right };
+};
+
+const toWav = (st: Stereo, sr: number): Buffer => {
+  const pcm = new Int16Array(st.left.length * 2);
+  for (let i = 0; i < st.left.length; i++) {
+    pcm[2 * i] = Math.round(st.left[i]! * 32767);
+    pcm[2 * i + 1] = Math.round(st.right[i]! * 32767);
+  }
+  return wav(pcm, sr, 2);
+};
+
+/** Both channels end to end, for the checks that don't care which ear a sample is in (clipping, peak). */
+const both = (st: Stereo): Float32Array => {
+  const out = new Float32Array(st.left.length * 2);
+  out.set(st.left);
+  out.set(st.right, st.left.length);
+  return out;
 };
 
 async function main(): Promise<void> {
@@ -101,8 +163,9 @@ async function main(): Promise<void> {
   const outArg = args.find((a) => a.startsWith('--out='));
   const out = resolve(outArg ? outArg.slice(6) : join(root, 'out', 'music'));
   const stems = args.includes('--stems');
-  const names = args.filter((a) => !a.startsWith('--'));
-  const chosen = names.length ? names : Object.keys(PRESETS);
+  const names = args.filter((a) => !a.startsWith('--')).flatMap((n) => (n === 'audition' ? Object.keys(PRESETS).filter((k) => k.startsWith('audition-')) : [n]));
+  // With no names, everything but the audition (ask for it by name: it is nine clips on its own).
+  const chosen = names.length ? names : Object.keys(PRESETS).filter((k) => !k.startsWith('audition-'));
   for (const n of chosen) if (!PRESETS[n]) throw new Error(`no preset "${n}" (have: ${Object.keys(PRESETS).join(', ')})`);
   mkdirSync(out, { recursive: true });
 
@@ -118,19 +181,28 @@ async function main(): Promise<void> {
   for (const name of chosen) {
     const { about, spec } = PRESETS[name]!;
     const result = await render(spec);
-    const x = decode(result);
+    const st = decode(result);
+    // Loudness, DC, crest and the bar readout are measured on the mono fold-down: what a phone speaker plays.
+    const x = midSide(st).mid;
+    const all = both(st);
     const sr = result.sampleRate;
-    const file = join(out, `${name}.wav`);
-    writeFileSync(file, wav(Int16Array.from(x, (v) => Math.round(v * 32767)), sr));
+    writeFileSync(join(out, `${name}.wav`), toWav(st, sr));
 
+    const low = lowEndSide(st, sr);
+    const wide = width(st);
+    const loss = monoLoss(st);
     const checks: Check[] = [
-      { name: 'clipped samples', value: String(clipped(x)), ok: clipped(x) === 0 },
-      { name: 'peak', value: `${db(peak(x)).toFixed(1)} dBFS`, ok: peak(x) < 0.999 },
+      { name: 'clipped samples', value: String(clipped(all)), ok: clipped(all) === 0 },
+      { name: 'peak', value: `${db(peak(all)).toFixed(1)} dBFS`, ok: peak(all) < 0.999 },
       { name: 'loudness (RMS)', value: `${db(rms(x)).toFixed(1)} dBFS`, ok: db(rms(x)) > -22 && db(rms(x)) < -11 },
       { name: 'DC offset', value: mean(x).toFixed(4), ok: Math.abs(mean(x)) < 0.005 },
       // Peak-to-RMS. A held sine sub keeps this music's RMS high, so ~8-9 dB is healthy here; a mix squashed by the limiter
       // reads 4-6 dB.
       { name: 'crest factor', value: `${(db(peak(x)) - db(rms(x))).toFixed(1)} dB`, ok: db(peak(x)) - db(rms(x)) > 7 },
+      { name: 'stereo: low end (<150 Hz) in the side', value: `${low.toFixed(1)} dB`, ok: low < -30 },
+      // A full mix should have some width; an audition (drums, sub and bass alone) may be nearly mono, and that's fine.
+      { name: 'stereo: width (side vs mid)', value: `${wide.toFixed(1)} dB`, ok: wide < -6 && (wide > -40 || Boolean(spec.mute?.length)) },
+      { name: 'stereo: level lost in mono', value: `${loss.toFixed(2)} dB`, ok: loss > -1.5 },
     ];
 
     // The score's side of it: stabs where they should be, and a pad that moves by small steps.
@@ -156,8 +228,10 @@ async function main(): Promise<void> {
     }
 
     if (name === 'sweep') {
-      const sub = decode(await render({ ...spec, solo: ['sub'] }));
-      const bass = decode(await render({ ...spec, solo: ['bass'] }));
+      const subSt = decode(await render({ ...spec, solo: ['sub'] }));
+      const bassSt = decode(await render({ ...spec, solo: ['bass'] }));
+      const sub = midSide(subSt).mid;
+      const bass = midSide(bassSt).mid;
       const subHigh = bandShare(sub, sr, 200, 20000);
       // The sub's core (E1 to C2). Above 65 Hz the bass's own E2 fundamental (82 Hz) is meant to be there.
       const bassLow = bandShare(bass, sr, 20, 65);
@@ -169,8 +243,8 @@ async function main(): Promise<void> {
         { name: 'bass: energy above 2.5 kHz (fizz)', value: `${bassHigh.toFixed(1)} dB`, ok: bassHigh < -24 },
       );
       checks.push({ name: 'balance: bass stem vs sub stem', value: `${(db(rms(bass)) - db(rms(sub))).toFixed(1)} dB`, ok: true });
-      writeFileSync(join(out, 'sweep-sub.wav'), wav(Int16Array.from(sub, (v) => Math.round(v * 32767)), sr));
-      writeFileSync(join(out, 'sweep-bass.wav'), wav(Int16Array.from(bass, (v) => Math.round(v * 32767)), sr));
+      writeFileSync(join(out, 'sweep-sub.wav'), toWav(subSt, sr));
+      writeFileSync(join(out, 'sweep-bass.wav'), toWav(bassSt, sr));
     }
 
     if (stems) {
@@ -178,8 +252,8 @@ async function main(): Promise<void> {
       const levels: string[] = [];
       for (const bus of buses) {
         const y = decode(await render({ ...spec, solo: [bus] }));
-        writeFileSync(join(out, `${name}-${bus}.wav`), wav(Int16Array.from(y, (v) => Math.round(v * 32767)), sr));
-        levels.push(`${bus} ${db(rms(y)).toFixed(1)}`);
+        writeFileSync(join(out, `${name}-${bus}.wav`), toWav(y, sr));
+        levels.push(`${bus} ${db(rms(midSide(y).mid)).toFixed(1)}`);
       }
       checks.push({ name: 'stems (RMS dBFS)', value: levels.join('  '), ok: true });
     }

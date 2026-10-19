@@ -7,7 +7,7 @@ import { evaluateMacros, type MacroValues } from './axes/macros';
 import { AxisState, Gate } from './axes/state';
 import { BANKS, HarmonyState, LOOP_BARS, type BankId } from './harmony';
 import { evaluateMods } from './mods';
-import { PATCHES } from './patches';
+import { BASS_SOUNDS, PATCHES, type BassSound } from './patches';
 import { BassPart, newBass, shapeRange, type BassBar, type BassStyle } from './roles/bass';
 import { PadPart, padRhythmFor, renderDrone } from './roles/beds';
 import { DrumPart, newKit } from './roles/drums';
@@ -33,6 +33,7 @@ export class Conductor {
   readonly bass: BassPart;
   /** Pinned by hand (MusicLab, renders); otherwise the seed's. */
   bassStyle: BassStyle | null = null;
+  bassSound: BassSound | null = null;
   readonly harmony: HarmonyState;
   readonly pad: PadPart;
   readonly stabs = new StabPart();
@@ -66,7 +67,7 @@ export class Conductor {
   /** A new bassline, kit and pad articulation: new material on the same harmony. */
   reseed(seed: number): void {
     this.seed = seed;
-    this.bass.material = newBass(seed, this.bassStyle ?? undefined);
+    this.bass.material = newBass(seed, this.bassStyle ?? undefined, this.bassSound ?? undefined);
     this.pad.rhythm = padRhythmFor(hash(seed, 0x9ad));
     this.drums.kit = newKit(hash(seed, 0xd2));
   }
@@ -84,7 +85,14 @@ export class Conductor {
   setBassStyle(style: BassStyle | null): void {
     if (style === this.bassStyle) return;
     this.bassStyle = style;
-    this.bass.material = newBass(this.seed, style ?? undefined);
+    this.bass.material = newBass(this.seed, style ?? undefined, this.bassSound ?? undefined);
+  }
+
+  /** Pin the bass to a sound, or let its style pick from its pair again. */
+  setBassSound(sound: BassSound | null): void {
+    if (sound === this.bassSound) return;
+    this.bassSound = sound;
+    this.bass.material = newBass(this.seed, this.bassStyle ?? undefined, sound ?? undefined);
   }
 
   renderBar(): Bar {
@@ -97,10 +105,12 @@ export class Conductor {
     const on = (r: RoleId): boolean => !this.muted.has(r);
 
     const ctx = { macros, axes: this.axes.values(), traits: {} };
-    const modded = Object.fromEntries((Object.keys(PATCHES) as PatchedRole[]).map((r) => [r, evaluateMods(PATCHES[r], ctx)])) as Record<PatchedRole, Record<string, number>>;
+    const bassPatch = BASS_SOUNDS[this.bass.material.sound];
+    const patchOf = (r: PatchedRole) => (r === 'bass' ? bassPatch : PATCHES[r]);
+    const modded = Object.fromEntries((Object.keys(PATCHES) as PatchedRole[]).map((r) => [r, evaluateMods(patchOf(r), ctx)])) as Record<PatchedRole, Record<string, number>>;
 
     // Every part is rendered every bar, muted or not, so its state (voice leading, gates) runs on and unmuting is seamless.
-    const bassBar: BassBar = this.bass.render(harmony, macros, index, modded.bass['filter.cutoff'] ?? PATCHES.bass.filter!.cutoff);
+    const bassBar: BassBar = this.bass.render(harmony, macros, index, modded.bass['filter.cutoff'] ?? bassPatch.filter?.cutoff ?? 300);
     const bass = bassBar.notes;
     const stabsOn = this.stabsOn.update(macros.density ?? 0);
     const stabs = this.stabs.render(harmony, macros, on('bass') ? bass : []);
@@ -117,7 +127,7 @@ export class Conductor {
       ...(droneOn ? renderDrone(harmony) : []),
       ...drums,
     ].filter((n) => on(n.role));
-    this.last = { macros, kick, stabs: stabsOn ? this.stabs.feel : 'off', drone: droneOn, bass: `${this.bass.material.style} · ${bassBar.shape}` };
+    this.last = { macros, kick, stabs: stabsOn ? this.stabs.feel : 'off', drone: droneOn, bass: `${this.bass.material.style} · ${this.bass.material.sound} · ${bassBar.shape}` };
 
     // The patches' mod-route values at the bar line, except where a part draws its own contour through the bar.
     const params: ParamEvent[] = [...bassBar.params];
@@ -139,6 +149,7 @@ export class Conductor {
       macros,
       bedGate,
       harmony,
+      patches: { bass: bassPatch.id },
     };
   }
 }

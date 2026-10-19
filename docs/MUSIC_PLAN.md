@@ -1381,3 +1381,58 @@ was rebuilt around **styles**:
 - **The music's hash** (`music/score/rng.ts`) now fully mixes the seed and each part before they meet. Before this, neighbouring seeds
   (1, 2, 3...) clustered, and five of the first seven seeds got the same bass style.
 
+### Bass sounds and stereo
+
+The author heard the rebuilt bass as flat from a sound-design point of view. The bass now has seven sounds
+(`music/score/patches/bass.ts`), and each style picks between two of them per piece (`SOUNDS_FOR` in `roles/bass.ts`). The
+original sound stays as `classic`, the reference.
+
+| Sound | For | What it is |
+|---|---|---|
+| `reese` | hold | Two stacks of three detuned saws drifting against each other on slow, unrelated LFOs (per-layer `detune` LFOs), over a square. A parallel mid drive, wide on top. |
+| `talker` | hold | A reese through a vowel bank (three formant bandpasses, oo -> oh -> ah -> eh). The note's wobble moves the vowel instead of the cutoff (`wobbleTo: 'vowel'`): the "yoy". |
+| `fm` | roll, pulse | A sine carrier modulated 1:1, its index flaring at every attack and settling (`fm.env`, `fm.decay`). Aggression raises the index. A thin saw for buzz, a parallel mid drive. |
+| `growl` | roll, riff | A resonant lowpass shaken by a 38 Hz LFO (a growl, not a wobble), a comb tuned to each note's period, and a hard parallel mid drive. |
+| `knock` | pulse | A square-and-saw pluck with a 12-semitone pitch drop over 30 ms and a click on every note. |
+| `acid` | riff | One saw (plus a little square) through a resonant lowpass with a deep, fast pluck. |
+
+New patch features, all native Web Audio, all optional per patch:
+
+- **Per-layer FM** (`osc.fm`, with the index routable as `osc.<i>.fm`).
+- **A vowel bank** (`formant`, routable as `formant.vowel` and `formant.mix`).
+- **A comb tuned per note** (`comb`, routable as `comb.feedback` and `comb.mix`).
+  - Its delay is one period of the note. Web Audio's minimum delay in a feedback loop is one 128-sample block, about 2.9 ms, which
+    caps the comb near 340 Hz. That's fine for the bass register.
+- **Parallel band drive** (`parallel`, routable as `parallel.drive` and `parallel.mix`).
+- **A knock** (`knock`): a pitch drop through a ConstantSource on every oscillator's detune, plus a click.
+- **LFO depth is routable** (`lfo.<i>.depth`).
+- **LFOs can target one layer's detune,** so layers drift against each other.
+
+The synth swaps the bass voice when the bar names a different patch (`Bar.patches`). Each sound's voice is built on first use and
+kept for when it comes back.
+
+**Stereo.** The whole mix is stereo now (offline renders too):
+
+- **Placement:**
+  - Pad unison voices spread across the field.
+  - The stabs' two saws sit at ±0.35, and the drone's two fifths at ±0.35.
+  - Hats at +0.3, open hats at -0.25, clank at -0.45 and rim at +0.5. Kick, clap, snare and sub are centred.
+  - The reverb uses a two-channel impulse with decorrelated tails.
+- **The bass's width is side-only,** above `width.hp`: a delayed copy minus the direct one, opposite in each ear. It cancels in mono,
+  so the mono fold-down loses at most about 0.4 dB.
+- **Keeping the low end mono.** The render script's new low-end-in-the-side check found three leaks, all fixed:
+  - **Spread oscillators.** Reese and talker unison, and the pad and drone layers, spread their fundamentals.
+    - Fix: `monoBelow`, a Linkwitz-Riley crossover that folds everything below it to mono. Bass sounds use 200 Hz (250 for reese and
+      talker), the pad 150 Hz, the drone 200 Hz and the stabs 180 Hz.
+  - **The reverb's input highpass was too gentle.**
+    - Fix: 24 dB/oct at 220 Hz, where it was 12 dB/oct at 180 Hz.
+  - **The width stage's own highpass was too gentle.**
+    - Fix: 24 dB/oct.
+- **The render script's stereo checks:**
+  - Low end below 150 Hz in the side: below -30 dB.
+  - Width (side against mid): between -40 and -6 dB. The -40 floor is skipped for auditions, which can be nearly mono.
+  - Level lost in a mono fold-down: under 1.5 dB.
+  - Loudness, DC, crest and the bar readout are measured on the mono fold-down.
+- **The audition** (`npm run music:render -- audition`) plays each sound in its style over drums and sub only, on the tense
+  progression: four moderate bars, then four hard ones.
+

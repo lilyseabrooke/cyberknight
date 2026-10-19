@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AXIS_REGISTRY } from '../music/score/axes/registry';
 import { MACROS } from '../music/score/axes/macros';
 import { BANKS, type BankId } from '../music/score/harmony';
-import { BASS_STYLES, type BassStyle } from '../music/score/roles/bass';
+import { BASS_SOUNDS_LIST, type BassSound } from '../music/score/patches';
+import { BASS_STYLES, SOUNDS_FOR, type BassStyle } from '../music/score/roles/bass';
 import type { StabFeel } from '../music/score/roles/stabs';
 import { NOTE_NAMES, noteName } from '../music/score/theory';
 import type { Bar, RoleId } from '../music/score/types';
@@ -49,6 +50,7 @@ export default function MusicLab() {
   const [progression, setProgression] = useState('rest:0');
   const [stabFeel, setStabFeel] = useState<StabFeel | 'auto'>('auto');
   const [bassStyle, setBassStyle] = useState<BassStyle | 'auto'>('auto');
+  const [bassSound, setBassSound] = useState<BassSound | 'auto'>('auto');
   const [muted, setMuted] = useState<RoleId[]>([]);
   const [volume, setVolume] = useState(0.8);
   const [readout, setReadout] = useState<Readout | null>(null);
@@ -85,6 +87,7 @@ export default function MusicLab() {
     c.stabs.forced = stabFeel === 'auto' ? null : stabFeel;
     if (c.seed !== seed) c.reseed(seed);
     c.setBassStyle(bassStyle === 'auto' ? null : bassStyle);
+    c.setBassSound(bassSound === 'auto' ? null : bassSound);
     c.muted.clear();
     for (const r of muted) c.muted.add(r);
   };
@@ -242,6 +245,18 @@ export default function MusicLab() {
               {BASS_STYLES.map((st) => (
                 <option key={st} value={st}>
                   {st}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="inline">
+            Bass sound{' '}
+            <select value={bassSound} onChange={(e) => setBassSound(e.target.value as BassSound | 'auto')}>
+              <option value="auto">the style&apos;s pick</option>
+              {BASS_SOUNDS_LIST.map((sd) => (
+                <option key={sd} value={sd}>
+                  {sd}
+                  {bassStyle !== 'auto' && SOUNDS_FOR[bassStyle].includes(sd) ? ' (made for this style)' : ''}
                 </option>
               ))}
             </select>

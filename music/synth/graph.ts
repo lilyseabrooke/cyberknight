@@ -3,8 +3,8 @@
  * live engine and offline renders (scripts/music-render.ts) share every line.
  */
 import type { Conductor } from '../score/conductor';
-import { PATCHES } from '../score/patches';
-import { STEPS_PER_BAR, type Bar, type DrumRole, type NoteEvent, type PatchedRole } from '../score/types';
+import { PATCHES, bassPatchById } from '../score/patches';
+import { STEPS_PER_BAR, type Bar, type DrumRole, type NoteEvent, type Patch, type PatchedRole } from '../score/types';
 import { DrumSynth } from './drums';
 import { Mixer } from './mixer';
 import { VoicePool } from './pool';
@@ -19,23 +19,47 @@ export class Graph {
   readonly mixer: Mixer;
   readonly voices: Record<PatchedRole, MonoVoice | VoicePool>;
   readonly drums: DrumSynth;
+  /** Voices built for a role's alternate patches (the bass sounds), by patch id: built on first use, kept for when it comes back. */
+  private readonly built = new Map<string, MonoVoice | VoicePool>();
+  private readonly current: Partial<Record<PatchedRole, string>> = {};
 
   constructor(readonly ctx: BaseAudioContext, dest: AudioNode = ctx.destination) {
     this.mixer = new Mixer(ctx, dest);
     this.voices = Object.fromEntries(
-      (Object.entries(PATCHES) as [PatchedRole, (typeof PATCHES)[PatchedRole]][]).map(([role, patch]) => {
-        const sends = { reverb: this.mixer.sends[patch.bus] };
-        const dest = this.mixer.buses[patch.bus];
-        return [role, patch.poly > 1 ? new VoicePool(ctx, patch, dest, sends) : new MonoVoice(ctx, patch, dest, sends)];
+      (Object.entries(PATCHES) as [PatchedRole, Patch][]).map(([role, patch]) => {
+        this.current[role] = patch.id;
+        return [role, this.build(patch)];
       }),
     ) as Record<PatchedRole, MonoVoice | VoicePool>;
     this.drums = new DrumSynth(ctx, this.mixer.buses.drums);
+  }
+
+  private build(patch: Patch): MonoVoice | VoicePool {
+    const cached = this.built.get(patch.id);
+    if (cached) return cached;
+    const sends = { reverb: this.mixer.sends[patch.bus] };
+    const dest = this.mixer.buses[patch.bus];
+    const v = patch.poly > 1 ? new VoicePool(this.ctx, patch, dest, sends) : new MonoVoice(this.ctx, patch, dest, sends);
+    this.built.set(patch.id, v);
+    return v;
+  }
+
+  /** Switch a role to another of its patches at `t`: the old voice lets go, the new one takes the bar. */
+  private usePatch(role: PatchedRole, id: string | undefined, t: number): void {
+    if (!id || this.current[role] === id) return;
+    const patch = role === 'bass' ? bassPatchById(id) : undefined;
+    if (!patch) return;
+    this.voices[role].stop(t);
+    this.voices[role] = this.build(patch);
+    this.current[role] = id;
   }
 
   /** Schedule one bar starting at `start` (context seconds). Returns the bar's length in seconds. */
   schedule(bar: Bar, start: number): number {
     const stepDur = 60 / bar.bpm / 4;
     const barDur = stepDur * STEPS_PER_BAR;
+
+    for (const [role, id] of Object.entries(bar.patches) as [PatchedRole, string][]) this.usePatch(role, id, start);
 
     // Parameter events in time order: bar-line values first, then any contour points later in the bar.
     const params = [...bar.params].sort((a, b) => (a.t ?? 0) - (b.t ?? 0));

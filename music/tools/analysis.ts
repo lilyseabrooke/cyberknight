@@ -99,7 +99,8 @@ export function envelope(x: Float32Array, sampleRate: number, windowSec: number)
   return out;
 }
 
-export function wav(pcm: Int16Array, sampleRate: number): Buffer {
+/** A 16-bit PCM WAV. `pcm` is interleaved when `channels` is 2. */
+export function wav(pcm: Int16Array, sampleRate: number, channels = 1): Buffer {
   const data = Buffer.from(pcm.buffer, pcm.byteOffset, pcm.byteLength);
   const h = Buffer.alloc(44);
   h.write('RIFF', 0);
@@ -108,12 +109,67 @@ export function wav(pcm: Int16Array, sampleRate: number): Buffer {
   h.write('fmt ', 12);
   h.writeUInt32LE(16, 16);
   h.writeUInt16LE(1, 20);
-  h.writeUInt16LE(1, 22);
+  h.writeUInt16LE(channels, 22);
   h.writeUInt32LE(sampleRate, 24);
-  h.writeUInt32LE(sampleRate * 2, 28);
-  h.writeUInt16LE(2, 32);
+  h.writeUInt32LE(sampleRate * 2 * channels, 28);
+  h.writeUInt16LE(2 * channels, 32);
   h.writeUInt16LE(16, 34);
   h.write('data', 36);
   h.writeUInt32LE(data.length, 40);
   return Buffer.concat([h, data]);
+}
+
+export interface Stereo {
+  left: Float32Array;
+  right: Float32Array;
+}
+
+/** Mid (what a mono speaker plays) and side (what only stereo adds). */
+export function midSide({ left, right }: Stereo): { mid: Float32Array; side: Float32Array } {
+  const mid = new Float32Array(left.length);
+  const side = new Float32Array(left.length);
+  for (let i = 0; i < left.length; i++) {
+    mid[i] = (left[i]! + right[i]!) / 2;
+    side[i] = (left[i]! - right[i]!) / 2;
+  }
+  return { mid, side };
+}
+
+/** Energy in [lo, hi) Hz (Hann-windowed frames), as a raw sum, so two signals' bands can be compared. */
+export function bandEnergy(x: Float32Array, sampleRate: number, lo: number, hi: number, frame = 8192): number {
+  const re = new Float64Array(frame);
+  const im = new Float64Array(frame);
+  let band = 0;
+  for (let start = 0; start + frame <= x.length; start += frame / 2) {
+    for (let i = 0; i < frame; i++) {
+      re[i] = x[start + i]! * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (frame - 1)));
+      im[i] = 0;
+    }
+    fft(re, im);
+    for (let k = 1; k < frame / 2; k++) {
+      const f = (k * sampleRate) / frame;
+      if (f >= lo && f < hi) band += re[k]! * re[k]! + im[k]! * im[k]!;
+    }
+  }
+  return band;
+}
+
+/** How much quieter the low band is in the side than in the mid, in dB: very negative means the low end is mono. */
+export function lowEndSide(st: Stereo, sampleRate: number, hi = 150): number {
+  const { mid, side } = midSide(st);
+  return 10 * Math.log10(Math.max(bandEnergy(side, sampleRate, 20, hi), 1e-20) / Math.max(bandEnergy(mid, sampleRate, 20, hi), 1e-20));
+}
+
+/** Width: side level against mid level, in dB. Around -20 to -8 is a healthy spread; near 0 is phasey. */
+export function width(st: Stereo): number {
+  const { mid, side } = midSide(st);
+  return db(rms(side)) - db(rms(mid));
+}
+
+/** How much level a mono fold-down loses against the stereo signal, in dB (0 = nothing cancels). */
+export function monoLoss(st: Stereo): number {
+  const { mid } = midSide(st);
+  let s = 0;
+  for (let i = 0; i < st.left.length; i++) s += (st.left[i]! ** 2 + st.right[i]! ** 2) / 2;
+  return db(rms(mid)) - db(Math.sqrt(s / Math.max(1, st.left.length)));
 }

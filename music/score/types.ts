@@ -71,6 +71,8 @@ export interface Bar {
   bedGate: number;
   /** What the harmony was doing, for readouts and tests. */
   harmony: HarmonyBar;
+  /** Which patch plays a role this bar, where a role has more than one sound (the bass). */
+  patches: Partial<Record<PatchedRole, string>>;
 }
 
 /** A chord, as pitch classes. */
@@ -121,8 +123,15 @@ export interface OscLayer {
   detune: number;
   /** 0..1. */
   level: number;
-  /** Several oscillators spread around `detune`: supersaw and friends. */
-  unison?: { voices: number; /** Total spread, in cents. */ spread: number };
+  /** Several oscillators spread around `detune`: supersaw and friends. `pan` spreads them across the stereo field (0 = centre, 1 = wide). */
+  unison?: { voices: number; /** Total spread, in cents. */ spread: number; pan?: number };
+  /** Where the layer sits in the stereo field, -1 (left) to 1 (right). */
+  pan?: number;
+  /**
+   * Frequency modulation: a modulator at `ratio` times the note's frequency into this layer's. `index` is the modulation index (how
+   * hard), `env` how far above it each note flares, and `decay` how fast the flare settles (seconds).
+   */
+  fm?: { ratio: number; index: number; env?: number; decay?: number };
 }
 
 /** A free-running low-frequency oscillator into a parameter. */
@@ -130,9 +139,11 @@ export interface Lfo {
   /** Hz. */
   rate: number;
   shape: 'sine' | 'tri';
-  dst: 'filter.cutoff' | 'pitch' | 'level';
-  /** In the destination's units: Hz for the cutoff, cents for pitch, gain for level. */
+  dst: 'filter.cutoff' | 'pitch' | 'level' | 'detune';
+  /** In the destination's units: Hz for the cutoff, cents for pitch and detune, gain for level. Routable as `lfo.<i>.depth`. */
   depth: number;
+  /** For `detune`: which layer drifts, so layers drift against each other (a reese's slow phasing). */
+  layer?: number;
 }
 
 export interface Patch {
@@ -146,6 +157,25 @@ export interface Patch {
   drive?: { amount: number; crush: number };
   /** Band split after the drive, e.g. the bass's highpass that keeps its low end out of the sub's way. */
   post?: { hp?: number; lp?: number };
+  /**
+   * A vowel filter: three bandpasses at the formants of a vowel, mixed with the lowpass. `vowel` slides oo -> oh -> ah -> eh (0..1).
+   * With `wobbleTo: 'vowel'`, a note's wobble moves the vowel instead of the cutoff: the talking growl.
+   */
+  formant?: { vowel: number; mix: number };
+  wobbleTo?: 'cutoff' | 'vowel';
+  /** A comb filter tuned to each note: a short delay with feedback, for a metallic snarl. */
+  comb?: { feedback: number; mix: number };
+  /** Parallel band distortion: a band around `freq` driven hard and mixed back in, so the mids snarl and the lows stay clean. */
+  parallel?: { freq: number; q: number; drive: number; mix: number };
+  /** A knock at each note's start: the pitch drops from `semis` above over `decay` seconds, with a click at `click` level. */
+  knock?: { semis: number; decay: number; click: number };
+  /** Stereo width above `hp` Hz, as a side-only signal (so it cancels in mono and the low end stays centred). */
+  width?: { amount: number; hp: number };
+  /**
+   * Fold everything below this (Hz) to mono with a Linkwitz-Riley crossover, so panned or spread layers keep their width up top
+   * without smearing the low end across the stereo field.
+   */
+  monoBelow?: number;
   /** Glide time constant, seconds. */
   glide?: number;
   lfo?: Lfo[];

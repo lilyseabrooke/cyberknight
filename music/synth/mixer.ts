@@ -39,13 +39,20 @@ export class Mixer {
     for (const id of BUSES) this.sends[id].connect(reverb);
     const conv = ctx.createConvolver();
     conv.normalize = false;
-    conv.buffer = impulse(ctx, 2.8, 3.2, 1);
-    const hp = ctx.createBiquadFilter();
-    hp.type = 'highpass';
-    hp.frequency.value = 180;
+    // A stereo impulse: each ear's tail is its own noise, so the room is wide.
+    conv.buffer = impulse(ctx, 2.8, 3.2, 2);
+    // A steep highpass in front of it (24 dB/oct at 220 Hz): a wide reverb must not put low end in the side.
+    let pre: AudioNode = reverb;
+    for (let i = 0; i < 2; i++) {
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 220;
+      hp.Q.value = Math.SQRT1_2;
+      pre = pre.connect(hp);
+    }
     const ret = mk();
     ret.gain.value = 0.55;
-    reverb.connect(hp).connect(conv).connect(ret).connect(this.input);
+    pre.connect(conv).connect(ret).connect(this.input);
 
     const masterHp = ctx.createBiquadFilter();
     masterHp.type = 'highpass';

@@ -11,12 +11,21 @@ const HAT_PARTIALS = [205.3, 304.4, 369.6, 522.7, 540, 800];
 export class DrumSynth {
   private readonly noise: AudioBuffer;
   readonly kick: SynthKick;
+  /** Where the hits sit in the stereo field: kick, clap and snare centred; hats and percussion off to the sides. */
+  private readonly pans: Record<'hat' | 'openhat' | 'clank' | 'rim', StereoPannerNode>;
 
   constructor(
     private readonly ctx: BaseAudioContext,
     private readonly dest: AudioNode,
   ) {
     this.kick = new SynthKick(ctx, dest);
+    const pan = (p: number): StereoPannerNode => {
+      const n = ctx.createStereoPanner();
+      n.pan.value = p;
+      n.connect(dest);
+      return n;
+    };
+    this.pans = { hat: pan(0.3), openhat: pan(-0.25), clank: pan(-0.45), rim: pan(0.5) };
     // One second of fixed pseudo-random noise, so renders are repeatable.
     this.noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = this.noise.getChannelData(0);
@@ -34,9 +43,9 @@ export class DrumSynth {
       case 'kick':
         return this.kick.hit(t, vel, note);
       case 'hat':
-        return this.hat(t, vel, 0.045);
+        return this.hat(t, vel, 0.045, this.pans.hat);
       case 'openhat':
-        return this.hat(t, vel, 0.26);
+        return this.hat(t, vel, 0.26, this.pans.openhat);
       case 'clap':
         return this.clap(t, vel);
       case 'snare':
@@ -70,7 +79,7 @@ export class DrumSynth {
     return b;
   }
 
-  private hat(t: number, vel: number, decay: number): void {
+  private hat(t: number, vel: number, decay: number, out: AudioNode): void {
     const sum = this.ctx.createGain();
     sum.gain.value = 0.18;
     for (const f of HAT_PARTIALS) {
@@ -82,7 +91,7 @@ export class DrumSynth {
       o.stop(t + decay * 3 + 0.05);
     }
     const env = this.env(t, vel * 0.5, decay);
-    sum.connect(this.filter('bandpass', 10000, 0.8)).connect(this.filter('highpass', 7000)).connect(env).connect(this.dest);
+    sum.connect(this.filter('bandpass', 10000, 0.8)).connect(this.filter('highpass', 7000)).connect(env).connect(out);
   }
 
   private clap(t: number, vel: number): void {
@@ -120,7 +129,7 @@ export class DrumSynth {
     idx.gain.setTargetAtTime(0, t, 0.04);
     mod.connect(idx).connect(car.frequency);
     const g = this.env(t, vel * 0.35, 0.12);
-    car.connect(this.filter('bandpass', 2200, 1)).connect(g).connect(this.dest);
+    car.connect(this.filter('bandpass', 2200, 1)).connect(g).connect(this.pans.clank);
     car.start(t);
     mod.start(t);
     car.stop(t + 0.5);
@@ -132,10 +141,10 @@ export class DrumSynth {
     o.type = 'triangle';
     o.frequency.value = 1700;
     const g = this.env(t, vel * 0.4, 0.025);
-    o.connect(this.filter('highpass', 500)).connect(g).connect(this.dest);
+    o.connect(this.filter('highpass', 500)).connect(g).connect(this.pans.rim);
     o.start(t);
     o.stop(t + 0.15);
     const c = this.env(t, vel * 0.3, 0.008);
-    this.noiseSource(t, 0.05).connect(this.filter('highpass', 3000)).connect(c).connect(this.dest);
+    this.noiseSource(t, 0.05).connect(this.filter('highpass', 3000)).connect(c).connect(this.pans.rim);
   }
 }

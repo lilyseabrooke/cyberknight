@@ -17,6 +17,7 @@
  */
 import type { MacroValues } from '../axes/macros';
 import { chordAt } from '../harmony';
+import type { BassSound } from '../patches/bass';
 import { unit } from '../rng';
 import { MODES, buildChord, fifthOf, foldInto, pc } from '../theory';
 import { STEPS_PER_BAR, type Chord, type HarmonyBar, type NoteEvent, type ParamEvent } from '../types';
@@ -41,9 +42,18 @@ export const PHRASE_BARS = 4;
 /** Bars before a riff's step pattern repeats. */
 export const RIFF_BARS = 2;
 
+/** The sounds each style picks between, per piece: the low end changes character from song to song, not just pattern. */
+export const SOUNDS_FOR: Record<BassStyle, BassSound[]> = {
+  hold: ['reese', 'talker'],
+  roll: ['fm', 'growl'],
+  pulse: ['knock', 'fm'],
+  riff: ['acid', 'growl'],
+};
+
 export interface BassMaterial {
   seed: number;
   style: BassStyle;
+  sound: BassSound;
   shape: BarShape[];
   phraseCurve: PhraseCurve;
   barCurve: BarCurve;
@@ -78,14 +88,18 @@ const SHAPES: Record<BassStyle, BarShape[][]> = {
 
 const pickOf = <T>(u: number, xs: readonly T[]): T => xs[Math.min(xs.length - 1, Math.floor(u * xs.length))]!;
 
-/** A new bassline. The style is the seed's unless given; riffs are the rarest, so most pieces don't groove the same way. */
-export function newBass(seed: number, style?: BassStyle): BassMaterial {
+/**
+ * A new bassline. The style is the seed's unless given (riffs are the rarest, so most pieces don't groove the same way), and so is
+ * the sound, from the style's pair unless given.
+ */
+export function newBass(seed: number, style?: BassStyle, sound?: BassSound): BassMaterial {
   const u = unit(seed, 0x57e1);
   const s: BassStyle = style ?? (u < 0.3 ? 'hold' : u < 0.6 ? 'roll' : u < 0.8 ? 'pulse' : 'riff');
   const lu = unit(seed, 0x10c);
   return {
     seed,
     style: s,
+    sound: sound ?? pickOf(unit(seed, 0x50d), SOUNDS_FOR[s]),
     shape: pickOf(unit(seed, 0x5a9e), SHAPES[s]),
     phraseCurve: pickOf<PhraseCurve>(unit(seed, 0xc0a1), ['flat', 'rise', 'fall', 'arch']),
     // Rolls pump by nature; the others mostly don't.

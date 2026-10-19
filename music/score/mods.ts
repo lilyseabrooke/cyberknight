@@ -9,7 +9,14 @@ import type { ModRoute, ModSource, Patch } from './types';
 /** The parameters a patch exposes to mod routes. A route to anything else is a mistake. */
 export function paramPaths(p: Patch): string[] {
   const out = ['level'];
-  p.osc.forEach((_, i) => out.push(`osc.${i}.level`, `osc.${i}.detune`));
+  p.osc.forEach((o, i) => {
+    out.push(`osc.${i}.level`, `osc.${i}.detune`);
+    if (o.fm) out.push(`osc.${i}.fm`);
+  });
+  (p.lfo ?? []).forEach((_, i) => out.push(`lfo.${i}.depth`));
+  if (p.formant) out.push('formant.vowel', 'formant.mix');
+  if (p.comb) out.push('comb.feedback', 'comb.mix');
+  if (p.parallel) out.push('parallel.drive', 'parallel.mix');
   if (p.filter) out.push('filter.cutoff', 'filter.q', 'filter.env');
   if (p.env.filterDecay !== undefined) out.push('env.filterDecay');
   if (p.drive) out.push('drive.amount', 'drive.crush');
@@ -27,8 +34,26 @@ export function baseValue(p: Patch, path: string): number {
     case 'osc': {
       const o = p.osc[Number(a)];
       if (!o) break;
+      if (b === 'fm') {
+        if (!o.fm) break;
+        return o.fm.index;
+      }
       return b === 'level' ? o.level : o.detune;
     }
+    case 'lfo': {
+      const l = p.lfo?.[Number(a)];
+      if (!l) break;
+      return l.depth;
+    }
+    case 'formant':
+      if (!p.formant) break;
+      return a === 'vowel' ? p.formant.vowel : p.formant.mix;
+    case 'comb':
+      if (!p.comb) break;
+      return a === 'feedback' ? p.comb.feedback : p.comb.mix;
+    case 'parallel':
+      if (!p.parallel) break;
+      return a === 'drive' ? p.parallel.drive : p.parallel.mix;
     case 'filter':
       if (!p.filter) break;
       return a === 'cutoff' ? p.filter.cutoff : a === 'q' ? p.filter.q : p.filter.env;

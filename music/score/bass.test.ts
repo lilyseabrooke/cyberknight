@@ -195,3 +195,34 @@ describe('the sub follows the bass', () => {
     expect(subs[0]![0]!.shape?.attack).toBeGreaterThan(0);
   });
 });
+
+describe('bass sounds', () => {
+  it('every sound is a valid patch: its routes name real parameters and known sources', async () => {
+    const { BASS_SOUNDS } = await import('./patches');
+    const { validatePatch } = await import('./mods');
+    const { AXIS_REGISTRY } = await import('./axes/registry');
+    const { MACROS } = await import('./axes/macros');
+    for (const p of Object.values(BASS_SOUNDS)) expect(validatePatch(p, { axes: AXIS_REGISTRY, macros: MACROS.map((m) => m.id), traits: [] }), p.id).toEqual([]);
+  });
+
+  it('each style picks between its own sounds, and pieces get both', async () => {
+    const { SOUNDS_FOR } = await import('./roles/bass');
+    for (const style of BASS_STYLES) {
+      const seen = new Set<string>();
+      for (let seed = 0; seed < 40; seed++) {
+        const b = newBass(seed, style);
+        expect(SOUNDS_FOR[style]).toContain(b.sound);
+        seen.add(b.sound);
+      }
+      expect(seen.size).toBe(SOUNDS_FOR[style].length);
+    }
+  });
+
+  it('tells the synth which bass patch plays the bar', () => {
+    const c = new Conductor({ seed: 2 });
+    c.setBassSound('talker');
+    expect(c.renderBar().patches.bass).toBe('bass-talker');
+    c.setBassSound('knock');
+    expect(c.renderBar().patches.bass).toBe('bass-knock');
+  });
+});
