@@ -2,20 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { AXES, AXIS_REGISTRY, createAxisRegistry } from './axes/registry';
 import { MACROS, evaluateMacros, validateMacros } from './axes/macros';
 import { AxisState, Gate } from './axes/state';
-import { Conductor, TEST_PROGRESSION } from './conductor';
+import { Conductor } from './conductor';
 import { evaluateMods, validatePatch } from './mods';
 import { PATCHES } from './patches';
 import { KICK_STEPS, newRiff, renderBass } from './roles/bass';
-import { SUB_HI, SUB_LO } from './theory';
-import type { Patch } from './types';
+import { SUB_HI, SUB_LO, buildChord } from './theory';
+import type { HarmonyBar, Patch } from './types';
 
 const MACRO_IDS = MACROS.map((m) => m.id);
+/** One bar of E minor, held. */
+const E_MINOR: HarmonyBar = { key: 4, mode: 'aeolian', segments: [{ from: 0, to: 16, chord: buildChord({ degree: 0 }, 4, 'aeolian') }], pedal: false, tension: [] };
 const macrosAt = (aggression: number, syncopation = aggression) => ({ aggression, syncopation, density: aggression, darkness: 0.3, drive: 0 });
 
 describe('determinism', () => {
   it('renders identical bars from the same seed and axis trajectory', () => {
     const run = () => {
-      const c = new Conductor({ seed: 1234, roots: TEST_PROGRESSION });
+      const c = new Conductor({ seed: 1234 });
       const bars = [];
       for (let i = 0; i < 24; i++) {
         c.axes.setTarget('intensity', i / 24);
@@ -28,8 +30,8 @@ describe('determinism', () => {
   });
 
   it('gives different seeds different riffs', () => {
-    const a = renderBass(newRiff(1), macrosAt(0.8), 0, 40);
-    const b = renderBass(newRiff(2), macrosAt(0.8), 0, 40);
+    const a = renderBass(newRiff(1), macrosAt(0.8), 0, E_MINOR);
+    const b = renderBass(newRiff(2), macrosAt(0.8), 0, E_MINOR);
     expect(a).not.toEqual(b);
   });
 });
@@ -39,7 +41,7 @@ describe('character bass', () => {
     const locked = new Set([...KICK_STEPS, 2, 6, 10, 14]);
     for (let seed = 0; seed < 50; seed++) {
       for (let bar = 0; bar < 2; bar++) {
-        const notes = renderBass(newRiff(seed), macrosAt(0, 0), bar, 40);
+        const notes = renderBass(newRiff(seed), macrosAt(0, 0), bar, E_MINOR);
         expect(notes.length).toBeGreaterThanOrEqual(4);
         expect(notes.length).toBeLessThanOrEqual(8);
         for (const n of notes) {
@@ -56,7 +58,7 @@ describe('character bass', () => {
     let total = 0;
     for (let seed = 0; seed < 50; seed++) {
       for (let bar = 0; bar < 2; bar++) {
-        const notes = renderBass(newRiff(seed), macrosAt(1), bar, 40);
+        const notes = renderBass(newRiff(seed), macrosAt(1), bar, E_MINOR);
         total += notes.length;
         off += notes.filter((n) => !KICK_STEPS.includes(n.t)).length;
       }
@@ -67,15 +69,15 @@ describe('character bass', () => {
 
   it('keeps the same riff as aggression moves: notes come and go at stable places', () => {
     const riff = newRiff(77);
-    const lo = new Set(renderBass(riff, macrosAt(0.4), 0, 40).map((n) => n.t));
-    const hi = new Set(renderBass(riff, macrosAt(0.6), 0, 40).map((n) => n.t));
+    const lo = new Set(renderBass(riff, macrosAt(0.4), 0, E_MINOR).map((n) => n.t));
+    const hi = new Set(renderBass(riff, macrosAt(0.6), 0, E_MINOR).map((n) => n.t));
     const shared = [...lo].filter((t) => hi.has(t)).length;
     expect(shared / Math.min(lo.size, hi.size)).toBeGreaterThan(0.6);
   });
 
   it('never lets a note run past the bar or overlap the next one', () => {
     for (let seed = 0; seed < 30; seed++) {
-      const notes = renderBass(newRiff(seed), macrosAt(seed / 30), 1, 40);
+      const notes = renderBass(newRiff(seed), macrosAt(seed / 30), 1, E_MINOR);
       notes.forEach((n, i) => {
         const next = notes[i + 1];
         expect(n.t + n.dur).toBeLessThanOrEqual(next ? next.t : 16);
@@ -87,8 +89,9 @@ describe('character bass', () => {
 describe('sub', () => {
   it('stays in E1-E2 whatever the root does', () => {
     for (let key = 0; key < 12; key++) {
-      const c = new Conductor({ seed: key, key, roots: [0, 1, 3, 5, 7, 8, 10, 11] });
-      for (let i = 0; i < 8; i++) {
+      const c = new Conductor({ seed: key, key });
+      for (let i = 0; i < 16; i++) {
+        if (i === 8) c.setProgression('tense', 1);
         for (const n of c.renderBar().notes.filter((x) => x.role === 'sub')) {
           expect(n.note).toBeGreaterThanOrEqual(SUB_LO);
           expect(n.note).toBeLessThanOrEqual(SUB_HI);

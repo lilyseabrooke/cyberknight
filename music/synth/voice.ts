@@ -35,7 +35,8 @@ const makeup = (amount: number): number => amount ** -0.4;
 
 export class MonoVoice {
   readonly out: GainNode;
-  private readonly oscs: { node: OscillatorNode; gain: GainNode; octave: number; detune: number }[] = [];
+  /** One entry per patch layer; a unison layer has several oscillators, each with its offset from the layer's detune. */
+  private readonly oscs: { nodes: { node: OscillatorNode; offset: number }[]; gain: GainNode; octave: number }[] = [];
   private readonly filter?: BiquadFilterNode;
   private readonly pre?: GainNode;
   private readonly make?: GainNode;
@@ -47,23 +48,34 @@ export class MonoVoice {
   /** When the last note's release is due, if it hasn't been committed: a note starting exactly then ties onto it instead. */
   private pendingOff: number | null = null;
 
+  /** The note it is playing (or last played), for the pool's allocator. */
+  note: number | null = null;
+
   constructor(
     private readonly ctx: BaseAudioContext,
     private readonly patch: Patch,
     dest: AudioNode,
+    sends: { reverb?: AudioNode } = {},
   ) {
     for (const path of paramPaths(patch)) this.p[path] = baseValue(patch, path);
 
     const sum = ctx.createGain();
     for (const layer of patch.osc) {
-      const node = ctx.createOscillator();
-      node.type = OSC_TYPE[layer.wave];
-      node.detune.value = layer.detune;
       const gain = ctx.createGain();
-      gain.gain.value = layer.level;
-      node.connect(gain).connect(sum);
-      node.start();
-      this.oscs.push({ node, gain, octave: layer.octave, detune: layer.detune });
+      const count = layer.unison?.voices ?? 1;
+      gain.gain.value = layer.level / Math.sqrt(count);
+      const nodes: { node: OscillatorNode; offset: number }[] = [];
+      for (let i = 0; i < count; i++) {
+        const node = ctx.createOscillator();
+        node.type = OSC_TYPE[layer.wave];
+        const offset = count > 1 ? (i / (count - 1) - 0.5) * (layer.unison?.spread ?? 0) : 0;
+        node.detune.value = layer.detune + offset;
+        node.connect(gain);
+        node.start();
+        nodes.push({ node, offset });
+      }
+      gain.connect(sum);
+      this.oscs.push({ nodes, gain, octave: layer.octave });
     }
 
     let chain: AudioNode = sum;
@@ -115,7 +127,37 @@ export class MonoVoice {
     this.out = ctx.createGain();
     this.out.gain.value = patch.level;
     chain.connect(this.amp).connect(this.out).connect(dest);
+    if (patch.sends?.reverb && sends.reverb) {
+      const send = ctx.createGain();
+      send.gain.value = patch.sends.reverb;
+      this.out.connect(send).connect(sends.reverb);
+    }
+
+    for (const l of patch.lfo ?? []) {
+      const lfo = ctx.createOscillator();
+      lfo.type = l.shape === 'tri' ? 'triangle' : 'sine';
+      lfo.frequency.value = l.rate;
+      const depth = ctx.createGain();
+      depth.gain.value = l.depth;
+      lfo.connect(depth);
+      if (l.dst === 'filter.cutoff' && this.filter) depth.connect(this.filter.frequency);
+      else if (l.dst === 'level') depth.connect(this.out.gain);
+      else if (l.dst === 'pitch') for (const o of this.oscs) for (const n of o.nodes) depth.connect(n.node.detune);
+      lfo.start();
+    }
   }
+
+  /** When this voice will be silent: its last note's end plus a generous release tail. */
+  quietAt(): number {
+    return (this.pendingOff ?? this.lastOff) + 2 * this.patch.env.amp.r;
+  }
+
+  /** When its last note ends (or ended). */
+  endsAt(): number {
+    return this.pendingOff ?? this.lastOff;
+  }
+
+  private lastOff = -Infinity;
 
   /** Apply the bar's mod-route values, gliding to them over `ramp` seconds from `t`. */
   setParams(values: Record<string, number>, t: number, ramp: number): void {
@@ -127,8 +169,8 @@ export class MonoVoice {
       if (head === 'level') this.out.gain.setTargetAtTime(v, t, tc);
       else if (head === 'osc') {
         const o = this.oscs[Number(a)];
-        if (o && b === 'level') o.gain.gain.setTargetAtTime(v, t, tc);
-        if (o && b === 'detune') o.node.detune.setTargetAtTime(v, t, tc);
+        if (o && b === 'level') o.gain.gain.setTargetAtTime(v / Math.sqrt(o.nodes.length), t, tc);
+        if (o && b === 'detune') for (const n of o.nodes) n.node.detune.setTargetAtTime(v + n.offset, t, tc);
       } else if (path === 'filter.q') this.filter?.Q.setTargetAtTime(v, t, tc);
       else if (path === 'filter.cutoff') this.filter?.frequency.setTargetAtTime(v, t, tc);
       else if (path === 'drive.amount') {
@@ -147,21 +189,30 @@ export class MonoVoice {
   commit(before = Infinity): void {
     if (this.pendingOff === null || this.pendingOff > before) return;
     this.amp.gain.setTargetAtTime(0, this.pendingOff, this.patch.env.amp.r / 3);
+    this.lastOff = this.pendingOff;
     this.pendingOff = null;
   }
 
-  play(n: NoteEvent, t: number, dur: number): void {
+  /**
+   * Play a note. A mono voice ties a note that starts exactly when the last one ends; a pool passes `tie` to decide for itself
+   * (a held common tone ties, a voice taken for a new note re-attacks).
+   */
+  play(n: NoteEvent, t: number, dur: number, tie?: boolean): void {
     const { amp } = this.patch.env;
-    const legato = this.pendingOff !== null && Math.abs(this.pendingOff - t) < 1e-4;
+    const touching = this.pendingOff !== null && Math.abs(this.pendingOff - t) < 1e-4;
+    const legato = tie ?? touching;
     if (!legato) this.commit();
     this.pendingOff = null;
 
     const hz = midiToHz(n.note ?? 60);
+    this.note = n.note ?? null;
     const glide = n.slide ? Math.max(0.005, this.p.glide ?? 0.03) : 0;
     for (const o of this.oscs) {
       const f = hz * 2 ** o.octave;
-      if (glide) o.node.frequency.setTargetAtTime(f, t, glide / 3);
-      else o.node.frequency.setValueAtTime(f, t);
+      for (const { node } of o.nodes) {
+        if (glide) node.frequency.setTargetAtTime(f, t, glide / 3);
+        else node.frequency.setValueAtTime(f, t);
+      }
     }
 
     const accent = n.accent ? (this.p.accent ?? 0) : 0;

@@ -1,6 +1,6 @@
 # Procedural music: implementation plan
 
-Status: **phase 1 built** (see "As built" at the end for where it differs from the plan); phases 2-9 are plan. Feel over balance
+Status: **phases 1-2 built** (see "As built" at the end for where they differ from the plan); phases 3-9 are plan. Feel over balance
 applies here too: every number below is a first guess, to be tuned by ear.
 
 Neo gets a score that is generated as it plays, not hand-authored tracks. It is built from native Web Audio synthesizers plus a small kit of
@@ -1280,4 +1280,59 @@ Where it differs from the plan:
   - The buses meet at 0.22 gain before the master, so the limiter stays idle. Peaks sit around -3 dBFS and loudness around -13 dBFS
     RMS.
   - The bass sits about 7 dB under the sub in RMS, which reads as level, since the sub is so low.
+
+### Phase 2: harmony and the beds
+
+Where to find it:
+
+| What | Where |
+|---|---|
+| Modes, chord building, borrowed chords | `music/score/theory.ts` |
+| Progression banks, the 8-bar loop, turnaround, mode, pedal, tension notes | `music/score/harmony.ts` |
+| Voice leading | `music/score/voicing.ts` |
+| Pad and drone | `music/score/roles/beds.ts` |
+| Stabs | `music/score/roles/stabs.ts` |
+| Hats, backbeat, percussion, fills | `music/score/roles/drums.ts` |
+| Voice pool and its pure allocator | `music/synth/pool.ts`, `music/synth/alloc.ts` |
+| Synth drums | `music/synth/drums.ts` |
+| Generated reverb | `music/synth/impulse.ts` |
+
+Where it differs from the plan:
+
+- **Chords are written as scale degrees and take their quality from the mode.** A modal shift re-colours the progression on its own:
+  VII becomes ♭vii in Phrygian. Borrowed chords (♭II, the harmonic-minor V) are written by semitones, with an explicit quality.
+- **The loop's last bar splits into a turnaround:** ♭VII, or v when the bar is already on VII, or ♭II when darkness is above 0.6. It
+  only splits when the cadence chord is new.
+  - Phrygian takes over above darkness 0.6.
+  - The tonic pedal comes in above 0.8.
+  - The ♭2 and ♭5 become allowed tension notes above 0.5.
+- **Under a pedal the bass speaks the tonic chord's vocabulary**, not the moving chord's. Before this fix it could stack a diminished
+  chord's ♭5 on the tonic.
+- **The bass's pitch choices became chord- and scale-aware:** the octave, the chord's own fifth, the diatonic seventh above the chord
+  root, and the ♭2 only where the scale has it, or as a tagged tension over the tonic. The first note over a new chord anchors on its
+  root.
+- **The pad:**
+  - Its add9 uses the scale's next note above the root, so it stays in key.
+  - **When it's dark, the pad is an open fifth under a rub held on the key's ♭2,** instead of the planned fifth plus a ♭2 over each
+    chord root. The planned version moved every voice in parallel, about 4 semitones per chord change. The held rub stays put while the
+    fifth moves, under 1 semitone per voice.
+  - Its articulation (held, swell, or re-struck on the "and" of 4) is material, chosen once per seed.
+- **Stabs and power chords:**
+  - A power chord keeps the chord's own fifth, so a diminished chord's is a ♭5.
+  - Locked stabs take the bass's accents first, then its strongest-placed notes.
+  - Answering stabs take preferred syncopated steps where the bass is neither starting nor sounding.
+- **`voice()` drops a doubled note that can't fit** (a power chord's octave on a high root) rather than failing.
+- **The kick is tuned to the key's tonic,** not each chord's root, so it doesn't change pitch at every chord.
+- **Drums are threshold-sampled from a seeded kit, like the bass.**
+  - The kit's backbeat is clap, snare or both.
+  - The percussion figure is 2-4 steps of clank and rim.
+  - The turnaround fill is graded by density: a hat flam, a 4-step roll, or a full roll with 32nds.
+- **The mixer:**
+  - Each bus has its own reverb send stage, so a solo also solos its reverb. Before this, every stem carried everyone's reverb.
+  - The reverb return isn't ducked.
+  - The beds have a trance gate, which opens above drive 0.6.
+- **The render script:**
+  - Score checks: stabs on or off the bass, and the pad's average movement per voice.
+  - `--stems` renders each bus alone and reports its level.
+  - Starting balance in the groove clip: sub -14, bass -19, drums -20, beds -20 dBFS RMS. Stabs come in around -22 when on.
 

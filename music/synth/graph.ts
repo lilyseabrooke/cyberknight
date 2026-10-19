@@ -4,25 +4,32 @@
  */
 import type { Conductor } from '../score/conductor';
 import { PATCHES } from '../score/patches';
-import { STEPS_PER_BAR, type Bar, type RoleId } from '../score/types';
-import { SynthKick } from './kick';
+import { STEPS_PER_BAR, type Bar, type DrumRole, type NoteEvent, type PatchedRole } from '../score/types';
+import { DrumSynth } from './drums';
 import { Mixer } from './mixer';
+import { VoicePool } from './pool';
 import { MonoVoice } from './voice';
 
 /** How long a bar's new parameter values take to glide in. */
 const PARAM_RAMP_STEPS = 2;
 
+const isPatched = (role: string): role is PatchedRole => role in PATCHES;
+
 export class Graph {
   readonly mixer: Mixer;
-  readonly voices: Partial<Record<RoleId, MonoVoice>> = {};
-  readonly kick: SynthKick;
+  readonly voices: Record<PatchedRole, MonoVoice | VoicePool>;
+  readonly drums: DrumSynth;
 
   constructor(readonly ctx: BaseAudioContext, dest: AudioNode = ctx.destination) {
     this.mixer = new Mixer(ctx, dest);
-    for (const [role, patch] of Object.entries(PATCHES) as [RoleId, (typeof PATCHES)[keyof typeof PATCHES]][]) {
-      this.voices[role] = new MonoVoice(ctx, patch, this.mixer.buses[patch.bus]);
-    }
-    this.kick = new SynthKick(ctx, this.mixer.buses.drums);
+    this.voices = Object.fromEntries(
+      (Object.entries(PATCHES) as [PatchedRole, (typeof PATCHES)[PatchedRole]][]).map(([role, patch]) => {
+        const sends = { reverb: this.mixer.sends[patch.bus] };
+        const dest = this.mixer.buses[patch.bus];
+        return [role, patch.poly > 1 ? new VoicePool(ctx, patch, dest, sends) : new MonoVoice(ctx, patch, dest, sends)];
+      }),
+    ) as Record<PatchedRole, MonoVoice | VoicePool>;
+    this.drums = new DrumSynth(ctx, this.mixer.buses.drums);
   }
 
   /** Schedule one bar starting at `start` (context seconds). Returns the bar's length in seconds. */
@@ -30,25 +37,38 @@ export class Graph {
     const stepDur = 60 / bar.bpm / 4;
     const barDur = stepDur * STEPS_PER_BAR;
 
-    const byRole = new Map<RoleId, Record<string, number>>();
+    const byRole = new Map<PatchedRole, Record<string, number>>();
     for (const p of bar.params) {
+      if (!isPatched(p.role)) continue;
       const m = byRole.get(p.role) ?? {};
       m[p.path] = p.value;
       byRole.set(p.role, m);
     }
-    for (const [role, values] of byRole) this.voices[role]?.setParams(values, start, PARAM_RAMP_STEPS * stepDur);
+    for (const [role, values] of byRole) this.voices[role].setParams(values, start, PARAM_RAMP_STEPS * stepDur);
 
     for (const t of bar.kicks) this.mixer.duck(start + t * stepDur, bar.macros.density ?? 0, stepDur);
+    this.mixer.gateBeds(start, stepDur, bar.bedGate);
 
     const notes = [...bar.notes].sort((a, b) => a.t - b.t);
-    for (const role of Object.keys(this.voices) as RoleId[]) {
-      if (!notes.some((n) => n.role === role)) this.voices[role]!.commit(start);
+    for (const role of Object.keys(this.voices) as PatchedRole[]) {
+      if (!notes.some((n) => n.role === role)) this.voices[role].commit(start);
     }
+    // Poly notes that start together are played as one chord, so the pool can tie common tones.
+    const chords = new Map<string, NoteEvent[]>();
     for (const n of notes) {
       const t = start + n.t * stepDur;
-      if (n.role === 'kick') this.kick.hit(t, n.vel, n.note ?? 33);
-      else this.voices[n.role]?.play(n, t, n.dur * stepDur);
+      if (!isPatched(n.role)) {
+        this.drums.hit(n.role as DrumRole, t, n.vel, n.note, n.variant);
+        continue;
+      }
+      const v = this.voices[n.role];
+      if (v instanceof MonoVoice) v.play(n, t, n.dur * stepDur);
+      else {
+        const k = `${n.role}@${n.t}`;
+        chords.set(k, [...(chords.get(k) ?? []), n]);
+      }
     }
+    for (const group of chords.values()) (this.voices[group[0]!.role as PatchedRole] as VoicePool).playChord(group, start + group[0]!.t * stepDur, stepDur);
     return barDur;
   }
 

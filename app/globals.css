@@ -193,8 +193,11 @@ dd.bad { color: var(--bad); }
 .step { display: flex; flex-direction: column; gap: 2px; }
 .step.beat .k, .step.beat .b { border-color: #4a3470; }
 .step .k, .step .b { border: 1px solid var(--edge); border-radius: 3px; background: #0d0818; }
-.step .k { height: 10px; }
+.step .k { height: 8px; }
 .step .k.on { background: var(--cyan); }
+.step .k.on.hat { background: #7e74a8; }
+.step .k.on.snare { background: var(--mixed); }
+.step .k.on.stab { background: var(--good); }
 .step .b { height: 34px; font-size: 9px; writing-mode: vertical-rl; text-align: center; line-height: 1; overflow: hidden; color: #12031a; }
 .step .b.on { background: #b0157a; }
 .step .b.accent { background: var(--pink); box-shadow: 0 0 6px var(--pink); }

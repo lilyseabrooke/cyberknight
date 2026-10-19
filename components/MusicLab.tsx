@@ -3,23 +3,38 @@
 import { useEffect, useRef, useState } from 'react';
 import { AXIS_REGISTRY } from '../music/score/axes/registry';
 import { MACROS } from '../music/score/axes/macros';
-import { TEST_PROGRESSION } from '../music/score/conductor';
-import { newRiff } from '../music/score/roles/bass';
+import { BANKS, type BankId } from '../music/score/harmony';
+import type { StabFeel } from '../music/score/roles/stabs';
 import { NOTE_NAMES, noteName } from '../music/score/theory';
 import type { Bar, RoleId } from '../music/score/types';
 import { MusicEngine } from '../music/synth/engine';
 
-const ROLES: { id: RoleId; label: string }[] = [
-  { id: 'kick', label: 'Kick' },
-  { id: 'sub', label: 'Sub' },
-  { id: 'bass', label: 'Bass' },
+/** Mute buttons: each switches one or more roles. */
+const GROUPS: { label: string; roles: RoleId[] }[] = [
+  { label: 'Kick', roles: ['kick'] },
+  { label: 'Drums', roles: ['hat', 'openhat', 'clap', 'snare', 'perc'] },
+  { label: 'Sub', roles: ['sub'] },
+  { label: 'Bass', roles: ['bass'] },
+  { label: 'Pad', roles: ['pad'] },
+  { label: 'Stabs', roles: ['stabs'] },
+  { label: 'Drone', roles: ['drone'] },
 ];
+
+const PROGRESSIONS = (Object.keys(BANKS) as BankId[]).flatMap((bank) => BANKS[bank].map((p, index) => ({ bank, index, name: p.name, id: `${bank}:${index}` })));
 
 const randomSeed = (): number => Math.floor(Math.random() * 2 ** 31);
 
+interface Readout {
+  bar: Bar;
+  kick: string;
+  stabs: string;
+  drone: boolean;
+  axes: Record<string, number>;
+}
+
 /**
- * The music workbench (docs/MUSIC_PLAN.md §10.8). Phase 1: the floor (kick, sub and the character bass) with every registered axis
- * as a slider, so the bass's morph from locked to aggressive can be heard and tuned by ear.
+ * The music workbench (docs/MUSIC_PLAN.md §10.8). Phase 2: the rhythm section and the beds over a progression played as an 8-bar
+ * loop, with every registered axis as a slider.
  */
 export default function MusicLab() {
   const engine = useRef<MusicEngine | null>(null);
@@ -29,17 +44,18 @@ export default function MusicLab() {
   const [pin, setPin] = useState<number | null>(null);
   const [bpm, setBpm] = useState(120);
   const [key, setKey] = useState(4);
-  const [loop, setLoop] = useState(true);
+  const [progression, setProgression] = useState('rest:0');
+  const [stabFeel, setStabFeel] = useState<StabFeel | 'auto'>('auto');
   const [muted, setMuted] = useState<RoleId[]>([]);
   const [volume, setVolume] = useState(0.8);
-  const [bar, setBar] = useState<{ bar: Bar; kick: string; axes: Record<string, number> } | null>(null);
-  // Seed 7 to start: the same riff as the rendered clips (scripts/music-render.ts), and stable across server and client renders.
-  const [riff, setRiff] = useState(7);
+  const [readout, setReadout] = useState<Readout | null>(null);
+  // Seed 7 to start: the same material as the rendered clips (scripts/music-render.ts), and stable across server and client renders.
+  const [seed, setSeed] = useState(7);
 
   const get = (): MusicEngine => {
     if (!engine.current) {
-      const e = new MusicEngine({ seed: riff, bpm, key, roots: loop ? TEST_PROGRESSION : [0] });
-      e.onBar = (b) => setBar({ bar: b, kick: e.conductor.last.kick, axes: { ...e.conductor.axes.values() } });
+      const e = new MusicEngine({ seed, bpm, key });
+      e.onBar = (b) => setReadout({ bar: b, kick: e.conductor.last.kick, stabs: e.conductor.last.stabs, drone: e.conductor.last.drone, axes: { ...e.conductor.axes.values() } });
       engine.current = e;
     }
     return engine.current;
@@ -57,7 +73,10 @@ export default function MusicLab() {
     else c.overrides.aggression = pin;
     c.bpm = bpm;
     c.key = key;
-    c.roots = loop ? TEST_PROGRESSION : [0];
+    const p = PROGRESSIONS.find((x) => x.id === progression)!;
+    c.setProgression(p.bank, p.index);
+    c.stabs.forced = stabFeel === 'auto' ? null : stabFeel;
+    if (c.seed !== seed) c.reseed(seed);
     c.muted.clear();
     for (const r of muted) c.muted.add(r);
   };
@@ -78,17 +97,21 @@ export default function MusicLab() {
     }
   };
 
-  const reroll = (): void => {
-    const seed = randomSeed();
-    setRiff(seed);
-    if (engine.current) engine.current.conductor.riff = newRiff(seed);
-  };
-
-  const macros = bar?.bar.macros ?? {};
+  const bar = readout?.bar;
+  const macros = bar?.macros ?? {};
+  const at = (role: RoleId, i: number) => bar?.notes.filter((n) => n.role === role && Math.floor(n.t) === i) ?? [];
   const cells = Array.from({ length: 16 }, (_, i) => ({
-    kick: bar?.bar.notes.some((n) => n.role === 'kick' && Math.floor(n.t) === i),
-    bass: bar?.bar.notes.find((n) => n.role === 'bass' && n.t === i),
+    kick: at('kick', i).length > 0,
+    snare: at('clap', i).length + at('snare', i).length > 0,
+    hat: at('hat', i).length + at('openhat', i).length > 0,
+    stab: at('stabs', i).length > 0,
+    bass: bar?.notes.find((n) => n.role === 'bass' && n.t === i),
   }));
+  const pad = bar?.notes.filter((n) => n.role === 'pad' && n.t === 0).map((n) => noteName(n.note!)) ?? [];
+  const toggleGroup = (g: (typeof GROUPS)[number]): void => {
+    const off = g.roles.every((r) => muted.includes(r));
+    setMuted(off ? muted.filter((r) => !g.roles.includes(r)) : [...new Set([...muted, ...g.roles])]);
+  };
 
   return (
     <main className="shell music">
@@ -97,10 +120,10 @@ export default function MusicLab() {
           <h1 className="logo">
             MUSIC <span>LAB</span>
           </h1>
-          <p className="tag">Phase 1: the floor. Kick, a clean sub, and a bassline that goes from locked to feral.</p>
+          <p className="tag">Phase 2: harmony and the beds. The rhythm section, a pad, stabs and a drone over an 8-bar loop.</p>
         </div>
         <div className="controls">
-          <button className={`btn primary`} onClick={() => void toggle()}>
+          <button className="btn primary" onClick={() => void toggle()}>
             {playing ? '■ Stop' : '▶ Play'}
           </button>
           <label className="inline">
@@ -116,7 +139,11 @@ export default function MusicLab() {
             <label key={d.id} className="axis">
               <span>
                 {d.label}
-                <span className="muted"> {targets[d.id]!.toFixed(2)}{bar && slew ? ` → now ${(bar.axes[d.id] ?? 0).toFixed(2)}` : ''}</span>
+                <span className="muted">
+                  {' '}
+                  {targets[d.id]!.toFixed(2)}
+                  {readout && slew ? ` → now ${(readout.axes[d.id] ?? 0).toFixed(2)}` : ''}
+                </span>
               </span>
               <input type="range" min={0} max={1} step={0.01} value={targets[d.id]} onChange={(e) => setTargets({ ...targets, [d.id]: Number(e.target.value) })} />
             </label>
@@ -148,26 +175,40 @@ export default function MusicLab() {
             </div>
           ))}
           <h3>
-            Bar {bar ? bar.bar.index + 1 : '-'} <span className="muted">· kick {bar?.kick ?? '-'}</span>
+            Bar {bar ? (bar.index % 8) + 1 : '-'}/8{' '}
+            <span className="muted">
+              · {bar ? bar.harmony.segments.map((s) => s.chord.label).join(' → ') : '-'} · {bar?.harmony.mode ?? ''}
+              {bar?.harmony.pedal ? ' · pedal' : ''}
+            </span>
           </h3>
           <div className="steps" aria-label="The last bar, step by step">
             {cells.map((c, i) => (
               <div key={i} className={`step ${i % 4 === 0 ? 'beat' : ''}`}>
+                <div className={`k ${c.hat ? 'on hat' : ''}`} />
+                <div className={`k ${c.snare ? 'on snare' : ''}`} />
                 <div className={`k ${c.kick ? 'on' : ''}`} />
+                <div className={`k ${c.stab ? 'on stab' : ''}`} />
                 <div className={`b ${c.bass ? 'on' : ''} ${c.bass?.accent ? 'accent' : ''} ${c.bass?.slide ? 'slide' : ''}`}>{c.bass ? noteName(c.bass.note ?? 0) : ''}</div>
               </div>
             ))}
           </div>
-          <p className="muted small">Top row kick, bottom row bass. Bright = accent, underline = slide.</p>
+          <p className="muted small">
+            Rows: hats, clap/snare, kick, stabs, bass (bright = accent, underline = slide). Kick {readout?.kick ?? '-'} · stabs {readout?.stabs ?? '-'} ·
+            drone {readout?.drone ? 'on' : 'off'} · pad {pad.join(' ') || '-'}
+          </p>
         </section>
 
         <section className="panel" aria-label="Setup">
           <h3>Setup</h3>
-          <label className="axis">
-            <span>
-              Tempo <span className="muted">{bpm} BPM</span>
-            </span>
-            <input type="range" min={90} max={140} step={1} value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
+          <label className="inline">
+            Progression{' '}
+            <select value={progression} onChange={(e) => setProgression(e.target.value)}>
+              {PROGRESSIONS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.bank}: {p.name}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="inline">
             Key{' '}
@@ -179,20 +220,31 @@ export default function MusicLab() {
               ))}
             </select>
           </label>
-          <label className="check">
-            <input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} /> Root loop i–VI–III–VII (otherwise hold the root)
+          <label className="axis">
+            <span>
+              Tempo <span className="muted">{bpm} BPM</span>
+            </span>
+            <input type="range" min={90} max={140} step={1} value={bpm} onChange={(e) => setBpm(Number(e.target.value))} />
+          </label>
+          <label className="inline">
+            Stabs{' '}
+            <select value={stabFeel} onChange={(e) => setStabFeel(e.target.value as StabFeel | 'auto')}>
+              <option value="auto">follow syncopation</option>
+              <option value="lock">lock to the bass</option>
+              <option value="answer">answer the bass</option>
+            </select>
           </label>
           <div className="controls">
-            {ROLES.map((r) => (
-              <button key={r.id} className={`btn small ${muted.includes(r.id) ? '' : 'on'}`} onClick={() => setMuted(muted.includes(r.id) ? muted.filter((x) => x !== r.id) : [...muted, r.id])}>
-                {r.label}
+            {GROUPS.map((g) => (
+              <button key={g.label} className={`btn small ${g.roles.every((r) => muted.includes(r)) ? '' : 'on'}`} onClick={() => toggleGroup(g)}>
+                {g.label}
               </button>
             ))}
-            <button className="btn small" onClick={reroll}>
-              New riff
+            <button className="btn small" onClick={() => setSeed(randomSeed())}>
+              New material
             </button>
           </div>
-          <p className="muted small">Riff seed {riff}. Changes land on the next bar line.</p>
+          <p className="muted small">Seed {seed}: the riff, the drum kit and the pad&apos;s articulation. Changes land on the next bar line.</p>
         </section>
       </div>
     </main>

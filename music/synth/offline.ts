@@ -3,6 +3,8 @@
  * (scripts/music-render.ts) bundles this file, loads it into headless Chromium and calls `renderMusic`.
  */
 import { Conductor } from '../score/conductor';
+import type { BankId } from '../score/harmony';
+import type { StabFeel } from '../score/roles/stabs';
 import type { BusId, RoleId } from '../score/types';
 import { Graph } from './graph';
 
@@ -18,7 +20,9 @@ export interface RenderSpec {
   seed: number;
   bpm?: number;
   key?: number;
-  roots?: number[];
+  progression?: { bank: BankId; index: number };
+  /** Pin the stabs' feel instead of letting syncopation choose. */
+  stabFeel?: StabFeel;
   keyframes: Keyframe[];
   solo?: BusId[];
   mute?: RoleId[];
@@ -32,7 +36,22 @@ export interface RenderResult {
   /** Mono 16-bit PCM, base64. */
   pcm: string;
   /** Per bar: the macros it was rendered with and its notes, for the report. */
-  bars: { index: number; macros: Record<string, number>; kick: string; bassNotes: number; offKick: number }[];
+  bars: {
+    index: number;
+    macros: Record<string, number>;
+    kick: string;
+    bassNotes: number;
+    offKick: number;
+    chords: string;
+    mode: string;
+    pedal: boolean;
+    stabs: string;
+    drone: boolean;
+    /** Stab onsets that land on a bass onset, and stab onsets in all. */
+    stabsOnBass: number;
+    stabOnsets: number;
+    pad: number[];
+  }[];
 }
 
 function at(keyframes: Keyframe[], bar: number, field: 'axes' | 'overrides'): Record<string, number> {
@@ -52,12 +71,13 @@ function at(keyframes: Keyframe[], bar: number, field: 'axes' | 'overrides'): Re
 export async function renderMusic(spec: RenderSpec): Promise<RenderResult> {
   const sampleRate = spec.sampleRate ?? 44100;
   const bpm = spec.bpm ?? 120;
-  const seconds = (spec.bars * 240) / bpm + 1.5;
+  const seconds = (spec.bars * 240) / bpm + 3.5;
   const ctx = new OfflineAudioContext(1, Math.ceil(seconds * sampleRate), sampleRate);
   const graph = new Graph(ctx);
   graph.mixer.solo(spec.solo ?? null);
-  const conductor = new Conductor({ seed: spec.seed, bpm, key: spec.key, roots: spec.roots });
+  const conductor = new Conductor({ seed: spec.seed, bpm, key: spec.key, progression: spec.progression });
   for (const r of spec.mute ?? []) conductor.muted.add(r);
+  if (spec.stabFeel) conductor.stabs.forced = spec.stabFeel;
 
   const bars: RenderResult['bars'] = [];
   let t = 0.05;
@@ -68,12 +88,22 @@ export async function renderMusic(spec: RenderSpec): Promise<RenderResult> {
     Object.assign(conductor.overrides, at(spec.keyframes, i, 'overrides'));
     const bar = conductor.renderBar();
     const bass = bar.notes.filter((n) => n.role === 'bass');
+    const bassOnsets = new Set(bass.map((n) => n.t));
+    const stabOnsets = [...new Set(bar.notes.filter((n) => n.role === 'stabs').map((n) => n.t))];
     bars.push({
       index: bar.index,
       macros: { ...bar.macros },
       kick: conductor.last.kick,
       bassNotes: bass.length,
       offKick: bass.filter((n) => n.t % 4 !== 0).length,
+      chords: bar.harmony.segments.map((s) => s.chord.label).join(' '),
+      mode: bar.harmony.mode,
+      pedal: bar.harmony.pedal,
+      stabs: conductor.last.stabs,
+      drone: conductor.last.drone,
+      stabsOnBass: stabOnsets.filter((t) => bassOnsets.has(t)).length,
+      stabOnsets: stabOnsets.length,
+      pad: bar.notes.filter((n) => n.role === 'pad' && n.t === 0).map((n) => n.note!),
     });
     t += graph.schedule(bar, t);
   }

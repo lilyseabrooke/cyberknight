@@ -5,8 +5,10 @@
  * places and the riff stays recognisably itself from locked to feral.
  */
 import type { MacroValues } from '../axes/macros';
+import { chordAt } from '../harmony';
 import { unit } from '../rng';
-import { STEPS_PER_BAR, type NoteEvent } from '../types';
+import { MODES, buildChord, fifthOf, foldInto, pc } from '../theory';
+import { STEPS_PER_BAR, type Chord, type HarmonyBar, type NoteEvent } from '../types';
 
 /** Bars before a riff repeats. */
 export const RIFF_BARS = 2;
@@ -76,28 +78,50 @@ export function stepProbabilities(riff: Riff, m: MacroValues, bar: number): numb
   });
 }
 
-/** Semitones above the bar's root, with their weight at full aggression (scaled by aggression; the root is always 1). */
-const VOCAB: { iv: number; w: (a: number, dark: number) => number }[] = [
-  { iv: 0, w: () => 1 },
-  { iv: 12, w: (a) => 0.8 * a },
-  { iv: 7, w: (a) => 0.5 * a },
-  { iv: 10, w: (a) => 0.35 * a },
-  { iv: 1, w: (a, dark) => 0.5 * a * dark },
-];
+/** The bass register: E2 to D#3. Its fundamental sits above the sub's; the band split keeps the two apart. */
+export const BASS_LO = 40;
+export const BASS_HI = 51;
 
-function pickInterval(u: number, a: number, dark: number): number {
-  const ws = VOCAB.map((v) => v.w(a, dark));
-  const total = ws.reduce((x, y) => x + y, 0);
-  let acc = 0;
-  for (let i = 0; i < VOCAB.length; i++) {
-    acc += ws[i]! / total;
-    if (u < acc) return VOCAB[i]!.iv;
-  }
-  return 0;
+interface Choice {
+  iv: number;
+  w: number;
+  tension?: boolean;
 }
 
-/** One bar of the riff. `root` is the bar's root as a MIDI note in the bass register. */
-export function renderBass(riff: Riff, m: MacroValues, bar: number, root: number): NoteEvent[] {
+/**
+ * What the bass may play over a chord, with weights at this aggression: the root always; then the octave, the chord's fifth, the
+ * diatonic seventh above the root, and the ♭2 above it where the scale has one (or, over the tonic in danger, as a tagged rub).
+ */
+export function vocabulary(chord: Chord, h: HarmonyBar, a: number, dark: number): Choice[] {
+  const scale = MODES[h.mode].map((x) => pc(h.key + x));
+  const out: Choice[] = [
+    { iv: 0, w: 1 },
+    { iv: 12, w: 0.8 * a },
+    { iv: fifthOf(chord), w: 0.5 * a },
+  ];
+  const deg = scale.indexOf(chord.root);
+  if (deg >= 0) out.push({ iv: (scale[(deg + 6) % 7]! - chord.root + 12) % 12, w: 0.35 * a });
+  const flat2 = pc(chord.root + 1);
+  if (scale.includes(flat2)) out.push({ iv: 1, w: 0.5 * a * dark });
+  else if (chord.root === h.key && h.tension.includes(flat2)) out.push({ iv: 1, w: 0.5 * a * dark, tension: true });
+  return out;
+}
+
+function pick(u: number, choices: Choice[]): Choice {
+  const total = choices.reduce((x, c) => x + c.w, 0);
+  let acc = 0;
+  for (const c of choices) {
+    acc += c.w / total;
+    if (u < acc) return c;
+  }
+  return choices[0]!;
+}
+
+/** The bass root for a step: the chord's, or the tonic under a pedal, folded into the bass register. */
+export const bassRoot = (h: HarmonyBar, step: number): number => foldInto(BASS_LO + pc((h.pedal ? h.key : chordAt(h, step).root) - pc(BASS_LO)), BASS_LO, BASS_HI);
+
+/** One bar of the riff over the bar's harmony. */
+export function renderBass(riff: Riff, m: MacroValues, bar: number, h: HarmonyBar): NoteEvent[] {
   const a = m.aggression ?? 0;
   const dark = m.darkness ?? 0;
   const rb = bar % RIFF_BARS;
@@ -106,11 +130,16 @@ export function renderBass(riff: Riff, m: MacroValues, bar: number, root: number
   for (let i = 0; i < STEPS_PER_BAR; i++) if (unit(riff.seed, 0x5e7, rb, i) < probs[i]!) on.push(i);
 
   const notes: NoteEvent[] = on.map((t, k) => {
-    // The first note of a riff bar, and anything on the downbeat, anchors on the root.
-    const anchor = k === 0 || t === 0;
-    const iv = anchor ? 0 : pickInterval(unit(riff.seed, 0x917c, rb, t), a, dark);
+    // Under a pedal the bass stays on the tonic, so it speaks the tonic chord's vocabulary, whatever moves above.
+    const chord = h.pedal ? buildChord({ degree: 0 }, h.key, h.mode) : chordAt(h, t);
+    // The first note of a riff bar, a downbeat, and the first note over a new chord all anchor on the root.
+    const prev = on[k - 1];
+    const anchor = k === 0 || t === 0 || (prev !== undefined && chordAt(h, prev) !== chordAt(h, t));
+    const c = anchor ? { iv: 0, w: 1 } : pick(unit(riff.seed, 0x917c, rb, t), vocabulary(chord, h, a, dark));
     const accent = a > 0 && unit(riff.seed, 0xacc, rb, t) < 0.35 * a;
-    return { t, role: 'bass', note: root + iv, vel: accent ? 1 : 0.8, dur: 0, accent };
+    const n: NoteEvent = { t, role: 'bass', note: bassRoot(h, t) + c.iv, vel: accent ? 1 : 0.8, dur: 0, accent };
+    if (c.tension) n.tension = true;
+    return n;
   });
 
   // Gate lengths: a tidy 50% when locked; mixed shorts and accented longs as it gets aggressive. Slides tie a note into the next.
