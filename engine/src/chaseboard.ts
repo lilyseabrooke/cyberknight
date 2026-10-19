@@ -1,7 +1,9 @@
-import { dist, hasLos, idx, passable, pathTo, reach, type Pos } from './grid';
+import { dist, hasLos, idx, passable, pathTo, reach, terrainAt, type Pos } from './grid';
 import { moveNpc } from './population';
-import { lose } from './stealth';
-import { placeOf, syncPlace, type Placed } from './placeboard';
+import { V, lose } from './stealth';
+import { placeOf, syncPlace, viewOf, type Placed } from './placeboard';
+import { dirOf, makeUnit, sightGain } from './prowl';
+import type { Rng } from './rng';
 import { roadClass } from './roads';
 import { isClosed } from './hours';
 import type { Id, Npc, Via, World } from './types';
@@ -157,7 +159,7 @@ export function pinches(cb: ChaseBoard, ahead = AHEAD): number {
 
 // ------------------------------------------------------------------ ways out of it
 
-export type OutKind = 'door' | 'mouth' | 'up' | 'crowd' | 'over';
+export type OutKind = 'door' | 'mouth' | 'up' | 'crowd' | 'over' | 'cover';
 
 /** Somewhere to go that is not along the line: a doorway, a side street, a way up onto a roof, a crowd to lose herself in. */
 export interface Out {
@@ -207,7 +209,70 @@ export function outsFrom(w: World, cb: ChaseBoard, reachTiles = 10): Out[] {
   const people = Object.values(board.ents).filter((e) => dist(e, here) <= reachTiles);
   const knot = people.find((e) => people.filter((o) => dist(o, e) <= 2).length >= 3);
   if (knot) outs.push({ kind: 'crowd', at: { x: knot.x, y: knot.y }, label: 'the crowd', d: dist(knot, here) });
+  const spot = hideSpot(cb, reachTiles);
+  if (spot) outs.push({ kind: 'cover', at: spot.at, label: 'a dark corner off the line', d: spot.d });
   return outs.sort((a, b) => a.d - b.d || a.kind.localeCompare(b.kind));
+}
+
+/** Somewhere off her line to go to ground: beside something she can get behind, or in the dark, a little way from where they will run. */
+function hideSpot(cb: ChaseBoard, reachTiles: number): { at: Pos; d: number } | null {
+  const { layout } = cb.placed;
+  const g = layout.grid;
+  const here = tileAt(cb, cb.s);
+  const r = reach(g, here, reachTiles + 2, () => false);
+  const line = cb.path.slice(Math.max(0, cb.s - 14), cb.s + 14);
+  let best: { at: Pos; d: number; s: number } | null = null;
+  for (const [k, c] of r.cost) {
+    if (c < 1 || c > reachTiles) continue;
+    const at = { x: k % g.w, y: Math.floor(k / g.w) };
+    if (!passable(g, at.x, at.y) || Object.values(cb.placed.board.ents).some((e) => e.x === at.x && e.y === at.y)) continue;
+    const off = Math.min(...line.map((q) => dist(q, at)));
+    if (off < 1 || off > 4) continue;
+    const dark = (layout.light[k] ?? 1) === 0;
+    const behind = [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => terrainAt(g, at.x + dx, at.y + dy) === 'cover'));
+    if (!dark && !behind) continue;
+    const s = (dark ? 2 : 0) + (behind ? 2 : 0) + off - 0.3 * c;
+    if (!best || s > best.s) best = { at, d: c, s };
+  }
+  return best ? { at: best.at, d: best.d } : null;
+}
+
+/**
+ * She is down in the dark and they run by: along the line, from where they are to well past her, each of them looking as they go.
+ * Whoever sees enough of her has her; if nobody does they have gone on, and are somewhere beyond.
+ */
+export function passBy(w: World, cb: ChaseBoard, foes: { crew: Npc[]; gap: number }[], spot: Pos, rng: Rng): Npc[] {
+  const p = cb.placed;
+  const b = viewOf(w, p, { foes: [] });
+  b.hero = { ...spot };
+  b.posture = 'hold';
+  const found: Npc[] = [];
+  for (const f of foes) {
+    for (const n of f.crew) {
+      if (!n.alive || n.downUntil > w.beat) continue;
+      let seen = 0;
+      for (let i = Math.floor(cb.s - f.gap); i <= cb.s + 12; i++) {
+        const at = tileAt(cb, i);
+        const ahead = tileAt(cb, i + 1);
+        const u = makeUnit(n, at, dirOf({ x: at.x, y: at.y } as never, ahead), {});
+        u.behavior = 'patrol';
+        seen += sightGain(b, u, spot, 'hold') * (0.85 + 0.3 * rng.next());
+      }
+      if (seen >= V.aware * 0.4) found.push(n);
+    }
+  }
+  return found;
+}
+
+/** They ran past: on along the line and off the end of it, still looking, with no idea where she went. */
+export function runPast(w: World, cb: ChaseBoard, foes: { crew: Npc[] }[]): void {
+  for (const f of foes) {
+    for (const n of f.crew) {
+      if (!n.alive || n.downUntil > w.beat) continue;
+      lose(w, n);
+      if (cb.exitTo && w.locations[cb.exitTo]) moveNpc(w, n, cb.exitTo);
+    }
+  }
 }
 
 // ------------------------------------------------------------------ who can see her

@@ -89,3 +89,11 @@ relocated to the neighbouring street and whoever was looking is left looking at 
   they start Alert with no fix. If one spots her, it hands off: a foot chase if the nearest is 4+ tiles away, otherwise a fight.
 - The mirror case: timid units (`timid()` in `prowl.ts`: patrons, shopkeepers, kids, etc.) who reach Alert/Aware don't come for her; they
   walk to the nearest way and leave (`prowl_flee`). Fleeing units don't count as "detected".
+
+### Going to ground in a chase
+
+On foot, a chase's `lose_them` can end with her off the line instead of out of the street: `outsFrom` offers a `cover` out (a dark tile or one
+beside cover, 1–4 tiles off the line; ranked after doors, mouths, ways up and fences). She goes to it and holds still, and `passBy` runs each chaser
+along the line from where it is to well past her, summing `sightGain` against her at `hold` posture. If anyone gets enough, they have her
+(gap 1, the chase goes on); if not, `runPast` has them carry on to the street's far exit, Alert with no fix, and she is left on the street
+in stealth (`hid`).

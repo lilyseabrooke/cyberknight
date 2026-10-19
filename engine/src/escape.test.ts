@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { scenario } from './testkit';
 import { spawnGroup } from './candidate';
+import { onFoot, runChase } from './chase';
 import { streetHunt } from './streethunt';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
@@ -77,5 +78,29 @@ describe('a hunt on the street', () => {
     prowlBoard({ w, rng: new Rng('t'), emit: (t) => events.push(t) }, b, (t) => events.push(t));
     expect(events).toContain('prowl_flee');
     expect(b.units[0]!.fled).toBe(true);
+  });
+
+  it('she can go to ground off the line while they run by, and they either find her or go on past', () => {
+    const seen: Record<string, number> = {};
+    for (let i = 0; i < 300; i++) {
+      const sc = scenario({ seed: `ground-${i % 40}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.hero.level = 8;
+      w.hero.maxHp = w.hero.hp = 180;
+      const { c, events } = ctxOf(w, new Rng(`g-${i}`));
+      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 4)) });
+      for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+      const told = events.filter((e) => e.type === 'chase_round').map((e) => String(e.data.events)).join(' ');
+      if (told.includes('lost:cover')) {
+        seen.past = (seen.past ?? 0) + 1;
+        expect(w.hero.stealth).toBe(true);
+        for (const n of crew) if (n.alive) expect(n.locationId).not.toBe(w.hero.locationId);
+      }
+      if (told.includes('hide:found')) seen.found = (seen.found ?? 0) + 1;
+      w.over = undefined as never;
+    }
+    expect(seen.past ?? 0).toBeGreaterThan(0);
+    expect(seen.found ?? 0).toBeGreaterThan(0);
   });
 });

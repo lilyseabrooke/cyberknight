@@ -18,7 +18,7 @@ import { Rng } from './rng';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
-import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, openBoard, outsFrom, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
+import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, openBoard, outsFrom, passBy, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
 import type { Pos } from './grid';
 
 /**
@@ -446,7 +446,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         scores.floor_it = 3 + (band === 'close' || band === 'locked' ? 3 : 0);
         scores.swerve = 1.5 + (band !== 'far' ? 2 : 0);
         // Somewhere to duck into: a doorway, a side street, a way up, or a crowd or a tight street to lose herself in.
-        outs = board ? outsFrom(w, board) : [];
+        outs = board ? outsFrom(w, board).filter((x) => x.kind !== 'cover' || !car) : [];
         scores.lose_them = (tight || outs.some((x) => x.kind !== 'crowd')) && lead.gap >= 3 ? (foot ? 7.5 : 6.5) + (outs.some((x) => x.kind === 'door' || x.kind === 'up') ? 1 : 0) + (board && blockIn(board) !== null && outs.some((x) => x.kind !== 'crowd') ? 3 : 0) : 0;
         scores.shoot = armedBack && (band === 'near' || band === 'close') ? 4 : 0;
         if (band === 'locked' && lead.car && hpRatio > 0.5) scores.board = 2;
@@ -643,7 +643,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         told.push('lost');
         // The surest way first: a door or an alley, then a way up, and a fence or a duct only if it is much nearer (it can go wrong, and for a car it can be no way at all).
         const mode0: Mode = car ? (car.body === 'bike' ? 'bike' : 'car') : 'foot';
-        const rank = (x: Out): number => x.d + (x.kind === 'over' ? 5 : x.kind === 'up' ? 2 : 0) + (x.kind === 'over' && x.via && !Number.isFinite(VIA[x.via][mode0]) ? 99 : 0);
+        const rank = (x: Out): number => x.d + (x.kind === 'over' ? 5 : x.kind === 'up' ? 2 : x.kind === 'cover' ? 6 : 0) + (x.kind === 'over' && x.via && !Number.isFinite(VIA[x.via][mode0]) ? 99 : 0);
         const out = outs.filter((x) => x.kind !== 'crowd').sort((a, b) => rank(a) - rank(b))[0] ?? outs.find((x) => x.kind === 'crowd');
         if (out) {
           told.push(`lost:${out.kind}`);
@@ -679,6 +679,19 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             relocate(w, out.to);
             refresh();
             hid = true;
+          } else if (out.kind === 'cover' && board) {
+            // Down in the dark off the line, and still: they run by, looking, and either one of them sees her or they are gone on past.
+            board.placed.board.hero = { ...out.at };
+            const spotted = passBy(w, board, live, out.at, rng);
+            if (spotted.length) {
+              result = null;
+              for (const f of live) if (f.crew.some((n) => spotted.includes(n))) f.gap = Math.min(f.gap, 1);
+              told.splice(0, told.length, ...told.filter((t) => !t.startsWith('lost')), 'hide:found');
+            } else {
+              h.stealth = true;
+              runPast(w, board, live);
+              hid = true;
+            }
           } else if (out.kind === 'up' && board) {
             board.placed.board.hero = { ...out.at };
             hid = true;
