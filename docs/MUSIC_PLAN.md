@@ -43,6 +43,7 @@ herself, and the comedy lives in the gap with the log. Six bucks still gets a tr
 | Companions, romance | Left out. |
 | Persistence | **The last few songs survive a page reload**, not the whole history (§11.7). |
 | Titles | **Song titles can reference what happened in the night** (§11.6). |
+| Songs in the log | **No.** Songs never appear in the chronicle, and the sim never learns about the music. |
 
 ## 3. Hard constraints
 
@@ -1224,5 +1225,3 @@ Listening is the real test. These catch regressions.
 ## 21. Open questions (for later, not blockers)
 
 - **The lab piece:** its own composed music, out of scope for now (§13).
-- **Titles in the chronicle:** should a song title ever show up in the log (a busker covering it, a club DJ playing it)? It's out of
-  scope, and the sim would need to learn about the music for it.
