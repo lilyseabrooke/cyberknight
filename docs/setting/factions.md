@@ -50,6 +50,31 @@ Gang writing rules:
   place if at all, and always allow any gang to turn up anywhere the generator puts them.
 - Gang names: **Adjective/Noun + Noun** (Chrome Vipers, Neon Marrow, Rust Choir, Saint Sixers). See [`naming.md`](naming.md).
 
+## Muse
+
+**Neo's entertainment conglomerate,** and the city's other megacorp. It runs every TV channel, makes all the music, and
+decides what music is allowed to be played (only Muse's). Muse is **not Atlas** and not one of Atlas's: Blackbird can
+fight it, dodge it, or sign with it, and none of that breaks the Atlas rule.
+
+- **Non-Muse music is technically illegal** in several overlapping ways (licensing, broadcast rights, "unlicensed
+  public emotion"). Nobody enforces it on a busker. It only matters once a musician gets big enough to be noticed, and
+  then Muse **signs them, has them arrested, or sends an Inspiration team**.
+- **Inspiration teams** are Muse's strike squads: military-grade weapons, pastel tactical armour, heart decals, a jingle
+  before they breach. They are lethal and they are adorable about it.
+- **The register is the joke.** Muse talks like the warmest influencer in the city ("We light up your world with music
+  🥰"), emoji and all, in the same breath as an Inspiration team opening fire on a guitarist, followed by a heartfelt
+  tribute post and a link to stream the tribute single. Nobody at Muse notices the contradiction. Played straight, like
+  Atlas's safety-speak. Lethal, deadpan, never gory (hard rule 2), and the joke is always Muse, never the musician.
+- Muse's idol is a synthetic pop star on every screen. PROPOSED: **LUMINA**, released in version numbers ("LUMINA 6.2:
+  now with more feelings").
+- PROPOSED: **Muse Clearance** (the licensing office: glittery letters, officers who confiscate guitars "for
+  safekeeping"), **Muse Broadcast** (the channels) and **Muse A&R** (scouts with pre-uncapped pens).
+- PROPOSED: **Muse and Atlas** are partners who don't trust each other. Atlas's announcements, dragon broadcasts and hold
+  music are licensed from Muse; Muse's channels carry Atlas's safety ads; Gluttony (M&A) has been circling Muse for
+  years.
+- Musical progression, Muse's attention ladder and what Blackbird can do about Muse are in
+  [`../GUITAR_PLAN.md`](../GUITAR_PLAN.md).
+
 ## Venues and shops
 
 Venues and shops (bars, clubs, gyms, pawn shops) are factions too (`kind: 'venue'|'shop'`), but **they are not permanent**: the owner can be killed,

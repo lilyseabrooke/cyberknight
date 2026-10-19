@@ -40,6 +40,8 @@
   tone, ideally with a second, darker meaning.
 - **Atlas brands** are *soothing and safe*: Safe-T, Halcyon, Bastion, Aegis, "Atlas Care+". Never edgy; edgy is for
   gangs. The irony is the whole point.
+- **Muse brands** are *sweet and sparkly*: influencer warmth, hearts and emoji, version numbers on people. Its strike
+  teams are called Inspiration. The cuter the name, the bigger the gun.
 
 ## Tech, models and machines
 

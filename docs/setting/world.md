@@ -58,6 +58,9 @@ Neo is full of corporations. **Atlas is just the big bad**, not the only company
 more exist independently (Helix Biotech is one). Don't make every corp Atlas's; independents can be allies, rivals,
 victims of Atlas takeovers, or just their own brand of shady.
 
+The other megacorp is **Muse**, the entertainment conglomerate: every TV channel, all the music, and the say over what
+music is allowed. See [`factions.md`](factions.md).
+
 ## The Dragon Family
 
 Named after Greek gods, with a Mark number: **Apollo Mk. II** ("CINDERJAW", the stationary boss on the Kowloon
