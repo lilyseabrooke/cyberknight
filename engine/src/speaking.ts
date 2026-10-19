@@ -1,4 +1,4 @@
-import type { Ctx, Hero, Npc, NpcGoalKind, World } from './types';
+import type { Ctx, Hero, Npc, NpcGoalKind, Speech, World } from './types';
 import { addHeat, gainXp, here, remember } from './combat';
 import { clamp, type Candidate } from './candidate';
 import { odds, skillLevel, synergy, train } from './skills';
@@ -35,6 +35,15 @@ export const TALK_DOWN_LEVEL = 15;
 /** Skills run 0 to 100 (levels 1, 3, 5, 8, 12... are the milestones). Past this level her speeches read as polished. */
 const POLISHED = 8;
 
+/** How long a speech runs on the world clock, in minutes. The soapbox gets the street's attention for most of an hour. */
+const STUMP_MINUTES = 45;
+const BILLBOARD_MINUTES = 70;
+/** People who wander into a speech already under way are a harder sell than the ones who were there for it. */
+const DRIFT_PULL = 0.75;
+
+/** A loudspeaker carries her voice out to the next streets along; without one she is heard where she stands. */
+const reachOf = (h: Hero): number => (h.inventory.some((i) => i.tags.includes('loudspeaker')) ? 1 : 0);
+
 /** Speeches wear off: each repeat counts for less, and the wear halves in about 23 beats. */
 const WEAR_DECAY = 0.97;
 
@@ -58,7 +67,7 @@ export function speakingCandidates(w: World): Candidate[] {
 
   // ---- a soapbox on any street
   if (loc.outdoors && !['overpass', 'halo_roof'].includes(loc.id)) {
-    out.push({ key: 'stump_speech', drives: { pride: 0.6, curiosity: 0.3, bravery: 0.3 }, bonus: Math.min(lvl, 30) * 0.01 + 0.08 * Math.min(5, audience(w).length), risk: 0.15, intent: {}, run: stumpSpeech });
+    out.push({ key: 'stump_speech', drives: { pride: 0.6, curiosity: 0.3, bravery: 0.3 }, bonus: Math.min(lvl, 30) * 0.01 + 0.08 * Math.min(5, audience(w, reachOf(h)).length), risk: 0.15, intent: {}, run: stumpSpeech });
   }
 
   // ---- the troops
@@ -78,7 +87,7 @@ function stumpSpeech(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   if (rng.next() < ODDS.stump(h)) {
-    const moved = moveCrowd(c, { depth: 1, stretch: 1, edge: 0 });
+    const moved = moveCrowd(c, { depth: reachOf(h), stretch: 1, edge: 0, remote: 0.55, minutes: STUMP_MINUTES });
     const n = moved?.count ?? 0;
     fameFrom(c, 0.4 + 0.45 * Math.sqrt(n), 'stump_speech');
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 4;
@@ -202,7 +211,7 @@ export function billboardSpeech(c: Ctx): void {
   if (skillLevel(h, 'speaking') < BILLBOARD_SPEECH_LEVEL) return;
   if (rng.chance(billboardOdds(h))) {
     // Everyone in earshot, a bigger voice, and it lasts longer.
-    const moved = moveCrowd(c, { depth: 2, stretch: 1.6, edge: 0.15 });
+    const moved = moveCrowd(c, { depth: 1, stretch: 1.6, edge: 0.15, remote: 0.8, minutes: BILLBOARD_MINUTES });
     const n = moved?.count ?? 0;
     const gain = fameFrom(c, 1.5 + 0.7 * Math.sqrt(n), 'stump_speech');
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 8;
@@ -308,49 +317,100 @@ export const MAX_LEADERS = 6;
 const PRESENCE = new Set<NpcGoalKind>(['back_me_up', 'give_cash', 'cover']);
 
 /**
- * The real win of a speech: a goal in the head of everyone listening. She picks the cry (what she wants done, or what she
- * fancies) and each person in earshot weighs it the way they would a one-to-one ask: how big it is, how it sits with who they
- * are, how they feel about her. A crowd carries itself, so the more of them there are the likelier each is to go along.
+ * Start a speech. It lasts `minutes` of world time, and everyone in earshot gets a say; after that, anyone who comes by
+ * while it lasts is rolled for too (`speechTick`).
+ *
+ * The real win of a speech is a goal in the head of everyone listening. She picks the cry (what she wants done, or what she
+ * fancies) and each person weighs it the way they would a one-to-one ask: how big it is, how it sits with who they are, how they
+ * feel about her. A crowd carries itself, so the more of them there are the likelier each is to go along. People on the next
+ * streets, if her voice reaches them, are less likely to be swept up.
  *
  * She can move any number of them. Only the keenest `MAX_LEADERS` are simulated, with the goal in their heads; everyone else
  * she moves falls in behind one of those, and just makes that person stronger while they do it (`withAssist`). So fifty people
  * is a very different thing from eight, without fifty people to run.
  */
-export function moveCrowd(c: Ctx, o: { depth: number; stretch: number; edge: number }): Moved | null {
-  const { w, rng } = c;
-  const h = w.hero;
+export function moveCrowd(c: Ctx, o: { depth: number; stretch: number; edge: number; remote?: number; minutes?: number }): Moved | null {
+  const { w } = c;
+  const sp: Speech = {
+    loc: w.hero.locationId, until: w.clock + (o.minutes ?? STUMP_MINUTES), heard: [], leaders: [], depth: o.depth,
+    remote: o.remote ?? 0.55, stretch: o.stretch, edge: o.edge, moved: 0,
+  };
+  w.speech = sp;
   const crowd = audience(w, o.depth).sort((a, b) => b.affinity - a.affinity);
   if (!crowd.length) return null;
-  const kind = pickCry(c, crowd);
-  if (!kind) return null;
+  return pull(c, sp, crowd, 1);
+}
+
+/** Roll these people for the speech she is giving, and sweep up the ones who go along. */
+function pull(c: Ctx, sp: Speech, people: Npc[], drift: number): Moved | null {
+  const { w, rng } = c;
+  const h = w.hero;
+  if (!people.length) return null;
+  const kind = (sp.cry ??= pickCry(c, people) ?? undefined);
+  if (!kind) {
+    for (const n of people) sp.heard.push(n.id);
+    return null;
+  }
   const voice = synergy(h, ['speaking', ['stat:charm', 0.6]]);
-  const swell = Math.min(0.25, 0.03 * Math.log2(crowd.length) * 2);
+  const swell = Math.min(0.25, 0.06 * Math.log2(1 + people.length + sp.moved));
   const willing: { n: Npc; wish: Wish; p: number }[] = [];
-  for (const n of crowd) {
+  for (const n of people) {
+    sp.heard.push(n.id);
     const wish = wishFor(w, n, kind);
     if (!wish) continue;
     ensureDeep(w, n);
     cool(w, `influence:${n.id}:${kind}`, 35);
-    const p = clamp(oddsWith(w, n, wish, 'persuasion', voice) + swell + o.edge, 0.03, 0.95);
+    const far = n.locationId !== sp.loc ? sp.remote : 1;
+    const p = clamp((oddsWith(w, n, wish, 'persuasion', voice) + swell + sp.edge) * far * drift, 0.03, 0.95);
     if (rng.chance(p)) willing.push({ n, wish, p });
   }
-  if (!willing.length) return { kind, count: 0, lead: 0, of: crowd.length, names: [], deed: '' };
-  // The keenest take the lead; everyone else falls in behind one of them.
+  if (!willing.length) return { kind, count: 0, lead: 0, of: people.length, names: [], deed: '' };
+  // The keenest take the lead while there are places to lead from; everyone else falls in behind whoever has the fewest.
   willing.sort((a, b) => b.p - a.p);
-  const leaders = willing.slice(0, MAX_LEADERS).map((x) => ({ ...x, goal: addGoal(c, x.n, x.wish, 'persuasion', o.stretch) }));
-  willing.slice(MAX_LEADERS).forEach((f, i) => {
-    const lead = leaders[i % leaders.length]!;
-    (lead.goal.followers ??= []).push(f.n.id);
-  });
-  for (const { n } of willing) {
+  const leading = (): Npc[] => sp.leaders.map((id) => w.npcs[id]).filter((l): l is Npc => !!l && l.alive && !!goalOf(l, kind));
+  let lead = 0;
+  let first: Wish | undefined;
+  for (const { n, wish } of willing) {
+    const active = leading();
+    if (active.length < MAX_LEADERS) {
+      addGoal(c, n, wish, 'persuasion', sp.stretch);
+      sp.leaders.push(n.id);
+      lead++;
+      first ??= wish;
+      // Some things only count if they are there.
+      if (PRESENCE.has(kind) && n.locationId !== h.locationId) moveNpc(w, n, h.locationId);
+    } else {
+      const goals = active.map((l) => goalOf(l, kind)!);
+      const goal = goals.reduce((a, b) => ((b.followers?.length ?? 0) < (a.followers?.length ?? 0) ? b : a));
+      (goal.followers ??= []).push(n.id);
+      first ??= wish;
+    }
     n.affinity += 2;
     remember(n, 'was swept up by a speech of Blackbird\'s');
   }
-  // Some things only count if they are there.
-  if (PRESENCE.has(kind)) for (const { n } of leaders) if (n.locationId !== h.locationId) moveNpc(w, n, h.locationId);
-  const first = leaders[0]!;
-  const deed = kind === 'give_cash' ? 'passing the hat' : phrasing(w, first.wish).deed;
-  return { kind, count: willing.length, lead: leaders.length, of: crowd.length, names: willing.map((x) => x.n.name), deed };
+  sp.moved += willing.length;
+  const deed = kind === 'give_cash' ? 'passing the hat' : phrasing(w, first!).deed;
+  return { kind, count: willing.length, lead, of: people.length, names: willing.map((x) => x.n.name), deed };
+}
+
+/**
+ * Once a beat while she is still at it: anyone who has come into earshot since (people drift through a street) can be
+ * swept up in the speech too, as long as the world clock says it is still going. It ends when she leaves, or the time is up.
+ */
+export function speechTick(c: Ctx): void {
+  const { w } = c;
+  const sp = w.speech;
+  if (!sp) return;
+  if (w.clock >= sp.until || w.hero.locationId !== sp.loc || w.hero.hp <= 0) {
+    delete w.speech;
+    return;
+  }
+  const heard = new Set(sp.heard);
+  const fresh = audience(w, sp.depth).filter((n) => !heard.has(n.id));
+  const moved = pull(c, sp, fresh, DRIFT_PULL);
+  if (!moved?.count) return;
+  train(c, 'speaking', 0.5);
+  c.emit('speech_joins', 'good', { variant: 'drift', ...crowdData(moved), total: sp.moved });
 }
 
 const crowdData = (m: Moved | null): Record<string, string | number> => (m?.count ? { count: m.count, lead: m.lead, rest: m.count - m.lead, of: m.of, deed: m.deed, who: m.names.slice(0, 2).join(' and '), kind: m.kind } : {});

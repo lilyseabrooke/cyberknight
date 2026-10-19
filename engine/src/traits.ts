@@ -105,6 +105,7 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   eat_noodles: { appetite: 0.8 },
   eat_dish: { appetite: 0.8 },
   buy_gear: { vanity: 0.6 },
+  buy_loudspeaker: { fame: 0.4, sociable: 0.3 },
 };
 
 /** Fights that are only a good idea when the other side has it coming. */

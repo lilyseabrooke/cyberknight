@@ -9,7 +9,7 @@ import { addHeat, fight, here, npcsAt, relocate } from './combat';
 import { DRIVES } from './personality';
 import { riskScale, temperatureScale, traitBias } from './traits';
 import { ambientExtras, scoutSaves, tryTalkDown } from './extras';
-import { talkDown } from './speaking';
+import { talkDown, speechTick } from './speaking';
 import { ambientDragons } from './dragons';
 import { tickDying } from './dying';
 import { ambientGraffiti } from './graffiti';
@@ -200,6 +200,7 @@ export function step(w: World): GameEvent[] {
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientMind(c);
   if (!w.over) adviceTick(c);
   if (!w.over) influenceTick(c);
+  if (!w.over) speechTick(c);
   if (!w.over) mindTick(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) {
     const cands = gather(w);

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, personalityFrom, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
-import { speakingCandidates, talkDown, billboardSpeech, moveCrowd, MAX_LEADERS } from './speaking';
+import { speakingCandidates, talkDown, billboardSpeech, moveCrowd, speechTick, MAX_LEADERS } from './speaking';
 import { assistMult, statsOf, withAssist } from './npcstats';
 import { followersOf } from './influence';
 import { spawnGroup } from './candidate';
+import { supplyCandidates } from './supply';
+import { makeItem } from './content/items';
 import { spawnNpc } from './content/archetypes';
 import { addNpc, moveNpc } from './population';
 import { newCompanion, allyPower } from './companions';
@@ -298,5 +300,91 @@ describe('speaking', () => {
       if (total(big) > total(small)) more++;
     }
     expect(more).toBeGreaterThan(20);
+  });
+
+  const neighbour = (w: World): string => w.locations.street_main!.exits.map((e) => e.to).find((id) => w.locations[id]?.outdoors && !w.locations[id]!.exits.every((e) => e.hidden))!;
+  const addAt = (w: World, loc: string, n: number, tag: string): void => {
+    for (let i = 0; i < n; i++) {
+      const id = `${tag}_${i}`;
+      addNpc(w, spawnNpc(new Rng(id), id, 'patron', loc, {}));
+    }
+  };
+
+  it('is heard only on her own street, unless she has a loudspeaker, and then the next streets are less moved', () => {
+    let plain = 0;
+    let loud = 0;
+    let local = 0;
+    for (let i = 0; i < 40; i++) {
+      for (const speaker of [false, true]) {
+        const w = bigStreet(`loud-${i}`, 10);
+        const next = neighbour(w);
+        for (const x of Object.values(w.npcs)) if (x.locationId === next) moveNpc(w, x, '_gone');
+        addAt(w, next, 10, 'far');
+        if (speaker) w.hero.inventory.push(makeItem('loudspeaker'));
+        const { c } = ctxOf(w, `s${i}`);
+        moveCrowd(c, { depth: speaker ? 1 : 0, stretch: 1, edge: 0.2 });
+        const ids = (w.influenced ?? []).concat(...(w.influenced ?? []).map((id) => w.npcs[id]!.goals![0]!.followers ?? []));
+        const here = ids.filter((id) => id.startsWith('listener_')).length;
+        const there = ids.filter((id) => id.startsWith('far_')).length;
+        if (speaker) { loud += there; local += here; } else { plain += there; }
+      }
+    }
+    expect(plain).toBe(0);
+    expect(loud).toBeGreaterThan(0);
+    expect(local).toBeGreaterThan(loud);
+  });
+
+  it('a speech lasts world-clock time: people who come by during it can be swept up, and it ends when the time does or she leaves', () => {
+    let joined = 0;
+    for (let i = 0; i < 30; i++) {
+      const w = bigStreet(`drift-${i}`, 0);
+      const { c, events } = ctxOf(w, `d${i}`);
+      moveCrowd(c, { depth: 0, stretch: 1, edge: 0.3 });
+      expect(w.speech).toBeTruthy();
+      // an empty street: nothing yet, and the speech is still on
+      speechTick(c);
+      expect(w.speech).toBeTruthy();
+      expect(w.influenced ?? []).toEqual([]);
+      // somebody comes through
+      addAt(w, 'street_main', 6, `walker${i}`);
+      w.clock += 3;
+      speechTick(c);
+      joined += (w.influenced ?? []).length;
+      for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+      // the same people are not rolled twice
+      const before = (w.influenced ?? []).length;
+      speechTick(c);
+      expect((w.influenced ?? []).length).toBe(before);
+      // time up: later arrivals are too late
+      w.clock = w.speech!.until + 1;
+      addAt(w, 'street_main', 6, `late${i}`);
+      speechTick(c);
+      expect(w.speech).toBeUndefined();
+      expect((w.influenced ?? []).some((id) => id.startsWith('late'))).toBe(false);
+    }
+    expect(joined).toBeGreaterThan(10);
+    // leaving ends it
+    const w = bigStreet('leave', 0);
+    const { c } = ctxOf(w, 'x');
+    moveCrowd(c, { depth: 0, stretch: 1, edge: 0.3 });
+    w.hero.locationId = neighbour(w);
+    speechTick(c);
+    expect(w.speech).toBeUndefined();
+  });
+
+  it('sells a loudspeaker at the gun shop, to someone who can speak and has the cash', () => {
+    const w = world('shop');
+    w.hero.locationId = 'gun_shop';
+    w.hero.cash = 1000;
+    const buys = () => supplyCandidates(w).some((x) => x.key === 'buy_loudspeaker');
+    expect(buys()).toBe(false);
+    w.hero.skills.speaking = 100;
+    expect(buys()).toBe(true);
+    const { c, events } = ctxOf(w, 'buy');
+    supplyCandidates(w).find((x) => x.key === 'buy_loudspeaker')!.run(c);
+    expect(w.hero.inventory.some((i) => i.tags.includes('loudspeaker'))).toBe(true);
+    expect(w.hero.cash).toBeLessThan(1000);
+    expect(buys()).toBe(false);
+    for (const e of events) expect(hasTemplate(e), e.type).toBe(true);
   });
 });

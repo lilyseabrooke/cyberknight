@@ -77,6 +77,7 @@ export const ITEMS: Record<string, Def> = {
   dish_good: c('a plated noodle special (it is, shockingly, good)', 30, 40, ['dish']),
   cocktail_molotov: c('Molotov Mule (the cocktail, mostly)', 18, 25, ['throwable', 'fire']),
   ...Object.fromEntries(AMMO_IDS.map((t) => [`ammo_${t}`, c(`box of ${AMMO[t]!.label}`, 0, Math.round(AMMO[t]!.price / 2), ['ammo'])])),
+  loudspeaker: l('riot-control loudspeaker (NPD surplus, one dent)', 90, ['loudspeaker']),
   vintage_guitar: l('vintage guitar (previous owner: a band)', 400, ['instrument']),
   // ---- gyms ----
   speed_gloves: w('speed gloves (weighted)', 6, 55, ['gloves']),
