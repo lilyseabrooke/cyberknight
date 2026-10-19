@@ -50,7 +50,7 @@ Doorways in interior walls (and the tiles beside them) are kept clear of furnitu
 
 ## Streets (`streets.ts`)
 
-Streets have boards too, a different layout for each kind of street (boulevards, markets, plazas, alleys, wharves, crossings...); see `STREETS_PLAN.md` for the catalogue and for how chases are meant to run on them. A street's neighbouring streets are its ways on and off the board, on the side that faces them, and a fight, a sneak or an ambush on a street now happens on the street rather than on a throwaway grid.
+Streets have boards too, a different layout for each kind of street (boulevards, markets, plazas, alleys, wharves, crossings...); see `STREETS_PLAN.md` for the catalogue and for how chases are meant to run on them. A street's neighbouring streets are its ways on and off the board, on the side that faces them (and the fences, ducts and walls between it and the streets it touches on the hex grid are tiles in its frontage, `Door.via`), and a fight, a sneak or an ambush on a street now happens on the street rather than on a throwaway grid.
 
 ## Height (`grid.ts`, `streets.ts`)
 

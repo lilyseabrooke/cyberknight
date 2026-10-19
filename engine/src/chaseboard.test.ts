@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { Rng, createWorld, hasTemplate, type GameEvent, type World } from './index';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
-import { MAKES } from './cars';
+import { MAKES, vehicleOf } from './cars';
 import { onFoot, runChase, type Chaser } from './chase';
-import { chaserSees, chaserTile, leaveSearching, localSqueeze, openBoard, outsFrom, pinches, tileAt, type ChaseBoard } from './chaseboard';
+import { chaserSees, chaserTile, doorTo, leaveSearching, localSqueeze, openBoard, outsFrom, pinches, tileAt, type ChaseBoard } from './chaseboard';
 import { typeFromName } from './streettypes';
 import { passable } from './grid';
 import { relocate } from './combat';
-import type { Ctx, Location } from './types';
+import { expand } from './mapgen';
+import type { Ctx, Location, Via } from './types';
 
 const ctxOf = (w: World, rng: Rng): { c: Ctx; events: GameEvent[] } => {
   const events: GameEvent[] = [];
@@ -72,7 +73,7 @@ describe('a chase on the street', () => {
 });
 
 /** A street of this kind hung off street_main, with a couple of other streets and some places on it, and her standing on it. */
-function onStreet(seed: string, name: string, o: { alleyTo?: boolean } = {}) {
+function onStreet(seed: string, name: string, o: { alleyTo?: boolean; links?: Via[] } = {}) {
   const w = world(seed);
   const base = w.locations.street_main!;
   const id = 'T_street';
@@ -88,6 +89,12 @@ function onStreet(seed: string, name: string, o: { alleyTo?: boolean } = {}) {
   add({ ...base, id: 'T_east', name: 'Far Street', street: 'street', hex: { q: 3, r: 0, dir: 0, cells: [[3, 0]] }, exits: [], links: [] }, 'on east');
   if (o.alleyTo) add({ ...base, id: 'T_alley', name: 'Back Alley', street: 'alley', hex: { q: 0, r: 3, dir: 0, cells: [[0, 3]] }, exits: [], links: [] }, 'an alley');
   for (let k = 0; k < 3; k++) add({ ...base, id: `T_shop${k}`, name: 'A shop', kind: 'shop', outdoors: false, street: undefined, exits: [], links: [] }, `a shop ${k}`);
+  for (const [k, via] of (o.links ?? []).entries()) {
+    const to: Location = { ...base, id: `T_over${k}`, name: 'Over Street', street: 'street', hex: { q: 0, r: -3 - k, dir: 0, cells: [[0, -3 - k]] }, exits: [], links: [] };
+    w.locations[to.id] = to;
+    here.links!.push({ to: to.id, label: `over the ${via}`, hidden: false, gate: null, via });
+    to.links!.push({ to: id, label: `back over the ${via}`, hidden: false, gate: null, via });
+  }
   relocate(w, id);
   return { w, id };
 }
@@ -303,5 +310,92 @@ describe('the law gets ahead of her', () => {
     }
     expect(covered).toBe(0);
     expect(uncovered).toBeGreaterThan(0);
+  });
+});
+
+describe('fences and ducts on the street', () => {
+  const VIAS: Via[] = ['fence', 'wall', 'barricade', 'duct', 'through', 'ramp'];
+
+  it('the ways across that are not doors are tiles in the street, each with what is in the way marked beside it', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 20; i++) {
+      const { w } = onStreet(`links${i}`, i % 2 ? 'Mill Street' : 'Cinder Alley', { links: VIAS });
+      const cb = openBoard(w, 'T_east')!;
+      const l = cb.placed.layout;
+      for (const [k, via] of VIAS.entries()) {
+        const door = doorTo(cb, `T_over${k}`, via);
+        if (!door) continue;
+        expect(door.via).toBe(via);
+        expect(l.grid.cells[door.at.y * l.grid.w + door.at.x]).toBe('exit');
+        seen.add(via);
+        // marked: a fixture of that sort beside the tile
+        expect(l.fixtures.some((f) => ['fence', 'barricade', 'duct', 'ramp'].includes(f.kind) && f.tiles.some((t) => Math.max(Math.abs(t.x - door.at.x), Math.abs(t.y - door.at.y)) <= 1)), `${i} ${via} at ${door.at.x},${door.at.y} ${JSON.stringify(l.fixtures.filter((f) => ['fence', 'barricade', 'duct', 'ramp'].includes(f.kind)).map((f) => f.tiles[0]))}`).toBe(true);
+      }
+      // none of them is the way she is running on
+      expect(cb.path[cb.path.length - 1]).not.toEqual(l.doors.find((d) => d.via)?.at);
+    }
+    expect(seen.size).toBeGreaterThanOrEqual(5);
+  });
+
+  it('she can lose them over a fence: whatever is in the way is still in the way, and she comes out on the far side', () => {
+    let over = 0;
+    let stuck = 0;
+    for (let i = 0; i < 500; i++) {
+      const { w } = onStreet(`over${i}`, 'Mill Street', { links: ['fence', 'duct', 'wall'] });
+      const { c, events } = ctxOf(w, new Rng(`over${i}`));
+      const r = runChase(c, { mode: 'pursued', cause: 'test', foes: [onFoot(guy(w, `o${i}`), 4)], maxRounds: 8 });
+      const rounds = events.filter((e) => e.type === 'chase_round');
+      if (rounds.some((e) => String(e.data.events).includes('over:stuck'))) stuck++;
+      if (r === 'escaped' && rounds.some((e) => String(e.data.events).includes('lost:over'))) {
+        over++;
+        expect(w.hero.locationId).toMatch(/^T_over/);
+      }
+      for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+    }
+    expect(over).toBeGreaterThan(0);
+    expect(stuck).toBeGreaterThan(0);
+  });
+
+  it('a car does not take a wall', () => {
+    for (let i = 0; i < 100; i++) {
+      const { w } = onStreet(`carwall${i}`, 'Mill Street', { links: ['wall'] });
+      w.hero.vehicle = vehicleOf(MAKES.civilian[0]!, `h${i}`);
+      const { c, events } = ctxOf(w, new Rng(`carwall${i}`));
+      runChase(c, { mode: 'pursued', cause: 'test', foes: [carFoe(w, `cf${i}`, 4)], maxRounds: 8 });
+      expect(events.some((e) => e.type === 'chase_round' && String(e.data.events).includes('over:') && !String(e.data.events).includes('over:no_way') && String(e.data.events).includes('lost:over'))).toBe(false);
+    }
+  });
+});
+
+describe('cutting across the city', () => {
+  it('when she cuts across she runs to the way across on the street first, and it is a tile there', () => {
+    let gated = 0;
+    let cuts = 0;
+    for (let i = 0; i < 150; i++) {
+      const w = createWorld({ seed: 'x', worldSeed: `cutcity${i % 6}`, competence: 0.6 });
+      let edge: Location[] = ['street_main', 'club_backlot', 'halo_alley'].flatMap((id) => w.locations[id]!.exits.map((e) => w.locations[e.to]!).filter((l) => l.gen));
+      const streets: Location[] = [];
+      for (let ring = 0; ring < 4; ring++) {
+        const next: Location[] = [];
+        for (const l of edge) {
+          expand(w, l);
+          for (const e of l.exits) if (w.locations[e.to]?.gen?.parent === l.id && w.locations[e.to]!.gen!.role === 'street') next.push(w.locations[e.to]!);
+        }
+        edge = next;
+        streets.push(...next);
+      }
+      w.hero.locationId = streets[(i * 7) % streets.length]!.id;
+      w.hero.level = 8;
+      const { c, events } = ctxOf(w, new Rng(`cc${i}`));
+      runChase(c, { mode: 'pursuer', cause: 'test', foes: [onFoot(guy(w, `r${i}`), 5)] });
+      for (const e of events) {
+        if (e.type !== 'chase_cut' || e.data.hero !== true) continue;
+        cuts++;
+        if (e.data.gate) gated++;
+        expect(hasTemplate(e)).toBe(true);
+      }
+    }
+    expect(cuts).toBeGreaterThan(0);
+    expect(gated).toBeGreaterThan(0);
   });
 });

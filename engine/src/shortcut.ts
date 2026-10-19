@@ -249,6 +249,8 @@ export interface Cut {
   at: Id;
   /** What she crossed it as: if that is not what she started as, she got off. */
   mode: Mode;
+  /** The first street the way leads to from where she started, and what is in the way of getting onto it (so it can be run to on the board). */
+  first?: { to: Id; via: Via | null };
 }
 
 /**
@@ -305,7 +307,8 @@ export function cutAcross(c: Ctx, o: { who: Crosser | Crosser[]; from: Id; route
   const margin = runner - took;
   const arrived = at === waypoint && !wrecked && !thrown;
   const kind: Cut['kind'] = !right ? 'wrong' : arrived && margin >= -0.7 ? 'cut_off' : 'late';
-  return { kind, waypoint, idx, took, margin, hurt, told, wrecked, thrown, at, mode: who.mode };
+  const first = plan.legs[0];
+  return { kind, waypoint, idx, took, margin, hurt, told, wrecked, thrown, at, mode: who.mode, ...(first ? { first: { to: first.to, via: first.via } } : {}) };
 }
 
 /** A gap in tiles, as rounds behind. */

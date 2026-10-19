@@ -4,7 +4,8 @@ import { lose } from './stealth';
 import { placeOf, syncPlace, type Placed } from './placeboard';
 import { roadClass } from './roads';
 import { isClosed } from './hours';
-import type { Id, Npc, World } from './types';
+import type { Id, Npc, Via, World } from './types';
+import type { Door } from './layout';
 
 /**
  * A chase on the street she is running down. The chase is still the chase (`chase.ts`): a gap to each chaser, a round at a time. The
@@ -70,10 +71,11 @@ export function openBoard(w: World, exitTo: Id | null): ChaseBoard | null {
       to = best.exit;
     }
   };
-  if (exitTo) pick(doors.filter((d) => d.exit === exitTo));
+  // (A way through is a street's real way on; a fence is only a way across it.)
+  if (exitTo) pick(doors.filter((d) => d.exit === exitTo && !d.via).length ? doors.filter((d) => d.exit === exitTo && !d.via) : doors.filter((d) => d.exit === exitTo));
   if (!target) {
     // No way of her own choosing: the way off that is farthest from where she came on.
-    const away = doors.filter((d) => reachable(d.at) && dist(d.at, from) >= 3);
+    const away = doors.filter((d) => !d.via && reachable(d.at) && dist(d.at, from) >= 3);
     const far = (away.some((d) => w.locations[d.exit]?.kind === 'street') ? away.filter((d) => w.locations[d.exit]?.kind === 'street') : away).sort((a, b) => dist(b.at, from) - dist(a.at, from) || a.exit.localeCompare(b.exit))[0];
     if (far) {
       target = far.at;
@@ -155,7 +157,7 @@ export function pinches(cb: ChaseBoard, ahead = AHEAD): number {
 
 // ------------------------------------------------------------------ ways out of it
 
-export type OutKind = 'door' | 'mouth' | 'up' | 'crowd';
+export type OutKind = 'door' | 'mouth' | 'up' | 'crowd' | 'over';
 
 /** Somewhere to go that is not along the line: a doorway, a side street, a way up onto a roof, a crowd to lose herself in. */
 export interface Out {
@@ -168,7 +170,10 @@ export interface Out {
   /** How many tiles away. */
   d: number;
   /** For a way up: how it is climbed. */
-  via?: 'stairs' | 'ladder' | 'climb';
+  climb?: 'stairs' | 'ladder' | 'climb';
+  /** For a way over: what is in the way, and the building it goes through or over. */
+  via?: Via;
+  over?: Id;
 }
 
 /** What she could duck into within a few tiles of where she is. */
@@ -184,7 +189,8 @@ export function outsFrom(w: World, cb: ChaseBoard, reachTiles = 10): Out[] {
     if (c === undefined || c > reachTiles || d.exit === cb.exitTo) continue;
     const to = w.locations[d.exit];
     if (!to || isClosed(w, to.id)) continue;
-    if (to.kind !== 'street') outs.push({ kind: 'door', at: d.at, to: to.id, label: d.label, d: c });
+    if (d.via) outs.push({ kind: 'over', at: d.at, to: to.id, label: d.label, d: c, via: d.via, ...(d.over ? { over: d.over } : {}) });
+    else if (to.kind !== 'street') outs.push({ kind: 'door', at: d.at, to: to.id, label: d.label, d: c });
     else if (roadClass(to) === 'alley') outs.push({ kind: 'mouth', at: d.at, to: to.id, label: d.label, d: c });
   }
   if (g.access && g.level) {
@@ -194,7 +200,7 @@ export function outsFrom(w: World, cb: ChaseBoard, reachTiles = 10): Out[] {
       // (Reached from a tile beside it that is lower.)
       const from = [-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => ({ x: at.x + dx, y: at.y + dy }))).filter((q) => passable(g, q.x, q.y) && g.level![idx(g, q)]! < g.level![Number(k)]! && cost(q) !== undefined);
       const best = from.sort((a, b) => cost(a)! - cost(b)!)[0];
-      if (best && cost(best)! <= reachTiles) outs.push({ kind: 'up', at, label: how === 'climb' ? 'a drainpipe up to the roofs' : how === 'ladder' ? 'a ladder' : 'a flight of steps', d: cost(best)!, via: how });
+      if (best && cost(best)! <= reachTiles) outs.push({ kind: 'up', at, label: how === 'climb' ? 'a drainpipe up to the roofs' : how === 'ladder' ? 'a ladder' : 'a flight of steps', d: cost(best)!, climb: how });
     }
   }
   // A knot of people is somewhere to lose herself.
@@ -250,4 +256,10 @@ export function leaveSearching(w: World, cb: ChaseBoard, foes: { crew: Npc[]; ga
       e.calm = 0;
     }
   }
+}
+
+/** The tile where she crosses over to this street (a way across with something in it if she means one), if the board has it. */
+export function doorTo(cb: ChaseBoard, to: Id, via?: Via | null): Door | undefined {
+  const ds = cb.placed.layout.doors.filter((d) => d.exit === to);
+  return (via ? ds.find((d) => d.via === via) : undefined) ?? ds.find((d) => !!d.via === !!via) ?? ds[0];
 }

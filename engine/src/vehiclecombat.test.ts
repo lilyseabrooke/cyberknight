@@ -260,7 +260,8 @@ describe('chases', () => {
       results[result!] = (results[result!] ?? 0) + 1;
       for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
       expect(events.some((e) => e.type === 'chase_end')).toBe(true);
-      if (result === 'wrecked' || result === 'bailed') expect(w.hero.vehicle).toBeUndefined();
+      // (Unless she died in the one she grabbed on the way.)
+      if ((result === 'wrecked' || result === 'bailed') && !w.over) expect(w.hero.vehicle).toBeUndefined();
       if (result === 'wrecked') expect(Object.keys(w.flags).some((k) => k.startsWith('wreck:'))).toBe(true);
     }
     expect(Object.keys(results).length).toBeGreaterThanOrEqual(2);

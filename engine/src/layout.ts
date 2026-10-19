@@ -2,7 +2,7 @@ import { Rng } from './rng';
 import { shapeFor } from './shapes';
 import { markTall, mountCams, pt, reachable, same } from './layoutkit';
 import { madeLayout } from './layouts';
-import type { Id, Location, World } from './types';
+import type { Id, Location, Via, World } from './types';
 import { dirOf, dist, idx, makeGrid, neighbors, passable, walkable, type Grid, type Pos, type Terrain } from './grid';
 import { PROPS, PROPS_BY_ROOM, type PropKind } from './content/props';
 
@@ -15,7 +15,7 @@ import { PROPS, PROPS_BY_ROOM, type PropKind } from './content/props';
  * each one is, and zones: the sorts of spot a person might be standing in (behind the bar, on the floor, in a booth).
  */
 
-export type FixtureKind = 'bar' | 'dj_booth' | 'speaker' | 'booth' | 'dancefloor' | 'pillar' | 'tower' | 'counter' | 'shelf' | 'table' | 'machine' | 'desk' | 'bed' | 'bench' | 'rack' | 'locker' | 'ring' | 'server' | 'crate' | 'safe' | 'vehicle' | 'sofa' | 'bunk' | 'console' | 'screen' | 'pipe' | 'lamp' | 'tree' | 'container' | 'stall' | 'column' | 'statue' | 'fountain' | 'barrier' | 'stairs' | 'ladder';
+export type FixtureKind = 'bar' | 'dj_booth' | 'speaker' | 'booth' | 'dancefloor' | 'pillar' | 'tower' | 'counter' | 'shelf' | 'table' | 'machine' | 'desk' | 'bed' | 'bench' | 'rack' | 'locker' | 'ring' | 'server' | 'crate' | 'safe' | 'vehicle' | 'sofa' | 'bunk' | 'console' | 'screen' | 'pipe' | 'lamp' | 'tree' | 'container' | 'stall' | 'column' | 'statue' | 'fountain' | 'barrier' | 'stairs' | 'ladder' | 'fence' | 'duct' | 'ramp' | 'barricade';
 
 export interface Fixture {
   id: string;
@@ -45,6 +45,10 @@ export interface Door {
   label: string;
   /** The way in from the street, as against a back door or the way to somewhere else. */
   front: boolean;
+  /** Not a door but something in the way, between this street and the next: a fence, a wall, a duct (see `Via`). Crossing it is a check. */
+  via?: Via;
+  /** For a way through or over a building: which one. */
+  over?: Id;
 }
 
 export type LightLevel = 0 | 1 | 2;

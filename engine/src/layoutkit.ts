@@ -9,13 +9,13 @@ import type { CamMount, Door, Fixture, FixtureKind, Layout, LightLevel, PropSpec
 export const pt = (x: number, y: number): Pos => ({ x, y });
 export const same = (a: Pos, b: Pos): boolean => a.x === b.x && a.y === b.y;
 
-export function reachable(g: Grid, from: Pos): Set<number> {
+export function reachable(g: Grid, from: Pos, climber = true): Set<number> {
   const seen = new Set<number>([idx(g, from)]);
   const open = [from];
   while (open.length) {
     const p = open.pop()!;
     // (Anyone can climb, for this: a place that can only be got to by a climb is still part of the room.)
-    for (const n of neighbors(g, p, false, true)) {
+    for (const n of neighbors(g, p, false, climber)) {
       const i = idx(g, n);
       if (!seen.has(i)) {
         seen.add(i);
@@ -66,6 +66,8 @@ export interface DoorPlan {
   label: string;
   front: boolean;
   tiles: Pos[];
+  via?: Door['via'];
+  over?: Id;
 }
 
 export interface WayOpts {
@@ -140,7 +142,7 @@ export class Draft {
       for (let yy = y - 1; yy <= y + fh; yy++) for (let xx = x - 1; xx <= x + fw; xx++) {
         const inside = xx >= x && xx < x + fw && yy >= y && yy < y + fh;
         const t = this.at(pt(xx, yy));
-        if (inside ? t !== 'floor' : t === 'cover' || t === 'exit') return false;
+        if (inside ? t !== 'floor' || this.fixtures.some((f) => f.tiles.some((q) => q.x === xx && q.y === yy)) : t === 'cover' || t === 'exit') return false;
       }
       return true;
     };
@@ -263,7 +265,7 @@ export class Draft {
         for (const at of plan.tiles) {
           this.put(at, 'exit');
           g.exits.push(at);
-          doors.push({ exit: plan.exit, at, label: plan.label, front: plan.front });
+          doors.push({ exit: plan.exit, at, label: plan.label, front: plan.front, ...(plan.via ? { via: plan.via } : {}), ...(plan.over ? { over: plan.over } : {}) });
         }
       }
       if (!g.exits.length) {
@@ -303,6 +305,16 @@ export class Draft {
       return g.cells.map((t, i) => (walkable(t) && !seen.has(i) ? i : -1)).filter((i) => i >= 0);
     };
     while (cutOff().length && this.decor.length) {
+      const p = this.decor.pop()!;
+      this.put(p, 'floor');
+      for (const f of this.fixtures) f.tiles = f.tiles.filter((q) => !same(q, p));
+    }
+    // And every way on and off is to be got to on the level, by walking: furniture goes before a way out needs a climb.
+    const stranded = (): boolean => {
+      const walk = reachable(g, from, false);
+      return g.exits.some((e) => !walk.has(idx(g, e)));
+    };
+    while (stranded() && this.decor.length) {
       const p = this.decor.pop()!;
       this.put(p, 'floor');
       for (const f of this.fixtures) f.tiles = f.tiles.filter((q) => !same(q, p));

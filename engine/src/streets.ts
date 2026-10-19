@@ -1,5 +1,5 @@
 import { Rng } from './rng';
-import type { Id, Location } from './types';
+import type { Id, Location, Via } from './types';
 import { Draft, pt, type DoorPlan } from './layoutkit';
 import type { FixtureKind, Layout, LightLevel } from './layout';
 import { dist, idx, type Pos } from './grid';
@@ -28,9 +28,23 @@ type Locs = { locations: Record<Id, Location> };
 interface Way {
   exit: Id;
   label: string;
+  /** Not a way through but something in the way between this street and the next: a fence, a duct. */
+  via?: Via;
+  over?: Id;
   /** Which side it is on, if it is a street (a building door has none). */
   side?: Side;
 }
+
+/** What stands in the way, on the board: the fixture that marks it. */
+const OBSTACLE: Record<Via, { kind: FixtureKind; label: string }> = {
+  open: { kind: 'fence', label: 'a gap' },
+  fence: { kind: 'fence', label: 'a chain-link fence' },
+  wall: { kind: 'fence', label: 'a high wall' },
+  barricade: { kind: 'barricade', label: 'a barricade' },
+  duct: { kind: 'duct', label: 'a ventilation duct' },
+  through: { kind: 'duct', label: 'a way through the building' },
+  ramp: { kind: 'ramp', label: 'a ramp' },
+};
 
 const px = (q: number, r: number): [number, number] => [Math.sqrt(3) * (q + r / 2), 1.5 * r];
 const centre = (l: Location): [number, number] => {
@@ -50,10 +64,15 @@ function waysOf(w: Locs, loc: Location, rng: Rng): { streets: Way[]; buildings: 
   const taken = new Set<Side>();
   const free = (s: Side): boolean => !taken.has(s);
   const scored: { way: Way; c: number; s: number }[] = [];
-  for (const e of loc.exits) {
+  for (const e of [...loc.exits, ...(loc.links ?? [])]) {
     if (e.hidden) continue;
     const to = w.locations[e.to];
     if (!to) continue;
+    // Across the hex grid with something in the way: a fence to climb, a duct to crawl along. It is a tile in the frontage, like a door.
+    if (e.via && e.via !== 'open') {
+      buildings.push({ exit: e.to, label: e.label, via: e.via, ...(e.over ? { over: e.over } : {}) });
+      continue;
+    }
     if (to.kind !== 'street') {
       buildings.push({ exit: e.to, label: e.label });
       continue;
@@ -110,7 +129,8 @@ class Site {
   /** A single door in the wall, at the tile `at`, as long as there is floor just inside it. */
   doorAt(at: Pos, inside: Pos, way: Way, front: boolean): boolean {
     if (this.d.at(inside) !== 'floor' || this.d.at(at) === null) return false;
-    this.plans.push({ exit: way.exit, label: way.label, front, tiles: [at] });
+    this.plans.push({ exit: way.exit, label: way.label, front, tiles: [at], ...(way.via ? { via: way.via } : {}), ...(way.over ? { over: way.over } : {}) });
+    if (way.via) this.d.fixture(OBSTACLE[way.via].kind, `way${at.x}_${at.y}`, OBSTACLE[way.via].label, [inside], { solid: false });
     // A door is as high as the ground just inside it.
     this.d.setLevel(at, this.d.levelOf(inside));
     this.reserve(at);

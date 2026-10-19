@@ -221,13 +221,16 @@ describe('graffiti ecosystem', () => {
   });
 
   it('gangs she has angered come looking for her outdoors', () => {
-    const w = at('street_main', 'hunt');
-    const g = w.situation.warringGangs[0];
-    w.heat[g] = 6;
+    // (She can wander indoors, or die, before they find her, so it takes a few tries.)
     let hunted = false;
-    for (let i = 0; i < 80 && !w.over && !hunted; i++) {
-      w.heat[g] = 6;
-      hunted = step(w).some((e) => e.type === 'gang_hunt');
+    for (const seed of ['hunt', 'hunt2', 'hunt3', 'hunt4', 'hunt5']) {
+      const w = at('street_main', seed);
+      const g = w.situation.warringGangs[0];
+      for (let i = 0; i < 80 && !w.over && !hunted; i++) {
+        w.heat[g] = 6;
+        hunted = step(w).some((e) => e.type === 'gang_hunt');
+      }
+      if (hunted) break;
     }
     expect(hunted).toBe(true);
   });
@@ -602,7 +605,7 @@ describe('resources and consequences', () => {
 
     it('a cop who sees it does not look away: he joins the other side and radios it in', () => {
       let joined = 0;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 30; i++) {
         const w = at('halo_roof', `cop${i}`);
         empty(w);
         const cop = spawnNpc(new Rng('c'), 'cop1', 'cop', 'halo_roof');
@@ -610,7 +613,7 @@ describe('resources and consequences', () => {
         const evs = assault(w, `cop${i}`);
         if (evs.some((e) => e.type === 'bystander' && e.data.variant === 'intervene')) joined++;
       }
-      expect(joined).toBeGreaterThan(6);
+      expect(joined).toBeGreaterThan(18);
     });
 
     it('gunfire makes it worse', () => {

@@ -16,8 +16,9 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { camerasSeeHer } from './placeboard';
-import { behindOf, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
-import { TILES_PER_PACE, blockIn, chaserSees, setBlock, leaveSearching, localSqueeze, openBoard, outsFrom, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
+import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
+import { VIA } from './hexmap';
+import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, openBoard, outsFrom, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
 import type { Pos } from './grid';
 
 /**
@@ -498,6 +499,15 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             leaveBehind(c, car, 'stray');
             c.emit('chase_mount', 'mixed', { variant: 'thrown', car: car.name, body: car.body, place: here.name });
           }
+          // She runs to the way across on the street's board (the fence, the duct, the gap) and goes over it; she comes out by the way back from the far side.
+          let gate = '';
+          if (board && cut.first) {
+            const door = doorTo(board, cut.first.to, cut.first.via);
+            if (door) {
+              board.placed.board.hero = { ...door.at };
+              gate = door.label;
+            }
+          }
           relocate(w, cut.at);
           refresh();
           const ahead = route.path.length - 1;
@@ -511,7 +521,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             route.i = Math.min(ahead, route.i + Math.floor(cut.took));
             for (const f of live) f.gap += 1.5 + 0.8 * cut.took;
           }
-          c.emit('chase_cut', cut.kind === 'cut_off' ? 'good' : cut.hurt ? 'bad' : 'mixed', { variant: cut.kind, hero: true, mode: cut.mode, body: car?.body ?? 'foot', obstacles: cut.told.join(','), via: cut.told[0] ?? '', from, place: w.locations[cut.at]!.name, foe: lead.name, hurt: cut.hurt, read: Math.round(readingOf(w) * 100) });
+          c.emit('chase_cut', cut.kind === 'cut_off' ? 'good' : cut.hurt ? 'bad' : 'mixed', { variant: cut.kind, hero: true, gate, mode: cut.mode, body: car?.body ?? 'foot', obstacles: cut.told.join(','), via: cut.told[0] ?? '', from, place: w.locations[cut.at]!.name, foe: lead.name, hurt: cut.hurt, read: Math.round(readingOf(w) * 100) });
           if (cut.wrecked && car && h.vehicle && car.hp <= 0) {
             wreckHeroCar(c, car);
             if (dead(c) || !fit(h)) result = 'wrecked';
@@ -631,10 +641,41 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       } else if (action === 'lose_them' && rng.chance(clamp(0.28 + skill * 0.05 - (squeeze < 0.7 ? 0.1 : 0) + (bike ? 0.12 : 0) + (foot ? 0.1 : 0) - 0.05 * (live.length - 1), 0.1, 0.85))) {
         result = 'escaped';
         told.push('lost');
-        const out = outs.find((x) => x.kind !== 'crowd') ?? outs[0];
+        // The surest way first: a door or an alley, then a way up, and a fence or a duct only if it is much nearer (it can go wrong, and for a car it can be no way at all).
+        const mode0: Mode = car ? (car.body === 'bike' ? 'bike' : 'car') : 'foot';
+        const rank = (x: Out): number => x.d + (x.kind === 'over' ? 5 : x.kind === 'up' ? 2 : 0) + (x.kind === 'over' && x.via && !Number.isFinite(VIA[x.via][mode0]) ? 99 : 0);
+        const out = outs.filter((x) => x.kind !== 'crowd').sort((a, b) => rank(a) - rank(b))[0] ?? outs.find((x) => x.kind === 'crowd');
         if (out) {
           told.push(`lost:${out.kind}`);
-          if ((out.kind === 'door' || out.kind === 'mouth') && out.to) {
+          if (out.kind === 'over' && out.to && out.via && board) {
+            // Over the fence, through the duct: whatever is in the way is still in the way. A car cannot take what it cannot take, and she can come to grief on it.
+            const mode: Mode = car ? (car.body === 'bike' ? 'bike' : 'car') : 'foot';
+            if (Number.isFinite(VIA[out.via][mode])) {
+              const r = cross(c, heroCrosser(car), { from: h.locationId, to: out.to, via: out.via, ...(out.over ? { over: out.over } : {}), cost: 0 });
+              hurt += r.hurt;
+              told.push(`over:${r.told}`);
+              if (r.wrecked && car && h.vehicle && car.hp <= 0) {
+                wreckHeroCar(c, car);
+                if (dead(c) || !fit(h)) result = 'wrecked';
+              }
+              if (!result || result === 'escaped') {
+                board.placed.board.hero = { ...out.at };
+                if (r.delay >= 1.5) {
+                  // Stuck on it: they catch up.
+                  result = null;
+                  for (const f of live) f.gap = Math.min(f.gap, 1);
+                  told.splice(0, told.length, ...told.filter((t) => !t.startsWith('lost')), 'over:stuck');
+                } else {
+                  relocate(w, out.to);
+                  refresh();
+                  hid = true;
+                }
+              }
+            } else {
+              result = null;
+              told.splice(0, told.length, ...told.filter((t) => !t.startsWith('lost')), 'over:no_way');
+            }
+          } else if ((out.kind === 'door' || out.kind === 'mouth') && out.to) {
             relocate(w, out.to);
             refresh();
             hid = true;
@@ -790,19 +831,17 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       }
       if (!result && o.foes.every((f) => !f.alive)) result = 'won';
       // Out of sight for a couple of rounds with nobody on her heels: she has lost them. (They look for her where they last had her.)
-      if (!result && board && !boarded && round > 1) {
+      if (!result && board && !boarded && round > 1 && o.mode === 'pursued') {
         const eyes = camerasSeeHer(w);
         const seen = live.some((f) => chaserSees(w, board!, f.gap, wings(f)) || (eyes && (f.car?.kind === 'police' || f.car?.kind === 'atlas' || f.crew.some((n) => n.tags.includes('cop')))));
         if (seen) {
           unseen = 0;
           lastSeen = tileAt(board, board.s);
         } else if (++unseen >= 2) {
-          result = o.mode === 'pursued' ? 'escaped' : 'lost';
+          result = 'escaped';
           told.push('lost:sight');
-          if (o.mode === 'pursued') {
-            hid = true;
-            leaveSearching(w, board, live, lastSeen ?? tileAt(board, 0));
-          }
+          hid = true;
+          leaveSearching(w, board, live, lastSeen ?? tileAt(board, 0));
         }
       }
       const caughtOnFoot = foot && o.mode === 'pursued' && live.some((f) => bandOf(f.gap) === 'locked') && rng.chance(0.7);
