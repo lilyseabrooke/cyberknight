@@ -1,4 +1,5 @@
 import type { Hero, Id, Item, Npc, Ware, World } from './types';
+import { hasInstrument } from './instruments';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { ITEMS } from './content/items';
 import { isClosed } from './hours';
@@ -242,7 +243,7 @@ export const FAME_ACTS: FameAct[] = [
   { fam: 'gig', skill: 'guitar', prior: 3.0, venue: (w) => featureAt(w, 'guitar') },
   { fam: 'jam', skill: 'guitar', prior: 1.0, venue: (w) => featureAt(w, 'guitar') },
   { fam: 'guitar_duel', skill: 'guitar', prior: 2.2, venue: (w) => featureAt(w, 'guitar') },
-  { fam: 'busk', skill: 'guitar', prior: 1.0, venue: (w) => (w.hero.inventory.some((i) => i.tags.includes('instrument')) ? seen(w, 'street_main') : null) },
+  { fam: 'busk', skill: 'guitar', prior: 1.0, venue: (w) => (hasInstrument(w.hero) ? seen(w, 'street_main') : null) },
   { fam: 'beat_battle', skill: 'beatbox', prior: 1.2, venue: (w) => seen(w, 'halo_floor') },
   { fam: 'billboard', prior: 3.0, venue: (w) => featureAt(w, 'billboard') },
   { fam: 'graffiti', skill: 'art', prior: 1.2, venue: (w) => seen(w, 'street_main') },

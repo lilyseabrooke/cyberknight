@@ -1,6 +1,6 @@
 # Guitar: what it opens up
 
-Status: **in progress.** The first three steps of the build order are built (see "As built"); the rest is plan.
+Status: **in progress.** The first four steps of the build order are built (see "As built"); the rest is plan.
 Feel over balance: every number here is a first guess, to be felt out (or never tuned at all).
 
 ## As built
@@ -12,10 +12,13 @@ Feel over balance: every number here is a first guess, to be felt out (or never 
 | Bookings on the legacy: gigs at bars and clubs she knows, private functions behind gated doors; the `booking` goal; the door waves her through; the booked set (`booked_<skill>` acts); missed bookings cost fans, fame and the host's goodwill | `bookings.ts`, `moves.ts`, `goals.ts` |
 | Muse's first rungs: the Clearance letter, Clearance officers (fines, a guitar taken "for safekeeping"), the A&R scout and the sign-or-refuse choice (by personality), the contract outliving her, the warrant after a refusal; signed, Muse books her twice as often at half again the fee | `muse.ts` |
 | Fame fades on the in-game clock; fame perks (bouncers, free drinks, fan tips, cheering witnesses, intimidation, call-ins) ramp in at steeper numbers | `renown.ts` `fadeFame` / `famed`, `moves.ts`, `interactions.ts`, `extras.ts`, `witness.ts`, `tactics.ts`, `callins.ts` |
-| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts` |
+| Instruments rolled like weapons: nine classes (acoustic to chainsaw), a tier, traits (`tone`, `volume`, `signature`, `jacked`, `hardened`, `resonance`, `feedback`); tone adds skill levels, volume earns more per set and widens the crowd, signature softens letdowns, a hardened guitar is a weapon (resonance and feedback in its swing), a jacked one turns a billboard hijack into a set | `instruments.ts`, `skills.ts`, `stage.ts`, `renown.ts`, `extras.ts` |
+| Where guitars come from: instrument exchanges (and a little elsewhere) stock rolled guitars and guitar cases; she buys the ones that are a step up; signing with Muse comes with a wired Muse guitar | `content/pawns.ts`, `pawnkit.ts`, `muse.ts` |
+| Doors: `draw_out` (a loud set on the street pulls a place's guards outside, best when she has business in there); the guitar case (at a private booking, a fight she starts is an ambush) | `axeplay.ts`, `combat.ts` |
+| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts` |
 
-Not yet: the guitar case, Inspiration teams, LUMINA, breaking a Muse contract, and everything from step 4 of the build
-order on.
+Not yet: Inspiration teams, LUMINA, breaking a Muse contract, resonance against dragons (step 9), and everything from
+step 5 of the build order on.
 
 ## The idea
 

@@ -1,7 +1,9 @@
 import type { Ctx, Hero, Id, Item, Location, Npc, PawnInfo, PawnLot, World } from './types';
+import { skillLevel } from './skills';
+import { genInstrument, instrumentUsefulness } from './instruments';
 import { acquire, addHeat, npcsAt, remember } from './combat';
 import { makeItem, ITEMS } from './content/items';
-import { FEATURES, SIZES, VARIANTS, WILD, featuresIn, graceDays, holdDays, lotState, offerFraction, redeemPrice, retailPrice, shelfPrice, situationAt, type SituationDef, type VariantDef } from './content/pawns';
+import { ROLLED_GUITAR, FEATURES, SIZES, VARIANTS, WILD, featuresIn, graceDays, holdDays, lotState, offerFraction, redeemPrice, retailPrice, shelfPrice, situationAt, type SituationDef, type VariantDef } from './content/pawns';
 import { odds, synergy, train } from './skills';
 import { dayOf } from './clock';
 import { isFairGame } from './people';
@@ -107,10 +109,10 @@ export const runCheck = (c: Ctx, v: PawnView, id: string, k: Check): void => run
 function stockLot(w: World, main: Location, rng: Rng, day: number, o: { id?: string; vault?: boolean } = {}): PawnLot | undefined {
   const info = main.pawn!;
   const v = VARIANTS[info.variant]!;
-  const ids = Object.keys(v.stock).filter((k) => ITEMS[k]);
+  const ids = Object.keys(v.stock).filter((k) => ITEMS[k] || k === ROLLED_GUITAR);
   if (!ids.length && !o.id) return undefined;
-  const id = o.id ?? rng.weighted(ids, (k) => v.stock[k]! * (info.tier >= 4 && (ITEMS[k]!.value >= 150) ? 1.5 : 1));
-  const item = makeItem(id);
+  const id = o.id ?? rng.weighted(ids, (k) => v.stock[k]! * (info.tier >= 4 && ((ITEMS[k]?.value ?? 0) >= 150) ? 1.5 : 1));
+  const item = id === ROLLED_GUITAR ? genInstrument(rng, info.tier + rng.int(-1, 2)) : makeItem(id);
   const hasVault = info.rooms.includes('vault');
   const hasCage = info.rooms.includes('cage');
   let room: string | undefined;
@@ -138,7 +140,7 @@ export function ensureShelf(w: World, main: Location): void {
     if (info.wild === 'famous_vault') for (let i = 0; i < 3; i++) main.shelf.push(stockLot(w, main, rng, day, { id: ['relic_jacket', 'relic_guitar', 'relic_ring', 'relic_belt'][(i + rng.int(0, 3)) % 4]!, vault: true })!);
     w.counters[stamp] = day;
   }
-  main.shelf = main.shelf.filter((l) => ITEMS[l.item.id] || l.hers).filter((l) => lotState(l, day) !== 'gone');
+  main.shelf = main.shelf.filter((l) => ITEMS[l.item.id] || l.item.inst || l.hers).filter((l) => lotState(l, day) !== 'gone');
   // Whatever has come in since she last looked: a day at a time, up to a few days' worth.
   const from = Math.max(w.counters[stamp] ?? day, day - 5);
   const cap = SIZES[info.size]!.shelf[1] + info.tier;
@@ -301,6 +303,8 @@ export function redeemOne(c: Ctx, v: PawnView, lines: BackLines): void {
 
 /** How much a thing would help her: weapons and armor by what they add over what she wields, anything else by its worth. */
 export function usefulness(h: Hero, item: Item): number {
+  const tune = instrumentUsefulness(h, item, skillLevel(h, 'guitar'));
+  if (tune > 0) return Math.max(tune, item.kind === 'weapon' ? Math.max(0, rating(item) - rating(h.weapon)) / Math.max(4, rating(h.weapon)) : 0);
   if (item.kind === 'weapon' || item.kind === 'gadget') return Math.max(0, rating(item) - rating(h.weapon)) / Math.max(4, rating(h.weapon));
   if (item.kind === 'armor') return Math.max(0, item.power - (h.armor?.power ?? 0)) / 4;
   return 0;

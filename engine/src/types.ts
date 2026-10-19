@@ -33,9 +33,34 @@ export interface Item {
   rounds?: number;
   /** Weapons: the traits that make this one different from the next. See weapons.ts. Named classics without it get plain defaults. */
   fx?: WeaponFx;
+  /** Instruments: what it is and what it does besides make noise. See instruments.ts. Classics without it get plain defaults. */
+  inst?: InstrumentFx;
   /** Car keys: the car this opens (`Vehicle.id`), and whether it belonged to gangers (their cars don't keep). See cars.ts. */
   carId?: string;
   ownerGang?: boolean;
+}
+
+/** What an instrument is, and the traits that open doors. Every trait is 0..3ish. */
+export interface InstrumentFx {
+  /** acoustic, electric, bass, twelve_string, double_neck, keytar, flying_v, cigar_box, chainsaw. */
+  cls: string;
+  /** How good it is for its price, 0..9ish. */
+  tier: number;
+  /** Levels it adds to the skills it's played with (guitar; a keytar also DJs). */
+  tone: number;
+  /** How far it carries: bigger crowds, more fame and fans from a set, and loud enough to draw people out of a building. */
+  volume: number;
+  /** It carries a famous player's name: crowds give her the benefit of the doubt. */
+  signature: number;
+  /** It plugs into city systems: billboards, PA towers. */
+  jacked: number;
+  /** Swinging it at someone doesn't break it. */
+  hardened: number;
+  /** It finds things' frequencies: a bonus against robots, or dragons. */
+  resonance: number;
+  resonates?: 'robot' | 'dragon';
+  /** A held note that can floor a person: stun when it's swung, or played at them. */
+  feedback: number;
 }
 
 /** What a weapon does besides hit. Every number is a trade against the base damage in `Item.power`. */

@@ -31,6 +31,7 @@ import { laylowCandidates } from './laylow';
 import { stageCandidates } from './stage';
 import { famed } from './renown';
 import { bookingCandidates } from './bookings';
+import { axeCandidates } from './axeplay';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
@@ -208,6 +209,7 @@ export function gather(w: World): Candidate[] {
   out.push(...laylowCandidates(w));
   out.push(...stageCandidates(w));
   out.push(...bookingCandidates(w));
+  out.push(...axeCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));
   out.push(...discretionCandidates(w));

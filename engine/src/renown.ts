@@ -4,6 +4,7 @@ import { here } from './combat';
 import { skillLevel } from './skills';
 import { SKILLS, type SkillId } from './content/skills';
 import { MIN_PER_DAY } from './clock';
+import { bestTrait } from './instruments';
 
 /**
  * What Neo remembers of her as a performer.
@@ -110,9 +111,10 @@ export function judgeSet(c: Ctx, act: string, skill: string, events: GameEvent[]
   if (!good && !bad) return;
   const h = w.hero;
   const loc = w.locations[h.locationId]!;
-  const crowd = audience(w, loc);
+  const crowd = audience(w, loc) + (audience(w, loc) ? 2 * bestTrait(h, skill, 'volume') : 0);
   if (!crowd) return;
-  const gap = shortfall(w, skill);
+  // A famous player's guitar buys her the benefit of the doubt.
+  const gap = shortfall(w, skill) - 3 * bestTrait(h, skill, 'signature');
   const slumps = (w.legacy.slump ??= {});
   const slump = (slumps[skill] ??= { sets: 0, lost: 0 });
   const label = SKILLS[skill as SkillId]?.label ?? skill;

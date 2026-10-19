@@ -220,11 +220,18 @@ export const HOOKS: Hooks = { heroPower, kill, maybeInjure, hasInjury, throwDama
  * The big one. Sets the stage (who is here, who turns up late, who saw), plays the fight out on a small grid
  * (tactics.ts), then settles up: injuries, loot, heat, XP, where she wakes up.
  */
-export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
+export function fight(c: Ctx, foesIn: Npc[], oIn: FightOpts): FightResult {
   const { w } = c;
   const h = w.hero;
   const foes = foesIn.filter((f) => f.alive);
   if (!foes.length) return 'win';
+  let o = oIn;
+  // The entertainment, with a guitar case nobody checked: when she starts it at a private booking, she starts it first.
+  if (o.assault && !o.ambush && h.inventory.some((i) => i.tags.includes('case'))
+    && w.legacy.bookings?.some((b) => b.loc === h.locationId && b.night === w.legacy.runs && b.kind === 'private')) {
+    o = { ...o, ambush: true };
+    c.emit('guitar_case', 'good', { place: w.locations[h.locationId]!.name, foe: foes[0]!.name });
+  }
   // The fight is one story: it opens with the squaring-up, and everything after (who saw, how each round went, the end) is told inside it.
   let result: FightResult = 'win';
   nested(

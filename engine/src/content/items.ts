@@ -78,6 +78,7 @@ export const ITEMS: Record<string, Def> = {
   cocktail_molotov: c('Molotov Mule (the cocktail, mostly)', 18, 25, ['throwable', 'fire']),
   ...Object.fromEntries(AMMO_IDS.map((t) => [`ammo_${t}`, c(`box of ${AMMO[t]!.label}`, 0, Math.round(AMMO[t]!.price / 2), ['ammo'])])),
   vintage_guitar: l('vintage guitar (previous owner: a band)', 400, ['instrument']),
+  guitar_case: l('guitar case (it has seen things)', 35, ['case']),
   // ---- gyms ----
   speed_gloves: w('speed gloves (weighted)', 6, 55, ['gloves']),
   boxing_wraps: a('hand wraps and a mouthguard', 1, 12),

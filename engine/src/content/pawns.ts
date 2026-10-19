@@ -31,6 +31,9 @@ const pick = <T>(rng: Rng, xs: readonly T[]): T => rng.pick(xs as T[]);
 // ===================================================================== placement
 
 /** Chance a street has a pawn shop. Rolled on a stream of its own (see mapgen), so no existing map changes. */
+
+/** A stock entry that's rolled (a procedural guitar, see instruments.ts), not an item id. */
+export const ROLLED_GUITAR = 'rolled_guitar';
 export const PAWN_CHANCE: Record<District, number> = { market: 0.1, nightlife: 0.06, tenement: 0.1, industrial: 0.05, corporate: 0.02, slum: 0.12 };
 
 /** Which kind of pawn shop, by district. Absent means 1. */
@@ -73,6 +76,7 @@ export interface VariantDef {
   /** Room names that are not the usual ones. */
   roomNames?: Record<string, string>;
   /** What the house keeps on its shelves: item id -> weight. Unknown ids are skipped. */
+  /** Item ids by weight. `ROLLED_GUITAR` is a procedural instrument (instruments.ts) at about the shop's tier. */
   stock: Record<string, number>;
 }
 
@@ -89,7 +93,7 @@ export const VARIANTS: Record<string, VariantDef> = {
     wall: ['An Atlas "Asset Wellness Partner" sticker is on the door, slightly crooked, as if applied under protest.', 'A mandatory Atlas serial scanner sits on the counter. The broker keeps a mug on it.'],
     floor: ['counter', 'window_display', 'display_case'], lean: { bargain_bin: 2, grille: 2, notice_board: 1, door_bell: 2, tip_jar: 1 },
     rooms: { office: 0.6, vault: 0.3, workshop: 0.2, showroom: 0.2, parlour: 0.2, bay: 0.25, cellar: 0.25, alley: 0.3 },
-    stock: { walkman: 3, gold_tooth: 2, credchip: 2, signet_ring: 2, chrono_watch: 1, brass_horn: 1, torque_wrench: 2, data_slate: 2, pool_cue: 1, switchblade: 1, leather_jacket: 2, snow_globe: 2, vinyl_record: 2, antique_clock: 1, ukulele: 1, mom_photo: 1, plasma_torch: 0.5, zip_pistol: 0.5 },
+    stock: { walkman: 3, gold_tooth: 2, credchip: 2, signet_ring: 2, chrono_watch: 1, brass_horn: 1, torque_wrench: 2, data_slate: 2, pool_cue: 1, switchblade: 1, leather_jacket: 2, snow_globe: 2, vinyl_record: 2, antique_clock: 1, ukulele: 1, rolled_guitar: 0.5, mom_photo: 1, plasma_torch: 0.5, zip_pistol: 0.5 },
   },
   jeweller: {
     label: 'jewellery pawn', offer: [0.35, 0.5], rate: 0.05, hold: [5, 10], grace: 4, markup: 1.8, sec: 2, crowd: 0.2,
@@ -119,7 +123,7 @@ export const VARIANTS: Record<string, VariantDef> = {
     floor: ['counter', 'instrument_wall', 'display_case'], lean: { practice_amp: 4, jukebox: 2, notice_board: 2, tip_jar: 2, vending: 1, try_on_mirror: 0.5 },
     rooms: { office: 0.5, vault: 0.25, workshop: 0.5, showroom: 0.3, parlour: 0.3, cellar: 0.3, roof: 0.15 },
     roomNames: { workshop: 'luthier\'s bench', parlour: 'rehearsal back room' },
-    stock: { brass_horn: 3, drum_pad: 2, synth_keys: 2, ukulele: 3, vintage_guitar: 0.5, vinyl_record: 2, walkman: 1 },
+    stock: { brass_horn: 3, drum_pad: 2, synth_keys: 2, ukulele: 3, vintage_guitar: 0.5, rolled_guitar: 5, guitar_case: 1.5, vinyl_record: 2, walkman: 1 },
   },
   hardware: {
     label: 'tool and kit exchange', offer: [0.3, 0.4], rate: 0.07, hold: [3, 6], grace: 2, markup: 1.5, sec: 1, crowd: 0.2,
@@ -179,7 +183,7 @@ export const VARIANTS: Record<string, VariantDef> = {
     floor: ['counter', 'curio_shelf', 'display_case', 'trophy_wall'], lean: { window_display: 2, formal_rail: 1, stuffed_thing: 3, antique_clock: 2, mannequin: 2, returns_box: 1 },
     rooms: { office: 0.5, vault: 0.5, showroom: 0.4, workshop: 0.25, parlour: 0.2, cellar: 0.3, roof: 0.1 },
     roomNames: { vault: 'strongroom', showroom: 'the good room' },
-    stock: { signed_poster: 3, prop_sword: 2, vinyl_record: 3, trading_cards: 2, match_shirt: 2, antique_clock: 2, snow_globe: 2, stuffed_gull: 2, champ_belt: 0.4, vintage_guitar: 0.3 },
+    stock: { signed_poster: 3, prop_sword: 2, vinyl_record: 3, trading_cards: 2, match_shirt: 2, antique_clock: 2, snow_globe: 2, stuffed_gull: 2, champ_belt: 0.4, vintage_guitar: 0.3, rolled_guitar: 0.4 },
   },
   atlasasset: {
     label: 'Atlas asset franchise', offer: [0.2, 0.3], rate: 0.12, hold: [2, 4], grace: 2, markup: 2.2, sec: 4, crowd: 0.35,

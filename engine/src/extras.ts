@@ -1,4 +1,5 @@
 import { famed } from './renown';
+import { bestTrait } from './instruments';
 import type { Ctx, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, npcsAt, relocate } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
@@ -344,6 +345,13 @@ function hackBillboard(c: Ctx): void {
     addHeat(w, 'atlas', 1 + Math.min(2, hacks));
     train(c, 'tinkering', 2);
     c.emit('billboard', 'good', { variant: 'success' });
+    // A wired guitar plugs straight into it: the whole street gets her set, at billboard volume.
+    const jacked = bestTrait(h, 'guitar', 'jacked');
+    if (jacked > 0) {
+      const gain = fameFrom(c, 1.5 + jacked, 'billboard_set');
+      train(c, 'guitar', 1 + jacked);
+      c.emit('billboard', 'good', { variant: 'jacked', place: w.locations[h.locationId]!.name, fame: Math.round(gain * 10) / 10 });
+    }
   } else {
     h.hp -= 6;
     addHeat(w, 'atlas', 2);

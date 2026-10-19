@@ -1,4 +1,5 @@
 import type { Ctx, Hero, Npc, World } from './types';
+import { hasInstrument } from './instruments';
 import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { clamp, revealExit, type Candidate } from './candidate';
 import { makeItem } from './content/items';
@@ -63,7 +64,7 @@ export function hobbyCandidates(w: World): Candidate[] {
   if (feat('guitar')) {
     const band = crowd.filter((n) => n.tags.includes('band'));
     out.push({ key: 'jam', drives: { pride: 0.8, curiosity: 0.5, lust: 0.15 }, bonus: skillLevel(h, 'guitar') * 0.03, risk: band.length ? 0.4 : 0, run: jam });
-    if (!owns('instrument')) {
+    if (!hasInstrument(h)) {
       out.push({ key: 'steal_guitar', drives: { greed: 0.9, curiosity: 0.4, pride: 0.3 }, risk: band.length ? 1.0 : 0.2, run: stealGuitar });
     }
     if (band.length && band.every((b) => b.affinity >= 14) && skillLevel(h, 'guitar') >= 1) {
@@ -71,7 +72,7 @@ export function hobbyCandidates(w: World): Candidate[] {
     }
   }
   // ---- busking, anywhere outdoors, if she owns a guitar
-  if (owns('instrument') && loc.outdoors && !['overpass', 'halo_roof'].includes(loc.id)) {
+  if (hasInstrument(h) && loc.outdoors && !['overpass', 'halo_roof'].includes(loc.id)) {
     out.push({ key: 'busk', drives: { pride: 0.7, greed: 0.5, curiosity: 0.3 }, risk: 0.2, run: busk });
   }
   // ---- the kitchen

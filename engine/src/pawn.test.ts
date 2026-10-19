@@ -6,7 +6,7 @@ import { isLethal, kill, relocate } from './combat';
 import { childId, expand } from './mapgen';
 import { affordancesFor } from './affordances';
 import { pawnCandidates, describePawn } from './pawn';
-import { FEATURES, PAWN_CHANCE, PAWN_VARIANT, ROOMS, SHELLS, SITUATIONS, TRAITS, VARIANTS, WILD, holdDays, lotState, offerFraction, redeemPrice, retailPrice, rollPawn, situationAt } from './content/pawns';
+import { ROLLED_GUITAR, FEATURES, PAWN_CHANCE, PAWN_VARIANT, ROOMS, SHELLS, SITUATIONS, TRAITS, VARIANTS, WILD, holdDays, lotState, offerFraction, redeemPrice, retailPrice, rollPawn, situationAt } from './content/pawns';
 import { ARCHETYPES } from './content/archetypes';
 import { ITEMS, makeItem } from './content/items';
 import { everyoneAt } from './population';
@@ -92,7 +92,7 @@ describe('rolling a pawn shop', () => {
 
   it('stocks only goods that exist, and every variant stocks something', () => {
     for (const [id, v] of Object.entries(VARIANTS)) {
-      const known = Object.keys(v.stock).filter((k) => ITEMS[k]);
+      const known = Object.keys(v.stock).filter((k) => ITEMS[k] || k === ROLLED_GUITAR);
       expect(known.length, id).toBeGreaterThanOrEqual(6);
       expect(known.length, `${id} has a stock id that is not an item`).toBe(Object.keys(v.stock).length);
       expect(v.names.length, id).toBeGreaterThanOrEqual(12);

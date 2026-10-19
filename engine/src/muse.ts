@@ -3,6 +3,7 @@ import type { GameEvent } from './events';
 import { addHeat } from './combat';
 import { SKILLS, type SkillId } from './content/skills';
 import { audience } from './renown';
+import { INST_CLASSES, genInstrument } from './instruments';
 
 /**
  * Muse: Neo's entertainment conglomerate. Every channel, all the music, and the say over what music is allowed (Muse's).
@@ -94,6 +95,11 @@ export function scout(c: Ctx, r: number = museRenown(c.w)): boolean {
     m.signed = true;
     w.hero.cash += advance;
     w.hero.fame += 8;
+    // The welcome pack: a Muse guitar, wired for broadcast, in an approved pastel.
+    const axe = genInstrument(rng.fork('muse-guitar'), 4, 'electric');
+    axe.inst!.jacked = Math.max(1, axe.inst!.jacked);
+    axe.name = `Muse SafeSound signature ${INST_CLASSES.electric!.nouns[0]} (pastel, approved)`;
+    w.hero.inventory.push(axe);
     c.emit('muse', 'good', { variant: 'signed', amount: advance });
     return true;
   }

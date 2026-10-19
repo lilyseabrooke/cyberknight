@@ -7,6 +7,7 @@ import { SKILLS } from './content/skills';
 import { isFairGame } from './people';
 import { bondEvent, romanceMod } from './bonds';
 import { addRenown } from './renown';
+import { bestTrait, hasInstrument } from './instruments';
 
 /**
  * Performing. Two things keep her from singing in one spot forever, and one thing makes a good night run away with her.
@@ -24,7 +25,7 @@ export const ACT_SKILL: Record<string, string> = {
   jam: 'guitar', gig: 'guitar', busk: 'guitar', guitar_duel: 'guitar',
   dj_set: 'djing', backlot_set: 'djing',
   beatbox: 'beatbox', beat_battle: 'beatbox',
-  graffiti: 'art',
+  graffiti: 'art', billboard_set: 'guitar', draw_out: 'guitar',
   booked_guitar: 'guitar', booked_vocals: 'vocals', booked_djing: 'djing', booked_beatbox: 'beatbox',
 };
 
@@ -96,7 +97,9 @@ export function fameFrom(c: Ctx, base: number, act: string): number {
   }
   const fresh = freshness(w, loc.id, skill);
   const fire = w.mind.passion?.skill === skill ? 1 + 0.15 * w.mind.passion.level : 1;
-  const gain = base * prestige(loc) * fresh * fire;
+  // A loud instrument carries past the room: more people hear it.
+  const loud = 1 + 0.25 * bestTrait(h, skill, 'volume');
+  const gain = base * prestige(loc) * fresh * fire * loud;
   h.fame += gain;
   addRenown(w, skill, gain);
   const f = (loc.fatigue ??= {});
@@ -158,7 +161,7 @@ export function stageCandidates(w: World): Candidate[] {
   }
 
   // ---- out-play the band
-  const hasAxe = h.inventory.some((i) => i.tags.includes('instrument')) || w.features.guitar?.locationId === h.locationId;
+  const hasAxe = hasInstrument(h) || w.features.guitar?.locationId === h.locationId;
   if (hasAxe) {
     for (const n of crowd.filter((x) => x.tags.includes('band') && x.affinity > -10 && x.affinity < 40)) {
       out.push({ key: `guitar_duel:${n.id}`, drives: { pride: 1.0, bravery: 0.4, curiosity: 0.3 }, bonus: skillLevel(h, 'guitar') * 0.03, risk: 0.4, run: (c) => guitarDuel(c, n) });
