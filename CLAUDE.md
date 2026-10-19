@@ -29,7 +29,7 @@ often preferable to a sanded-down version that feels worse.
 ## Standing design points
 
 - **Clock time over beat time.** Anything that lasts or turns over is measured in clock time (world minutes), not beats:
-  a beat can be seconds or hours. Use beats only for counting actions. See `docs/DESIGN.md` §3.
+  a beat can be seconds or hours. There is no beat-to-clock conversion (sleeping 8 hours is one beat, so is a wink). Use beats only to count actions or inside combat, stealth and chase scenes, where a beat is a few seconds. See `docs/DESIGN.md` §3.
 - **Hand-authored areas (the Rusty Halo etc.) are examples**, not the main show. No special treatment for being
   hand-authored unless the area announces itself as an exception.
 - **Skills and level run 0 to 100**; 80 is very high even for an endgame run.
