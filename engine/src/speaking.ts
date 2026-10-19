@@ -70,6 +70,15 @@ export function speakingCandidates(w: World): Candidate[] {
     out.push({ key: 'stump_speech', drives: { pride: 0.6, curiosity: 0.3, bravery: 0.3 }, bonus: Math.min(lvl, 30) * 0.01 + 0.08 * Math.min(5, audience(w, reachOf(h)).length), risk: 0.15, intent: {}, run: stumpSpeech });
   }
 
+  // ---- a speech she is in the middle of: work the crowd some more, or wrap it up
+  const sp = w.speech;
+  if (sp && sp.loc === h.locationId && w.clock < sp.until) {
+    const fresh = Math.min(4, audience(w, sp.depth).filter((n) => !sp.heard.includes(n.id)).length);
+    const spent = clamp((w.clock - sp.began) / (sp.until - sp.began), 0, 1);
+    out.push({ key: 'keep_speaking', drives: { pride: 0.5, curiosity: 0.2 }, bonus: 1.2 + 0.2 * fresh + (sp.last > 0 ? 0.4 : 0) - 0.9 * sp.dry - 1.0 * spent, intent: {}, run: keepSpeaking });
+    out.push({ key: 'wrap_up', drives: { pride: 0.2 }, bonus: 0.2 + 0.9 * sp.dry + 1.0 * spent - 0.2 * fresh, run: wrapUp });
+  }
+
   // ---- the troops
   const crew = h.companions.filter((a) => a.hp > 0);
   if (crew.length) {
@@ -334,6 +343,7 @@ export function moveCrowd(c: Ctx, o: { depth: number; stretch: number; edge: num
   const sp: Speech = {
     loc: w.hero.locationId, until: w.clock + (o.minutes ?? STUMP_MINUTES), heard: [], leaders: [], depth: o.depth,
     remote: o.remote ?? 0.55, stretch: o.stretch, edge: o.edge, moved: 0,
+    beat: w.beat, began: w.clock, dry: 0, last: 0, stages: 1,
   };
   w.speech = sp;
   const crowd = audience(w, o.depth).sort((a, b) => b.affinity - a.affinity);
@@ -394,23 +404,48 @@ function pull(c: Ctx, sp: Speech, people: Npc[], drift: number): Moved | null {
 }
 
 /**
- * Once a beat while she is still at it: anyone who has come into earshot since (people drift through a street) can be
- * swept up in the speech too, as long as the world clock says it is still going. It ends when she leaves, or the time is up.
+ * Once a beat: is the speech over? It ends at its time limit on the world clock, when she leaves, or when she does something
+ * other than keep it going.
  */
 export function speechTick(c: Ctx): void {
   const { w } = c;
   const sp = w.speech;
   if (!sp) return;
-  if (w.clock >= sp.until || w.hero.locationId !== sp.loc || w.hero.hp <= 0) {
-    delete w.speech;
-    return;
-  }
+  if (w.clock >= sp.until || w.hero.locationId !== sp.loc || w.hero.hp <= 0 || w.beat - sp.beat > 1) delete w.speech;
+}
+
+/**
+ * One more stage of a speech: she works the crowd, and whoever has come into earshot since (people drift through a street) is
+ * rolled for, the same as the ones who were there from the start.
+ */
+function keepSpeaking(c: Ctx): void {
+  const { w } = c;
+  const sp = w.speech;
+  if (!sp) return;
+  sp.beat = w.beat;
+  sp.stages++;
   const heard = new Set(sp.heard);
   const fresh = audience(w, sp.depth).filter((n) => !heard.has(n.id));
   const moved = pull(c, sp, fresh, DRIFT_PULL);
-  if (!moved?.count) return;
-  train(c, 'speaking', 0.5);
-  c.emit('speech_joins', 'good', { variant: 'drift', ...crowdData(moved), total: sp.moved });
+  const n = moved?.count ?? 0;
+  sp.last = n;
+  sp.dry = n ? 0 : sp.dry + 1;
+  train(c, 'speaking', 0.5 + Math.min(Math.round(Math.sqrt(n)), 2));
+  if (n) {
+    fameFrom(c, 0.15 * Math.sqrt(n), 'stump_speech');
+    c.emit('speech_joins', 'good', { variant: 'drift', ...crowdData(moved), total: sp.moved });
+  } else {
+    c.emit('speech_steady', 'mixed', { variant: fresh.length ? 'cool' : 'empty', total: sp.moved });
+  }
+}
+
+/** She has said what she came to say. */
+function wrapUp(c: Ctx): void {
+  const { w } = c;
+  const sp = w.speech;
+  if (!sp) return;
+  delete w.speech;
+  c.emit('speech_wrap', sp.moved ? 'good' : 'mixed', { variant: sp.moved ? 'moved' : 'quiet', total: sp.moved, lead: Math.min(sp.moved, MAX_LEADERS), stages: sp.stages });
 }
 
 const crowdData = (m: Moved | null): Record<string, string | number> => (m?.count ? { count: m.count, lead: m.lead, rest: m.count - m.lead, of: m.of, deed: m.deed, who: m.names.slice(0, 2).join(' and '), kind: m.kind } : {});

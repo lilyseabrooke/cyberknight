@@ -383,6 +383,16 @@ export interface Speech {
   edge: number;
   /** How many people it has moved in all. */
   moved: number;
+  /** The beat of the last thing she did to keep it going. If she does something else, it is over. */
+  beat: number;
+  /** When it began (world-clock minute), for how far through its time limit it is. */
+  began: number;
+  /** Stages in a row where nobody new came by or went along. */
+  dry: number;
+  /** How many people the last stage swept up. */
+  last: number;
+  /** Stages worked so far, counting the opening. */
+  stages: number;
 }
 
 /** Something Blackbird has put in somebody's head. They carry it out in their own way, for as long as it lasts. */

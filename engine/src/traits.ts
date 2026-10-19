@@ -75,6 +75,8 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   mirror: { vanity: 2.0 },
   mirror_speech: { vanity: 2.0, artistry: 0.3 },
   stump_speech: { fame: 0.8, sociable: 0.6, artistry: 0.3 },
+  keep_speaking: { fame: 0.5, sociable: 0.6, artistry: 0.2 },
+  wrap_up: { sociable: 0.2 },
   rally_allies: { sociable: 0.6, kindness: 0.4 },
   recruit_kids: { fame: 0.6, kindness: 0.5 },
   // tinkering

@@ -334,42 +334,90 @@ describe('speaking', () => {
     expect(local).toBeGreaterThan(loud);
   });
 
-  it('a speech lasts world-clock time: people who come by during it can be swept up, and it ends when the time does or she leaves', () => {
+  const stage = (w: World, key: string) => speakingCandidates(w).find((x) => x.key === key);
+
+  it('a speech lasts world-clock time: she keeps working it in stages, people who come by are swept up, and the time limit ends it', () => {
     let joined = 0;
     for (let i = 0; i < 30; i++) {
       const w = bigStreet(`drift-${i}`, 0);
       const { c, events } = ctxOf(w, `d${i}`);
       moveCrowd(c, { depth: 0, stretch: 1, edge: 0.3 });
       expect(w.speech).toBeTruthy();
-      // an empty street: nothing yet, and the speech is still on
+      // an empty street: she keeps going, nobody new, the speech is still on
+      w.beat++;
+      w.clock += 6;
       speechTick(c);
+      stage(w, 'keep_speaking')!.run(c);
       expect(w.speech).toBeTruthy();
+      expect(w.speech!.dry).toBe(1);
       expect(w.influenced ?? []).toEqual([]);
       // somebody comes through
       addAt(w, 'street_main', 6, `walker${i}`);
-      w.clock += 3;
+      w.beat++;
+      w.clock += 6;
       speechTick(c);
+      stage(w, 'keep_speaking')!.run(c);
       joined += (w.influenced ?? []).length;
       for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
       // the same people are not rolled twice
       const before = (w.influenced ?? []).length;
+      w.beat++;
       speechTick(c);
+      stage(w, 'keep_speaking')!.run(c);
       expect((w.influenced ?? []).length).toBe(before);
-      // time up: later arrivals are too late
+      // time up: it is over, and nothing is offered
+      w.beat++;
       w.clock = w.speech!.until + 1;
       addAt(w, 'street_main', 6, `late${i}`);
       speechTick(c);
       expect(w.speech).toBeUndefined();
+      expect(stage(w, 'keep_speaking')).toBeUndefined();
       expect((w.influenced ?? []).some((id) => id.startsWith('late'))).toBe(false);
     }
     expect(joined).toBeGreaterThan(10);
-    // leaving ends it
-    const w = bigStreet('leave', 0);
-    const { c } = ctxOf(w, 'x');
-    moveCrowd(c, { depth: 0, stretch: 1, edge: 0.3 });
+  });
+
+  it('a speech ends when she leaves, wraps it up, or does something else instead', () => {
+    const fresh = () => {
+      const w = bigStreet('end', 3);
+      const ctx = ctxOf(w, 'x');
+      moveCrowd(ctx.c, { depth: 0, stretch: 1, edge: 0.3 });
+      return { w, ...ctx };
+    };
+    // leaving
+    let { w, c } = fresh();
     w.hero.locationId = neighbour(w);
     speechTick(c);
     expect(w.speech).toBeUndefined();
+    // wrapping up, told as the end of the speech
+    ({ w, c } = fresh());
+    const { events } = ctxOf(w, 'y');
+    const cc = { ...c, emit: (type: string, outcome: any, data: any = {}) => events.push({ beat: w.beat, type, outcome, data }) };
+    stage(w, 'wrap_up')!.run(cc);
+    expect(w.speech).toBeUndefined();
+    expect(events.map((e) => e.type)).toEqual(['speech_wrap']);
+    expect(hasTemplate(events[0]!)).toBe(true);
+    // doing something else for a beat
+    ({ w, c } = fresh());
+    w.beat += 1;
+    speechTick(c);
+    expect(w.speech).toBeTruthy();
+    w.beat += 1; // a beat went by that was not spent on the speech
+    speechTick(c);
+    expect(w.speech).toBeUndefined();
+  });
+
+  it('she is more inclined to keep going while it is working and to wrap up when it goes dry or runs long', () => {
+    const w = bigStreet('mood', 0);
+    const { c } = ctxOf(w, 'm');
+    moveCrowd(c, { depth: 0, stretch: 1, edge: 0.3 });
+    const bonus = (key: string) => stage(w, key)!.bonus ?? 0;
+    const keepFresh = bonus('keep_speaking');
+    const wrapFresh = bonus('wrap_up');
+    expect(keepFresh).toBeGreaterThan(wrapFresh);
+    w.speech!.dry = 3;
+    w.clock = w.speech!.began + (w.speech!.until - w.speech!.began) * 0.8;
+    expect(bonus('wrap_up')).toBeGreaterThan(bonus('keep_speaking'));
   });
 
   it('sells a loudspeaker at the gun shop, to someone who can speak and has the cash', () => {
