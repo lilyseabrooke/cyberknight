@@ -16,6 +16,7 @@ import { remember } from './combat';
 import { tiesFrom } from './ties';
 import { DROPS } from './content/drops';
 import { applyUpgrades, settleAccount } from './lab';
+import { fadeFame } from './renown';
 import type { DeathRecord, Flight, Id, Npc, World } from './types';
 
 /**
@@ -269,6 +270,8 @@ export function beginRun(u: Universe, opts: BeginOptions = {}): World {
     ending: null,
   };
   const w = joinWorld(u, run);
+  // The days since she was last seen have worn on her name.
+  fadeFame(w);
   const start = w.locations[hero.locationId]!;
   start.visits = 1;
   // Wherever she wakes up, the people who keep hours there have had time to come and go.

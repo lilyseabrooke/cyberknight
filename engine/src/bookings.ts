@@ -121,11 +121,11 @@ export function tickBookings(c: Ctx): void {
   const skill = bestKnown(w);
   if (!skill) return;
   const exp = expectation(w, skill);
-  if (exp < 2 || (list?.filter((b) => !b.played).length ?? 0) >= MAX_OPEN) return;
+  if (exp < 3 || (list?.filter((b) => !b.played).length ?? 0) >= MAX_OPEN) return;
   // Signed to Muse, the bookings come to her: more of them, and better paid.
   const muse = w.legacy.muse?.signed ? 2 : 1;
   if (!rng.chance(0.003 * muse * Math.min(4, exp / 2))) return;
-  offerBooking(c, skill, exp >= 4 && rng.chance(0.4) ? 'private' : 'gig');
+  offerBooking(c, skill, exp >= 5 && rng.chance(0.4) ? 'private' : 'gig');
 }
 
 function missed(c: Ctx, b: Booking): void {

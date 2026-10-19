@@ -1026,7 +1026,7 @@ export class Sim {
     const h = this.w.hero;
     const lvl = t.npc?.level ?? 1;
     const hurt = t.ref.hp / t.ref.maxHp < 0.5 ? 0.2 : 0;
-    return clamp(0.1 + skillValue(h, 'intimidation') * 0.06 + (h.level - lvl) * 0.05 + h.fame * 0.004 + hurt + this.lostFraction() * 0.2 - (t.npc ? 0.08 * (ratio(t.npc, 'muscle') - 1) + 0.04 * (ratio(t.npc, 'int') - 1) : 0), 0.02, 0.7);
+    return clamp(0.1 + skillValue(h, 'intimidation') * 0.06 + (h.level - lvl) * 0.05 + Math.min(0.12, h.fame * 0.0008) + hurt + this.lostFraction() * 0.2 - (t.npc ? 0.08 * (ratio(t.npc, 'muscle') - 1) + 0.04 * (ratio(t.npc, 'int') - 1) : 0), 0.02, 0.7);
   }
 
   doIntimidate(t: Unit): void {

@@ -187,7 +187,7 @@ export function hustleCandidates(w: World): Candidate[] {
 function panhandle(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(HODDS.panhandle(h) - (h.fame >= 3 ? 0.1 : 0), 0.1, 0.8);
+  const p = clamp(HODDS.panhandle(h) - (h.fame >= 30 ? 0.1 : 0), 0.1, 0.8);
   if (rng.chance(0.07)) {
     const cash = rng.int(20, 60);
     h.cash += cash;

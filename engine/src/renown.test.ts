@@ -3,7 +3,10 @@ import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { beginRun, endRun, newUniverse } from './universe';
 import { fameFrom } from './stage';
-import { expectation, judgeSet, totalFans } from './renown';
+import { FAME_HALF_LIFE_DAYS, expectation, fadeFame, famed, judgeSet, totalFans } from './renown';
+import { MIN_PER_DAY } from './clock';
+import { moveThrough } from './moves';
+import { always } from './testkit';
 import { spawnNpc } from './content/archetypes';
 import { addNpc, moveNpc } from './population';
 import { skillXp as xpForLevel } from './grade';
@@ -36,9 +39,11 @@ describe('fame outlives her, skill does not', () => {
     w1.over = true;
     const u2 = endRun(w1);
     const w2 = beginRun(u2);
-    expect(w2.hero.fame).toBe(37);
+    // Same fame, less what the day since has worn off it.
+    expect(w2.hero.fame).toBeGreaterThan(33);
+    expect(w2.hero.fame).toBeLessThan(37);
     expect(w2.hero.skills.guitar ?? 0).toBeLessThan(xpForLevel(1));
-    expect(w2.legacy.renown!.guitar).toBe(30);
+    expect(w2.legacy.renown!.guitar).toBeGreaterThan(27);
     expect(w2.locations.halo_floor!.fans).toBe(9);
   });
 
@@ -116,5 +121,49 @@ describe('a crowd that came for a legend', () => {
     w.legacy.renown = { guitar: 400 };
     judgeSet(ctxOf(w, 'e').c, 'busk', 'guitar', played('bad'));
     expect(w.hero.fame).toBe(400);
+  });
+});
+
+describe('fame fades, and its perks take work', () => {
+  it('fame and renown halve over the half-life of in-game time, nights apart included', () => {
+    const w = atTheBar('fade');
+    w.hero.fame = 100;
+    w.legacy.renown = { guitar: 80 };
+    fadeFame(w);
+    w.clock += FAME_HALF_LIFE_DAYS * MIN_PER_DAY;
+    fadeFame(w);
+    expect(w.hero.fame).toBeCloseTo(50, 5);
+    expect(w.legacy.renown.guitar).toBeCloseTo(40, 5);
+    // A beat's worth of time barely touches it.
+    w.clock += 3;
+    fadeFame(w);
+    expect(w.hero.fame).toBeGreaterThan(49.99);
+  });
+
+  it('the days between one life and the next wear on her name', () => {
+    const u = newUniverse('between');
+    const w1 = beginRun(u);
+    w1.hero.fame = 100;
+    w1.ending = 'dead';
+    w1.over = true;
+    const w2 = beginRun(endRun(w1));
+    expect(w2.hero.fame).toBeLessThan(100);
+    expect(w2.hero.fame).toBeGreaterThan(90);
+  });
+
+  it('a night or two of fame does not get her past a bouncer; a real name does', () => {
+    expect(famed(15, 25, 120)).toBe(0);
+    const door = (fame: number): string => {
+      const w = atTheBar('door');
+      w.hero.locationId = 'street_main';
+      w.hero.fame = fame;
+      w.hero.cash = 0;
+      const events: GameEvent[] = [];
+      const c = { w, rng: always(), emit: (type: string, outcome: any, data: any = {}) => events.push({ beat: 0, type, outcome, data }) };
+      moveThrough(c, w.locations.street_main!.exits.find((e) => e.to === 'neon_pharaoh')!);
+      return String(events.find((e) => e.type === 'go')?.data.variant);
+    };
+    expect(door(15)).not.toBe('recognized');
+    expect(door(150)).toBe('recognized');
   });
 });

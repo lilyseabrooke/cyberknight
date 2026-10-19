@@ -1,3 +1,4 @@
+import { famed } from './renown';
 import type { Ctx, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, npcsAt, relocate } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
@@ -535,7 +536,7 @@ export function ambientExtras(c: Ctx): void {
   }
 
   // --- fans
-  if (h.fame >= 3 && loc.crowded && rng.chance(0.04)) {
+  if (h.fame >= 20 && loc.crowded && rng.chance(0.04 * famed(h.fame, 10, 80))) {
     const amt = rng.int(10, 40);
     h.cash += amt;
     c.emit('fan', 'good', { variant: String(rng.int(1, 4)), amount: amt, fame: h.fame });

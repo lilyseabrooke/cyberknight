@@ -3,6 +3,7 @@ import type { GameEvent } from './events';
 import { here } from './combat';
 import { skillLevel } from './skills';
 import { SKILLS, type SkillId } from './content/skills';
+import { MIN_PER_DAY } from './clock';
 
 /**
  * What Neo remembers of her as a performer.
@@ -16,6 +17,26 @@ import { SKILLS, type SkillId } from './content/skills';
  * - **Letdowns** cost fame, renown and fans, sharply: a bad set in front of people who came for a legend can empty a
  *   street of fans. A few in a row are a slump, and the first set that delivers after a slump is a comeback.
  */
+
+/**
+ * How far along she is from "nobody here knows her" (0) to "everybody here knows her" (1), for a perk of fame that
+ * starts at `from` and is all hers at `to`. A night's work is 5 to 15 fame, so the perks take real work (or many lives).
+ */
+export const famed = (fame: number, from: number, to: number): number => Math.max(0, Math.min(1, (fame - from) / (to - from)));
+
+/** Fame halves in this many in-game days if she does nothing to keep it up. Renown for a skill fades with it. */
+export const FAME_HALF_LIFE_DAYS = 20;
+
+/** Let the clock wear her fame down: Neo forgets, slowly. Runs off the in-game clock, so the days between nights count too. */
+export function fadeFame(w: World): void {
+  const at = w.legacy.fameAt ?? w.clock;
+  w.legacy.fameAt = w.clock;
+  const dt = w.clock - at;
+  if (dt <= 0) return;
+  const k = 0.5 ** (dt / (FAME_HALF_LIFE_DAYS * MIN_PER_DAY));
+  w.hero.fame *= k;
+  for (const s of Object.keys(w.legacy.renown ?? {})) w.legacy.renown![s]! *= k;
+}
 
 /** The skill grade a crowd expects from her at this skill, from how famous she is for it. */
 export const expectation = (w: World, skill: string): number => 0.8 * Math.sqrt(Math.max(0, w.legacy.renown?.[skill] ?? 0));

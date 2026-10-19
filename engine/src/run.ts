@@ -30,6 +30,7 @@ import { haloShun, heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
 import { tickBookings } from './bookings';
+import { fadeFame } from './renown';
 import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
 import { satietyBias, tickSatiety } from './romance';
@@ -280,6 +281,7 @@ function upkeep(c: Ctx): void {
   if (w.beat % 30 === 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2);
   if (w.beat % 90 === 0) restockShelf(c);
   tickVenues(w);
+  fadeFame(w);
   tickHustles(c);
   tickBookings(c);
   tickGyms(c);

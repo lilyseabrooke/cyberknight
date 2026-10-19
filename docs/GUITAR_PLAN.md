@@ -11,6 +11,7 @@ Feel over balance: every number here is a first guess, to be felt out (or never 
 | Expectation from renown; sharp letdowns (fame, renown, fans; a big room empties the block), "underwhelm", slumps and comebacks, judged after every music act in `mindAfter` | `renown.ts` `judgeSet`, `goals.ts` |
 | Bookings on the legacy: gigs at bars and clubs she knows, private functions behind gated doors; the `booking` goal; the door waves her through; the booked set (`booked_<skill>` acts); missed bookings cost fans, fame and the host's goodwill | `bookings.ts`, `moves.ts`, `goals.ts` |
 | Muse's first rungs: the Clearance letter, Clearance officers (fines, a guitar taken "for safekeeping"), the A&R scout and the sign-or-refuse choice (by personality), the contract outliving her, the warrant after a refusal; signed, Muse books her twice as often at half again the fee | `muse.ts` |
+| Fame fades on the in-game clock; fame perks (bouncers, free drinks, fan tips, cheering witnesses, intimidation, call-ins) ramp in at steeper numbers | `renown.ts` `fadeFame` / `famed`, `moves.ts`, `interactions.ts`, `extras.ts`, `witness.ts`, `tactics.ts`, `callins.ts` |
 | Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts` |
 
 Not yet: the guitar case, Inspiration teams, LUMINA, breaking a Muse contract, and everything from step 4 of the build
@@ -68,7 +69,11 @@ This is the most interesting thing in the plan, because it makes **expectation**
     A reviewer calls it genius. She agrees.
   - *The comeback:* once her skill catches up with her fame, the first real set after a slump pays a comeback bonus:
     fans who left return, and the press can't stop writing about it.
-- **Fame is not a ratchet.** Disappointment drains it; the songs, though, never go away.
+- **Fame is not a ratchet.** Disappointment drains it, and so does time: fame (and renown with it) halves over about
+  20 in-game days if she does nothing to keep it up, nights apart included (`fadeFame`). The songs never go away.
+- **Fame's perks take real work.** A night earns 5 to 15 fame, and the perks ramp in well above that: a bouncer starts
+  recognising her at 25 and almost always does by 120; free drinks from 20 to 100; fans tipping her in the street from 20.
+  Booking offers start once a crowd would expect a grade-3 player, private functions at grade 5.
 
 This applies to fame in general, not just guitar (singing, DJing, graffiti, parkour all feed `fame`). Engine-wise,
 fame and fans move from `hero` to `legacy`, plus a per-run "expectation" read from them.

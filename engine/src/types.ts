@@ -844,6 +844,8 @@ export interface Legacy {
   gate?: 'open';
   /** Her fame as Neo remembers it. She is rebuilt from a cached copy, so to everyone else she never left: each new body starts with it. */
   fame?: number;
+  /** The in-game clock when her fame last faded (see renown.ts `fadeFame`). */
+  fameAt?: number;
   /** The part of her fame that is about one performing skill ("Blackbird, the guitarist"), which sets what a crowd expects of her. See renown.ts. */
   renown?: Record<string, number>;
   /** Letdowns in a row per skill, and the fame they cost, so a set that finally delivers can be a comeback. */

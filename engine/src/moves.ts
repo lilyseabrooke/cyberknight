@@ -6,6 +6,7 @@ import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { moveNpc } from './population';
 import { cross } from './shortcut';
 import { bookedTonight } from './bookings';
+import { famed } from './renown';
 
 /** Resolve walking through an exit, including bouncers, locks, guards and jumps. */
 export function moveThrough(c: Ctx, exit: Exit): void {
@@ -40,7 +41,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
 
     case 'bouncer': {
       const guards = npcsAt(w, 'neon_pharaoh').filter((n) => n.tags.includes('security'));
-      if (h.fame >= 5 && rng.chance(0.8)) {
+      if (h.fame >= 25 && rng.chance(0.85 * famed(h.fame, 25, 120))) {
         arrive(c, to, 'recognized');
       } else if (h.cash >= 40 && rng.chance(0.5)) {
         h.cash -= 40;

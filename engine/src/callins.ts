@@ -22,7 +22,7 @@ export function kindOf(foes: Npc[]): Kind {
 export function weighSides(heat: number, force: 'npd' | 'atlas', foes: Kind, fame: number): Record<Side, number> {
   return {
     her: 1 + 0.6 * heat + (foes === 'law' ? 4 : foes === 'corp' ? (force === 'atlas' ? 4 : 3) : 0),
-    foes: 1 + (foes === 'crook' ? 4 : 0) + (heat <= 1 ? 2 : 0) + 0.1 * fame,
+    foes: 1 + (foes === 'crook' ? 4 : 0) + (heat <= 1 ? 2 : 0) + Math.min(3, 0.02 * fame),
     all: 0.5 + 0.25 * heat + (force === 'atlas' ? 1 : 0),
     ignore: 1.2,
   };

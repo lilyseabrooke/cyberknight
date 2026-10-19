@@ -29,6 +29,7 @@ import { knowsBounty, tippable } from './bounty';
 import { healUrge } from './urges';
 import { laylowCandidates } from './laylow';
 import { stageCandidates } from './stage';
+import { famed } from './renown';
 import { bookingCandidates } from './bookings';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
@@ -569,7 +570,9 @@ function orderDrink(c: Ctx, bartender: Npc): void {
   const h = w.hero;
   const drink = rng.pick(DRINKS);
   const price = rng.int(8, 22);
-  const free = (bartender.affinity >= 15 && rng.chance(0.5)) || (h.fame >= 4 && rng.chance(0.35));
+  const byFriend = bartender.affinity >= 15 && rng.chance(0.5);
+  const byFame = !byFriend && h.fame >= 20 && rng.chance(0.35 * famed(h.fame, 20, 100));
+  const free = byFriend || byFame;
   const onTab = !free && h.cash < price;
   const cost = free ? 0 : onTab ? 0 : price;
   h.cash -= cost;
@@ -577,7 +580,7 @@ function orderDrink(c: Ctx, bartender: Npc): void {
   h.drunk += 1;
   bartender.affinity += 2;
   train(c, 'tolerance', 1);
-  c.emit('order_drink', 'mixed', { variant: free ? (h.fame >= 4 ? 'fame' : 'free') : onTab ? 'tab' : 'paid', drink, cost: onTab ? price : cost, npc: bartender.name, drunk: h.drunk, tab: h.tab });
+  c.emit('order_drink', 'mixed', { variant: free ? (byFame ? 'fame' : 'free') : onTab ? 'tab' : 'paid', drink, cost: onTab ? price : cost, npc: bartender.name, drunk: h.drunk, tab: h.tab });
 }
 
 function buyRound(c: Ctx): void {

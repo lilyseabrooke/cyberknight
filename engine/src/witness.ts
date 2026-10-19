@@ -79,7 +79,7 @@ export function reactionWeights(w: World, n: Npc, victim: Npc): Record<Reaction,
     rw.shun += 1;
   }
   if (isFairGame(n) && n.affinity >= 10) rw.cheer += 2;
-  rw.cheer += Math.min(2, w.hero.fame * 0.15);
+  rw.cheer += Math.min(2, w.hero.fame * 0.02);
   // Who they are: the brave step up and the timid run; the kind don't enjoy it; friends of the victim wade in, rivals are delighted.
   const nv = nerve(w, n);
   rw.flee *= clamp(1.7 - 1.4 * nv, 0.3, 1.7);
