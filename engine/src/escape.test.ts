@@ -379,4 +379,43 @@ describe('a hunt on the street', () => {
     }
     expect(Object.keys(seen).length).toBeGreaterThanOrEqual(2);
   });
+
+  it('people watching a takedown react to it, and people who find the body run or shout', () => {
+    const seen: Record<string, number> = {};
+    let takedowns = 0;
+    for (let i = 0; i < 200; i++) {
+      const sc = scenario({ seed: `witness-${i % 40}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.clock = 20 * 60;
+      const { c, events } = ctxOf(w, new Rng(`wi-${i}`));
+      const crew = spawnGroup(c, 'ganger', 1, 'vipers');
+      const mood = i % 3 === 0 ? 30 : i % 3 === 1 ? -30 : 0;
+      for (const n of spawnGroup(c, 'patron', 8)) n.affinity = mood;
+      const p = placeOf(w)!;
+      syncPlace(w, p);
+      const g = p.layout.grid;
+      const mid = { x: Math.floor(g.w / 2), y: Math.floor(g.h / 2) };
+      p.board.hero = mid;
+      const e = p.board.ents[crew[0]!.id];
+      if (e) {
+        e.x = mid.x + 1;
+        e.y = mid.y;
+        e.facing = 2;
+      }
+      // the patrons close by, looking her way
+      Object.entries(p.board.ents).filter(([id]) => id !== crew[0]!.id).slice(0, 5).forEach(([, ent], k) => {
+        ent.x = Math.max(0, Math.min(g.w - 1, mid.x - 2 + k));
+        ent.y = Math.max(0, Math.min(g.h - 1, mid.y - 2));
+        ent.facing = 4;
+      });
+      streetHunt(c, crew, 'test', { keepSpot: true });
+      for (const ev of events) {
+        expect(hasTemplate(ev), `${ev.type}:${ev.data.variant}`).toBe(true);
+        if (ev.type === 'prowl_witness') seen[String(ev.data.variant)] = (seen[String(ev.data.variant)] ?? 0) + 1;
+        if (ev.type === 'prowl_takedown' && ev.data.variant !== 'fail') takedowns++;
+      }
+    }
+    expect(takedowns).toBeGreaterThan(0);
+    expect(Object.keys(seen).length).toBeGreaterThanOrEqual(1);
+  });
 });

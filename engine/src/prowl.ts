@@ -2,6 +2,7 @@ import { Rng, hashString } from './rng';
 import type { Awareness, Ctx, Dungeon, Id, Location, Npc, World } from './types';
 import { clamp } from './candidate';
 import { angDiff, dirOf, dist, hasLos, idx, inCover, line, neighbors, passable, pathTo, posOf, reach, stepOf, terrainAt, type Grid, type Pos } from './grid';
+import { witnessBodies, witnessTakedown } from './witnesses';
 import { ambientNoise, carries, eased, follow, heroCover, trackerOf } from './tracking';
 import { V, atLeast, awareness, bucketOf, callForHelp, callWeight, heroPerception, heroStealth, keenness, npcPerception } from './stealth';
 import { PROPS, type PropKind } from './content/props';
@@ -111,6 +112,12 @@ export interface Board {
   ways?: { at: Pos; to: Id }[];
   /** Searchers can follow her trail (see `tracking.ts`): the better the tracker, the nearer they look. */
   tracking?: boolean;
+  /** People about who are not what she is here for: they see things, and react (see `witnesses.ts`). */
+  others?: PUnit[];
+  /** Bystanders who have gone for her. */
+  joined?: Npc[];
+  /** A bystander has made it a fight. */
+  exposed?: boolean;
   /** The way she took out, if she took one. */
   left?: Id;
   /** Those who ran for it. */
@@ -366,7 +373,7 @@ function nearlyCaught(b: Board, at: Pos, posture: Posture, except?: PUnit): bool
 
 // ------------------------------------------------------------------ their habits
 
-type Sink = (type: string, outcome: 'good' | 'bad' | 'mixed', data: Record<string, string | number | boolean>) => void;
+export type Sink = (type: string, outcome: 'good' | 'bad' | 'mixed', data: Record<string, string | number | boolean>) => void;
 
 function walkTo(b: Board, u: PUnit, to: Pos, steps = 1): boolean {
   for (let i = 0; i < steps && !same(u, to); i++) {
@@ -751,6 +758,8 @@ export interface ProwlOpts {
   track?: boolean;
   /** Filled in: where she slipped away to. */
   left?: Id;
+  /** Filled in: bystanders who made it a fight. */
+  joined?: Npc[];
 }
 
 function sync(b: Board, u: PUnit, from: Pos | null): void {
@@ -851,7 +860,7 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
     b.posture = 'hold';
     let waited = false;
     if (p.kind === 'takedown' && p.target) {
-      takedown(c, b, p.target, say);
+      if (takedown(c, b, p.target, say)) witnessTakedown(c, b, p.target, say);
       state.holds = 0;
     } else if (p.kind === 'move' && p.to) {
       b.posture = 'sneak';
@@ -941,6 +950,8 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
       say('prowl_body', 'bad', { variant: 'found', npc: w.npcs[body.npcId]?.name ?? 'somebody', finder: finder.npc.name });
     }
 
+    witnessBodies(c, b, say);
+
     // And the cameras.
     if (b.cams?.length) {
       const loc = w.locations[h.locationId];
@@ -955,7 +966,7 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
         }
       } else if (loc) loc.camAware = Math.max(0, (loc.camAware ?? 0) - 0.03);
     }
-    if (live(b).some((u) => u.behavior !== 'flee' && atLeast(bucketOf(w, u.npc), 'aware'))) return 'detected';
+    if (b.exposed || live(b).some((u) => u.behavior !== 'flee' && atLeast(bucketOf(w, u.npc), 'aware'))) return 'detected';
     if (state.holds >= 9 && !live(b).some((u) => u.runner)) return 'stalled';
   }
   return 'stalled';
@@ -1003,6 +1014,7 @@ export function prowlRoom(c: Ctx, d: Dungeon, loc: Location, foes: Npc[], o: Pro
     out = prowlBoard(c, b, say);
     commitBoard(b, placed);
     if (b.left) o.left = b.left;
+    if (b.joined) o.joined = b.joined;
     w.clock += Math.ceil(b.round / 4);
     say('prowl_end', out === 'detected' ? 'bad' : out === 'cleared' || out === 'evaded' ? 'good' : 'mixed', { variant: out, place: loc.name, count: live(b).length, to: b.left ? w.locations[b.left]?.name ?? 'the next street' : '' });
   });

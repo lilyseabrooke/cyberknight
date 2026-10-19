@@ -182,3 +182,12 @@ shortens it). If the chase is still going when it runs out, two officers arrive 
 **against her** (more with her heat with that force, and more when the pursuers are police or corp security), **against the pursuers** (more when they are
 muggers or gangers, and when her heat is low), **against everyone** (a little always, more with heat, more for Atlas: she and the pursuers are both shot at),
 or **ignore it**. Against her they join the chase on foot; against the pursuers, most of them are stopped for a while; they then go on. Told as `chase_police`.
+
+### Witnesses in stealth scenes (`witnesses.ts`)
+
+`viewOf` now also puts everyone else on the board who is only a person into `Board.others`: not targets, not part of the "has she been seen" test, but they can see.
+When she takes someone down, up to three of them who can see her (or the victim) have seen it: they become Aware of her and react by the same weights as to any
+assault (`pickReaction` in `witness.ts`): flee (off the board), call the police (heat +1, Atlas on corp premises), film (fame), shun or cheer (affinity), or
+step in (hostile, and the scene ends as detected with them in `ProwlOpts.joined`, who join the fight). A body that one of them finds is not about her, because they
+don't know who did it: most run, the rest shout, which alerts everybody on the board who is looking for trouble to where it is. Told as `prowl_witness`.
+Takedowns on the hide scene in a chase use the same code.

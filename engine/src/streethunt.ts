@@ -45,7 +45,7 @@ export function streetHunt(c: Ctx, crew: Npc[], cause: string, opts: { keepSpot?
     return 'evaded';
   }
   if (out !== 'detected') return 'stalled';
-  const live = crew.filter((n) => n.alive);
+  const live = [...crew, ...(o.joined ?? [])].filter((n) => n.alive);
   const gap = Math.min(...live.map((n) => dist(p.board.ents[n.id] ?? p.board.hero, p.board.hero)));
   if (live.length && gap >= 4 && h.hp > 0) {
     const result = runChase(c, { mode: 'pursued', cause, foes: live.map((n) => onFoot(n, gap / 2.2)) });

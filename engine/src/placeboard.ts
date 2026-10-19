@@ -524,11 +524,18 @@ export function viewOf(w: World, p: Placed, o: { foes?: Npc[]; near?: number; ex
   const { board, layout } = p;
   const who: Npc[] = o.foes ?? Object.keys(board.ents).filter((id) => w.npcs[id] && !(o.except ?? []).includes(id) && dist(board.ents[id]!, board.hero) <= (o.near ?? 99)).map((id) => w.npcs[id]!);
   const units = who.filter((n) => board.ents[n.id]).map((n) => unitOf(n, board.ents[n.id]!));
+  // Everyone else on the board who is only a person: they watch, and they react.
+  const others = Object.keys(board.ents)
+    .filter((id) => w.npcs[id] && !who.includes(w.npcs[id]!) && !(o.except ?? []).includes(id))
+    .map((id) => w.npcs[id]!)
+    .filter((n) => n.alive && !n.hostile && n.downUntil <= w.beat && !n.tags.some((t) => ['robot', 'dragon', 'boss'].includes(t)) && n.archetype !== 'puppy' && !w.hero.companions.some((a) => a.npcId === n.id))
+    .map((n) => unitOf(n, board.ents[n.id]!));
   return {
     w,
     grid: layout.grid,
     light: layout.light,
     units,
+    others,
     hero: { ...board.hero },
     posture: 'sneak',
     props: board.props as Board['props'],

@@ -405,6 +405,19 @@ const T: Record<string, Entry> = {
   'pickpocket:item': e((d) => [d.better ? `Blackbird lifts ${d.item} off ${d.npc} so smoothly {they} keep{s} talking. It's a step up from what she was carrying.` : `Blackbird lifts ${d.item} off ${d.npc}. Whether it's useful is a different question.`], ['Upgrade acquired. Thank you for your service.', "{They}'ll never know. Until {they} check{s}."]),
   'pickpocket:nothing': e((d) => [`${d.npc}'s pockets contain a lint ball and, deep down, regret.`], ['Rude. The least {they} could do is carry something.']),
   'pickpocket:abort': e((d) => [`Blackbird eyes ${d.npc}'s pocket, and ${d.npc} eyes her right back. Not today.`, `${d.npc} is paying far too much attention to be robbed. She finds something else to look at.`], ['A good thief knows when the mark is a good citizen.']),
+  prowl_witness: e((d) => {
+    const v = String(d.variant);
+    const who = String(d.npc);
+    const victim = String(d.victim);
+    if (v === 'flee') return [`${cap(who)} sees ${victim} go down and Blackbird standing over them, and runs.`, `${cap(who)} makes a small noise, drops what they were holding, and is gone.`];
+    if (v === 'call_cops') return [`${cap(who)} saw it, and their hand is already going to the emergency button.`, `${cap(who)} backs away with a phone out. The NPD will be told, in a very shaky voice.`];
+    if (v === 'film') return [`${cap(who)} holds up a phone. ${cap(victim)} going down is going to be somebody's feed.`];
+    if (v === 'intervene' || v === 'join') return [`${cap(who)} saw what she did to ${victim} and comes for her.`, `${cap(who)} has decided that was not on, and moves in.`];
+    if (v === 'shun') return [`${cap(who)} saw it, and looks at Blackbird like something on a shoe.`];
+    if (v === 'cheer') return [`${cap(who)} saw it, and approves, quietly, with a very small nod.`];
+    if (v === 'found_run') return [`${cap(who)} trips over ${victim}, understands, and runs for it.`, `${cap(who)} finds ${victim} on the floor and does not stay to ask.`];
+    return [`${cap(who)} finds ${victim} on the floor and screams. Everybody who is still looking for trouble now knows where it is.`];
+  }, ['A witness is a person with a mouth.']),
   prowl_track: e((d) => d.variant === 'hot' ? [`${d.npc} stops, crouches, and puts a finger on a scuff in the grime. Then looks up, straight at where she is not quite hiding.`, `${d.npc} reads the street like a page, and the page says she is right here.`] : d.variant === 'warm' ? [`${d.npc} finds a mark on the ground and a place it points to. Close.`, `${d.npc} cocks their head, sure she is somewhere around here, and heads that way.`] : [`${d.npc} finds a mark on the ground that says she went this way, more or less, and turns that way.`], ['Footprints. Always the footprints.']),
   prowl_start: e((d) => d.variant === 'hunt' ? [`${cap(String(d.place))}: ${d.foes} spread out, looking. They don't know where she is. Blackbird keeps low and looks for a way off the street.`] : [`${cap(String(d.place))}: ${d.foes}, ${d.lit ? 'in good light' : 'in poor light'}, and none of them has looked her way yet. Blackbird stays by the door and watches how they move.`, `Blackbird eases into ${d.place}. ${d.foes}. She counts the places to stand where nobody is looking.`], ['Do not sneeze. Do not sneeze.', 'Small steps. Big patience.']),
   prowl_wait: e((d) => (d.variant === 'patrol' ? [`Blackbird holds still while ${d.npc} walks the length of the room, and lets the footsteps go past.`, `${d.npc} does a slow lap. Blackbird is a very dedicated shadow until it is over.`] : d.variant === 'search' ? [`${d.npc} is still searching. Blackbird stays where she is and breathes through her teeth.`] : [`${d.npc} turns this way and that. Blackbird does not move until ${d.npc} is looking at something else.`, `Blackbird waits for ${d.npc} to turn away. It takes longer than she would like.`]), ['Patience. Mine, specifically.']),
