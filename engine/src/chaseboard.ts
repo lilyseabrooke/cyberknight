@@ -179,10 +179,10 @@ export interface Out {
 }
 
 /** What she could duck into within a few tiles of where she is. */
-export function outsFrom(w: World, cb: ChaseBoard, reachTiles = 10): Out[] {
+export function outsFrom(w: World, cb: ChaseBoard, reachTiles = 10, from?: Pos): Out[] {
   const { layout, board } = cb.placed;
   const g = layout.grid;
-  const here = tileAt(cb, cb.s);
+  const here = from ?? tileAt(cb, cb.s);
   const r = reach(g, here, reachTiles + 4, () => false);
   const cost = (p: Pos): number | undefined => r.cost.get(idx(g, p));
   const outs: Out[] = [];
@@ -209,16 +209,15 @@ export function outsFrom(w: World, cb: ChaseBoard, reachTiles = 10): Out[] {
   const people = Object.values(board.ents).filter((e) => dist(e, here) <= reachTiles);
   const knot = people.find((e) => people.filter((o) => dist(o, e) <= 2).length >= 3);
   if (knot) outs.push({ kind: 'crowd', at: { x: knot.x, y: knot.y }, label: 'the crowd', d: dist(knot, here) });
-  const spot = hideSpot(cb, reachTiles);
+  const spot = hideSpot(cb, reachTiles, here);
   if (spot) outs.push({ kind: 'cover', at: spot.at, label: 'a dark corner off the line', d: spot.d });
   return outs.sort((a, b) => a.d - b.d || a.kind.localeCompare(b.kind));
 }
 
 /** Somewhere off her line to go to ground: beside something she can get behind, or in the dark, a little way from where they will run. */
-function hideSpot(cb: ChaseBoard, reachTiles: number): { at: Pos; d: number } | null {
+function hideSpot(cb: ChaseBoard, reachTiles: number, here: Pos): { at: Pos; d: number } | null {
   const { layout } = cb.placed;
   const g = layout.grid;
-  const here = tileAt(cb, cb.s);
   const r = reach(g, here, reachTiles + 2, () => false);
   const line = cb.path.slice(Math.max(0, cb.s - 14), cb.s + 14);
   let best: { at: Pos; d: number; s: number } | null = null;
@@ -327,4 +326,23 @@ export function leaveSearching(w: World, cb: ChaseBoard, foes: { crew: Npc[]; ga
 export function doorTo(cb: ChaseBoard, to: Id, via?: Via | null): Door | undefined {
   const ds = cb.placed.layout.doors.filter((d) => d.exit === to);
   return (via ? ds.find((d) => d.via === via) : undefined) ?? ds.find((d) => !!d.via === !!via) ?? ds[0];
+}
+
+/** Whether somebody standing at that tile (where they last saw her) can see her where she is now. */
+export function seesFrom(w: World, cb: ChaseBoard, from: Pos): boolean {
+  const g = cb.placed.layout.grid;
+  const her = tileAt(cb, cb.s);
+  const lit = w.flags.blackout ? 0 : cb.placed.layout.light[idx(g, her)] ?? 1;
+  const range = lit === 0 ? SIGHT * 0.55 : lit === 2 ? SIGHT * 1.15 : SIGHT;
+  return dist(from, her) <= range && hasLos(g, from, her);
+}
+
+/**
+ * Having lost her, how likely they are to think she stopped to hide rather than kept running: it goes up with the number of places
+ * to hide or duck into round where they last saw her, and down on an open street with nowhere to go. A guess from what they can see,
+ * not from what she did.
+ */
+export function hideGuess(w: World, cb: ChaseBoard, from: Pos): number {
+  const spots = outsFrom(w, cb, 8, from).filter((x) => x.kind !== 'crowd' && x.kind !== 'over').length;
+  return Math.max(0.1, Math.min(0.85, 0.2 + 0.15 * spots));
 }

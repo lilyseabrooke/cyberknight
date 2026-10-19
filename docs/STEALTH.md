@@ -97,3 +97,11 @@ beside cover, 1–4 tiles off the line; ranked after doors, mouths, ways up and 
 along the line from where it is to well past her, summing `sightGain` against her at `hold` posture. If anyone gets enough, they have her
 (gap 1, the chase goes on); if not, `runPast` has them carry on to the street's far exit, Alert with no fix, and she is left on the street
 in stealth (`hid`).
+
+### Losing sight in a chase
+
+Two rounds with nobody able to see her no longer ends the chase outright. They go to the tile where they last had her (`lastSeen`) and look
+from there (`seesFrom`): if she's in view, the chase is on again (`chase_search:found`). If not, each chaser guesses for themselves
+(`hideGuess`: more doors, alleys, ways up and dark corners near that spot means more likely she stopped to hide). A chaser who guesses
+"hiding" gives up the chase (`Chaser.off`) and searches the street from there (`leaveSearching`); one who guesses "running" carries on after
+her, a little behind for the hesitation. All of them searching ends the chase as escaped; a split sends some after her and leaves some behind.

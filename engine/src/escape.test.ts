@@ -95,12 +95,30 @@ describe('a hunt on the street', () => {
       if (told.includes('lost:cover')) {
         seen.past = (seen.past ?? 0) + 1;
         expect(w.hero.stealth).toBe(true);
-        for (const n of crew) if (n.alive) expect(n.locationId).not.toBe(w.hero.locationId);
+        if (!events.some((e) => e.type === 'chase_search')) for (const n of crew) if (n.alive) expect(n.locationId).not.toBe(w.hero.locationId);
       }
       if (told.includes('hide:found')) seen.found = (seen.found ?? 0) + 1;
       w.over = undefined as never;
     }
     expect(seen.past ?? 0).toBeGreaterThan(0);
     expect(seen.found ?? 0).toBeGreaterThan(0);
+  });
+
+  it('when they lose sight of her they go to where they last saw her, then either press on or fan out to search', () => {
+    const seen: Record<string, number> = {};
+    for (let i = 0; i < 400; i++) {
+      const sc = scenario({ seed: `lost-${i % 40}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.hero.level = 8;
+      w.hero.maxHp = w.hero.hp = 180;
+      const { c, events } = ctxOf(w, new Rng(`l-${i}`));
+      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 9)) });
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'chase_search') seen[String(e.data.variant)] = (seen[String(e.data.variant)] ?? 0) + 1;
+      }
+    }
+    expect(Object.keys(seen).length).toBeGreaterThanOrEqual(2);
   });
 });

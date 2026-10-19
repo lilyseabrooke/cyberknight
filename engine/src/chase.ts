@@ -18,7 +18,7 @@ import { Rng } from './rng';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
-import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, openBoard, outsFrom, passBy, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
+import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, hideGuess, openBoard, outsFrom, passBy, seesFrom, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
 import type { Pos } from './grid';
 
 /**
@@ -45,6 +45,8 @@ export interface Chaser {
   /** Tiles between it and her. */
   gap: number;
   alive: boolean;
+  /** Gave up the chase to search the street instead: still about, no longer after her. */
+  off?: boolean;
 }
 
 export interface ChaseOpts {
@@ -157,7 +159,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
 
   // One line of the chase, told.
   const tell = (action: string, told: string[], hurt: number, round: number, car: Vehicle | null, foe: Chaser | undefined): void => {
-    const lead = o.foes.filter((f) => f.alive).reduce<Chaser | undefined>((a, f) => (!a || f.gap < a.gap ? f : a), undefined) ?? foe;
+    const lead = o.foes.filter((f) => f.alive && !f.off).reduce<Chaser | undefined>((a, f) => (!a || f.gap < a.gap ? f : a), undefined) ?? foe;
     c.emit('chase_round', hurt > 0 ? 'bad' : action === 'floor_it' || action === 'lose_them' || action === 'board' ? 'good' : 'mixed', {
       variant: action,
       scene: setting,
@@ -335,9 +337,9 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   nested(c, 'chase_start', 'mixed', { cause: o.cause, mode: o.mode, car: last?.name ?? 'on foot', body: last?.body ?? 'foot', foes: o.foes.map((f) => f.name).join(', '), count: o.foes.length, place, wings: o.foes.some(wings), foot: o.foes.every((f) => f.foot) }, () => {
     for (let round = 1; round <= maxRounds && !result; round++) {
       rounds = round;
-      const live = o.foes.filter((f) => f.alive);
+      const live = o.foes.filter((f) => f.alive && !f.off);
       if (!live.length) {
-        result = 'won';
+        result = o.foes.some((f) => f.alive) ? 'escaped' : 'won';
         break;
       }
       // She is where the route says she is (a cut across it that went wrong has put her somewhere else for a moment).
@@ -851,10 +853,34 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
           unseen = 0;
           lastSeen = tileAt(board, board.s);
         } else if (++unseen >= 2) {
-          result = 'escaped';
-          told.push('lost:sight');
-          hid = true;
-          leaveSearching(w, board, live, lastSeen ?? tileAt(board, 0));
+          // They go to where they last had her, and look from there.
+          const from = lastSeen ?? tileAt(board, 0);
+          unseen = 0;
+          if (seesFrom(w, board, from)) {
+            for (const f of live) f.gap = Math.min(f.gap, 2.5);
+            c.emit('chase_search', 'bad', { variant: 'found', place: here.name, foe: lead.name });
+          } else {
+            // Not there. Did she keep running, or stop to hide? Each of them makes the guess for themselves: on after her, or out to search.
+            const p = hideGuess(w, board, from);
+            const fan = live.filter(() => rng.chance(p));
+            const names = (fs: Chaser[]): string => fs.map((f) => f.name).join(' and ');
+            if (fan.length) leaveSearching(w, board, fan, from);
+            for (const f of fan) {
+              f.off = true;
+              f.gap = ESCAPE_GAP + 1;
+            }
+            if (fan.length === live.length) {
+              result = 'escaped';
+              told.push('lost:sight');
+              hid = true;
+              c.emit('chase_search', 'good', { variant: 'fan', place: here.name, foe: names(fan), count: fan.length });
+            } else if (fan.length) {
+              c.emit('chase_search', 'mixed', { variant: 'split', place: here.name, foe: names(fan), count: fan.length, other: names(live.filter((f) => !fan.includes(f))) });
+            } else {
+              for (const f of live) f.gap += 1.5;
+              c.emit('chase_search', 'mixed', { variant: 'onward', place: here.name, foe: names(live), count: live.length });
+            }
+          }
         }
       }
       const caughtOnFoot = foot && o.mode === 'pursued' && live.some((f) => bandOf(f.gap) === 'locked') && rng.chance(0.7);
