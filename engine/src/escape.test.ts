@@ -3,6 +3,7 @@ import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { scenario } from './testkit';
 import { spawnGroup } from './candidate';
 import { onFoot, runChase } from './chase';
+import { addTire, standTired, tire } from './tracking';
 import { streetHunt } from './streethunt';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
@@ -227,6 +228,49 @@ describe('a hunt on the street', () => {
       }
     }
     expect(seen.after ?? 0).toBeGreaterThan(0);
-    expect(Object.keys(seen).filter((k) => k.startsWith('track_')).length).toBeGreaterThan(0);
+  });
+
+  it('running wears everyone down: the longer it goes on the likelier she is to stop and turn, and a quiet spell forgets it', () => {
+    const sc = scenario({ seed: 'tired', at: 'street_main', competence: 0.6 });
+    const { w } = sc;
+    expect(standTired(w)).toBe(0);
+    addTire(w, 4);
+    expect(standTired(w)).toBe(0);
+    addTire(w, 10);
+    expect(standTired(w)).toBeGreaterThan(0.2);
+    addTire(w, 40);
+    expect(standTired(w)).toBeLessThanOrEqual(0.7);
+    w.beat += 20;
+    expect(tire(w)).toBe(0);
+    let stood = 0;
+    for (let i = 0; i < 200; i++) {
+      const s2 = scenario({ seed: `long-${i % 40}`, at: 'street_main', competence: 0.6 });
+      s2.w.hero.level = 10;
+      s2.w.hero.maxHp = s2.w.hero.hp = 220;
+      const { c, events } = ctxOf(s2.w, new Rng(`lg-${i}`));
+      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      addTire(s2.w, 12);
+      runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 9)), maxRounds: 30 });
+      for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+      if (events.some((e) => e.type === 'chase_mount' && e.data.variant === 'hero_stands')) stood++;
+    }
+    expect(stood).toBeGreaterThan(0);
+  });
+
+  it('searchers who can track her get a sense of where she is', () => {
+    const seen: Record<string, number> = {};
+    for (let i = 0; i < 60; i++) {
+      const sc = scenario({ seed: `scent-${i}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      const { c, events } = ctxOf(w, new Rng(`sc-${i}`));
+      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      for (const n of crew) n.level = 25;
+      streetHunt(c, crew, 'test');
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'prowl_track') seen[String(e.data.variant)] = (seen[String(e.data.variant)] ?? 0) + 1;
+      }
+    }
+    expect(Object.keys(seen).length).toBeGreaterThan(0);
   });
 });

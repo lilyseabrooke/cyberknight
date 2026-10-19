@@ -16,7 +16,7 @@ import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
 import { streetHunt } from './streethunt';
-import { BEHIND, coverOf, follow, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
+import { BEHIND, addTire, coverOf, follow, rest, standTired, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
@@ -221,7 +221,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     let p = -0.15 + 0.45 * (mine - 0.7) + 0.25 * cornered + (onBoard ? 0.2 : 0) + (carRatio < 0.35 ? 0.2 : 0);
     if (b === 'far') p *= 0.2;
     else if (b === 'near') p *= 0.5;
-    return clamp(p, 0, 0.8);
+    return clamp(p + (o.mode === 'pursuer' ? standTired(w) : 0), 0, 0.85);
   };
   // Her chance to get onto a moving vehicle: athletics and reflexes, against how fast it is going.
   const boardP = (f: Chaser): number => clamp(0.45 + 0.04 * skillValue(h, 'athletics') + 0.02 * h.reflex - 0.04 * Math.max(0, f.pace - heroSpeed(w)) - 0.1 * squeeze, 0.1, 0.85);
@@ -370,6 +370,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   nested(c, 'chase_start', 'mixed', { cause: o.cause, mode: o.mode, car: last?.name ?? 'on foot', body: last?.body ?? 'foot', foes: o.foes.map((f) => f.name).join(', '), count: o.foes.length, place, wings: o.foes.some(wings), foot: o.foes.every((f) => f.foot) }, () => {
     for (let round = 1; round <= maxRounds && !result; round++) {
       rounds = round;
+      addTire(w, 1);
       const live = o.foes.filter((f) => f.alive && !f.off);
       let ran: [number, number] | null = null;
       if (!live.length) {
@@ -953,6 +954,12 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
           c.emit('chase_mount', 'mixed', { variant: 'foe_stands', foe: f.crew[0]?.name ?? f.name, car: f.car?.name ?? '', body: f.car?.body ?? 'foot', place: here.name });
         }
       }
+      // Running wears everybody down: the longer it goes on, the likelier she is to stop and turn round.
+      if (!result && o.mode === 'pursued' && !boarded && round > 1 && rng.chance(standTired(w))) {
+        result = 'caught';
+        told.push('stand:tired');
+        c.emit('chase_mount', 'mixed', { variant: 'hero_stands', foe: lead.name, place: here.name, body: car?.body ?? 'foot', car: car?.name ?? '' });
+      }
       if (!result && o.foes.every((f) => !f.alive)) result = 'won';
       // Out of sight for a couple of rounds with nobody on her heels: she has lost them. (They look for her where they last had her.)
       if (!result && board && !boarded && round > 1 && o.mode === 'pursued') {
@@ -1018,6 +1025,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     }
     if (!result) result = o.mode === 'pursuer' ? (o.foes.some((f) => f.alive && !wings(f) && f.gap < 3) ? 'caught' : 'lost') : o.foes.some((f) => f.alive && f.gap < 3) ? 'caught' : 'escaped';
     finish(c, o, result, last, rounds, hid);
+    if (result === 'caught' || result === 'won' || result === 'bailed' || result === 'wrecked') rest(w);
   });
   // Anybody left looking for her on the street she is hiding on: that is a scene of its own.
   if (!w.over && !o.noSearch && result === 'escaped' && hid && h.hp > 0 && searching.size && h.locationId === searchStreet) {

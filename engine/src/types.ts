@@ -963,6 +963,8 @@ export interface World {
   blackoutUntil: number;
   /** Where everyone is in the places she has been, this run. See placeboard.ts. */
   boards?: Record<Id, PlaceBoard>;
+  /** How long she (or whoever she is after) has been running, across chases and the searches between them: it wears everyone down. */
+  chaseTire?: { rounds: number; beat: number };
   /** Everyone whose awareness of Blackbird is currently worth tracking, so the beat only has to look at them. */
   watchers?: Id[];
   stats: { kills: number; fights: number; maxLevel: number; deposited: number; fees: number };

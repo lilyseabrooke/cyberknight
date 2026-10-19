@@ -146,3 +146,11 @@ scene), `runChase` hands them to `streetHunt` (`noSearch` stops that nesting): t
 were left, Alert with no fix. She slips off toward a way out, takes whoever comes into reach unseen, or is found (a chase with `noSearch`, or a fight).
 Searchers in a hunt can track her (`Board.tracking`, `hunch` in `prowl.ts`): every third round a searching unit rolls tracker against her cover (more if she
 is holding still or in the dark) and gets a new place to look: within a tile (hot), four (warm) or roughly her way (cold). Told once per unit as `prowl_track`.
+
+### Escape fatigue
+
+Searches can now start further chases, which can end in further searches, so running wears everyone down instead: `World.chaseTire` counts the rounds spent running
+across chases and the hunts between them (one per chase round, one per hunt scene; `tracking.ts`: `tire`, `addTire`, `rest`). After six rounds each round
+carries a `standTired` chance, 3.5 % per round beyond that up to 70 %, that whoever has been running longest stops and stands: she turns round
+(`chase_mount:hero_stands`, the chase ends as caught and the fight follows) or, when she is chasing, a runner adds it to their chance to stop. A fight, a win
+or a wreck ends the running (`rest`), and so do eight beats of quiet.

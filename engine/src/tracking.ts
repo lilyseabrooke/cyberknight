@@ -28,3 +28,26 @@ export function follow(rng: Rng, tracker: number, cover: number): { q: number; t
 
 /** How far behind a trail leaves them, as a share of the distance at which a chase is lost: the more specific, the closer. */
 export const BEHIND: Record<Trail, number> = { none: 1, cold: 0.85, warm: 0.65, hot: 0.45 };
+
+// ------------------------------------------------------------------ escape fatigue
+
+/** Beats of quiet after which the running is forgotten. */
+const REST = 8;
+
+/** How long somebody has been running, in rounds, across chases and the searches between them. */
+export function tire(w: World): number {
+  const t = w.chaseTire;
+  return t && w.beat - t.beat <= REST ? t.rounds : 0;
+}
+
+export function addTire(w: World, rounds: number): void {
+  w.chaseTire = { rounds: tire(w) + rounds, beat: w.beat };
+}
+
+/** A fight, or a clean getaway, ends the running. */
+export function rest(w: World): void {
+  delete w.chaseTire;
+}
+
+/** The chance, each round, that the one who has been running the longest stops and stands: nothing for a while, then steadily more. */
+export const standTired = (w: World): number => Math.max(0, Math.min(0.7, 0.035 * (tire(w) - 6)));
