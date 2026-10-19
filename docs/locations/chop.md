@@ -31,7 +31,7 @@ A **bench** is a place, not an item. Where one is and who may use it is that pla
 | **Upgrade** | A mod on the weapon or armor she is using: +1 power, name carries the count (`riot shotgun +2`), dearer each time. Cap: 1 + tinkering/2 (+1 at a tier-4 bench), at most 6. | A miss costs half the parts; a miss on unstable tech bites (8 HP). |
 
 Benches exist at the **Chop Shop** and in a **pawn shop's workshop room** (tier = the shop's tier less one; no fee, the room has its own door).
-Components come only from salvage so far (there is no drop table); that is a known gap, see "Open".
+Components mostly come from **spots** (`scavenge.ts`, `spotParts` in `content/spots.ts`): once nobody is holding a spot she can pick through it for free, 30 minutes, and it is picked over for 3 days. Each spot has its own mix (a drone boneyard is circuits and cells, a pop-up chop shop is scrap, servos and plating, a stim lab is chem); about three in four have something. Salvaging items is the other source.
 
 ## 3. The Chop Shop (`content/chops.ts`, `chop.ts`)
 
@@ -93,6 +93,6 @@ absent loads as none).
 
 ## Open
 
-- Components only come from salvage. A drop table (robots, drones, wrecks), a `scavenging` find, and parts as a thing the shop sells are the obvious next steps.
+- Parts could also drop from robots and drones, and a shop could sell them.
 - No affordance-registry rows: the ways in are a typed list in `chop.ts`, so `npm run coverage` does not see them.
 - Gang-owned chop shops (the hideout rooms and `pop-up chop shop` spots) could have benches too.

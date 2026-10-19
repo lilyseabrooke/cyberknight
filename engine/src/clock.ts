@@ -35,7 +35,7 @@ export const ACTION_MINUTES: Record<string, number> = {
   gym: 35, gymfight: 15, gymquick: 6,
   hijack: 6,
   pawn: 30, pawnfight: 15, pawnquick: 6, pawndeal: 20,
-  chopin: 8, bench: 45,
+  chopin: 8, bench: 45, scavenge: 30,
 };
 
 /** How long a car she has left on a street stays hers, by whose it was: the police and Atlas come for their own sooner. */

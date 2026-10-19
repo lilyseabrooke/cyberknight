@@ -20,6 +20,7 @@ import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
 import { benchUrge, chopCandidates } from './chop';
+import { scavengeCandidates } from './scavenge';
 import { vehicleCandidates } from './vehicles';
 import { getawayCandidates } from './getaway';
 import { goalCandidates } from './goals';
@@ -216,6 +217,7 @@ export function gather(w: World): Candidate[] {
   out.push(...getawayCandidates(w));
   out.push(...pawnCandidates(w));
   out.push(...chopCandidates(w));
+  out.push(...scavengeCandidates(w));
 
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.
