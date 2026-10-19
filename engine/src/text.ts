@@ -138,6 +138,7 @@ const CALLING_VOWS: Record<string, string> = {
   drink: 'Every bar. Every last one. In order.',
   banned: 'A list of every bar that has thrown me out. I want it longer.',
   explore: 'Every street, every alley, every rooftop. Then the sewers. Then the other sewers.',
+  fish: 'The water has everything. I just have to ask it nicely, and for a very long time.',
   cook: 'Noodles. Real ones. The kind that make people cry in the good way.',
 };
 

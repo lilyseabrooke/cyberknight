@@ -7,7 +7,10 @@ import { makeItem } from './content/items';
 import { hasTemplate } from './text';
 import { rodCandidates, ROD_TRICKS } from './rodwork';
 import { moveNpc } from './population';
-import type { Ctx, GameEvent, World } from './index';
+import { personalityFrom, type Ctx, type GameEvent, type World } from './index';
+import { callingAfter, callingTargets } from './callings';
+import { DEFS } from './content/callings';
+import { resolveAsk } from './advice';
 
 const ctxOf = (w: World, seed: string): { c: Ctx; events: GameEvent[] } => {
   const events: GameEvent[] = [];
@@ -117,6 +120,74 @@ describe('fishing', () => {
         expect(hasTemplate({ beat: 1, type, outcome: 'good', data: { variant, npc: 'x', item: 'y', amount: 1 } }), `${type}:${variant}`).toBe(true);
       }
       for (const v of ['reel_in', 'reel_girl', 'rod_lift']) expect(hasTemplate({ beat: 1, type: 'intent', outcome: 'mixed', data: { variant: v, npc: 'x' } }), v).toBe(true);
+    });
+  });
+
+  describe('the fishing Calling', () => {
+    const world = (seed: string, traits: Parameters<typeof personalityFrom>[0] = {}): World => {
+      const w = createWorld({ seed, competence: 0.8, personality: personalityFrom(traits) });
+      w.beat = 40;
+      return w;
+    };
+    const ev = (type: string, outcome: GameEvent['outcome'], data: GameEvent['data'] = {}): GameEvent => ({ beat: 40, type, outcome, data });
+    const settle = (c: Ctx) => { if (c.w.mind.ask) resolveAsk(c, c.w.mind.ask.lean, 'self'); };
+
+    it('a legendary catch can spark it', () => {
+      let got = 0;
+      for (let i = 0; i < 40; i++) {
+        const w = world(`spark-${i}`, { curiosity: 0.8, thrill: 0.15, impulsive: 0.15 });
+        const { c } = ctxOf(w, `s${i}`);
+        callingAfter(c, { key: 'fish', drives: {}, run() {} }, 0, [ev('fish', 'good', { variant: 'legend', item: 'a vintage guitar' })]);
+        settle(c);
+        if (w.mind.calling?.id === 'fish') {
+          got++;
+          expect(w.mind.calling.origin.kind).toBe('spark');
+        }
+      }
+      expect(got).toBeGreaterThan(10);
+    });
+
+    it('inexplicably, a loss can leave her with it too', () => {
+      const lines: string[] = [];
+      for (let i = 0; i < 40; i++) {
+        const w = world(`wound-${i}`);
+        const { c, events } = ctxOf(w, `w${i}`);
+        callingAfter(c, null, 0, [ev('companion_lost', 'bad', { name: 'Pip', kind: 'puppy', by: 'a thing', by_id: '', by_faction: '' })]);
+        if (w.mind.calling?.id !== 'fish') continue;
+        expect(w.mind.calling.origin.kind).toBe('wound');
+        expect(w.mind.ask).toBeUndefined();
+        lines.push(w.mind.calling.origin.text);
+        const told = events.find((e) => e.type === 'calling');
+        expect(told && hasTemplate(told)).toBe(true);
+      }
+      expect(lines.length).toBeGreaterThan(10);
+      expect(lines.every((l) => l.includes("if only I'd had a fish"))).toBe(true);
+    });
+
+    it('can come out of nowhere, and the table entry is well-formed', () => {
+      expect(DEFS.fish).toBeDefined();
+      expect(DEFS.fish!.whim).toBeGreaterThan(0);
+      expect(DEFS.fish!.wound).toBe(true);
+      const w = world('whim');
+      const c = { id: 'fish', since: 0, fervor: 0.7, goal: 12, base: 0, origin: { kind: 'whim' as const, text: 'no reason at all', beat: 0 }, lastProgress: 0, last: 0, said: 0 };
+      expect(DEFS.fish!.line(c)).toContain('12');
+      expect(DEFS.fish!.line({ ...c, goal: 80 })).toContain('legend');
+      expect(DEFS.fish!.sequels!.every((sq) => DEFS[sq.id])).toBe(true);
+      void w;
+    });
+
+    it('counts what comes up on a line, and sends her to scrap for a rod and to water for a cast', () => {
+      const w = world('pull');
+      const { c } = ctxOf(w, 'p');
+      w.mind.calling = { id: 'fish', since: 0, fervor: 1, goal: 3, base: 0, origin: { kind: 'whim', text: 'x', beat: 0 }, lastProgress: 0, last: 0, said: 0 };
+      expect(DEFS.fish!.bias!(w, w.mind.calling, 'scrap_pile', undefined)).toBeGreaterThan(1);
+      expect(callingTargets(w)).toEqual([]);
+      w.hero.inventory.push(makeItem('fishing_rod'));
+      expect(DEFS.fish!.bias!(w, w.mind.calling, 'scrap_pile', undefined)).toBe(0);
+      expect(DEFS.fish!.bias!(w, w.mind.calling, 'rod_lift', 'x')).toBeGreaterThan(2);
+      expect(callingTargets(w).some((t) => t.loc === 'club_backlot')).toBe(true);
+      callingAfter(c, null, 0, [ev('fish', 'good', { variant: 'trinket' }), ev('rod_lift', 'good', { variant: 'cash' }), ev('fish', 'mixed', { variant: 'nothing' })]);
+      expect(w.counters['cal.hooked']).toBe(2);
     });
   });
 });
