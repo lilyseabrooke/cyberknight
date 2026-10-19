@@ -86,6 +86,8 @@ export interface Companion {
   /** 0..100. At zero they leave. */
   loyalty: number;
   abilities: string[];
+  /** A speech has them fired up: extra power until the beat. See speaking.ts. */
+  inspired?: { until: number; power: number };
   /** The NPC this companion used to be, if any (they go home if they leave). */
   npcId?: Id;
   home?: Id;

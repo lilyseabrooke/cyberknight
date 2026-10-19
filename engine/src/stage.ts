@@ -24,6 +24,7 @@ export const ACT_SKILL: Record<string, string> = {
   dj_set: 'djing', backlot_set: 'djing',
   beatbox: 'beatbox', beat_battle: 'beatbox',
   graffiti: 'art',
+  stump_speech: 'speaking',
 };
 
 /** What a calling sounds like, by skill. */
@@ -33,6 +34,7 @@ export const CALLING: Record<string, string> = {
   djing: "become Neo's top DJ",
   beatbox: 'become a beatbox legend',
   art: 'cover Neo in her art',
+  speaking: 'become Neo\'s greatest orator',
 };
 
 const FATIGUE_PER_ACT = 0.22;

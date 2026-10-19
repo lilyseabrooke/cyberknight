@@ -26,6 +26,9 @@ export const KINDS: Record<string, KindDef> = {
 
 export const MAX_COMPANIONS = 3;
 
+/** What a companion brings to a fight: their own power, plus whatever a speech has put in them. */
+export const allyPower = (w: World, a: Companion): number => a.power + (a.inspired && a.inspired.until > w.beat ? a.inspired.power : 0);
+
 export function newCompanion(kind: string, name: string, o: { npcId?: string; loyalty?: number; home?: string } = {}): Companion {
   const k = KINDS[kind]!;
   return {

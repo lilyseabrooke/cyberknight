@@ -1,6 +1,6 @@
 import type { Ctx, Hero, Injury, Item, Npc, World } from './types';
 import { IMPLANTS } from './content/implants';
-import { KINDS, removeCompanion } from './companions';
+import { KINDS, allyPower, removeCompanion } from './companions';
 import { skillLevel, skillValue, train } from './skills';
 import { basePower, fightTraining, hpPerLevel, levelCost } from './grade';
 import { perk } from './lab';
@@ -91,7 +91,7 @@ export function heroPower(w: World, weapon: Item = wielded(w.hero), allies = tru
   const style = weaponStyle(weapon.tags);
   if (style) p += skillValue(h, style) * 0.6;
   for (const b of h.buffs) if (b.until > w.beat) p += b.power;
-  if (allies) for (const a of h.companions) if (a.hp > 0) p += a.power;
+  if (allies) for (const a of h.companions) if (a.hp > 0) p += allyPower(w, a);
   for (const i of h.implants) p += IMPLANTS[i]?.power ?? 0;
   if (w.situation.weather === 'heatwave' && w.locations[h.locationId]?.outdoors) p -= 2;
   p -= Math.max(0, h.drunk - skillLevel(h, 'tolerance') * 0.4) * 1.2;

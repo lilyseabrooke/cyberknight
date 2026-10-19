@@ -26,7 +26,7 @@ export const ACTION_MINUTES: Record<string, number> = {
   buy_ware: 4, buy_stim: 4, buy_med: 4, buy_info: 4, buy_gear: 4, buy_ammo: 4,
   eat_noodles: 12, eat_dish: 15, cook: 25, order_drink: 10, buy_round: 10, sober_up: 40, hangout: 30, darts: 20, poker: 45, jam: 30,
   flirt: 15, kiss: 20, pool_date: 60, serenade: 20, serenade_girl: 20,
-  busk: 30, sing_busk: 30, karaoke: 30, gig: 60, dj_set: 90, crash_gig: 60, guitar_duel: 30, beat_battle: 30,
+  busk: 30, sing_busk: 30, karaoke: 30, gig: 60, dj_set: 90, crash_gig: 60, guitar_duel: 30, beat_battle: 30, stump_speech: 25, rally_allies: 15, mirror_speech: 10,
   odd_jobs: 90, odd_request: 30, security_shift: 120, bodyguard_gig: 120, tend_bar: 90, courier_run: 45, take_contract: 15,
   lay_low: 120, hide_flight: 45, chase_flight: 12, duck_inside: 5, shelter_scream: 20, pay_tithe: 5, haggle_tithe: 8, get_patched: 30, use_med_pack: 10, patch_up: 20,
   burgle_home: 25, burgle_flat: 25, rob_paint_shop: 20, pickpocket: 10, scam_mark: 20, sell_fake_goods: 20, hack: 20, jack: 20,

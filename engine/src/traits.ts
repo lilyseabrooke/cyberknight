@@ -73,6 +73,9 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   billboard: { fame: 1.4, techy: 1.0, mischief: 0.5 },
   graffiti: { fame: 1.2, artistry: 1.2, mischief: 0.6 },
   mirror: { vanity: 2.0 },
+  mirror_speech: { vanity: 2.0, artistry: 0.3 },
+  stump_speech: { fame: 0.8, sociable: 0.6, artistry: 0.3 },
+  rally_allies: { sociable: 0.6, kindness: 0.4 },
   recruit_kids: { fame: 0.6, kindness: 0.5 },
   // tinkering
   hack: { techy: 1.4 },

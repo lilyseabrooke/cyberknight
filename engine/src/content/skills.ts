@@ -43,6 +43,7 @@ export const SKILLS = {
   streetwise: { label: 'streetwise', group: 'social', titles: ['knows which alleys to skip', 'knows who owes whom', 'has a guy for everything', 'Neo talks to her first'] },
   haggling: { label: 'haggling', group: 'social', spill: { streetwise: 0.1 }, titles: ['asks for a discount', 'walks away convincingly', 'makes fixers sweat', 'could sell a dragon its own wings'] },
   cards: { label: 'cards', group: 'social', spill: { streetwise: 0.1 }, titles: ['knows the poker hands, mostly', 'has a tell, and knows it', 'bluffs with her whole face', 'reads tables like open books'] },
+  speaking: { label: 'speaking', group: 'social', spill: { streetwise: 0.1, intimidation: 0.05 }, titles: ['can say a sentence to a room, mostly', 'holds a crowd for a whole minute', 'finishes speeches people forgot they were listening to', 'could talk a riot into a queue, or a queue into a riot'] },
   rapport: { label: 'animal rapport', group: 'social', spill: { medicine: 0.1 }, titles: ['pigeons do not flee', 'dogs, robot and otherwise, like her', 'drones coo when she walks by', 'speaks fluent beast'] },
   grifting: { label: 'grifting', group: 'social', spill: { streetwise: 0.15, cards: 0.1 }, titles: ['can keep a straight face for one whole sentence', 'has a sob story for every occasion', 'could sell ice to a fridge', "Neo's most convincing liar, professionally"] },
   // ---- crafts and care
