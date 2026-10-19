@@ -31,7 +31,7 @@ A **bench** is a place, not an item. Where one is and who may use it is that pla
 | **Upgrade** | A mod on the weapon or armor she is using: +1 power, name carries the count (`riot shotgun +2`), dearer each time. Cap: 1 + tinkering/2 (+1 at a tier-4 bench), at most 6. | A miss costs half the parts; a miss on unstable tech bites (8 HP). |
 
 Benches exist at the **Chop Shop** and in a **pawn shop's workshop room** (tier = the shop's tier less one; no fee, the room has its own door).
-Components mostly come from **spots** (`scavenge.ts`, `spotParts` in `content/spots.ts`): once nobody is holding a spot she can pick through it for free, 30 minutes, and it is picked over for 3 days. Each spot has its own mix (a drone boneyard is circuits and cells, a pop-up chop shop is scrap, servos and plating, a stim lab is chem); about three in four have something. Salvaging items is the other source.
+Components mostly come from **spots** (`scavenge.ts`, `spotParts` in `content/spots.ts`): once nobody is holding a spot she can pick through it for free, 30 minutes, and it is picked over for 3 days. Each spot has its own mix (a drone boneyard is circuits and cells, a pop-up chop shop is scrap, servos and plating, a stim lab is chem); about three in four have something. Salvaging items is the other source. When she is low (under 10), she goes looking: a `scavenge` goal sends her to a spot on a street she has walked that has parts and nobody holding it (the scrap camps, drone boneyards, feral nests and pop-up chop shops are the richest), and a next-door spot gets a pull on the way (`partsUrge`).
 
 ## 3. The Chop Shop (`content/chops.ts`, `chop.ts`)
 

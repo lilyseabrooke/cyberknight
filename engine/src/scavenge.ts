@@ -3,7 +3,7 @@ import { capabilityPull } from './affordances';
 import { dayOf } from './clock';
 import { spotParts } from './content/spots';
 import { billText, totalParts, type Bill } from './content/parts';
-import { dungeonOf, standing } from './dungeons';
+import { dungeonOf, garrisonAlive, isEntrance, standing } from './dungeons';
 import { addParts } from './bench';
 import { sayAs } from './placekit';
 import { odds, synergy, train } from './skills';
@@ -61,6 +61,47 @@ export function scavenge(c: Ctx, loc: Location, spot: string, tier: number): voi
   train(c, 'scavenging', win ? 2 : 1);
   train(c, 'tinkering', 1);
   sayAs('chop', c, 'scavenge', win ? 'good' : 'mixed', win ? GOOD : THIN, win ? THOUGHT : [], { place: loc.name, got: billText(got) });
+}
+
+/** Fewer than this many parts and she starts to want some. */
+export const LOW_PARTS = 10;
+/** More than this and she has no reason to go looking. */
+export const PLENTY_PARTS = 30;
+
+export const lowOnParts = (w: World): boolean => totalParts(w.hero.parts) < LOW_PARTS;
+
+/** Has this spot got anything worth coming for today: parts in it, nobody holding it that she knows of, and not picked over lately. */
+export function worthAVisit(w: World, entranceId: string): number {
+  const loc = w.locations[entranceId];
+  const spot = loc?.gen?.spot;
+  if (!loc || !spot || loc.id !== loc.dungeon) return 0;
+  const rich = spotParts(spot).rich;
+  if (rich <= 0) return 0;
+  const last = w.counters[key(loc)];
+  if (last !== undefined && dayOf(w.clock) - last < REFILL_DAYS) return 0;
+  const d = w.dungeons[loc.id];
+  if (d && garrisonAlive(w, d).length) return 0;
+  return rich;
+}
+
+/** Spots on streets she has walked that are worth a trip for parts (the nearer and the richer the better; see goals.ts). */
+export function partsLeads(w: World): { id: string; rich: number }[] {
+  const out: { id: string; rich: number }[] = [];
+  for (const loc of Object.values(w.locations)) {
+    if (loc.gen?.role !== 'spot' || !isEntrance(loc) || !(w.locations[loc.gen.parent]?.visits ?? 0)) continue;
+    const rich = worthAVisit(w, loc.id);
+    if (rich > 0) out.push({ id: loc.id, rich });
+  }
+  return out;
+}
+
+/** A pull toward a next-door spot when she is low on parts. Added to the pull of `go` (interactions.ts). */
+export function partsUrge(w: World, to: string): { bonus: number; smart: number } {
+  if (!lowOnParts(w) || w.hero.locationId === to) return { bonus: 0, smart: 0 };
+  const rich = worthAVisit(w, to);
+  if (rich <= 0) return { bonus: 0, smart: 0 };
+  const dry = 1 - totalParts(w.hero.parts) / LOW_PARTS;
+  return { bonus: Math.min(0.8, 0.35 * rich * (0.4 + dry)), smart: 0.3 };
 }
 
 export function scavengeCandidates(w: World): Candidate[] {

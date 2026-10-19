@@ -8,6 +8,7 @@ import { PARTS } from './content/parts';
 import { totalParts } from './content/parts';
 import { render } from './text';
 import { Rng } from './rng';
+import { partsLeads, partsUrge } from './scavenge';
 
 function spotAt(key: string, tier = 2) {
   const sc = scenario({ seed: `scav-${key}`, at: 'street_main' });
@@ -60,5 +61,38 @@ describe('parts to scavenge', () => {
     const t = spotAt('turf_marker');
     clear(t);
     expect(t.sc.offers().some((k) => k.startsWith('scavenge:'))).toBe(false);
+  });
+});
+
+describe('going looking for parts', () => {
+  it('pulls her toward a clear, parts-rich spot next door when she is low, and not when she has plenty or it is picked over', () => {
+    const s = spotAt('scrapper_camp');
+    const street = s.w.locations[s.e.gen!.parent]!;
+    relocate(s.w, street.id);
+    clear(s);
+    s.w.hero.parts = {};
+    expect(partsUrge(s.w, s.e.id).bonus).toBeGreaterThan(0);
+    expect(partsLeads(s.w).some((l) => l.id === s.e.id)).toBe(true);
+    s.w.hero.parts = { scrap: 40 };
+    expect(partsUrge(s.w, s.e.id).bonus).toBe(0);
+    s.w.hero.parts = {};
+    s.w.counters[`scav:${s.e.id}`] = Math.floor(s.w.clock / 1440);
+    expect(partsUrge(s.w, s.e.id).bonus).toBe(0);
+    expect(partsLeads(s.w).length).toBe(0);
+  });
+
+  it('is not drawn to a place that is held, or that has nothing', () => {
+    const held = spotAt('scrapper_camp');
+    relocate(held.w, held.e.gen!.parent);
+    held.w.hero.parts = {};
+    held.sc.run((c) => void c);
+    // (not yet entered: its garrison is not made, so it is only a guess; once made and alive, it is off the list)
+    relocate(held.w, held.e.id);
+    relocate(held.w, held.e.gen!.parent);
+    expect(partsUrge(held.w, held.e.id).bonus).toBe(0);
+    const bare = spotAt('turf_marker');
+    relocate(bare.w, bare.e.gen!.parent);
+    bare.w.hero.parts = {};
+    expect(partsUrge(bare.w, bare.e.id).bonus).toBe(0);
   });
 });

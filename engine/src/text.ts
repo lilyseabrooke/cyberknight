@@ -1612,6 +1612,11 @@ const T: Record<string, Entry> = {
   'goal_new:explore_cash': e((d) => [`Nothing around here is paying. Blackbird has not tried ${d.place} yet, and it has to be good for something. New step: ${d.goal}.`], ['Money does not grow on streets I know. Time to meet some new streets.']),
   'goal_new:explore_dragon': e((d) => [`The dragons are not going to wait in the places Blackbird has already looked. She heads for ${d.place}. New step: ${d.goal}.`], ['Dragons have to nest somewhere. Somewhere I have not been.']),
   'goal_new:explore_fame': e((d) => [`A new crowd is a fresh crowd. Blackbird has never played ${d.place}. New step: ${d.goal}.`], ['They do not know me there yet. That is the best kind of audience.']),
+  'goal_new:parts': e(
+    (d) => [`Blackbird counts her spare parts. It does not take long. ${cap(String(d.place))} is the sort of place that has them lying about for anyone who asks nicely, or at all. New objective: ${d.goal}.`],
+    ['Scrap is just treasure that has not been introduced.', 'Free parts. My favourite kind of shopping.'],
+  ),
+  'goal_done:scavenged': e((d) => [`Blackbird has been through ${d.place} with a bag. The bag is heavier. Everything else is unchanged.`], ['Clean sweep. Nobody missed it.', 'Someone left me a whole city of presents.']),
   'goal_done:explored': e((d) => [d.nested ? `Blackbird has now seen ${d.place}. One more corner of the city is on her map.` : `Blackbird has seen ${d.place} now. It is a place. She files it and moves on.`], ['Mapped. Mostly. In my head.', 'New place. Noted.']),
   // ====================================================== dungeons: outposts and hideouts
   'goal_new:raid_idea': e(

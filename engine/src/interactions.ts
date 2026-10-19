@@ -20,7 +20,7 @@ import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
 import { benchUrge, chopCandidates } from './chop';
-import { scavengeCandidates } from './scavenge';
+import { partsUrge, scavengeCandidates } from './scavenge';
 import { vehicleCandidates } from './vehicles';
 import { getawayCandidates } from './getaway';
 import { goalCandidates } from './goals';
@@ -252,7 +252,8 @@ export function gather(w: World): Candidate[] {
     const supply = supplyUrge(w, e.to);
     const need = needsUrge(w, e.to);
     const bench = benchUrge(w, e.to);
-    const urge = { bonus: supply.bonus + need.bonus + bench.bonus, smart: supply.smart + need.smart + bench.smart };
+    const scrap = partsUrge(w, e.to);
+    const urge = { bonus: supply.bonus + need.bonus + bench.bonus + scrap.bonus, smart: supply.smart + need.smart + bench.smart + scrap.smart };
     const pull = bankPull(w, e.to);
     out.push({
       key: `go:${e.to}`,

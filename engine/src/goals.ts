@@ -5,6 +5,9 @@ import type { AskOption, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Locatio
 import { armBest, edge, rating } from './weapons';
 import { ACT_SKILL, CALLING } from './stage';
 import { SKILL_LABELS, skillLevel } from './skills';
+import { dayOf } from './clock';
+import { PLENTY_PARTS, lowOnParts, partsLeads } from './scavenge';
+import { totalParts } from './content/parts';
 import { medPacks, wielded } from './arms';
 import type { EventData } from './events';
 import type { Trait } from './personality';
@@ -100,7 +103,7 @@ const goalData = (w: World, g: Goal, extra: EventData = {}): EventData => ({
   ...(g.npc ? { npc: npcName(w, g.npc) } : {}),
   ...(g.ware && w.mind.wares[g.ware] ? { item: w.mind.wares[g.ware]!.name } : {}),
   ...(g.loc && siteAt(g.loc) ? { place: siteAt(g.loc)!.label } : {}),
-  ...((g.kind === 'raid' || g.kind === 'explore') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
+  ...((g.kind === 'raid' || g.kind === 'explore' || g.kind === 'scavenge') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
   ...(g.kind === 'quest' ? questData(w, g) : {}),
   ...extra,
 });
@@ -638,6 +641,30 @@ const KINDS: Record<GoalKind, Kind> = {
       const loc = g.loc ? w.locations[g.loc] : undefined;
       if (!loc) return { drop: 'moot' };
       if (loc.visits > 0) return { done: 'explored' };
+      if (!routeTo(w, w.hero.locationId, loc.id)) return { drop: 'moot' };
+      return null;
+    },
+    plan(c, g) {
+      if (c.w.hero.locationId !== g.loc && hpFrac(c.w) < 0.5) delay(c, g, 40, 'hurt');
+    },
+    metric: (w, g) => -distTo(w, g.loc!),
+    targets: (_w, g) => [{ loc: g.loc!, value: 2.8 }],
+    bias: () => 0,
+  },
+  // ------------------------------------------------------------------ scavenge
+  // Low on parts. A scrap camp, a drone boneyard, a stripped car with nobody minding it: free for the taking (scavenge.ts). The
+  // trip is ordinary travel; the goal ends when she has been through the place, or has all she needs, or somebody takes it over.
+  scavenge: {
+    decay: 0.0016, stick: ['greed', 'techy'], patience: 70,
+    label: (w, g) => `strip ${w.locations[g.loc!]?.name ?? 'somewhere'} for parts`,
+    check(w, g) {
+      const loc = g.loc ? w.locations[g.loc] : undefined;
+      if (!loc) return { drop: 'moot' };
+      const last = w.counters[`scav:${loc.id}`];
+      if (last !== undefined && dayOf(w.clock) - last <= 0) return { done: 'scavenged' };
+      if (totalParts(w.hero.parts) >= PLENTY_PARTS) return { drop: 'moot' };
+      const d = w.dungeons[loc.id];
+      if (d && garrisonAlive(w, d).length && w.hero.locationId !== loc.id) return { drop: 'moot' };
       if (!routeTo(w, w.hero.locationId, loc.id)) return { drop: 'moot' };
       return null;
     },
@@ -1188,6 +1215,17 @@ function formGoals(c: Ctx): void {
   recallJobs(c);
 
   formIdle(c);
+
+  // Low on parts: somewhere with a heap of them lying about, and nobody minding it.
+  if (lowOnParts(w) && hpFrac(w) >= 0.6 && !hasGoal(w, 'scavenge') && !cooling(w, 'scav_idea') && rng.chance(0.012 + 0.03 * Math.max(0, t.techy - 0.3) + 0.01 * Math.max(0, t.greed - 0.5))) {
+    const leads = partsLeads(w).filter((l) => !hasGoal(w, 'scavenge', l.id));
+    cool(w, 'scav_idea', 100);
+    if (leads.length) {
+      const l = rng.weighted(leads, (x) => x.rich / (2 + distTo(w, x.id)));
+      const name = w.locations[l.id]!.name;
+      adopt(c, { kind: 'scavenge', loc: l.id, why: 'she is nearly out of parts, and some places have them lying about', desire: clamp(0.5 + 0.3 * (t.techy - 0.5), 0.4, 0.85), variant: 'parts', extra: { place: name } });
+    }
+  }
 
   // Restless: the more worn out the room she is standing in, the likelier she is to go and look for another.
   if (hpFrac(w) >= 0.6 && !hasGoal(w, 'explore') && !cooling(w, 'explore_idea')) {
