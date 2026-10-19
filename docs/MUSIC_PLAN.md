@@ -1,6 +1,7 @@
 # Procedural music: implementation plan
 
-Status: **plan**. Nothing is built yet. Feel over balance applies here too: every number below is a first guess, to be tuned by ear.
+Status: **phase 1 built** (see "As built" at the end for where it differs from the plan); phases 2-9 are plan. Feel over balance
+applies here too: every number below is a first guess, to be tuned by ear.
 
 Neo gets a score that is generated as it plays, not hand-authored tracks. It is built from native Web Audio synthesizers plus a small kit of
 one-shot samples. It reads the night as it unfolds through a set of **axes** (intensity, danger, heat and place to start with, and more
@@ -107,7 +108,7 @@ music/
   index.ts
 components/
   MusicDock.tsx            on/off, volume, now playing (the song's title), mounted in NightViewer
-  MusicLab.tsx             debug (`?music=lab`): sliders for every registered axis, palette picker, cue buttons,
+  MusicLab.tsx             debug, at `/music`: sliders for every registered axis, palette picker, cue buttons,
                            a patch auditioner, "next song" and the timeline (§10.8)
 ```
 
@@ -1225,3 +1226,58 @@ Listening is the real test. These catch regressions.
 ## 21. Open questions (for later, not blockers)
 
 - **The lab piece:** its own composed music, out of scope for now (§13).
+
+## As built
+
+### Phase 1: engine, axes, patch model, sub and bass
+
+Where to find it:
+
+| What | Where |
+|---|---|
+| Types, the shared vocabulary | `music/score/types.ts` |
+| Axis registry, macro table, slew and hysteresis | `music/score/axes/` |
+| Mod routes: parameter paths, evaluation, validation | `music/score/mods.ts` |
+| Patches (sub, bass) | `music/score/patches/index.ts` |
+| The character bass generator | `music/score/roles/bass.ts` |
+| Kick and sub | `music/score/roles/rhythm.ts` |
+| The conductor | `music/score/conductor.ts` |
+| Mono voice built from a patch | `music/synth/voice.ts` |
+| Synth kick | `music/synth/kick.ts` |
+| Buses, sidechain, master | `music/synth/mixer.ts` |
+| Graph and live scheduler | `music/synth/graph.ts` |
+| Live engine (AudioContext lifecycle) | `music/synth/engine.ts` |
+| Offline renderer | `music/synth/offline.ts` |
+| Audio measurements | `music/tools/analysis.ts` |
+| Render script | `scripts/music-render.ts` (`npm run music:render`) |
+| MusicLab | `components/MusicLab.tsx`, at the `/music` route |
+
+Where it differs from the plan:
+
+- **MusicLab is its own route, `/music`**, rather than a `?music=lab` flag on the game page. It keeps the lab out of NightViewer.
+- **Randomness is hashed, not streamed** (`music/score/rng.ts`). Every decision is `unit(seed, what, where)`, so it can be re-derived
+  without carrying a stream position, and the engine's `Rng` class isn't needed. The music still never touches `w.rng`.
+- **The bass riff uses threshold sampling.** Each step of the 2-bar riff owns fixed random numbers, and a note sounds when its number
+  falls under the step's probability for the current macros. Aggression only moves the probabilities, so the riff keeps its identity
+  across the whole morph.
+  - The locked spine and the busy templates combine as a probabilistic OR.
+  - The spine fades as `1 - a²`, so syncopation arrives before the roots leave, and the middle of a sweep never thins out.
+- **Axes have no `read`/`target` yet.** Those arrive with the bridge (phase 7). Until then axes are set by hand.
+- **The sub always holds its root and ties across bars.** It gets its pulse from the kick's sidechain duck, instead of re-triggering
+  with the kick at high density.
+- **Drive is a pre-gain into a fixed tanh curve with makeup gain** (`amount^-0.4`), because a WaveShaper's curve can't be automated.
+  The crusher is a wet/dry mix of a stepped curve. It opens above aggression 0.75 through a new route `window` field.
+- **The bass's band-split highpass is 24 dB/oct** (two cascaded biquads at 110 Hz). At 12 dB/oct the square an octave down leaked into
+  the sub band (-15 dB below 80 Hz). It now measures about -21 dB.
+- **The render script (`npm run music:render`) renders clips in headless Chromium and checks them.** It's outside `npm test`.
+  - **Clips:** `sweep`, `locked`, `aggressive`, `dread` and `chase`, written to `out/music/` (gitignored).
+  - **Checks on every clip:** clipping, peak, loudness, crest factor and DC.
+  - **Extra checks on the sweep's stems:** the sub's energy above 200 Hz, clicks on the sub, the bass's energy in the sub band, and the
+    bass-to-sub balance.
+  - **Dev dependencies added:** `playwright-core`, which drives the preinstalled Chromium, and `esbuild`, which bundles the renderer.
+    On a fresh machine, run `npx playwright install chromium` once.
+- **Levels:**
+  - The buses meet at 0.22 gain before the master, so the limiter stays idle. Peaks sit around -3 dBFS and loudness around -13 dBFS
+    RMS.
+  - The bass sits about 7 dB under the sub in RMS, which reads as level, since the sub is so low.
+

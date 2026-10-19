@@ -1,6 +1,8 @@
 # CLAUDE.md
 
 See [`AGENTS.md`](AGENTS.md) for the Next.js notes. The game engine is in `engine/`; the setting bible is in `docs/setting/`.
+Procedural music is in `music/` (plan and as-built notes: [`docs/MUSIC_PLAN.md`](docs/MUSIC_PLAN.md)); try it at `/music`, and render
+checked WAV clips with `npm run music:render`.
 
 ## Protocols
 

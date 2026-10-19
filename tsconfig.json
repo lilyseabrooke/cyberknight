@@ -29,6 +29,7 @@
   },
   "include": [
     "engine",
+    "music",
     "scripts",
     "app",
     "components",
