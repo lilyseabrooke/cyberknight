@@ -2,6 +2,7 @@ import { Rng, hashString } from './rng';
 import type { Awareness, Ctx, Dungeon, Id, Location, Npc, World } from './types';
 import { clamp } from './candidate';
 import { angDiff, dirOf, dist, hasLos, idx, inCover, line, neighbors, passable, pathTo, posOf, reach, stepOf, terrainAt, type Grid, type Pos } from './grid';
+import { follow, heroCover, trackerOf } from './tracking';
 import { V, atLeast, awareness, bucketOf, callForHelp, callWeight, heroPerception, heroStealth, keenness, npcPerception } from './stealth';
 import { PROPS, type PropKind } from './content/props';
 import { commitBoard, placeOf, syncPlace, viewOf } from './placeboard';
@@ -69,6 +70,8 @@ export interface PUnit {
   fled?: boolean;
   /** Not looking, just running somewhere along a line of tiles (a chase going past): until something reaches them, which makes them stop and look. */
   runner?: { path: Pos[]; i: number; step: number; v: number };
+  /** Has had a hunch about where she went (said once). */
+  hunched?: boolean;
 }
 
 export interface Prop {
@@ -104,6 +107,8 @@ export interface Board {
   goal?: 'clear' | 'leave' | 'hide';
   /** The ways out of the room, and what is beyond them. */
   ways?: { at: Pos; to: Id }[];
+  /** Searchers can follow her trail (see `tracking.ts`): the better the tracker, the nearer they look. */
+  tracking?: boolean;
   /** The way she took out, if she took one. */
   left?: Id;
   /** Those who ran for it. */
@@ -374,6 +379,34 @@ function walkTo(b: Board, u: PUnit, to: Pos, steps = 1): boolean {
 /** Those who run rather than look: people with nothing to fight with and no reason to stay. */
 const TIMID = new Set(['patron', 'drifter', 'street_kid', 'noodler', 'shopkeeper', 'bartender', 'dancer', 'gym_regular', 'gym_desk', 'scientist', 'doc', 'cook', 'tourist']);
 export const timid = (n: Npc): boolean => TIMID.has(n.archetype) && !n.hostile;
+
+/**
+ * Somebody who has lost her and is searching: every few rounds they try to pick up her trail. A good result puts them near her, a poor one
+ * only turns them roughly her way, and none leaves them searching where they were. (Not a fix: they do not know where she is, only where
+ * to look.)
+ */
+function hunch(c: Ctx, b: Board, u: PUnit, say: Sink): void {
+  const { w, rng } = c;
+  const cover = heroCover(w, 0.3) + (b.posture === 'hold' ? 1.5 : 0) + (lightAt(b, b.hero) === 0 ? 1 : 0);
+  const r = follow(rng, trackerOf(u.npc), cover);
+  if (r.trail === 'none') return;
+  const spread = r.trail === 'hot' ? 1 : r.trail === 'warm' ? 4 : 7;
+  // (A cold trail is only which way: halfway there, give or take.)
+  const mid = r.trail === 'cold' ? { x: Math.round((u.x + b.hero.x) / 2), y: Math.round((u.y + b.hero.y) / 2) } : { ...b.hero };
+  const spots: Pos[] = [];
+  for (let dy = -spread; dy <= spread; dy++) for (let dx = -spread; dx <= spread; dx++) {
+    const q = { x: mid.x + dx, y: mid.y + dy };
+    if (walkableFor(b.grid, q) && !occupied(b, q, u)) spots.push(q);
+  }
+  if (!spots.length) return;
+  u.last = { ...spots[rng.int(0, spots.length - 1)]! };
+  u.looked = 0;
+  u.searched = new Set();
+  if (!u.hunched) {
+    u.hunched = true;
+    say('prowl_track', 'bad', { variant: r.trail, npc: u.npc.name });
+  }
+}
 
 /** Somebody going by along a line, not looking for anything: on along it, until something reaches them (a sight, a sound) and they stop and look. */
 function runAlong(b: Board, u: PUnit): void {
@@ -710,6 +743,8 @@ export interface ProwlOpts {
   goal?: 'clear' | 'leave' | 'hide';
   /** Told as a hunt: they are looking for her, not just standing about. */
   hunt?: boolean;
+  /** Those searching for her can track her (see `tracking.ts`). */
+  track?: boolean;
   /** Filled in: where she slipped away to. */
   left?: Id;
 }
@@ -859,6 +894,7 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
     // Their turn, and what they make of her.
     for (const u of live(b)) {
       const before = bucketOf(w, u.npc);
+      if (b.tracking && !u.runner && !u.holds && u.behavior === 'search' && !u.npc.aware?.fix && b.round % 3 === 1) hunch(c, b, u, say);
       if (u.runner) runAlong(b, u);
       else act(b, u, rng);
       if (u.down) continue;
@@ -956,6 +992,7 @@ export function prowlRoom(c: Ctx, d: Dungeon, loc: Location, foes: Npc[], o: Pro
   const placed = placeOf(w, loc)!;
   syncPlace(w, placed);
   const b = viewOf(w, placed, { foes, goal: o.goal });
+  if (o.track) b.tracking = true;
   const say: Sink = (type, outcome, data) => c.emit(type, outcome, data);
   let out: ProwlOutcome = 'stalled';
   nested(c, 'prowl_start', 'mixed', { variant: o.hunt ? 'hunt' : 'quiet', place: loc.name, count: foes.length, foes: o.describe ? o.describe(foes) : `${foes.length} of them`, lit: b.light.reduce<number>((a, x) => a + x, 0) / b.light.length > 1.3 }, () => {

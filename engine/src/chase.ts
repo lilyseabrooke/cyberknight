@@ -15,6 +15,7 @@ import { skillValue, train } from './skills';
 import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
+import { streetHunt } from './streethunt';
 import { BEHIND, coverOf, follow, heroCover, heroTracker, trackerOf, type Trail } from './tracking';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
@@ -56,6 +57,8 @@ export interface ChaseOpts {
   cause: string;
   foes: Chaser[];
   maxRounds?: number;
+  /** Do not play out the search afterwards when some of them are left looking for her (it is the search that started this). */
+  noSearch?: boolean;
   /** Told each round, with the board as it stands, for tests and tooling. */
   watch?: (board: ChaseBoard | null, round: number) => void;
 }
@@ -87,6 +90,9 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   let hid = false;
   // Rounds in a row that none of them could see her, and the last place they could.
   let unseen = 0;
+  // Those left on the street looking for her when it ends.
+  const searching = new Set<Npc>();
+  let searchStreet = '';
   // What each of them has made of the trail, and how many times they have tried to pick it up.
   const trails = new Map<Chaser, Trail>();
   const tries = new Map<Chaser, number>();
@@ -723,7 +729,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
                 f.off = true;
                 f.gap = ESCAPE_GAP + 1;
                 if (f.crew.every((n) => !n.alive)) f.alive = false;
-                else if (mine(r.left)) leaveSearching(w, board, [f], out.at);
+                else if (mine(r.left)) {
+                  leaveSearching(w, board, [f], out.at);
+                  for (const n of r.left) searching.add(n);
+                  searchStreet = h.locationId;
+                }
               }
             }
             runPast(w, board, [{ crew: r.gone }]);
@@ -967,7 +977,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
               return rng.chance(t === 'hot' ? 0 : t === 'warm' ? guess * 0.35 : guess);
             });
             const names = (fs: Chaser[]): string => fs.map((f) => f.name).join(' and ');
-            if (fan.length) leaveSearching(w, board, fan, from);
+            if (fan.length) {
+              leaveSearching(w, board, fan, from);
+              for (const f of fan) for (const n of f.crew) if (n.alive) searching.add(n);
+              searchStreet = h.locationId;
+            }
             for (const f of fan) {
               f.off = true;
               f.gap = ESCAPE_GAP + 1;
@@ -1005,6 +1019,11 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     if (!result) result = o.mode === 'pursuer' ? (o.foes.some((f) => f.alive && !wings(f) && f.gap < 3) ? 'caught' : 'lost') : o.foes.some((f) => f.alive && f.gap < 3) ? 'caught' : 'escaped';
     finish(c, o, result, last, rounds, hid);
   });
+  // Anybody left looking for her on the street she is hiding on: that is a scene of its own.
+  if (!w.over && !o.noSearch && result === 'escaped' && hid && h.hp > 0 && searching.size && h.locationId === searchStreet) {
+    const crew = [...searching].filter((n) => n.alive && n.locationId === h.locationId && n.downUntil <= w.beat);
+    if (crew.length) streetHunt(c, crew, o.cause, { keepSpot: true });
+  }
   // Anybody she knocked into on the way, who has had enough.
   if (!w.over && owed.length && result !== 'wrecked') {
     const crowd = owed.filter((n) => n.alive).slice(0, 2).map((n) => onFoot(n, 2));

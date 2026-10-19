@@ -11,7 +11,7 @@ import { prowlRoom, type ProwlOpts } from './prowl';
  * off it while they search. If she gets out, they are left looking at an empty street; if one of them spots her it is a chase when
  * she's got room to run, or a fight when she hasn't.
  */
-export function streetHunt(c: Ctx, crew: Npc[], cause: string, opts: { keepSpot?: boolean } = {}): 'evaded' | 'chased' | 'fought' | 'stalled' {
+export function streetHunt(c: Ctx, crew: Npc[], cause: string, opts: { keepSpot?: boolean; noSearch?: boolean } = {}): 'evaded' | 'chased' | 'fought' | 'stalled' {
   const { w } = c;
   const h = w.hero;
   const loc = w.locations[h.locationId]!;
@@ -35,7 +35,7 @@ export function streetHunt(c: Ctx, crew: Npc[], cause: string, opts: { keepSpot?
     }
     if (spots.length) p.board.hero = { ...spots[c.rng.int(0, spots.length - 1)]! };
   }
-  const o: ProwlOpts = { goal: 'leave', hunt: true, describe: (f) => (f.length === 1 ? 'one of them' : `${f.length} of them`) };
+  const o: ProwlOpts = { goal: 'leave', hunt: true, track: true, describe: (f) => (f.length === 1 ? 'one of them' : `${f.length} of them`) };
   const out = prowlRoom(c, null as never, loc, crew, o);
   if (w.over) return 'fought';
   if (out === 'evaded') {
@@ -46,7 +46,7 @@ export function streetHunt(c: Ctx, crew: Npc[], cause: string, opts: { keepSpot?
   const live = crew.filter((n) => n.alive);
   const gap = Math.min(...live.map((n) => dist(p.board.ents[n.id] ?? p.board.hero, p.board.hero)));
   if (live.length && gap >= 4 && h.hp > 0) {
-    const result = runChase(c, { mode: 'pursued', cause, foes: live.map((n) => onFoot(n, gap / 2.2)) });
+    const result = runChase(c, { mode: 'pursued', cause, noSearch: true, foes: live.map((n) => onFoot(n, gap / 2.2)) });
     if (w.over) return 'chased';
     if (result === 'caught' || result === 'bailed' || result === 'wrecked') {
       const left = live.filter((n) => n.alive);

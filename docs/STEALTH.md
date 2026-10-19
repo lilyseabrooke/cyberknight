@@ -138,3 +138,11 @@ crowded the street is, and more if she hid). The result is a trail, `none`, `col
 - **Out of range** (gap at 30): instead of the chase ending, anyone who picks up the trail keeps it, with the gap pulled in to 85 %, 65 % or 45 % of that
   distance by how specific it is (`BEHIND`), told as `chase_track`. Three tries per chaser per chase. For her chasing them, the same, with tracking
   trained each time.
+
+### Searchers on the board
+
+When a chase ends with some of them left looking for her on the street she is hiding on (fanned out after losing sight, or stopped to look during a hide
+scene), `runChase` hands them to `streetHunt` (`noSearch` stops that nesting): the same scene as a gang hunt, with her where she hid and them where they
+were left, Alert with no fix. She slips off toward a way out, takes whoever comes into reach unseen, or is found (a chase with `noSearch`, or a fight).
+Searchers in a hunt can track her (`Board.tracking`, `hunch` in `prowl.ts`): every third round a searching unit rolls tracker against her cover (more if she
+is holding still or in the dark) and gets a new place to look: within a tile (hot), four (warm) or roughly her way (cold). Told once per unit as `prowl_track`.

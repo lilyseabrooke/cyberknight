@@ -207,4 +207,26 @@ describe('a hunt on the street', () => {
     expect(good.lost).toBeLessThanOrEqual(none.lost);
     expect(run(0, 'pursued').tracks).toBeGreaterThanOrEqual(0);
   });
+
+  it('those left searching after a chase are a scene of their own, and the good trackers among them get close', () => {
+    const seen: Record<string, number> = {};
+    for (let i = 0; i < 400; i++) {
+      const sc = scenario({ seed: `after-${i % 40}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.hero.level = 8;
+      w.hero.maxHp = w.hero.hp = 180;
+      const { c, events } = ctxOf(w, new Rng(`a-${i}`));
+      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 9)) });
+      const k = events.findIndex((e) => e.type === 'chase_search' && (e.data.variant === 'fan' || e.data.variant === 'split'));
+      const hunted = events.findIndex((e) => e.type === 'prowl_start' && e.data.variant === 'hunt');
+      if (k >= 0 && hunted > k) seen.after = (seen.after ?? 0) + 1;
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'prowl_track') seen[`track_${e.data.variant}`] = (seen[`track_${e.data.variant}`] ?? 0) + 1;
+      }
+    }
+    expect(seen.after ?? 0).toBeGreaterThan(0);
+    expect(Object.keys(seen).filter((k) => k.startsWith('track_')).length).toBeGreaterThan(0);
+  });
 });

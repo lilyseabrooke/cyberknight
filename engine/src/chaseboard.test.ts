@@ -234,7 +234,7 @@ describe('losing them by getting out of sight', () => {
       const { w, id } = onStreet(`gone${i}`, i % 2 ? 'Cinder Alley' : 'Mill Street', { alleyTo: true });
       const foe = i % 3 ? onFoot(guy(w, `g${i}`), 6) : carFoe(w, `g${i}`, 6);
       const { c, events } = ctxOf(w, new Rng(`gone${i}`));
-      const r = runChase(c, { mode: 'pursued', cause: 'test', foes: [foe], maxRounds: 8 });
+      const r = runChase(c, { mode: 'pursued', cause: 'test', foes: [foe], maxRounds: 8, noSearch: true });
       if (r !== 'escaped' || !events.some((e) => e.type === 'chase_round' && String(e.data.events).includes('lost:sight'))) continue;
       found++;
       const loc = w.hero.locationId;
