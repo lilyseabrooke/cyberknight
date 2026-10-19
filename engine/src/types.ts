@@ -5,6 +5,7 @@ import type { Phase } from './clock';
 import type { StreetType } from './streettypes';
 import type { Trait } from './personality';
 import type { Faction } from './factions';
+import type { HomeKind } from './content/realty';
 
 /**
  * All world state is plain JSON (no classes, Sets or Maps) so a run can be saved to
@@ -31,6 +32,8 @@ export interface Item {
   perRound?: number;
   /** Ammo boxes: how many rounds are inside. Picking one up pours it into `hero.ammo`. */
   rounds?: number;
+  /** Upgrades a workbench has put into this (each is +1 power; the name carries the count). See bench.ts. */
+  mods?: number;
   /** Weapons: the traits that make this one different from the next. See weapons.ts. Named classics without it get plain defaults. */
   fx?: WeaponFx;
   /** Instruments: what it is and what it does besides make noise. See instruments.ts. Classics without it get plain defaults. */
@@ -192,6 +195,8 @@ export interface Hero {
   waiting?: (Companion & { at: Id })[];
   /** Rounds on hand by ammo type (see content/ammo.ts). Shooting spends them; no rounds, no shooting. */
   ammo: Record<string, number>;
+  /** Components on hand by part id (see content/parts.ts): what a workbench takes things apart into and builds them from. Absent means none. */
+  parts?: Record<string, number>;
   buffs: Buff[];
   companions: Companion[];
   /** Skill XP by id; see skills.ts for levels. */
@@ -378,6 +383,39 @@ export interface Npc {
   post?: Id;
   /** A job they have for Blackbird, once they've told her about it. Persists with them: the world remembers a job even when she doesn't. See quests.ts. */
   quest?: Quest;
+  /** What Blackbird has talked them into wanting, tonight. See influence.ts. */
+  goals?: NpcGoal[];
+}
+
+export type NpcGoalKind = 'give_cash' | 'cover' | 'back_me_up' | 'go_after' | 'spill' | 'kiss' | 'steal_car' | 'take_deck' | 'buy_round' | 'tag_wall' | 'karaoke';
+/** The four ways she gets round somebody: the skills under Charm that make people do things. */
+export type InfluenceMethod = 'persuasion' | 'intimidation' | 'romance' | 'grifting';
+
+/** Something Blackbird has put in somebody's head. They carry it out in their own way, for as long as it lasts. */
+export interface NpcGoal {
+  id: number;
+  kind: NpcGoalKind;
+  /** How she got them to take it on. */
+  method: InfluenceMethod;
+  /** go_after: the person they are going after. spill: the person whose business it is, if it's somebody else's. */
+  target?: Id;
+  /** give_cash: how much. */
+  amount?: number;
+  born: number;
+  /** The beat it wears off. */
+  until: number;
+  /** They did it because they were frightened. Fear leaves a grudge. */
+  coerced?: boolean;
+  /** They did it because she lied. They may work that out. */
+  conned?: boolean;
+  /** go_after: they are on their way. */
+  sent?: boolean;
+  /** Errands: where it is to be done, when it needs a place of its own. */
+  loc?: Id;
+  /** Errands: how many ways they have tried and failed. */
+  tries?: number;
+  /** Errands: not before this beat. */
+  wait?: number;
 }
 
 /**
@@ -471,7 +509,7 @@ export interface Location {
   /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
   street?: StreetType;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty' | 'chop';
   exits: Exit[];
   /** Where it stands on the hex grid (outdoor places only): every cell it covers, and the cell it is anchored on. See hexmap.ts. */
   hex?: { q: number; r: number; cells: [number, number][]; /** The way it runs, for streets: the direction it grew in. */ dir: number };
@@ -543,8 +581,23 @@ export interface Location {
   pawn?: PawnInfo;
   /** A room of a pawn shop (vault, workshop, parlour...): which shop, and which room. */
   pawnRoom?: { main: Id; room: string };
+  /** A chop shop's makeup: what it is built in, how good the bench is, what the door costs. Rolled with the place. See content/chops.ts. */
+  chop?: ChopInfo;
   /** A pawn shop's shelf: what is on it, including whatever she hocked and may still buy back. Made the first time it is looked at. See pawnkit.ts. */
   shelf?: PawnLot[];
+}
+
+/** What a chop shop is. Small on purpose: a shell, a bench and a door. (content/chops.ts says what each id means.) */
+export interface ChopInfo {
+  shell: string;
+  /** 1..5. How good the bench is: it gates the harder recipes and nudges every roll. */
+  tier: number;
+  /** The flat fee for a day at the bench, in nd. */
+  fee: number;
+  /** Who minds the door: a person, or a machine that does not take bribes. */
+  door: 'guard' | 'bot';
+  /** Quirks, by id (0 to 2 of them; content/chops.ts). */
+  traits: string[];
 }
 
 /**
@@ -617,7 +670,7 @@ export interface GymInfo {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -885,6 +938,8 @@ export interface Legacy {
   upgrades: Record<string, number>;
   /** Neodollars spent in the lab, ever. */
   spent: number;
+  /** Deeds she owns (see content/deeds.ts): bought once, kept through every death. Absent before the first. */
+  deeds?: Deed[];
   /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
   report?: RunReport;
 }
@@ -919,6 +974,23 @@ export interface Booking {
   played?: boolean;
 }
 
+/** A home she bought from a property office. It is on the map for good and hers through every death. See realty.ts. */
+export interface Deed {
+  /** The listing it was: the office and the place on its board. Once sold, it is off the board. */
+  id: string;
+  kind: HomeKind;
+  /** What the deed calls it. */
+  name: string;
+  /** The place on the map. */
+  home: Id;
+  /** 0..1: how good a night in it is, like a bed's (see content/lodging.ts). */
+  quality: number;
+  price: number;
+  district: District;
+  /** The run she bought it in. */
+  run: number;
+}
+
 /** The books on one night, settled when it ends. */
 export interface RunReport {
   run: number;
@@ -937,6 +1009,8 @@ export interface RunReport {
   level: number;
   kills: number;
   beats: number;
+  /** What she was chasing when the night ended, for the lab's wall. Shown once; it does not carry into the next body. */
+  calling?: { label: string; progress: number };
   /** Balance before and after. */
   before: number;
   after: number;
@@ -1040,12 +1114,14 @@ export interface World {
   chaseTire?: { rounds: number; beat: number };
   /** Everyone whose awareness of Blackbird is currently worth tracking, so the beat only has to look at them. */
   watchers?: Id[];
+  /** Everyone carrying a goal Blackbird gave them, so the beat only has to look at them. See influence.ts. */
+  influenced?: Id[];
   stats: { kills: number; fights: number; maxLevel: number; deposited: number; fees: number };
   over: boolean;
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'booking';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'booking';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
@@ -1085,6 +1161,8 @@ export interface Goal {
   revisions: number;
   /** Kill: she has actually thrown a punch at them. */
   struck?: boolean;
+  /** Made because of her Calling: harder to drop, and not the first thing to go when she's overloaded. */
+  calling?: boolean;
   /** Quest: she has been inside the place (so coming back through the door isn't news). */
   entered?: boolean;
   /** Heist bookkeeping. */
@@ -1136,6 +1214,33 @@ export interface Ware {
 
 /** What she knows, what she wants, and how she's going about it. All plain JSON. */
 /** A goal she could take on, as plain data: what `adopt` needs, so it can wait in an `Ask` until somebody answers. */
+/**
+ * A long-term goal Blackbird sets for herself and carries until she dies. One at a time; it does not carry over to
+ * the next body. Not a Goal: it steers the goals, and what she does for fun. Plain JSON. See callings.ts and
+ * docs/CALLINGS_PLAN.md.
+ */
+export interface Calling {
+  id: string;
+  since: number;
+  /** 0..1, how hard it has hold of her. Rises on progress and big moments, drifts down when nothing happens. */
+  fervor: number;
+  /** The finish line, rolled when she took it up. */
+  goal: number;
+  /** Where the counter stood when she took it up, for callings that count from there. */
+  base: number;
+  /** Who or what it is about. `text` is how she names it ("the Chrome Vipers", "Pip"). */
+  target?: { npc?: Id; faction?: Id; skill?: string; text?: string };
+  origin: { kind: 'spark' | 'wound' | 'whim'; text: string; beat: number; /** A wound is a loss (someone died) or a brush (she nearly did). */ cause?: 'loss' | 'brush' };
+  /** The last beat it moved, to tell a calling that's merely quiet from one she has forgotten. */
+  lastProgress: number;
+  /** Progress at the last look, to notice when it moves. */
+  last: number;
+  /** Quarter-marks already said out loud, 0..3. */
+  said: number;
+  wavering?: boolean;
+  sequel?: boolean;
+}
+
 export interface GoalSpec {
   kind: GoalKind;
   parent?: number | null;
@@ -1149,9 +1254,11 @@ export interface GoalSpec {
   /** Which line of the log introduces it. */
   variant: string;
   extra?: EventData;
+  /** Made because of her Calling. */
+  calling?: boolean;
 }
 
-export type AskKind = 'want' | 'earn' | 'door' | 'idle';
+export type AskKind = 'want' | 'earn' | 'door' | 'idle' | 'calling';
 
 /** One thing the lab can tell her. */
 export interface AskOption {
@@ -1162,6 +1269,8 @@ export interface AskOption {
   hint?: string;
   /** She takes this on if it's the answer. */
   spec?: GoalSpec;
+  /** She takes this on as her Calling if it's the answer. See callings.ts. */
+  calling?: Calling;
   /** Things she puts off if it's the answer: cooldown key -> beats. */
   cool?: Record<string, number>;
 }
@@ -1204,8 +1313,8 @@ export interface Mind {
   /** The leaf goal that has been steering her most lately (so she doesn't flip-flop). */
   focus: number | null;
   tally: { done: number; dropped: number; revised: number; delayed: number };
-  /** What she's currently inspired to get good at, if anything. See stage.ts. */
-  passion?: { skill: string; level: number; since: number };
+  /** What she has decided to do with her life, if anything. At most one, and it ends when she does. See callings.ts. */
+  calling?: Calling;
   /** What she expects each kind of act to do for her fame, learned from experience. */
   fame?: Record<string, number>;
   /** What she has made of people's stat distributions with Analyze: NPC id -> estimated shares of their stats, and how sure she is. See npcstats.ts. */

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AMMO,
+  PARTS,
   describePersonality,
   clockLabel,
   dayOf,
@@ -21,6 +22,8 @@ import {
   type Universe,
   gangName,
   goalViews,
+  callingView,
+  type CallingView,
   type GoalView,
   IMPLANTS,
   SKILL_LABELS,
@@ -79,6 +82,7 @@ interface Snapshot {
   wielding: string;
   weaponInfo: string;
   ammo: [string, number][];
+  parts: [string, number][];
   medPacks: string;
   medStock: number;
   armor: string;
@@ -101,6 +105,8 @@ interface Snapshot {
   skills: [string, number][];
   implants: string[];
   goals: GoalView[];
+  /** What she has decided to do with her life, if anything. */
+  calling: CallingView | null;
   satiety: number;
   /** 0..1, from training; see gym.ts. */
   sore: number;
@@ -134,7 +140,7 @@ const SPEEDS = [
 
 const HEAT_NAMES: Record<string, string> = { npd: 'Police', atlas: 'Atlas', halo: 'The Halo', club: 'Neon Pharaoh' };
 const heatName = (k: string) => HEAT_NAMES[k] ?? gangName(k);
-const DRAMA = new Set(['advice_ask', 'need', 'rest_incident', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout', 'quest']);
+const DRAMA = new Set(['advice_ask', 'need', 'rest_incident', 'heat_up', 'out_of_ammo', 'fight_end', 'death', 'victory', 'level_up', 'equip', 'ambush', 'raid', 'jealous', 'steal_puppy', 'vault', 'safe', 'blackout', 'quest', 'calling', 'calling_done']);
 const MAX_LINES = 600;
 
 function snap(w: World): Snapshot {
@@ -151,6 +157,7 @@ function snap(w: World): Snapshot {
     wielding: wielded(h).name,
     weaponInfo: describeWeapon(wielded(h)),
     ammo: Object.entries(h.ammo).filter(([, n]) => n > 0).map(([t, n]) => [AMMO[t]?.label ?? t, n] as [string, number]),
+    parts: Object.entries(h.parts ?? {}).filter(([, n]) => n > 0).map(([t, n]) => [PARTS[t]?.label ?? t, n] as [string, number]),
     medPacks: Object.entries(medPacks(h).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => `${k} ${n}`).join(' · '),
     medStock: medStock(h),
     armor: h.armor?.name ?? 'nothing but attitude',
@@ -173,6 +180,7 @@ function snap(w: World): Snapshot {
     skills: (Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((k) => [SKILL_LABELS[k], skillLevel(h, k)] as [string, number]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]),
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
     goals: goalViews(w),
+    calling: callingView(w),
     satiety: h.satiety ?? 0,
     sore: h.sore ?? 0,
     hunger: hungerOf(h),
@@ -509,6 +517,16 @@ export default function NightViewer() {
             <Bar label={`LVL ${status.level}`} value={status.xp} max={status.xpNeed} kind="xp" />
             <Bar label={status.hungerTier === 'fed' ? 'Hunger' : `Hunger · ${status.hungerTier}`} value={status.hunger} max={100} kind={`hunger ${status.hungerTier}`} />
             <Bar label={status.sleepTier === 'rested' ? 'Sleep' : `Sleep · ${status.sleepTier}`} value={status.sleep} max={100} kind={`sleep ${status.sleepTier}`} />
+            {status.calling && (
+              <div className="goals calling">
+                <h3>Her calling</h3>
+                <p>
+                  <b>{status.calling.label.charAt(0).toUpperCase() + status.calling.label.slice(1)}.</b>
+                  <span className="muted"> · {status.calling.how === 'whim' ? 'for no reason' : status.calling.how === 'wound' ? 'a wound' : 'a spark'}: {status.calling.origin}{status.calling.wavering ? ' · wavering' : ''}</span>
+                </p>
+                <Bar label={status.calling.goal > 1 ? `${status.calling.count} / ${status.calling.goal}` : status.calling.progress >= 1 ? 'done' : 'not yet'} value={Math.round(status.calling.progress * 100)} max={100} kind="xp" />
+              </div>
+            )}
             {status.goals.length > 0 && (
               <div className="goals">
                 <h3>On her mind</h3>
@@ -531,6 +549,7 @@ export default function NightViewer() {
               <dt>Weapon</dt><dd>{status.weapon}{status.wielding !== status.weapon && <span className="bad"> (dry: using {status.wielding})</span>}<br /><small>{status.weaponInfo}</small></dd>
               <dt>Medical</dt><dd className={status.medStock === 0 ? 'bad' : undefined}>{status.medPacks ? `${status.medPacks} (${status.medStock} HP)` : 'none (she cannot heal)'}</dd>
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
+              {status.parts.length > 0 && <><dt>Parts</dt><dd>{status.parts.map(([t, n]) => `${n} ${t}`).join(' · ')}</dd></>}
               <dt>Armor</dt><dd>{status.armor}</dd>
               {status.car && (
                 <>

@@ -382,7 +382,9 @@ function scrapPile(c: Ctx, f: Feature): void {
     h.cash += cash;
     c.emit('scrap_pile', 'good', { variant: 'junk', amount: cash });
   } else if (roll < 0.8) {
-    const it = makeItem(rng.pick(['scrap_metal', 'credchip', 'gold_tooth', 'neural_gum', 'walkman']));
+    // Now and then the find is a fishing rod, near enough: an aerial, a winch off a drone, a hook that was a paperclip.
+    const rod = h.inventory.some((i) => i.tags.includes('rod')) ? [] : ['fishing_rod'];
+    const it = makeItem(rng.pick(['scrap_metal', 'credchip', 'gold_tooth', 'neural_gum', 'walkman', ...rod, ...rod]));
     c.emit('scrap_pile', 'good', { variant: 'find', item: it.name });
     acquire(c, it);
   } else {

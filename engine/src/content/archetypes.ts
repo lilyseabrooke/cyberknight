@@ -293,6 +293,12 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['credchip', 'med_pack'], lootChance: 0.4, cash: [40, 160],
     desc: ['a shopkeeper who has priced everything in the room, including you'],
   },
+  realtor: {
+    role: 'property agent', level: [2, 3], tags: ['staff', 'shopkeeper'], faction: 'shop',
+    names: 'person', weapons: ['switchblade', 'zip_pistol'], armors: ['kevlar_duster'], armorChance: 0.3,
+    loot: ['credchip', 'forged_pass'], lootChance: 0.4, cash: [60, 220],
+    desc: ['an agent in a cheap suit with an expensive smile, who can tell what you can afford from the way you stand', 'a property agent holding a tablet like a hymnal and a keyring like a rosary', 'an agent who has sold the same eleven square metres to four different people and sleeps fine'],
+  },
   drifter: {
     role: 'passer-by', level: [1, 2], tags: [], faction: null,
     names: 'person', weapons: ['broken_bottle', 'switchblade'], loot: ['credchip', 'neural_gum'], lootChance: 0.3, cash: [0, 40],
@@ -511,6 +517,27 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'robot', weapons: [], loot: ['drone_core', 'scrap_metal'], lootChance: 0.5, cash: [0, 0], hp: 60, power: 8,
     desc: ['a clerk robot with a lanyard, a name tag and a smile painted on', 'a counter bot that says "valued customer" in a voice that has never met one'],
   },
+  // ---------------- Chop shops (content/chops.ts) ----------------
+  chop_mechanic: {
+    role: 'mechanic', level: [2, 5], tags: ['owner', 'staff', 'tinker', 'mechanic'], faction: null,
+    names: 'person', weapons: ['cleaver', 'excalibur'], loot: ['solder_kit', 'torque_wrench', 'scrap_metal', 'credchip'], lootChance: 0.5, cash: [40, 180],
+    desc: ['a mechanic with oil to the elbows and a cigarette that went out an hour ago', 'a mechanic who talks to the engine more kindly than to anyone else', 'a mechanic with a welding mask pushed up like a second forehead', 'a mechanic who wipes her hands on a rag that is dirtier than her hands'],
+  },
+  chop_guard: {
+    role: 'door guard', level: [2, 4], tags: ['staff', 'strong', 'security', 'guard'], faction: null,
+    names: 'person', weapons: ['judgment', 'service_pistol', 'excalibur'], armors: ['leather_jacket'], armorChance: 0.4, loot: ['credchip', 'switchblade'], lootChance: 0.3, cash: [15, 80],
+    desc: ['a guard on a milk crate with a tire iron across his knees and a tin for the day rate', 'a guard who has a laminated price list and the face to enforce it', 'a large, calm guard eating noodles at the door, who stops eating only for the part about the fee'],
+  },
+  chop_bot: {
+    role: 'door bot', level: [2, 3], tags: ['robot', 'staff', 'security', 'guard'], faction: null,
+    names: 'robot', weapons: [], loot: ['drone_core', 'scrap_metal'], lootChance: 0.6, cash: [0, 0], hp: 70, power: 10,
+    desc: ['a door bot with a card reader where its face should be and a voice that says "day rate, please" in four tones', 'a squat gate bot, welded to the floor on one leg, that does not accept bribes or compliments', 'a turnstile with opinions and a hydraulic arm'],
+  },
+  chop_regular: {
+    role: 'customer', level: [1, 2], tags: ['regular', 'customer'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'scrap_metal', 'walkman'], lootChance: 0.3, cash: [5, 60],
+    desc: ['a customer taking a stolen scooter apart one panel at a time', 'someone hunched over a vice, extremely careful with something that looks like a toaster', 'a regular with a bag of mismatched bolts, sorting them by feel'],
+  },
 
 };
 
@@ -546,6 +573,7 @@ const PEOPLE: Record<string, PersonSpec> = {
   npd_officer: { age: [24, 56] },
   npd_sergeant: { age: [38, 60] },
   shopkeeper: { age: [26, 68] },
+  realtor: { age: [28, 60] },
   atlas_trooper: { women: 0.4, age: [24, 48] },
   atlas_officer: { women: 0.4, age: [34, 58] },
   gang_runner: { age: [18, 30] },
@@ -556,6 +584,8 @@ const PEOPLE: Record<string, PersonSpec> = {
   pawn_appraiser: { age: [30, 70] },
   pawn_fence: { age: [26, 60] },
   pawn_guard: { women: 0.3, age: [24, 56] },
+  chop_mechanic: { women: 0.5, age: [28, 66] },
+  chop_guard: { women: 0.3, age: [24, 56] },
 };
 
 export const GANGS: Record<string, string> = {

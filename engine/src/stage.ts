@@ -3,6 +3,7 @@ import { gainXp, here, relocate, addHeat } from './combat';
 import { clamp, type Candidate } from './candidate';
 import { odds, skillLevel, synergy, train } from './skills';
 import { kindle } from './romance';
+import { fireOf } from './callings';
 import { SKILLS } from './content/skills';
 import { isFairGame } from './people';
 import { bondEvent, romanceMod } from './bonds';
@@ -29,20 +30,11 @@ export const ACT_SKILL: Record<string, string> = {
   booked_guitar: 'guitar', booked_vocals: 'vocals', booked_djing: 'djing', booked_beatbox: 'beatbox',
 };
 
-/** What a calling sounds like, by skill. */
-export const CALLING: Record<string, string> = {
-  vocals: 'become a superstar vocalist',
-  guitar: 'become a guitar legend',
-  djing: "become Neo's top DJ",
-  beatbox: 'become a beatbox legend',
-  art: 'cover Neo in her art',
-};
-
 const FATIGUE_PER_ACT = 0.22;
 const RECOVERY = 0.004;
 
 /** Bigger stages are worth more. */
-export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : loc.kind === 'pawn' ? 0.7 : 0.8);
+export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : loc.kind === 'pawn' ? 0.7 : loc.kind === 'chop' ? 0.5 : 0.8);
 
 /** 1 for a crowd that hasn't heard her yet, falling towards 0 as it wears out. */
 export function freshness(w: World, locId: string, skill: string): number {
@@ -69,11 +61,6 @@ export function tickVenues(w: World): void {
     }
     if (!Object.keys(loc.fatigue).length) delete loc.fatigue;
   }
-  const p = w.mind.passion;
-  if (p) {
-    p.level -= 0.0025;
-    if (p.level <= 0.08) delete w.mind.passion;
-  }
 }
 
 /** What her tips are worth to a crowd this tired. */
@@ -96,7 +83,7 @@ export function fameFrom(c: Ctx, base: number, act: string): number {
     return base;
   }
   const fresh = freshness(w, loc.id, skill);
-  const fire = w.mind.passion?.skill === skill ? 1 + 0.15 * w.mind.passion.level : 1;
+  const fire = 1 + 0.15 * fireOf(w, skill);
   // A loud instrument carries past the room: more people hear it.
   const loud = 1 + 0.25 * bestTrait(h, skill, 'volume');
   const gain = base * prestige(loc) * fresh * fire * loud;
@@ -118,8 +105,7 @@ export function fameFrom(c: Ctx, base: number, act: string): number {
 export function passionBias(w: World, cand: { key: string }): number {
   const skill = ACT_SKILL[cand.key.split(':')[0]!];
   if (!skill) return 0;
-  const p = w.mind.passion;
-  const draw = p?.skill === skill ? 2.2 * p.level : 0;
+  const draw = 2.2 * fireOf(w, skill);
   const weary = 3.5 * (1 - freshness(w, w.hero.locationId, skill)) * (0.6 + 0.6 * w.hero.competence);
   return draw - weary;
 }

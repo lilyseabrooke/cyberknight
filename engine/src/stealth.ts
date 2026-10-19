@@ -9,6 +9,7 @@ import { skillOf, statsOf } from './npcstats';
 import { hasImplantFlag, skillLevel, skillValue, train } from './skills';
 import { knowsTechnique } from './techniques';
 import { workingCameras } from './witness';
+import { covering } from './influence';
 import { camerasSeeHer, seesHer } from './placeboard';
 
 /**
@@ -225,6 +226,12 @@ export function tickStealth(c: Ctx): void {
         a.v = 1;
         a.fix = true;
         a.seenAt = h.locationId;
+        continue;
+      }
+      // Somebody she has talked into looking the other way doesn't.
+      if (covering(w, n)) {
+        a.v = 0;
+        a.fix = false;
         continue;
       }
       // Nobody gets any of her from where they cannot see her, and anyone who had her has lost her.

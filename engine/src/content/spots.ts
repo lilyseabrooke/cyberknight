@@ -573,3 +573,47 @@ export function spotRoom(def: SpotDef, rng: Rng): { room: RoomDef; scene: string
 
 /** Does the place's own say-so give its people paper? (Atlas and the police do not; everyone else's people are on a list.) */
 export const hasPaper = (crew: Crew): boolean => crew === 'gang' || crew === 'free';
+
+// ===================================================================== parts to scavenge
+
+export interface SpotParts {
+  /** Which parts lie about, by weight. */
+  weights: Record<string, number>;
+  /** How much of it: 0 is nothing worth picking up, 1 is usual. */
+  rich: number;
+}
+
+const BY_CREW: Record<Crew, SpotParts> = {
+  gang: { weights: { scrap: 3, wiring: 1.5, servos: 1, chem: 1, plating: 0.5 }, rich: 1 },
+  atlas: { weights: { circuits: 3, wiring: 2, cells: 2, servos: 1, plating: 1 }, rich: 1.1 },
+  npd: { weights: { plating: 2, scrap: 1, cells: 1, wiring: 0.5 }, rich: 0.5 },
+  free: { weights: { scrap: 3, wiring: 1, circuits: 1, servos: 1, plating: 1 }, rich: 1.4 },
+};
+
+/** Places with a lot more (or less) lying about than their crew would suggest. */
+const OVERRIDE: Record<string, Partial<SpotParts>> = {
+  chop_pop: { weights: { scrap: 3, servos: 2, plating: 2, wiring: 1 }, rich: 1.8 },
+  drone_repair: { weights: { circuits: 3, cells: 3, servos: 2, wiring: 1 }, rich: 1.6 },
+  drone_graveyard: { weights: { circuits: 3, cells: 2, servos: 2, wiring: 2 }, rich: 2 },
+  feral_nest: { weights: { servos: 3, scrap: 3, cells: 1 }, rich: 1.8 },
+  scrapper_camp: { weights: { scrap: 3, wiring: 2, plating: 1, chem: 1 }, rich: 1.8 },
+  collapsed_site: { weights: { scrap: 3, plating: 1, wiring: 1 }, rich: 1.5 },
+  dumpster_cache: { weights: { scrap: 3, wiring: 1 }, rich: 1.2 },
+  stim_lab: { weights: { chem: 4, cells: 1 }, rich: 1.3 },
+  pill_mill: { weights: { chem: 4 }, rich: 1 },
+  relay_box: { weights: { wiring: 3, circuits: 2, cells: 1 }, rich: 1.4 },
+  black_ice_shed: { weights: { circuits: 3, wiring: 2, cells: 1 }, rich: 1.4 },
+  ad_kiosk: { weights: { circuits: 2, wiring: 2 }, rich: 1.2 },
+  armored_van: { weights: { plating: 4, scrap: 2 }, rich: 1.3 },
+  counterfeit_mill: { weights: { circuits: 2, chem: 2, wiring: 1 }, rich: 1 },
+  // Nothing to strip.
+  turf_marker: { rich: 0 }, racket_booth: { rich: 0 }, collection_day: { rich: 0 }, corrupt_cop: { rich: 0 }, cult_shrine: { rich: 0 },
+  bounty_hunters: { rich: 0 }, courier_ambush: { rich: 0 }, checkpoint_squeeze: { rich: 0.3 }, fixer_locker: { rich: 0.6 },
+};
+
+export function spotParts(key: string): SpotParts {
+  const crew = SPOTS[key]?.crew ?? 'free';
+  const base = BY_CREW[crew];
+  const o = OVERRIDE[key];
+  return { weights: o?.weights ?? base.weights, rich: o?.rich ?? base.rich };
+}
