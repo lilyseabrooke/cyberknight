@@ -105,7 +105,7 @@ function sizeFor(rng: Rng, role: GenRole, loc: Location): number {
 }
 
 /** Roles that stand on the street rather than inside something. */
-const FRONTAGE: GenRole[] = ['street', 'shop', 'bar', 'club', 'corp', 'flat', 'clinic', 'tunnel', 'outpost', 'hideout', 'spot', 'gym', 'pawn'];
+const FRONTAGE: GenRole[] = ['street', 'shop', 'bar', 'club', 'corp', 'flat', 'clinic', 'tunnel', 'outpost', 'hideout', 'spot', 'gym', 'pawn', 'realty'];
 
 // ===================================================================== placing
 

@@ -3,6 +3,7 @@ import { gainXp, here, relocate, addHeat } from './combat';
 import { clamp, type Candidate } from './candidate';
 import { odds, skillLevel, synergy, train } from './skills';
 import { kindle } from './romance';
+import { fireOf } from './callings';
 import { SKILLS } from './content/skills';
 import { isFairGame } from './people';
 import { bondEvent, romanceMod } from './bonds';
@@ -24,15 +25,6 @@ export const ACT_SKILL: Record<string, string> = {
   dj_set: 'djing', backlot_set: 'djing',
   beatbox: 'beatbox', beat_battle: 'beatbox',
   graffiti: 'art',
-};
-
-/** What a calling sounds like, by skill. */
-export const CALLING: Record<string, string> = {
-  vocals: 'become a superstar vocalist',
-  guitar: 'become a guitar legend',
-  djing: "become Neo's top DJ",
-  beatbox: 'become a beatbox legend',
-  art: 'cover Neo in her art',
 };
 
 const FATIGUE_PER_ACT = 0.22;
@@ -66,11 +58,6 @@ export function tickVenues(w: World): void {
     }
     if (!Object.keys(loc.fatigue).length) delete loc.fatigue;
   }
-  const p = w.mind.passion;
-  if (p) {
-    p.level -= 0.0025;
-    if (p.level <= 0.08) delete w.mind.passion;
-  }
 }
 
 /** What her tips are worth to a crowd this tired. */
@@ -93,7 +80,7 @@ export function fameFrom(c: Ctx, base: number, act: string): number {
     return base;
   }
   const fresh = freshness(w, loc.id, skill);
-  const fire = w.mind.passion?.skill === skill ? 1 + 0.15 * w.mind.passion.level : 1;
+  const fire = 1 + 0.15 * fireOf(w, skill);
   const gain = base * prestige(loc) * fresh * fire;
   h.fame += gain;
   const f = (loc.fatigue ??= {});
@@ -112,8 +99,7 @@ export function fameFrom(c: Ctx, base: number, act: string): number {
 export function passionBias(w: World, cand: { key: string }): number {
   const skill = ACT_SKILL[cand.key.split(':')[0]!];
   if (!skill) return 0;
-  const p = w.mind.passion;
-  const draw = p?.skill === skill ? 2.2 * p.level : 0;
+  const draw = 2.2 * fireOf(w, skill);
   const weary = 3.5 * (1 - freshness(w, w.hero.locationId, skill)) * (0.6 + 0.6 * w.hero.competence);
   return draw - weary;
 }

@@ -293,6 +293,12 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['credchip', 'med_pack'], lootChance: 0.4, cash: [40, 160],
     desc: ['a shopkeeper who has priced everything in the room, including you'],
   },
+  realtor: {
+    role: 'property agent', level: [2, 3], tags: ['staff', 'shopkeeper'], faction: 'shop',
+    names: 'person', weapons: ['switchblade', 'zip_pistol'], armors: ['kevlar_duster'], armorChance: 0.3,
+    loot: ['credchip', 'forged_pass'], lootChance: 0.4, cash: [60, 220],
+    desc: ['an agent in a cheap suit with an expensive smile, who can tell what you can afford from the way you stand', 'a property agent holding a tablet like a hymnal and a keyring like a rosary', 'an agent who has sold the same eleven square metres to four different people and sleeps fine'],
+  },
   drifter: {
     role: 'passer-by', level: [1, 2], tags: [], faction: null,
     names: 'person', weapons: ['broken_bottle', 'switchblade'], loot: ['credchip', 'neural_gum'], lootChance: 0.3, cash: [0, 40],
@@ -546,6 +552,7 @@ const PEOPLE: Record<string, PersonSpec> = {
   npd_officer: { age: [24, 56] },
   npd_sergeant: { age: [38, 60] },
   shopkeeper: { age: [26, 68] },
+  realtor: { age: [28, 60] },
   atlas_trooper: { women: 0.4, age: [24, 48] },
   atlas_officer: { women: 0.4, age: [34, 58] },
   gang_runner: { age: [18, 30] },

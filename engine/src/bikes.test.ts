@@ -259,7 +259,8 @@ describe('a bike in a chase', () => {
       }
       // (Thrown off, she may be in shape to go on on foot, so the chase need not end; the bike is left lying where it fell either way.)
       if (events.some((e) => e.type === 'chase_mount' && ['thrown', 'bail', 'door'].includes(String(e.data.variant))) && (w.hero.parked ?? []).some((v) => v.body === 'bike')) strays++;
-      if (result === 'bailed' || result === 'wrecked') expect(w.hero.vehicle).toBeUndefined();
+      // (If it killed her, whatever she was driving when it did is beside the point: she may have taken a cruiser off them mid-chase.)
+      if ((result === 'bailed' || result === 'wrecked') && w.hero.hp > 0) expect(w.hero.vehicle).toBeUndefined();
     }
     expect(actions.has('lane_split')).toBe(true);
     expect(strays).toBeGreaterThan(0);

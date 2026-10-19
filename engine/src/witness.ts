@@ -8,6 +8,7 @@ import { hasBounty } from './bounty';
 import { isFairGame } from './people';
 import { nerve, traitOf } from './character';
 import { regard } from './ties';
+import { covering } from './influence';
 
 /**
  * Consequences for hitting people. If anyone sees it (a person, a drone, a security camera) the
@@ -42,6 +43,8 @@ export const workingCameras = (w: World, locId: string): number => {
 /** What a bystander does when they watch Blackbird start something. */
 export function reactionWeights(w: World, n: Npc, victim: Npc): Record<Reaction, number> {
   const rw: Record<Reaction, number> = { intervene: 0, join: 0, call_cops: 2, flee: 3, film: 1, cheer: 0.5, shun: 2 };
+  // She has had a word with them.
+  if (covering(w, n)) return { ...rw, call_cops: 0, intervene: 0, shun: 0, flee: 1, cheer: 1 };
   const tags = n.tags;
   const crooked = tags.includes('dealer') || tags.includes('fixer') || tags.includes('doc') || tags.includes('hacker');
   if (tags.includes('cop')) return { ...rw, intervene: 100 };
