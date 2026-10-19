@@ -197,3 +197,13 @@ Refinements: only the first three who see a takedown or find a body get the full
 the board (`Board.arrivals`, 3 to 6 rounds later, 0 to 2 officers, Atlas troopers on corp premises) at the body's tile. The officers who turn up are Alert, searching
 from the body, and each makes a tracking check at once (`hunch`) to find a trail to whoever did it, so a good one is soon looking right at her. They are ordinary units
 on the board after that: she can slip away, take them down, or be found. Told as `prowl_police`.
+
+### Props on the street (`content/props.ts`, `streets.ts`)
+
+Street layouts now carry props, made from the fixtures they already had (crates and containers become `crates`, stalls `stall`, lamps `lamp`, pipes `vent`, machines
+`vending`; at most two of each kind, six in all) on a tile beside the fixture. The kinds have the same fields as the indoor ones (`noise`, `charges`, `darkens`)
+and a new `slows`: how much ground it costs whoever is behind her. In a chase on foot, `propNear` finds the nearest charged prop within two tiles of the next
+few tiles of her line; with the pursuers 1.5 to 12 tiles back she may use it (`use_prop`, scored like the other actions, with an athletics-and-reflex
+roll): `slows` adds to every pursuer's gap (half for those in cars), `darkens` makes a dark patch (`ChaseBoard.dim`, which `chaserSees` reads, so she is
+harder to see for four rounds), and a noisy one sets a decoy (the tracking check is harder for three rounds). A failure costs her half a tile. Told as `chase_prop`.
+Not yet: the pursuers using props against her, or props in car chases.

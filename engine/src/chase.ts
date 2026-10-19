@@ -15,6 +15,7 @@ import { skillValue, train } from './skills';
 import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
+import { PROPS } from './content/props';
 import { streetHunt } from './streethunt';
 import { bystand } from './bystanders';
 import { patrolArrives, sendAway, shootEveryone } from './callins';
@@ -22,7 +23,7 @@ import { BEHIND, addTire, ambientNoise, carries, coverOf, eased, follow, rest, s
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
-import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, hideGuess, hideScene, inTheWay, stepAside, openBoard, outsFrom, seesFrom, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
+import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, hideGuess, hideScene, inTheWay, propNear, stepAside, openBoard, outsFrom, seesFrom, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
 import type { Pos } from './grid';
 
 /**
@@ -99,6 +100,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   // The noise she (or whoever is running) has made since they were last in sight of her: it all helps whoever is following.
   let loud = 0;
   let lost = false;
+  // Rounds left in which a noise she set off still has them looking the wrong way.
+  let decoy = 0;
   // Bystanders who have already had their say.
   const said = new Set<string>();
   // The round a patrol will turn up, if somebody called it in.
@@ -110,7 +113,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     const n = (tries.get(f) ?? 0) + (why === 'far' ? 1 : 0);
     if (n > 3) return 'none';
     if (why === 'far') tries.set(f, n);
-    const cover = eased(heroCover(w, squeeze) + (hid ? 2 : 0), loud);
+    const cover = eased(heroCover(w, squeeze) + (hid ? 2 : 0) + (decoy > 0 ? 3 : 0), loud);
     const best = f.crew.filter((x) => x.alive).reduce((a, x) => Math.max(a, trackerOf(x)), f.crew.some((x) => x.alive) ? 0 : -9) + (f.foot ? 0 : -1);
     const r = follow(rng, best, cover);
     trails.set(f, r.trail);
@@ -448,6 +451,8 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
           squeeze = clamp(0.6 * streetSqueeze + 0.4 * localSqueeze(cb), 0, 1);
           tight = squeeze >= 0.45;
         }
+        if (cb) cb.round = round;
+        if (decoy > 0) decoy--;
         o.watch?.(cb, round);
       }
       // On their vehicle: a round of its own.
@@ -496,6 +501,9 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         // Somewhere to duck into: a doorway, a side street, a way up, or a crowd or a tight street to lose herself in.
         outs = board ? outsFrom(w, board).filter((x) => x.kind !== 'cover' || !car) : [];
         scores.lose_them = (tight || outs.some((x) => x.kind !== 'crowd')) && lead.gap >= 3 ? (foot ? 7.5 : 6.5) + (outs.some((x) => x.kind === 'door' || x.kind === 'up') ? 1 : 0) + (board && blockIn(board) !== null && outs.some((x) => x.kind !== 'crowd') ? 3 : 0) : 0;
+        // Something on the street to pull down behind her, or put out.
+        const handy = foot && board && !boarded ? propNear(board) : null;
+        scores.use_prop = handy && lead.gap >= 1.5 && lead.gap <= 12 ? 4.5 + (band === 'close' ? 1.5 : 0) + (PROPS[handy.kind as keyof typeof PROPS]?.slows ? 0.5 : 0) : 0;
         scores.shoot = armedBack && (band === 'near' || band === 'close') ? 4 : 0;
         if (band === 'locked' && lead.car && hpRatio > 0.5) scores.board = 2;
         if (foot && ride && faster) scores.grab = 8;
@@ -759,6 +767,21 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
           } else if (out.kind === 'up' && board) {
             board.placed.board.hero = { ...out.at };
             hid = true;
+          }
+        }
+      } else if (action === 'use_prop' && board) {
+        const pr = propNear(board);
+        const def = pr ? PROPS[pr.kind as keyof typeof PROPS] : null;
+        if (pr && def) {
+          if (rng.chance(clamp(0.7 + 0.03 * skillValue(h, 'athletics') + 0.01 * h.reflex - 0.1 * squeeze, 0.3, 0.95))) {
+            pr.charges--;
+            if (def.slows) for (const f of live) f.gap += def.slows * (f.foot ? 1 : 0.5);
+            if (def.darkens) (board.dim ??= []).push({ at: { x: pr.x, y: pr.y }, r: def.darkens, until: round + 4 });
+            if (def.noise >= 0.25) decoy = 3;
+            c.emit('chase_prop', 'good', { variant: pr.kind, ok: true, label: def.label, foe: lead.name, place: here.name });
+          } else {
+            for (const f of live) f.gap = Math.max(0, f.gap - 0.5);
+            c.emit('chase_prop', 'bad', { variant: pr.kind, ok: false, label: def.label, foe: lead.name, place: here.name });
           }
         }
       } else if (action === 'bail') {

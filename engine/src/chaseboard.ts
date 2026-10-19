@@ -2,6 +2,7 @@ import { dist, hasLos, idx, passable, pathTo, reach, terrainAt, type Pos } from 
 import { moveNpc } from './population';
 import { atLeast, awareness, bucketOf, lose } from './stealth';
 import { commitBoard, placeOf, syncPlace, viewOf, type Placed } from './placeboard';
+import { PROPS, type PropKind } from './content/props';
 import { dirOf, makeUnit, prowlBoard } from './prowl';
 import type { Rng } from './rng';
 import { roadClass } from './roads';
@@ -28,6 +29,10 @@ export interface ChaseBoard {
   exitTo: Id | null;
   /** How far along it she is, in tiles. */
   s: number;
+  /** Dark patches she has made (a streetlamp put out, steam let go): where, how far, and until which round. */
+  dim?: { at: Pos; r: number; until: number }[];
+  /** The round of the chase (for the above). */
+  round?: number;
   /** Whoever got ahead of her has put something across the way on: where, and whether it has been told or dealt with. */
   block?: { at: Pos[]; told: boolean; done: boolean };
 }
@@ -301,7 +306,8 @@ export function chaserSees(w: World, cb: ChaseBoard, gap: number, wings = false)
   const g = cb.placed.layout.grid;
   const her = tileAt(cb, cb.s);
   const them = chaserTile(cb, gap).at;
-  const lit = w.flags.blackout ? 0 : cb.placed.layout.light[idx(g, her)] ?? 1;
+  const dark = (cb.dim ?? []).some((d) => (cb.round ?? 0) < d.until && dist(d.at, her) <= d.r);
+  const lit = w.flags.blackout || dark ? 0 : cb.placed.layout.light[idx(g, her)] ?? 1;
   const range = lit === 0 ? SIGHT * 0.55 : lit === 2 ? SIGHT * 1.15 : SIGHT;
   if (dist(them, her) > range) return false;
   return wings || hasLos(g, them, her);
@@ -393,4 +399,29 @@ export function stepAside(cb: ChaseBoard, id: Id): void {
     e.x = q.x;
     e.y = q.y;
   }
+}
+
+// ------------------------------------------------------------------ things to use
+
+export interface NearProp {
+  kind: PropKind;
+  x: number;
+  y: number;
+  charges: number;
+}
+
+/** The nearest thing she could use that is beside the line a little way ahead (or where she is): something to pull down behind her. */
+export function propNear(cb: ChaseBoard): NearProp | null {
+  const her = tileAt(cb, cb.s);
+  const ahead = cb.path.slice(Math.floor(cb.s), Math.floor(cb.s) + 7);
+  let best: { p: NearProp; d: number } | null = null;
+  for (const p of cb.placed.board.props as NearProp[]) {
+    if (p.charges <= 0) continue;
+    const def = PROPS[p.kind as PropKind];
+    if (!def || (!def.slows && !def.darkens)) continue;
+    if (!ahead.some((q) => dist(q, p) <= 2)) continue;
+    const d = dist(her, p);
+    if (!best || d < best.d) best = { p, d };
+  }
+  return best?.p ?? null;
 }

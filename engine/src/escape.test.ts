@@ -452,4 +452,26 @@ describe('a hunt on the street', () => {
     expect(seen['prowl_witness:crowd'] ?? 0).toBeGreaterThan(0);
     expect((seen['prowl_police:arrive'] ?? 0) + (seen['prowl_police:nobody'] ?? 0)).toBeGreaterThan(0);
   });
+
+  it('streets have things standing about to pull down, and a runner on foot uses them on whoever is behind', () => {
+    const kinds = new Set<string>();
+    const used: Record<string, number> = {};
+    for (let i = 0; i < 200; i++) {
+      const sc = scenario({ seed: `props-${i % 40}`, at: 'street_main', competence: 0.6 });
+      const { w } = sc;
+      w.hero.level = 8;
+      w.hero.maxHp = w.hero.hp = 180;
+      const p = placeOf(w)!;
+      for (const pr of p.layout.props) kinds.add(pr.kind);
+      const { c, events } = ctxOf(w, new Rng(`pr-${i}`));
+      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 5)) });
+      for (const e of events) {
+        expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
+        if (e.type === 'chase_prop') used[`${e.data.variant}:${e.data.ok}`] = (used[`${e.data.variant}:${e.data.ok}`] ?? 0) + 1;
+      }
+    }
+    expect(kinds.size).toBeGreaterThan(0);
+    expect(Object.keys(used).length).toBeGreaterThan(0);
+  });
 });

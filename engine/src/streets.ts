@@ -1,8 +1,9 @@
 import { Rng } from './rng';
 import type { Id, Location, Via } from './types';
 import { Draft, pt, type DoorPlan } from './layoutkit';
-import type { FixtureKind, Layout, LightLevel } from './layout';
-import { dist, idx, type Pos } from './grid';
+import type { Fixture, FixtureKind, Layout, LightLevel } from './layout';
+import type { PropKind } from './content/props';
+import { dist, idx, passable, type Pos } from './grid';
 import { DIRS } from './hex';
 import { streetTypeOf, type StreetType } from './streettypes';
 
@@ -231,6 +232,19 @@ function finishStreet(loc: Location, d: Draft, site: Site, o: { base?: LightLeve
   // Cameras on poles along the frontage, looking down the street one way or the other.
   const poles = l.fixtures.filter((f) => f.kind === 'lamp').map((f) => f.tiles[0]!);
   if (poles.length) l.cams = poles.filter((_, i) => i % 2 === 0).slice(0, Math.max(0, loc.cameras)).map((p, i) => ({ id: `cam${i}`, x: p.x, y: p.y, facing: i % 2 ? 2 : 6 }));
+  // The things that stand about on a street are things to pull down, push over or switch off.
+  const FIXTURE_PROP: Partial<Record<Fixture['kind'], PropKind>> = { crate: 'crates', container: 'crates', stall: 'stall', lamp: 'lamp', pipe: 'vent', machine: 'vending' };
+  const taken = new Set<string>();
+  const counts: Partial<Record<PropKind, number>> = {};
+  for (const f of l.fixtures) {
+    const kind = FIXTURE_PROP[f.kind];
+    if (!kind || (counts[kind] ?? 0) >= 2 || l.props.length >= 6) continue;
+    const at = f.use.find((p) => passable(l.grid, p.x, p.y) && !taken.has(`${p.x},${p.y}`) && l.grid.cells[p.y * l.grid.w + p.x] !== 'exit');
+    if (!at) continue;
+    taken.add(`${at.x},${at.y}`);
+    counts[kind] = (counts[kind] ?? 0) + 1;
+    l.props.push({ kind, x: at.x, y: at.y });
+  }
   return l;
 }
 

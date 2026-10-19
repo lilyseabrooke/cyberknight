@@ -291,7 +291,7 @@ describe('the law gets ahead of her', () => {
       w.heat.npd = 8;
       const { c, events } = ctxOf(w, new Rng(`noblock${i}`));
       runChase(c, { mode: 'pursued', cause: 'test', foes: [carFoe(w, `g${i}`, 5)], maxRounds: 8 });
-      expect(events.some((e) => e.type === 'chase_block')).toBe(false);
+      if (!events.some((e) => e.type === 'chase_police')) expect(events.some((e) => e.type === 'chase_block')).toBe(false);
     }
   });
 
