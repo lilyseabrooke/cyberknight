@@ -18,7 +18,7 @@ import { Rng } from './rng';
 import { camerasSeeHer } from './placeboard';
 import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type Mode, type Route } from './shortcut';
 import { VIA } from './hexmap';
-import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, ambush, hideGuess, inTheWay, stepAside, openBoard, outsFrom, passBy, seesFrom, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
+import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, hideGuess, hideScene, inTheWay, stepAside, openBoard, outsFrom, seesFrom, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
 import type { Pos } from './grid';
 
 /**
@@ -648,7 +648,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         told.push('lost');
         // The surest way first: a door or an alley, then a way up, and a fence or a duct only if it is much nearer (it can go wrong, and for a car it can be no way at all).
         const mode0: Mode = car ? (car.body === 'bike' ? 'bike' : 'car') : 'foot';
-        const rank = (x: Out): number => x.d + (x.kind === 'over' ? 5 : x.kind === 'up' ? 2 : x.kind === 'cover' ? 6 : 0) + (x.kind === 'over' && x.via && !Number.isFinite(VIA[x.via][mode0]) ? 99 : 0);
+        const rank = (x: Out): number => x.d + (x.kind === 'over' ? 5 : x.kind === 'up' ? 2 : x.kind === 'cover' ? 9 : 0) + (x.kind === 'over' && x.via && !Number.isFinite(VIA[x.via][mode0]) ? 99 : 0);
         const out = outs.filter((x) => x.kind !== 'crowd').sort((a, b) => rank(a) - rank(b))[0] ?? outs.find((x) => x.kind === 'crowd');
         if (out) {
           told.push(`lost:${out.kind}`);
@@ -685,42 +685,29 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             refresh();
             hid = true;
           } else if (out.kind === 'cover' && board) {
-            // Down in the dark off the line, and still: they run by, looking, and either one of them sees her or they are gone on past.
+            // Down in the dark off the line, and still: they run by, and it is the same scene as anywhere else people have not seen her.
             board.placed.board.hero = { ...out.at };
-            const spotted = passBy(w, board, live, out.at, rng);
-            if (spotted.length) {
+            h.stealth = true;
+            const r = hideScene(c, board, live, out.at);
+            for (const f of live) {
+              const mine = (xs: Npc[]): boolean => f.crew.some((n) => xs.includes(n));
+              if (mine(r.seen)) f.gap = Math.min(f.gap, 1.5);
+              else {
+                f.off = true;
+                f.gap = ESCAPE_GAP + 1;
+                if (f.crew.every((n) => !n.alive)) f.alive = false;
+                else if (mine(r.left)) leaveSearching(w, board, [f], out.at);
+              }
+            }
+            runPast(w, board, [{ crew: r.gone }]);
+            if (r.down.length) told.push('ambush');
+            if (r.seen.length) {
               result = null;
-              for (const f of live) if (f.crew.some((n) => spotted.includes(n))) f.gap = Math.min(f.gap, 1);
+              h.stealth = false;
               told.splice(0, told.length, ...told.filter((t) => !t.startsWith('lost')), 'hide:found');
             } else {
-              h.stealth = true;
-              // The last of them is on his own, with his back to her. She can take him, or let them all go.
-              const last = live.filter((f) => f.foot && f.crew.length === 1 && f.crew[0]!.alive && power(f) <= heroPower(w) * 1.3).sort((a, b) => b.gap - a.gap)[0];
-              let again: Chaser[] = [];
-              if (last && rng.chance(0.6)) {
-                const n = last.crew[0]!;
-                if (ambush(c, board, n, last.gap, out.at)) {
-                  last.off = true;
-                  last.gap = ESCAPE_GAP + 1;
-                  if (!n.alive) last.alive = false;
-                  told.push('ambush');
-                  // Whatever noise she made, the rest may have heard it.
-                  again = live.filter((f) => f !== last && rng.chance(0.2));
-                } else {
-                  last.gap = 0.5;
-                  again = [last];
-                }
-              }
-              if (again.length) {
-                result = null;
-                for (const f of again) f.gap = Math.min(f.gap, 1.5);
-                told.splice(0, told.length, ...told.filter((t) => !t.startsWith('lost')), 'hide:found');
-                h.stealth = false;
-              } else {
-                runPast(w, board, live.filter((f) => !f.off));
-                hid = true;
-                if (!o.foes.some((f) => f.alive && !f.off)) result = o.foes.some((f) => f.alive) ? 'escaped' : 'won';
-              }
+              hid = true;
+              if (!o.foes.some((f) => f.alive && !f.off)) result = o.foes.some((f) => f.alive) ? 'escaped' : 'won';
             }
           } else if (out.kind === 'up' && board) {
             board.placed.board.hero = { ...out.at };

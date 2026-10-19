@@ -117,9 +117,12 @@ Charm: each person on the line may simply make way for her (`clamp(0.06 * (charm
 and no anger; they then close up behind her (`chase_crowd:ranks`), costing every pursuer 0.6 of gap per person who did. A charmed shove loses no
 affinity, and a charmed bump never makes anyone angry.
 
-### Takedown from cover
+### Takedowns happen wherever people haven't seen her
 
-When she has gone to ground and they run past without seeing her, the last of them (on foot, alone in his crew, no stronger than about 1.3× her) is on his own
-with his back to her. Six times in ten she takes him (`ambush` in `chaseboard.ts`: the ordinary prowl `takedown`, with its own odds, arcs, kill/KO and
-`prowl_takedown` text). He is out of the chase, and each of the rest has a one-in-five chance of hearing it and coming back. A failed takedown is a
-`hide:found` with him on top of her. If nobody is left, the chase ends as won or escaped.
+The takedown is not a special case of any one scene. In `plan()`, whatever she is doing (clearing a room, slipping out, keeping still), if anyone is in
+melee range and hasn't seen her (not Aware, `sightGain` under 0.05) and nobody *else* is about to (`nearlyCaught`, ignoring the target), she takes them
+(`takedown`: its own odds by arc, light and skill; knockout or kill; the noise goes round the board and may make others look). Going to ground in a
+chase is the same scene: `hideScene` puts the street's board up with her in her corner and the pursuers as `runner` units following the line a tile a
+round, not looking, until something reaches them (a sight or a noise raises their awareness) and they stop and look about. Goal `hide` has her hold still
+and take whoever comes within reach. Whoever has her at the end is `seen` (the chase goes on), whoever ran on has `gone` (off the street), whoever
+stopped to look is `left` (searching), whoever she put down is `down`. Bodies stay on the board.

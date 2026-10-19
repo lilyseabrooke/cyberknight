@@ -88,14 +88,14 @@ describe('a hunt on the street', () => {
       w.hero.level = 8;
       w.hero.maxHp = w.hero.hp = 180;
       const { c, events } = ctxOf(w, new Rng(`g-${i}`));
-      const crew = spawnGroup(c, 'ganger', 2, 'vipers');
+      const crew = spawnGroup(c, 'ganger', 1 + (i % 2), 'vipers');
       runChase(c, { mode: 'pursued', cause: 'test', foes: crew.map((n) => onFoot(n, 4)) });
       for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
       const told = events.filter((e) => e.type === 'chase_round').map((e) => String(e.data.events)).join(' ');
       if (told.includes('lost:cover')) {
         seen.past = (seen.past ?? 0) + 1;
         expect(w.hero.stealth).toBe(true);
-        if (!events.some((e) => e.type === 'chase_search')) for (const n of crew) if (n.alive) expect(n.locationId).not.toBe(w.hero.locationId);
+        if (!events.some((e) => ['chase_search', 'prowl_takedown', 'stealth_notice', 'call_for_help'].includes(e.type))) for (const n of crew) if (n.alive && n.locationId === w.hero.locationId) expect(n.aware?.fix ?? false).toBe(false);
       }
       if (told.includes('hide:found')) seen.found = (seen.found ?? 0) + 1;
       if (told.includes('ambush')) {

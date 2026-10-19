@@ -520,7 +520,7 @@ export function storeUnit(u: PUnit, e: Ent): void {
  * The board as the sneaking code plays it: this room as it stands, with these people (or everyone near enough) in it. The bodies, the
  * machines and the darkened patches are the board's own, so whatever happens to them stays happened.
  */
-export function viewOf(w: World, p: Placed, o: { foes?: Npc[]; near?: number; except?: Id[]; goal?: 'clear' | 'leave' } = {}): Board {
+export function viewOf(w: World, p: Placed, o: { foes?: Npc[]; near?: number; except?: Id[]; goal?: 'clear' | 'leave' | 'hide' } = {}): Board {
   const { board, layout } = p;
   const who: Npc[] = o.foes ?? Object.keys(board.ents).filter((id) => w.npcs[id] && !(o.except ?? []).includes(id) && dist(board.ents[id]!, board.hero) <= (o.near ?? 99)).map((id) => w.npcs[id]!);
   const units = who.filter((n) => board.ents[n.id]).map((n) => unitOf(n, board.ents[n.id]!));

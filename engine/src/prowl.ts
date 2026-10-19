@@ -67,6 +67,8 @@ export interface PUnit {
   down: boolean;
   /** Gone out the door rather than put down. */
   fled?: boolean;
+  /** Not looking, just running somewhere along a line of tiles (a chase going past): until something reaches them, which makes them stop and look. */
+  runner?: { path: Pos[]; i: number; step: number; v: number };
 }
 
 export interface Prop {
@@ -99,7 +101,7 @@ export interface Board {
   /** The cameras that are working, bolted where they are. They sweep (see `camFacing`). */
   cams?: CamMount[];
   /** What she is doing here: putting them down (the default), or getting out without being seen. */
-  goal?: 'clear' | 'leave';
+  goal?: 'clear' | 'leave' | 'hide';
   /** The ways out of the room, and what is beyond them. */
   ways?: { at: Pos; to: Id }[];
   /** The way she took out, if she took one. */
@@ -338,8 +340,9 @@ export function exposure(b: Board, at: Pos, posture: Posture): number {
 }
 
 /** Would standing here put somebody over the line? */
-function nearlyCaught(b: Board, at: Pos, posture: Posture): boolean {
+function nearlyCaught(b: Board, at: Pos, posture: Posture, except?: PUnit): boolean {
   for (const u of live(b)) {
+    if (u === except) continue;
     const v = u.npc.aware?.v ?? 0;
     const gain = Math.max(sightGain(b, u, at, posture), ...predict(b, u).map((p) => sightGain(b, p, at, posture)));
     if (gain > 0 && v + gain >= V.aware - 0.05) return true;
@@ -371,6 +374,27 @@ function walkTo(b: Board, u: PUnit, to: Pos, steps = 1): boolean {
 /** Those who run rather than look: people with nothing to fight with and no reason to stay. */
 const TIMID = new Set(['patron', 'drifter', 'street_kid', 'noodler', 'shopkeeper', 'bartender', 'dancer', 'gym_regular', 'gym_desk', 'scientist', 'doc', 'cook', 'tourist']);
 export const timid = (n: Npc): boolean => TIMID.has(n.archetype) && !n.hostile;
+
+/** Somebody going by along a line, not looking for anything: on along it, until something reaches them (a sight, a sound) and they stop and look. */
+function runAlong(b: Board, u: PUnit): void {
+  const r = u.runner!;
+  if ((u.npc.aware?.v ?? 0) > r.v + 0.04) {
+    delete u.runner;
+    u.behavior = 'investigate';
+    u.last = u.last ?? { ...b.hero };
+    return;
+  }
+  r.i += r.step;
+  if (r.i >= r.path.length - 1) {
+    u.down = true;
+    u.fled = true;
+    return;
+  }
+  const at = r.path[r.i]!;
+  u.facing = dirOf({ x: u.x, y: u.y } as never, r.path[Math.min(r.path.length - 1, r.i + 1)]!);
+  u.x = at.x;
+  u.y = at.y;
+}
 
 /** What one unit does with its round, by how much it knows. */
 function act(b: Board, u: PUnit, rng: Rng): void {
@@ -607,12 +631,18 @@ function planLeave(b: Board): Plan {
 /** What she does with a round. */
 function plan(b: Board, state: { holds: number; sinceProp: number }): Plan {
   const h = b.hero;
-  if (b.goal === 'leave') return planLeave(b);
   // A body in sight of somebody wants moving.
   for (const body of b.bodies) {
     if (body.found) continue;
     if (dist(h, body) <= 1 && bodySeen(b, body)) return { kind: 'drag', body };
   }
+  // Whoever is in reach and has not seen her, whatever else she is doing: she takes them, if nobody else is about to see.
+  const close = live(b)
+    .filter((u) => dist(h, u) <= 1 && !atLeast(bucketOf(b.w, u.npc), 'aware') && sightGain(b, u, h, 'hold') < 0.05)
+    .sort((x, y) => (x.npc.aware?.v ?? 0) - (y.npc.aware?.v ?? 0))[0];
+  if (close && !nearlyCaught(b, h, 'hold', close)) return { kind: 'takedown', target: close };
+  if (b.goal === 'hide') return { kind: 'hold' };
+  if (b.goal === 'leave') return planLeave(b);
   const choice = pickTarget(b);
   if (!choice) return { kind: 'hold' };
   const { target, dm } = choice;
@@ -677,7 +707,7 @@ export interface ProwlOpts {
   /** For the log: "three drones and a trooper". */
   describe?: (foes: Npc[]) => string;
   /** Slip away rather than clear the place: she is looking for a way out, not for fights. */
-  goal?: 'clear' | 'leave';
+  goal?: 'clear' | 'leave' | 'hide';
   /** Told as a hunt: they are looking for her, not just standing about. */
   hunt?: boolean;
   /** Filled in: where she slipped away to. */
@@ -829,7 +859,9 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
     // Their turn, and what they make of her.
     for (const u of live(b)) {
       const before = bucketOf(w, u.npc);
-      act(b, u, rng);
+      if (u.runner) runAlong(b, u);
+      else act(b, u, rng);
+      if (u.down) continue;
       const a = awareness(w, u.npc);
       const seen = sightGain(b, u, b.hero, b.posture);
       if (seen > 0) {
@@ -851,7 +883,7 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
         train(c, 'perception', 1);
         say('stealth_notice', now === 'aware' ? 'bad' : 'mixed', { variant: now, npc: u.npc.name, role: u.npc.role });
       }
-      if (RANK[now] >= RANK.alert && !a.calledSince) maybeCall(c, b, u);
+      if (!u.runner && RANK[now] >= RANK.alert && !a.calledSince) maybeCall(c, b, u);
     }
     for (const f of b.fled?.splice(0) ?? []) say('prowl_flee', 'mixed', { npc: f.npc.name, to: w.locations[f.to]?.name ?? 'the door' });
 
@@ -884,7 +916,7 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
       } else if (loc) loc.camAware = Math.max(0, (loc.camAware ?? 0) - 0.03);
     }
     if (live(b).some((u) => u.behavior !== 'flee' && atLeast(bucketOf(w, u.npc), 'aware'))) return 'detected';
-    if (state.holds >= 9) return 'stalled';
+    if (state.holds >= 9 && !live(b).some((u) => u.runner)) return 'stalled';
   }
   return 'stalled';
 }

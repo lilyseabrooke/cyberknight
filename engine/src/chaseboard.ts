@@ -1,8 +1,8 @@
 import { dist, hasLos, idx, passable, pathTo, reach, terrainAt, type Pos } from './grid';
 import { moveNpc } from './population';
-import { V, lose } from './stealth';
-import { placeOf, syncPlace, viewOf, type Placed } from './placeboard';
-import { dirOf, makeUnit, sightGain, takedown, type PUnit } from './prowl';
+import { atLeast, awareness, bucketOf, lose } from './stealth';
+import { commitBoard, placeOf, syncPlace, viewOf, type Placed } from './placeboard';
+import { dirOf, makeUnit, prowlBoard } from './prowl';
 import type { Rng } from './rng';
 import { roadClass } from './roads';
 import { isClosed } from './hours';
@@ -230,63 +230,46 @@ function hideSpot(cb: ChaseBoard, reachTiles: number, here: Pos): { at: Pos; d: 
     const dark = (layout.light[k] ?? 1) === 0;
     const behind = [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => terrainAt(g, at.x + dx, at.y + dy) === 'cover'));
     if (!dark && !behind) continue;
-    const s = (dark ? 2 : 0) + (behind ? 2 : 0) + off - 0.3 * c;
+    const s = (dark ? 2 : 0) + (behind ? 2 : 0) - 0.5 * (off - 1) - 0.3 * c;
     if (!best || s > best.s) best = { at, d: c, s };
   }
   return best ? { at: best.at, d: best.d } : null;
 }
 
 /**
- * She is down in the dark and they run by: along the line, from where they are to well past her, each of them looking as they go.
- * Whoever sees enough of her has her; if nobody does they have gone on, and are somewhere beyond.
+ * She is down in the dark and they run by: the street's board with her in a corner of it and each of them a runner on the line. It is the
+ * same scene as any other where people haven't seen her (`prowlBoard`, goal `hide`): she keeps still, takes whoever comes within reach
+ * and hasn't seen her if nobody is about to, and it makes the noise it makes. Whoever has her at the end is `seen`; whoever got away on
+ * down the street has `gone`; whoever stopped to look about is `left`.
  */
-export function passBy(w: World, cb: ChaseBoard, foes: { crew: Npc[]; gap: number }[], spot: Pos, rng: Rng): Npc[] {
-  const p = cb.placed;
-  const b = viewOf(w, p, { foes: [] });
-  b.hero = { ...spot };
-  b.posture = 'hold';
-  const found: Npc[] = [];
-  for (const f of foes) {
-    for (const n of f.crew) {
-      if (!n.alive || n.downUntil > w.beat) continue;
-      let seen = 0;
-      for (let i = Math.floor(cb.s - f.gap); i <= cb.s + 12; i++) {
-        const at = tileAt(cb, i);
-        const ahead = tileAt(cb, i + 1);
-        const u = makeUnit(n, at, dirOf({ x: at.x, y: at.y } as never, ahead), {});
-        u.behavior = 'patrol';
-        seen += sightGain(b, u, spot, 'hold') * (0.85 + 0.3 * rng.next());
-      }
-      if (seen >= V.aware * 0.4) found.push(n);
-    }
-  }
-  return found;
-}
-
-/**
- * The last one past, with nobody looking back: she steps out behind them. A takedown as in any other scene (see `prowl.ts`), done to whoever is
- * level with her on the line; what it does to their friends is the noise it makes. Returns whether it worked.
- */
-export function ambush(c: Ctx, cb: ChaseBoard, n: Npc, gap: number, spot: Pos): boolean {
+export function hideScene(c: Ctx, cb: ChaseBoard, foes: { crew: Npc[]; gap: number }[], spot: Pos): { seen: Npc[]; down: Npc[]; gone: Npc[]; left: Npc[] } {
   const { w } = c;
-  const b = viewOf(w, cb.placed, { foes: [] });
+  const b = viewOf(w, cb.placed, { foes: [], goal: 'hide' });
   b.hero = { ...spot };
-  // The point on their way that is nearest her.
-  let k = Math.max(0, Math.floor(cb.s - gap));
-  let best = Infinity;
-  for (let i = k; i <= Math.min(cb.path.length - 1, Math.floor(cb.s) + 12); i++) {
-    const d = dist(tileAt(cb, i), spot);
-    if (d < best) {
-      best = d;
-      k = i;
-    }
+  // They run on, a tile a round, until they are well past her.
+  let near = 0;
+  for (let i = 1; i < cb.path.length; i++) if (dist(cb.path[i]!, spot) < dist(cb.path[near]!, spot)) near = i;
+  const line = cb.path.slice(0, Math.min(cb.path.length, near + 11));
+  for (const f of foes) {
+    f.crew.filter((n) => n.alive && n.downUntil <= w.beat).forEach((n, k) => {
+      lose(w, n);
+      const i = Math.max(0, Math.floor(cb.s - f.gap) - k);
+      const at = cb.path[i]!;
+      const u = makeUnit(n, at, dirOf({ x: at.x, y: at.y } as never, cb.path[Math.min(cb.path.length - 1, i + 1)]!), {});
+      u.runner = { path: line, i: Math.min(i, line.length - 1), step: 1, v: awareness(w, n).v };
+      b.units.push(u);
+    });
   }
-  const at = tileAt(cb, k);
-  const u: PUnit = makeUnit(n, at, dirOf({ x: at.x, y: at.y } as never, tileAt(cb, k + 1)), {});
-  u.behavior = 'patrol';
-  b.units.push(u);
-  const ok = takedown(c, b, u, (type, outcome, data) => c.emit(type, outcome, data));
-  return ok;
+  prowlBoard(c, b, (type, outcome, data) => c.emit(type, outcome, data));
+  commitBoard(b, cb.placed);
+  const out = { seen: [] as Npc[], down: [] as Npc[], gone: [] as Npc[], left: [] as Npc[] };
+  for (const u of b.units) {
+    if (u.fled) out.gone.push(u.npc);
+    else if (u.down) out.down.push(u.npc);
+    else if (atLeast(bucketOf(w, u.npc), 'aware')) out.seen.push(u.npc);
+    else out.left.push(u.npc);
+  }
+  return out;
 }
 
 /** They ran past: on along the line and off the end of it, still looking, with no idea where she went. */
@@ -295,7 +278,8 @@ export function runPast(w: World, cb: ChaseBoard, foes: { crew: Npc[] }[]): void
     for (const n of f.crew) {
       if (!n.alive || n.downUntil > w.beat) continue;
       lose(w, n);
-      if (cb.exitTo && w.locations[cb.exitTo]) moveNpc(w, n, cb.exitTo);
+      const dest = cb.exitTo ?? w.locations[cb.loc]?.exits.find((e) => w.locations[e.to])?.to;
+      if (dest && w.locations[dest]) moveNpc(w, n, dest);
     }
   }
 }
