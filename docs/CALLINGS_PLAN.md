@@ -171,6 +171,7 @@ likelier. "Needs counter" marks anything the engine doesn't yet track.
 | **Drink Neo dry** | "have a drink in every bar in Neo" | a legendary night | bar-hopping, `buy_round`, tolerates the consequences | N bars (counter) | drink, sociable |
 | **See it all** | "see every street in this city" | stumbling on somewhere secret | `explore`, ever further from home | fraction of the map seen | curiosity |
 | **Cook for Neo** | "make Neo's best noodles" | a meal that goes over well | `cook`, stalls, ingredients | dishes served (counter) | appetite, sociable |
+| **Fish Neo's water** | "catch N things out of Neo's water, and not one of them a fish she would eat" | a good or legendary catch, a rod trick that lands, a fishing level-up; and, inexplicably, a *wound* ("if only I'd had a fish") | `fish` and every rod trick; scrap heaps and dumpsters when she has no rod; any water she knows | things landed on a line (`hooked` counter) | curiosity, mischief; not thrill or impulsive |
 
 That is 26 with the one added in the build (**Banned from everywhere**), enough to cover the traits without repeating, and several are deliberately small and silly (the tone doc's
 whole joke is the gap between how big she thinks it is and how big it is). A Calling doesn't have to be grand to be a Calling.

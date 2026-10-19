@@ -268,7 +268,7 @@ export function callingAfter(c: Ctx, pick: Candidate | null, gained: number, eve
   const target = hit.def.aim?.(w, rng, sctx);
   if (hit.def.aim && !target) return;
   const by = (h?.data.by as string | undefined) || 'something';
-  const why = !wound ? hit.def.origin : lost ? `${lost.data.name ?? 'someone'} is dead, and ${lost.data.by ?? 'someone'} did it` : `${by} nearly killed her, and she remembers every second of it`;
+  const why = !wound ? hit.def.origin : hit.def.woundWhy ? hit.def.woundWhy(sctx) : lost ? `${lost.data.name ?? 'someone'} is dead, and ${lost.data.by ?? 'someone'} did it` : `${by} nearly killed her, and she remembers every second of it`;
   const fresh = make(c, hit.def, wound ? 'wound' : 'spark', Math.min(1, hit.s * 0.7 + 0.35 * rng.next() + (wound ? 0.25 : 0)), why, target ?? undefined);
   if (wound) fresh.origin.cause = lost ? 'loss' : 'brush';
   realise(c, fresh, !wound);

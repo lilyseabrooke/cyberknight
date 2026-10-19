@@ -83,7 +83,7 @@ describe('callings: how she gets one', () => {
       }
     }
     expect(wounded).toBeGreaterThan(20);
-    expect(Object.keys(taken).every((k) => ['avenge', 'cops'].includes(k))).toBe(true);
+    expect(Object.keys(taken).every((k) => ['avenge', 'cops', 'fish'].includes(k))).toBe(true);
     expect(taken.avenge).toBeGreaterThan(0);
     expect(taken.cops).toBeGreaterThan(0);
   });
@@ -287,7 +287,7 @@ describe('callings: a close call is a wound too', () => {
       expect(events.some((e) => e.type === 'calling' && e.data.variant === 'wound' && hasTemplate(e))).toBe(true);
     }
     expect(Object.values(taken).reduce((a, b) => a + b, 0)).toBeGreaterThan(20);
-    expect(Object.keys(taken).every((k) => ['cops', 'avenge', 'strongest', 'kit'].includes(k))).toBe(true);
+    expect(Object.keys(taken).every((k) => ['cops', 'avenge', 'strongest', 'kit', 'fish'].includes(k))).toBe(true);
     expect((taken.cops ?? 0) + (taken.avenge ?? 0)).toBeGreaterThan(10);
   });
 
