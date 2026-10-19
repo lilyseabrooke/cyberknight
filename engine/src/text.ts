@@ -824,6 +824,8 @@ const T: Record<string, Entry> = {
   'intent:gymfight': e((d) => [String(d.text)]),
   // ---- pawn shops: same shape (content/pawn*.ts)
   pawn: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  // ---- chop shops and workbenches (chop.ts, bench.ts): same shape
+  chop: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
   'intent:pawn': e((d) => [String(d.text)]),
   'intent:pawnquick': e((d) => [String(d.text)]),
   'intent:pawnfight': e((d) => [String(d.text)]),
@@ -1646,6 +1648,14 @@ const T: Record<string, Entry> = {
   ),
   'shut_down:pawn_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. Nobody in ${d.place} says so out loud. The clerks lay a cloth over the counter, someone turns the sign and a very quiet person with a key shows Blackbird to the pavement. The grille comes down and stays down.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, the ledger is under a lock and every tag in the window is waiting for somebody who is not coming.`],
+    ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
+  'shut_down:chop': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor there is nobody to run ${d.place}. The roller door comes down on its chain and someone with a key shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The roller door stays shut, and the radio inside plays to nobody.`],
+    ['I closed a chop shop. It was always going to be cleaner after.', 'No more day rate. Bad for the economy. Good for me, today.'],
+  ),
+  'shut_down:chop_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. The radio plays on for a bar, and then someone turns it off. A very quiet person with a key shows Blackbird to the pavement and pulls the roller door down on the bench.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back and the bench is under a tarp.`],
     ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
   ),
   'shut_down:clinic': e(

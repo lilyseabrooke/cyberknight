@@ -31,6 +31,8 @@ export interface Item {
   perRound?: number;
   /** Ammo boxes: how many rounds are inside. Picking one up pours it into `hero.ammo`. */
   rounds?: number;
+  /** Upgrades a workbench has put into this (each is +1 power; the name carries the count). See bench.ts. */
+  mods?: number;
   /** Weapons: the traits that make this one different from the next. See weapons.ts. Named classics without it get plain defaults. */
   fx?: WeaponFx;
   /** Car keys: the car this opens (`Vehicle.id`), and whether it belonged to gangers (their cars don't keep). See cars.ts. */
@@ -167,6 +169,8 @@ export interface Hero {
   waiting?: (Companion & { at: Id })[];
   /** Rounds on hand by ammo type (see content/ammo.ts). Shooting spends them; no rounds, no shooting. */
   ammo: Record<string, number>;
+  /** Components on hand by part id (see content/parts.ts): what a workbench takes things apart into and builds them from. Absent means none. */
+  parts?: Record<string, number>;
   buffs: Buff[];
   companions: Companion[];
   /** Skill XP by id; see skills.ts for levels. */
@@ -446,7 +450,7 @@ export interface Location {
   /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
   street?: StreetType;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'chop';
   exits: Exit[];
   /** Where it stands on the hex grid (outdoor places only): every cell it covers, and the cell it is anchored on. See hexmap.ts. */
   hex?: { q: number; r: number; cells: [number, number][]; /** The way it runs, for streets: the direction it grew in. */ dir: number };
@@ -516,8 +520,23 @@ export interface Location {
   pawn?: PawnInfo;
   /** A room of a pawn shop (vault, workshop, parlour...): which shop, and which room. */
   pawnRoom?: { main: Id; room: string };
+  /** A chop shop's makeup: what it is built in, how good the bench is, what the door costs. Rolled with the place. See content/chops.ts. */
+  chop?: ChopInfo;
   /** A pawn shop's shelf: what is on it, including whatever she hocked and may still buy back. Made the first time it is looked at. See pawnkit.ts. */
   shelf?: PawnLot[];
+}
+
+/** What a chop shop is. Small on purpose: a shell, a bench and a door. (content/chops.ts says what each id means.) */
+export interface ChopInfo {
+  shell: string;
+  /** 1..5. How good the bench is: it gates the harder recipes and nudges every roll. */
+  tier: number;
+  /** The flat fee for a day at the bench, in nd. */
+  fee: number;
+  /** Who minds the door: a person, or a machine that does not take bribes. */
+  door: 'guard' | 'bot';
+  /** Quirks, by id (0 to 2 of them; content/chops.ts). */
+  traits: string[];
 }
 
 /**
@@ -590,7 +609,7 @@ export interface GymInfo {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'chop';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
