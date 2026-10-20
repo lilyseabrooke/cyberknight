@@ -1888,6 +1888,30 @@ const T: Record<string, Entry> = {
   'goal_note:blown': e((d) => [`Something goes wrong at ${d.place}: a camera, a sound, a heat signature. The quiet part of the plan is over. Blackbird presses on anyway.`], ['Plan B is just plan A, louder.', "Nobody saw anything. Nobody saw anything yet."]),
   'goal_note:bail': e((d) => [`Something goes wrong at ${d.place}. Blackbird, for once, looks at the situation and decides to leave while she can.`], ['Strategic withdrawal. A thing I invented just now.', 'I could stay, but I have a feeling about it. The feeling is "run".']),
   // ====================================================== exploring
+  // ====================================================== getting into a game
+  'goal_new:game_rank': e(
+    (d) => [`Blackbird looks at the board for "${d.title}" and the board looks back. ${cap(String(d.why))}. New objective: ${d.goal}.`, `One more go on "${d.title}" is not a plan, so she makes it one. ${cap(String(d.why))}. New objective: ${d.goal}.`],
+    ['Three letters. Mine. Soon.', 'It is not an obsession if it has a goal.'],
+  ),
+  'goal_new:game_beat': e(
+    (d) => [`The number is on the board at ${d.place}, and it is Blackbird's, and she can do better. ${cap(String(d.why))}. New objective: ${d.goal}.`, `Her own record on "${d.title}" is up there looking smug. ${cap(String(d.why))}. New objective: ${d.goal}.`],
+    ['I am my own toughest competition. It is lonely at the top.', 'The only person I need to beat is me. And the machine.'],
+  ),
+  'goal_new:game_try': e(
+    (d) => [`Blackbird has been through a lot of ${d.place}'s games, but not all of them. ${cap(String(d.why))}. New objective: ${d.goal}.`, `There is a cabinet at ${d.place} she has not touched, and now she cannot stop thinking about it. ${cap(String(d.why))}. New objective: ${d.goal}.`],
+    ['Just one more. They all say that.', 'Variety is the spice of a very expensive hobby.'],
+  ),
+  'goal_new:game_again': e(
+    (d) => (d.mode === 'try'
+      ? [`The record is hers, and the glow lasts about nine minutes. Then: what else is there at ${d.place}? New objective: ${d.goal}.`]
+      : d.mode === 'beat'
+        ? [`Now that her name is up there, Blackbird has to keep it up there, and then do better. ${cap(String(d.why))}. New objective: ${d.goal}.`]
+        : [`A new game, a new board, a new gap with her name's shape. ${cap(String(d.why))}. New objective: ${d.goal}.`]),
+    ['This is how it starts. It has started.', 'One more. I have said that eleven times. This is the twelfth.'],
+  ),
+  'goal_done:record': e((d) => [`BLK, at the top of "${d.title}". Blackbird stares at the three letters for slightly longer than is dignified.`, `The board for "${d.title}" has a new number, and the number is hers. A small crowd at ${d.place} pretends not to have watched.`], ['Told you.', 'That is the best three letters anyone has ever typed.']),
+  'goal_done:tried': e((d) => [`Blackbird has now played something at ${d.place} that she had never played before, and has opinions about it.`], ['New game. Same hands. Different problem.']),
+  'goal_drop:cabinet_gone': e((d) => [`The cabinet for "${d.title}" at ${d.place} is gone. Whatever the plan was, it was for something that no longer exists, and she drops it with a face like a closed lid.`], ['It was right there. It was right there.']),
   'goal_new:explore_idea': e(
     (d) => [d.bored ? `Blackbird has looked at the same four walls for long enough. Somewhere out there is ${d.place}, and she has never been. New objective: ${d.goal}.` : `There is a whole city out there and Blackbird has seen a corner of it. ${cap(String(d.place))} is next. New objective: ${d.goal}.`],
     ['I am not lost. I am sampling.', 'You cannot hit anything you have not found yet.'],

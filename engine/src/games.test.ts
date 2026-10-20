@@ -26,6 +26,8 @@ import { adoptCalling, callingAfter, callingBias, callingTick, callingView, call
 import { CALLINGS, DEFS } from './content/callings';
 import { resolveAsk } from './advice';
 import { playOne } from './hallkit';
+import { goalBias, mindTick } from './goals';
+import { goalLabel } from './goals';
 import { PLAY_TEXT } from './content/hallplay';
 import type { Calling, Ctx, GameEvent } from './types';
 
@@ -469,3 +471,168 @@ function hasLine(w: World, e: GameEvent): boolean {
   const lines = render(e, { rng: new Rng('r'), personality: w.hero.personality, realName: 'Brenda Pilchard' });
   return lines.length > 0 && lines.every((l) => !/\{|\}|undefined|NaN/.test(l.text)) && hasTemplate(e);
 }
+
+
+describe('getting into it: game goals', () => {
+  /** A hall with a cabinet she has played, her memory of it, and a play just now. */
+  function playedHall(went: 'record' | 'good' | 'bad', o: { like?: number; plays?: number; streak?: number; mine?: boolean } = {}) {
+    const sc = inHall('floor', { want: quiet });
+    const w = sc.w;
+    const main = mainOf(sc);
+    viewAt(w);
+    const keys = cabKeys(main.gamehall!);
+    main.cabs = Object.fromEntries(keys.map((k) => [k, { legal: 'bootleg' as const }]));
+    const cab = cabByKey(w, main, keys[0]!)!;
+    const gid = gameId(cab.title);
+    const g = remember(w, gid, cab.title, cab.genre, 'bootleg');
+    g.plays = o.plays ?? 3;
+    g.like = o.like ?? 0.2;
+    g.streak = o.streak ?? 0;
+    g.records = went === 'record' ? 1 : 0;
+    if (o.mine) main.cabs[keys[0]!] = { legal: 'bootleg', top: 30, topBy: 'BLK' };
+    w.beat = 80;
+    w.mind.lastPlay = { game: gid, hall: main.id, went, beat: w.beat };
+    for (const t of ['thrill', 'vanity', 'fame', 'techy', 'gamble', 'curiosity'] as const) w.hero.personality.traits[t] = 0.9;
+    return { sc, w, main, keys, cab, gid, g };
+  }
+  const gameGoal = (w: World) => w.mind.goals.find((g) => g.kind === 'game');
+
+  it('a record makes her want to beat her own best', () => {
+    const { sc, w, gid, main } = playedHall('record');
+    mindTick(sc.ctx(always()));
+    const g = gameGoal(w)!;
+    expect(g).toBeTruthy();
+    expect(g.mode).toBe('beat');
+    expect(g.game).toBe(gid);
+    expect(g.loc).toBe(main.id);
+    expect(g.amount).toBe(1);
+    expect(goalLabel(w, g)).toMatch(/^beat her own best on "/);
+  });
+
+  it('a win that is not a record makes her want her name on the board', () => {
+    const { sc, w } = playedHall('good');
+    mindTick(sc.ctx(always()));
+    expect(gameGoal(w)?.mode).toBe('rank');
+    expect(goalLabel(w, gameGoal(w)!)).toMatch(/board$/);
+  });
+
+  it('a loss does too, one more go; but not at a game she has come to hate', () => {
+    const a = playedHall('bad', { like: -0.1, streak: 3 });
+    mindTick(a.sc.ctx(always()));
+    expect(gameGoal(a.w)?.mode).toBe('rank');
+    const b = playedHall('bad', { like: -0.8, streak: 5 });
+    mindTick(b.sc.ctx(always()));
+    expect(gameGoal(b.w)?.mode).not.toBe('rank');
+  });
+
+  it('while she is there, another cabinet is worth a try; it wants a game she has not played', () => {
+    const { sc, w, keys, main } = playedHall('good', { mine: true });
+    mindTick(sc.ctx(always()));
+    // She holds the board already, so it is the beat-it-again goal (or try); either way, a game goal.
+    expect(gameGoal(w)).toBeTruthy();
+    w.mind.goals = [];
+    w.mind.drive = [];
+    delete w.mind.cooldown.game_idea;
+    const g = gameGoal(w) ?? null;
+    expect(g).toBeNull();
+    w.mind.lastPlay = { game: Object.keys(w.mind.games!)[0]!, hall: main.id, went: 'good', beat: w.beat };
+    // A try goal, forced:
+    const c = sc.ctx(always());
+    for (let i = 0; i < 6 && !gameGoal(w); i++) {
+      w.mind.lastPlay = { game: Object.keys(w.mind.games!)[0]!, hall: main.id, went: 'bad', beat: w.beat };
+      w.mind.games![Object.keys(w.mind.games!)[0]!]!.like = -0.9;
+      delete w.mind.cooldown.game_idea;
+      mindTick(c);
+    }
+    const t = gameGoal(w);
+    if (t) expect(['try', 'rank', 'beat']).toContain(t.mode);
+    expect(keys.length).toBeGreaterThan(2);
+  });
+
+  it('being in the arcade is enough to start wanting something here: a board to claim, or a cabinet to try', () => {
+    let made = 0;
+    for (let i = 0; i < 6; i++) {
+      const sc = inHall('floor', { want: quiet, from: i * 3 });
+      const w = sc.w;
+      viewAt(w);
+      for (const t of ['thrill', 'vanity', 'fame', 'techy', 'gamble', 'curiosity'] as const) w.hero.personality.traits[t] = 0.9;
+      expect(w.mind.lastPlay).toBeUndefined();
+      for (let b = 0; b < 12 && !w.mind.goals.some((g) => g.kind === 'game'); b++) {
+        w.beat += 5;
+        mindTick(sc.ctx(always()));
+      }
+      const g = w.mind.goals.find((x) => x.kind === 'game');
+      if (!g) continue;
+      made++;
+      expect(['rank', 'try']).toContain(g.mode);
+      expect(g.loc).toBe(mainOf(sc).id);
+      if (g.mode === 'rank') expect(memoryOf(w, g.game!)?.plays).toBe(0);
+      expect(goalLabel(w, g).length).toBeGreaterThan(10);
+    }
+    expect(made).toBeGreaterThan(2);
+  });
+
+  it('is one at a time, and takes a rest between', () => {
+    const { sc, w } = playedHall('record');
+    mindTick(sc.ctx(always()));
+    expect(w.mind.goals.filter((g) => g.kind === 'game').length).toBe(1);
+    w.mind.lastPlay = { ...w.mind.lastPlay!, beat: w.beat };
+    mindTick(sc.ctx(always()));
+    expect(w.mind.goals.filter((g) => g.kind === 'game').length).toBe(1);
+  });
+
+  it('pulls her to the arcade and leans on the cabinet that runs that game', () => {
+    const { sc, w, keys, main, cab } = playedHall('record');
+    mindTick(sc.ctx(always()));
+    const goal = gameGoal(w)!;
+    expect(goal).toBeTruthy();
+    const other = keys.find((k) => k !== keys[0] && gameId(cabByKey(w, main, k)!.title) !== gameId(cab.title));
+    const f0 = keys[0]!.split(':')[1]!;
+    relocate(w, main.id);
+    mindTick(sc.ctx(always()));
+    const mine = goalBias(w, { key: `halldeal:play:${f0}` });
+    expect(mine).toBeGreaterThan(1);
+    if (other) expect(goalBias(w, { key: `halldeal:play:${other.split(':')[1]}` })).toBeLessThan(mine);
+  });
+
+  it('is done when she sets the record; and then she wants the next thing', () => {
+    const { sc, w, g, gid } = playedHall('good');
+    mindTick(sc.ctx(always()));
+    const goal = gameGoal(w)!;
+    expect(goal.mode).toBe('rank');
+    g.records = 1;
+    const evs = sc.run((c) => mindTick(c), always());
+    expect(gameGoal(w)?.mode).not.toBe('rank');
+    const done = evs.find((e) => e.type === 'goal_done' && e.data.kind === 'game');
+    expect(done?.data.variant).toBe('record');
+    // The next: beat it.
+    for (let i = 0; i < 4 && !gameGoal(w); i++) {
+      w.beat += 20;
+      w.clock += 30;
+      mindTick(sc.ctx(always()));
+    }
+    expect(gameGoal(w)?.mode).toBe('beat');
+    expect(gameGoal(w)?.game).toBe(gid);
+    expect(hasLine(w, w.mind.goals.length ? sc.events.filter((e) => e.type === 'goal_new' && e.data.variant === 'game_again').pop()! : done!)).toBe(true);
+  });
+
+  it('is dropped when the cabinet is gone', () => {
+    const { sc, w, main, keys } = playedHall('good');
+    mindTick(sc.ctx(always()));
+    expect(gameGoal(w)).toBeTruthy();
+    for (const k of keys) wreckCab(w, main, k);
+    const evs = sc.run((c) => mindTick(c), always());
+    expect(gameGoal(w)).toBeUndefined();
+    const drop = evs.find((e) => e.type === 'goal_drop' && e.data.kind === 'game');
+    expect(drop?.data.variant).toBe('cabinet_gone');
+    expect(hasLine(w, drop!)).toBe(true);
+  });
+
+  it('tells it all in the log', () => {
+    for (const went of ['record', 'good', 'bad'] as const) {
+      const { sc, w } = playedHall(went, { like: -0.1, streak: 2 });
+      mindTick(sc.ctx(always()));
+      for (const e of sc.events.filter((x) => x.type === 'goal_new' && x.data.kind === 'game')) expect(hasLine(w, e), `${went} ${e.data.variant}`).toBe(true);
+    }
+  });
+});

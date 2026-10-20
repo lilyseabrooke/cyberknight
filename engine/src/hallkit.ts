@@ -433,7 +433,7 @@ export function playOne(c: Ctx, v: HallView, feature: string, text: PlayTexts, o
     if (!id.startsWith('stat:') && id !== 'gaming' && id in SKILLS) train(c, id as keyof typeof SKILLS, xp * 0.3);
   }
   const lines = record ? side.record : good ? side.good : side.bad;
-  say(c, `play.${cab.genre}.${cab.legal}.${record ? 'record' : good ? 'good' : 'bad'}`, record || good ? 'good' : 'bad', lines, record || good ? side.thought : undefined, tok, { place: v.main.name, ...(earned ? { earned } : {}) });
+  say(c, `play.${cab.genre}.${cab.legal}.${record ? 'record' : good ? 'good' : 'bad'}`, record || good ? 'good' : 'bad', lines, record || good ? side.thought : undefined, tok, { place: v.main.name, game: gameId(cab.title), hall: v.main.id, went: record ? 'record' : good ? 'good' : 'bad', ...(earned ? { earned } : {}) });
   // What she makes of it: it goes into her memory of the game, and a record puts her name on the credits.
   const gid = gameId(cab.title);
   ratePlay(c, gid, baseTitle(cab.title), cab.genre, cab.legal, record ? 'record' : good ? 'good' : 'bad', v.main.id);

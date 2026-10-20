@@ -52,6 +52,56 @@ export function gameAtFeature(w: World, feature: string | undefined): string | u
   return base ? gameId(base.title) : undefined;
 }
 
+/** Every cabinet in this arcade that runs this game: where it is, whether it still stands, and whether her name is on it. */
+export function cabsWithGame(w: World, main: Location, gid: string): { key: string; standing: boolean; mine: boolean }[] {
+  const info = main.gamehall;
+  if (!info) return [];
+  const out: { key: string; standing: boolean; mine: boolean }[] = [];
+  for (const f of info.features) {
+    const feature = f.split(':')[1] ?? '';
+    if (!CAB_FEATURES[feature]) continue;
+    const st = main.cabs?.[f];
+    const base = cabinetOf(w.worldSeed, main, info, f, st?.gen ?? 0);
+    if (!base || gameId(base.title) !== gid) continue;
+    out.push({ key: f, standing: !(st?.wrecked !== undefined && w.clock < st.wrecked), mine: heldBy(st, w.clock) });
+  }
+  return out;
+}
+
+/** Games on standing cabinets in this arcade that she has never played. */
+export function unplayedHere(w: World, main: Location): string[] {
+  const info = main.gamehall;
+  if (!info) return [];
+  const out = new Set<string>();
+  for (const f of info.features) {
+    if (!CAB_FEATURES[f.split(':')[1] ?? '']) continue;
+    const st = main.cabs?.[f];
+    if (st?.wrecked !== undefined && w.clock < st.wrecked) continue;
+    const base = cabinetOf(w.worldSeed, main, info, f, st?.gen ?? 0);
+    if (base && !w.mind.games?.[gameId(base.title)]) out.add(gameId(base.title));
+  }
+  return [...out];
+}
+
+/** A cabinet in this arcade that runs this game, for its title and genre. */
+export function firstCabOf(w: World, main: Location, gid: string): { title: string; genre: string; legal: 'muse' | 'bootleg' } | undefined {
+  const info = main.gamehall;
+  if (!info) return undefined;
+  for (const f of info.features) {
+    if (!CAB_FEATURES[f.split(':')[1] ?? '']) continue;
+    const st = main.cabs?.[f];
+    const base = cabinetOf(w.worldSeed, main, info, f, st?.gen ?? 0);
+    if (base && gameId(base.title) === gid) return { title: baseTitle(base.title), genre: base.genre, legal: st?.legal ?? base.legal };
+  }
+  return undefined;
+}
+
+/** The game she played most recently. */
+export const latestGame = (w: World): string | undefined => Object.entries(w.mind.games ?? {}).sort((a, b) => (b[1].last ?? 0) - (a[1].last ?? 0))[0]?.[0];
+
+/** How many different games she has played. */
+export const gamesPlayed = (w: World): number => Object.keys(w.mind.games ?? {}).length;
+
 /** Does she hold #1 on a cabinet that is still standing? */
 export const heldBy = (st: { topBy?: string; wrecked?: number } | undefined, clock: number): boolean => st?.topBy === 'BLK' && !(st.wrecked !== undefined && clock < st.wrecked);
 
@@ -83,6 +133,7 @@ export function ratePlay(c: Ctx, gid: string, title: string, genre: string, lega
   const t = w.hero.personality.traits;
   const g = remember(w, gid, title, genre, legal);
   g.plays++;
+  g.last = w.beat;
   g.legal = legal;
   if (at && !g.where?.includes(at)) (g.where ??= []).push(at);
   if (went === 'bad') {
@@ -94,7 +145,10 @@ export function ratePlay(c: Ctx, gid: string, title: string, genre: string, lega
     g.like += went === 'record' ? 0.32 + 0.1 * (t.thrill - 0.5) : 0.1 + 0.06 * (t.thrill - 0.5);
     if (went === 'record') g.records++;
   }
+  // Time spent is its own attachment: a game she keeps coming back to grows on her, whichever way the scores went.
+  if (g.plays > 2) g.like += 0.012;
   g.like = clamp(g.like, -1, 1);
+  if (at) w.mind.lastPlay = { game: gid, hall: at, went, beat: w.beat };
   if (g.like >= 0.45 && g.plays >= 3 && g.felt !== 'love') {
     g.felt = 'love';
     c.emit('game_feeling', 'good', { variant: 'love', title: g.title, game: gid, like: Math.round(g.like * 100) / 100 });

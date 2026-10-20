@@ -320,3 +320,33 @@ it makes is an ordinary goal, so the usual machinery applies: she preps, shops f
 
 **What was not done:** no hero state beyond `Mind.games`; no fight changes; the creators have no bodyguards and no faction;
 nothing clamps any of it.
+
+## 16. Getting sucked in: game goals
+
+Callings need a game she has played a lot, and left alone she played one cabinet once and left (dropped inside an arcade, 500
+beats, she played 0.4 times on average; nobody played ten times). So playing and being there now make her **want** things, as
+an ordinary goal kind (`game`, in `goals.ts`; `formGameGoals` makes them, the kind steers her):
+
+| Mode | Label | Born of | Done when |
+|---|---|---|---|
+| `rank` | "get her name on the "X" board" | a win that was not a record; a loss at a game she has not come to hate (one more go; the longer the streak, the likelier); or just being in the arcade, with an unplayed game lit up | she sets a record on it |
+| `beat` | "beat her own best on "X"" | a record; a win on a board she already holds | she sets another record |
+| `try` | "try something new at Y" | any play, with an unplayed cabinet in the arcade; or just being there | she has played a game she never had |
+
+Finishing one leads to the next ("one more": `Mind.gameNext`): rank, then beat it, then try something new, then claim *that* board.
+How easily she is pulled is her nature (`into`: vanity, thrill, fame, a head for tech, gambling, curiosity). One game goal at a
+time. The goal pulls her back to the arcade (`targets`) and leans hard (6 to 6.5) on the cabinet that runs the game it is about,
+or, for `try`, on any game she has not played: strong on purpose, since a weaker lean lost to a `go:` out the door every time.
+
+Time spent is its own attachment: after her second play of a game it grows on her a little each go (+0.012), whichever way the
+scores went, so a game she keeps coming back to ends up loved or hated, not a wash.
+
+**Measured** (46 seeded nights started inside an arcade, 500 beats each; the control is the code before this change):
+
+| | plays each | played 10+ | avg Gaming level | game goals | feelings | gaming Callings |
+|---|---|---|---|---|---|---|
+| before | 0.4 | 0 of 46 | 1.1 | n/a | 0 | 0 |
+| with game goals | 3.4 | 8 of 46 | 8.2 | 21 (8 done) | 5 | 3 (money x2, number one) |
+
+In ordinary nights almost nobody finds an arcade in the first place (about 5% play a cabinet at all, and most of those on the
+very last beats of a capped sim), so this changes what happens once she is there, not how often she goes.

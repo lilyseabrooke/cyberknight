@@ -1178,7 +1178,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'game';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
@@ -1193,8 +1193,10 @@ export interface Goal {
   npc?: Id;
   /** The thing (buy): a key into `Mind.wares`. */
   ware?: string;
-  /** The place (heist, raid, explore, quest). */
+  /** The place (heist, raid, explore, quest). For a game goal, the arcade. */
   loc?: Id;
+  /** game: the game she is after, by id (games.ts). Absent for 'try something new'. */
+  game?: string;
   /** cash: the money she wants on hand. weapon: the power she wants to be swinging. */
   amount?: number;
   /** kill: 'kill' | 'beat_up'. heist: 'approach' | 'loot' | 'escape'. raid: 'approach' | 'raid' | 'out' (it's done) | 'retreat' (it's too much).
@@ -1304,6 +1306,7 @@ export interface GoalSpec {
   npc?: Id;
   ware?: string;
   loc?: Id;
+  game?: string;
   amount?: number;
   mode?: string;
   why: string;
@@ -1392,6 +1395,10 @@ export interface Mind {
   games?: Record<string, GameMemory>;
   /** Games of hers that were destroyed while she was away, to be mourned when she is next in the hall. */
   mourn?: string[];
+  /** The game she has just played and how it went, for the part of her that decides what to want next. See goals.ts `formGameGoals`. */
+  lastPlay?: { game: string; hall: Id; went: 'record' | 'good' | 'bad'; beat: number };
+  /** A game goal she has just finished leads somewhere: another of the same sort of thing. */
+  gameNext?: { mode: 'rank' | 'beat' | 'try'; game?: string; hall: Id; beat: number };
   /** What she is waiting to hear from the lab about. See advice.ts. */
   ask?: Ask;
   /** How the lab's advice has gone this night. */
@@ -1417,6 +1424,8 @@ export interface GameMemory {
   lost?: number;
   /** The arcades she has played it in (their main floors), newest last: where to go back to. */
   where?: Id[];
+  /** The beat she last played it. */
+  last?: number;
   /** The id of the NPC who made it, once she knows. */
   creator?: Id;
   /** She knows where they are, not only who. */
