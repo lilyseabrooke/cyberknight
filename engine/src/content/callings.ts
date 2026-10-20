@@ -88,7 +88,9 @@ const isCatch = (e: GameEvent): boolean =>
 
 /** What each running tally counts, from the events of a beat. Tallied always; a Calling reads the change since it began. */
 export const TALLY: Record<string, (e: GameEvent, w: World) => number> = {
-  rescue: (e) => (((e.type === 'rescue' || e.type === 'talk_down') && e.outcome === 'good') ? 1 : 0),
+  rescue: (e) => (((e.type === 'rescue' || e.type === 'talk_down' || e.type === 'talk_speech') && e.outcome === 'good') ? 1 : 0),
+  // People her speeches have moved (see speaking.ts): the opening and then each wave that wanders in.
+  moved: (e) => ((e.type === 'stump_speech' || e.type === 'billboard_speech' || e.type === 'speech_joins') && e.outcome === 'good' ? Number(e.data.count ?? 0) : 0),
   score: (e) => ((['safe', 'vault', 'crates', 'till', 'burgle_home', 'burgle_flat'].includes(e.type) && e.outcome === 'good') ? 1 : 0),
   ghost: (e) => (e.type === 'stealth' && e.data.variant === 'exit' ? 1 : 0),
   hack: (e) => ((e.type === 'hack' || e.type === 'billboard' || e.type === 'camera_blackout') && e.outcome === 'good' ? 1 : 0),
@@ -139,6 +141,9 @@ const near = (rng: Rng, lo: number, hi: number, u: number, step = 1): number => 
 };
 const lastSeen = (w: World, n: Npc): Id | undefined => w.mind.lastSeen[n.id];
 const copish = (n: Npc): boolean => n.tags.includes('cop') || n.faction === 'npd';
+/** The biggest crowd one of her speeches swept up in this event list, if any. */
+const crowdOf = (events: GameEvent[]): number => events.reduce((m, e) => (e.type === 'stump_speech' || e.type === 'billboard_speech' ? Math.max(m, Number(e.data.count ?? 0)) : e.type === 'speech_joins' ? Math.max(m, Number(e.data.total ?? 0)) : m), 0);
+const SPEECH_FAMS = new Set(['stump_speech', 'keep_speaking', 'billboard']);
 const GANG_IDS = (w: World): Id[] => Object.values(w.factions).filter((f) => f.kind === 'gang' && f.id !== 'ganger').map((f) => f.id);
 
 /** Where the kind of person she is after was last seen, by distinct place. */
@@ -175,6 +180,7 @@ const SPOT: Record<string, { line: string; fit: Partial<Record<Trait, number>>; 
   djing: { line: "become Neo's top DJ", fit: { artistry: 1.5, sociable: 1, techy: 0.8 }, whim: 1 },
   beatbox: { line: 'beatbox so well the city is never the same again', fit: { artistry: 1.5, impress: 1, mischief: 0.6 }, whim: 1 },
   art: { line: 'cover Neo in her art', fit: { artistry: 2.2, mischief: 1, vanity: 0.5 }, whim: 1 },
+  speaking: { line: "become Neo's greatest orator", fit: { fame: 1.5, sociable: 1.2, vanity: 0.8, impress: 0.6 }, whim: 1 },
 };
 /** The line for a performance skill, for the fame goal that comes of it. */
 export const SPOTLIGHT_LINE: Record<string, string> = Object.fromEntries(Object.entries(SPOT).map(([k, v]) => [k, v.line]));
@@ -211,6 +217,36 @@ export const CALLINGS: CallingDef[] = [
   spotlight('djing'),
   spotlight('beatbox'),
   spotlight('art'),
+  spotlight('speaking'),
+  {
+    id: 'multitude', origin: 'a whole street turned and listened at once, and then did what she said', group: 'spotlight',
+    line: (c) => `move a crowd so big it needs a name (${c.goal} people at once)`,
+    fit: { fame: 1.4, sociable: 1, vanity: 0.8, impress: 0.4, artistry: 0.3 },
+    whim: 0.8,
+    spark(s) {
+      const n = crowdOf(s.events);
+      return n >= 5 ? Math.min(0.95, 0.3 + n / 40) : 0;
+    },
+    aim: () => ({ skill: 'speaking', text: 'a crowd' }),
+    goal: (rng, u, w) => Math.max(near(rng, 25, 400, u, 5), Math.ceil((w.counters['cal.crowd_best'] ?? 0) * 1.5) + 10),
+    measure: (w) => w.counters['cal.crowd_best'] ?? 0,
+    bias: (_w, _cal, fam) => (SPEECH_FAMS.has(fam) ? 2.2 : fam === 'wrap_up' ? -1.5 : 0),
+    want: () => [{ kind: 'fame', skill: 'speaking', why: 'a crowd the whole district could hear' }],
+    sequels: [{ id: 'legion', p: 0.3 }],
+  },
+  {
+    id: 'legion', origin: 'she watched a street fill up with people who had just been given something to do', group: 'spotlight',
+    line: (c) => `set ${c.goal} people in motion with nothing but her voice`,
+    fit: { fame: 1, sociable: 1.2, mischief: 0.6, vanity: 0.6, impress: 0.3 },
+    whim: 0.8,
+    key: 'moved',
+    spark: ({ d }) => ((d.moved ?? 0) > 0 ? Math.min(0.9, 0.3 + 0.04 * (d.moved ?? 0)) : 0),
+    aim: () => ({ skill: 'speaking', text: 'the district' }),
+    goal: (rng, u) => near(rng, 40, 2500, u, 10),
+    bias: (_w, _cal, fam) => (SPEECH_FAMS.has(fam) ? 2 : fam === 'wrap_up' ? -1 : 0),
+    want: () => [{ kind: 'fame', skill: 'speaking', why: 'every street should hear it' }],
+    sequels: [{ id: 'multitude', p: 0.3 }, { id: 'mob', p: 0.1 }],
+  },
 
   // -------------------------------------------------------------- violence and justice
   {
@@ -316,6 +352,21 @@ export const CALLINGS: CallingDef[] = [
     bias: (_w, _cal, fam) => (fam === 'engage_flight' || fam === 'challenge_dragon' ? 2.8 : fam === 'hide_flight' || fam === 'duck_inside' ? -1.5 : 0),
     want: () => [{ kind: 'dragon', why: 'every one of them, if it takes all night' }],
     sequels: [{ id: 'atlas', p: 0.4 }],
+  },
+  {
+    id: 'mob', origin: 'she pointed, a crowd went, and somebody did not come back', group: 'violence',
+    line: (c) => `have crowds put ${c.goal} people in the ground for her, and never lift a finger`,
+    fit: { grudge: 1, mischief: 0.8, temper: 0.6, vanity: 0.6, honesty: -0.6, kindness: -1.2 },
+    whim: 0.3,
+    key: 'mob',
+    spark({ events }) {
+      if (has(events, 'mob_kill')) return 0.95;
+      return events.some((e) => (e.type === 'stump_speech' || e.type === 'billboard_speech') && e.data.kind === 'go_after' && Number(e.data.count ?? 0) > 0) ? 0.6 : 0;
+    },
+    goal: (rng, u) => near(rng, 3, 60, u),
+    bias: (_w, _cal, fam) => (SPEECH_FAMS.has(fam) ? 2.2 : fam === 'wrap_up' ? -1.5 : fam === 'challenge' || fam === 'sweep' ? -0.6 : 0),
+    want: () => [{ kind: 'kill', pick: (n) => n.alive && !n.tags.some((t) => ['boss', 'dragon', 'robot', 'pet'].includes(t)) && n.archetype !== 'puppy' && n.affinity < 30, why: 'somebody should deal with them, and it does not have to be her' }],
+    sequels: [{ id: 'cops', p: 0.2 }],
   },
   {
     id: 'guardian', origin: "somebody nobody was looking after needed looking after", group: 'violence',

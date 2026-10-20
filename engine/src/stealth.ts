@@ -53,7 +53,7 @@ export const isSneaking = (w: World): boolean => !!w.hero.stealth;
 export const canObserve = (w: World, n: Npc): boolean => n.alive && n.archetype !== 'puppy' && !w.hero.companions.some((a) => a.npcId === n.id);
 
 /** Everyone in the room who could be watching, including a dungeon's garrison, who are there before they have noticed her. */
-const observersAt = (w: World, loc: Id): Npc[] => everyoneAt(w, loc).filter((n) => n.alive && n.downUntil <= w.beat && canObserve(w, n));
+const observersAt = (w: World, loc: Id): Npc[] => everyoneAt(w, loc).filter((n) => n.alive && n.downUntil <= w.clock && canObserve(w, n));
 
 export function awareness(w: World, n: Npc): Awareness {
   if (!n.aware) {
@@ -374,7 +374,7 @@ export function channelNow(w: World, n: Npc): Channel | null {
 /** Who a call from here would reach. */
 function listeners(w: World, n: Npc, ch: Channel): Npc[] {
   const loc = n.locationId;
-  const mates = (x: Npc): boolean => x !== n && x.alive && x.downUntil <= w.beat && canObserve(w, x) && !!n.faction && x.faction === n.faction;
+  const mates = (x: Npc): boolean => x !== n && x.alive && x.downUntil <= w.clock && canObserve(w, x) && !!n.faction && x.faction === n.faction;
   if (ch === 'shout') return npcsAt(w, loc).filter(mates);
   return Object.values(w.npcs).filter(mates);
 }

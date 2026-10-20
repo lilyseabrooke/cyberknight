@@ -20,6 +20,7 @@
     "gyms": "tsx scripts/gyms.ts",
     "pawns": "tsx scripts/pawns.ts",
     "chops": "tsx scripts/chops.ts",
+    "hubs": "tsx scripts/hubs.ts",
     "coverage": "tsx scripts/coverage.ts"
   },
   "devDependencies": {

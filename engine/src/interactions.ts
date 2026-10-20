@@ -21,7 +21,9 @@ import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
 import { realtyCandidates, realtyPull } from './realty';
+import { crewCandidates, crewPull } from './crew';
 import { benchUrge, chopCandidates } from './chop';
+import { hubCandidates, hubUrge } from './hub';
 import { partsUrge, scavengeCandidates } from './scavenge';
 import { vehicleCandidates } from './vehicles';
 import { getawayCandidates } from './getaway';
@@ -41,6 +43,7 @@ import { teardownCandidate } from './cordon';
 import { undergroundCandidates } from './underground';
 import { songCandidates } from './songs';
 import { heatUrge } from './laylow';
+import { speakingCandidates } from './speaking';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
@@ -228,6 +231,7 @@ export function gather(w: World): Candidate[] {
   if (teardown) out.push(teardown);
   out.push(...undergroundCandidates(w));
   out.push(...songCandidates(w));
+  out.push(...speakingCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));
   out.push(...discretionCandidates(w));
@@ -238,7 +242,9 @@ export function gather(w: World): Candidate[] {
   out.push(...getawayCandidates(w));
   out.push(...pawnCandidates(w));
   out.push(...realtyCandidates(w));
+  out.push(...crewCandidates(w));
   out.push(...chopCandidates(w));
+  out.push(...hubCandidates(w));
   out.push(...scavengeCandidates(w));
 
   // --------------------------------------------------------------- herself
@@ -274,11 +280,13 @@ export function gather(w: World): Candidate[] {
     const supply = supplyUrge(w, e.to);
     const need = needsUrge(w, e.to);
     const bench = benchUrge(w, e.to);
+    const hub = hubUrge(w, e.to);
     const scrap = partsUrge(w, e.to);
-    const urge = { bonus: supply.bonus + need.bonus + bench.bonus + scrap.bonus, smart: supply.smart + need.smart + bench.smart + scrap.smart };
+    const urge = { bonus: supply.bonus + need.bonus + bench.bonus + hub.bonus + scrap.bonus, smart: supply.smart + need.smart + bench.smart + hub.smart + scrap.smart };
     const bank = bankPull(w, e.to);
     const homes = realtyPull(w, e.to);
-    const pull = { bonus: bank.bonus + homes.bonus, smart: bank.smart + homes.smart };
+    const crew = crewPull(w, e.to);
+    const pull = { bonus: bank.bonus + homes.bonus + crew.bonus, smart: bank.smart + homes.smart + crew.smart };
     out.push({
       key: `go:${e.to}`,
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },

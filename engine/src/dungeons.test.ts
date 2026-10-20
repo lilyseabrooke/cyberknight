@@ -357,7 +357,7 @@ describe('the fight, and the noise it makes', () => {
     const folk = standing(w, d, room);
     expect(folk.length).toBeGreaterThan(1);
     const runner = folk[0]!;
-    runner.downUntil = w.beat + 25; // out the back door
+    runner.downUntil = w.clock + 75; // out the back door
     sc.run((c) => enterRoom(c, w.locations[room]!), always());
     expect(runner.alive).toBe(true);
     expect(runner.post).toBeUndefined();
@@ -602,7 +602,7 @@ describe('Blackbird in there', () => {
     expect(sc.saw('fight_start')).toBe(false);
     expect(goal(w)).toBeUndefined();
     // and she is not back in a hurry
-    expect(w.mind.cooldown[`raid:${id}`]).toBeGreaterThan(w.beat + 50);
+    expect(w.mind.coolUntil![`raid:${id}`]).toBeGreaterThan(w.clock + 150);
   });
 
   it('a strong hero works the whole building, takes what there is, and leaves once it is cleared out', () => {

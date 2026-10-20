@@ -1,6 +1,6 @@
 import type { Ctx, Hero, Injury, Item, Npc, World } from './types';
 import { IMPLANTS } from './content/implants';
-import { KINDS, removeCompanion } from './companions';
+import { KINDS, allyPower, fightXp, gainCompanionXp, removeCompanion } from './companions';
 import { skillLevel, skillValue, train } from './skills';
 import { basePower, fightTraining, hpPerLevel, levelCost } from './grade';
 import { perk } from './lab';
@@ -94,7 +94,7 @@ export function heroPower(w: World, weapon: Item = wielded(w.hero), allies = tru
   if (style) p += skillValue(h, style) * 0.6;
   for (const b of h.buffs) if (b.until > w.beat) p += b.power;
   if (allies) {
-    for (const a of h.companions) if (a.hp > 0) p += a.power;
+    for (const a of h.companions) if (a.hp > 0) p += allyPower(w, a);
     p += backersPower(w);
   }
   for (const i of h.implants) p += IMPLANTS[i]?.power ?? 0;
@@ -344,7 +344,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   for (const f of foes) {
     if (!res.fled.has(f.id)) continue;
     f.hostile = false;
-    f.downUntil = w.beat + downFor(f, rng, true);
+    f.downUntil = w.clock + downFor(f, rng, true);
     f.affinity -= 20;
     remember(f, 'fled from Blackbird');
   }
@@ -398,7 +398,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
         // non-lethal: knocked out, not dead. They'll remember.
         f.hp = Math.max(1, Math.round(f.maxHp * 0.5));
         f.hostile = false;
-        f.downUntil = w.beat + downFor(f, rng, false);
+        f.downUntil = w.clock + downFor(f, rng, false);
         f.affinity -= 40;
         remember(f, 'was beaten by Blackbird');
         // Beaten is beaten: she goes through the pockets of anyone who can't stop her.
@@ -416,13 +416,13 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
       }
     }
     h.cash += cash;
-    afterTakedown(c, foes.filter((f) => !gone(f) && (!f.alive || f.downUntil > w.beat)));
+    afterTakedown(c, foes.filter((f) => !gone(f) && (!f.alive || f.downUntil > w.clock)));
     collectBounties(c, foes.filter((f) => !gone(f)));
     // The people who care about them hear; and whoever hired her pays.
     for (const f of foes) {
       if (gone(f)) continue;
       if (!f.alive) spreadDeed(c, f, 'killed');
-      else if (f.downUntil > w.beat) spreadDeed(c, f, 'hurt');
+      else if (f.downUntil > w.clock) spreadDeed(c, f, 'hurt');
     }
     settleContracts(c, foes.filter((f) => !gone(f)));
     h.hp = Math.max(h.hp, 1);
@@ -513,7 +513,10 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
         removeCompanion(c, a, 'lost', foes.find((f) => f.alive) ?? foes[0]);
         continue;
       }
-      if (result === 'win') a.loyalty = Math.min(100, a.loyalty + 3);
+      if (result === 'win') {
+        a.loyalty = Math.min(100, a.loyalty + 3);
+        gainCompanionXp(c, a, fightXp(a, Math.max(...foes.map((f) => f.level), 1)));
+      }
       else a.loyalty -= 4;
     }
   }

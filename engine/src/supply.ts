@@ -1,6 +1,7 @@
 import type { Ctx, Hero, Item, Npc, World } from './types';
 import type { Candidate } from './candidate';
 import { perk } from './lab';
+import { BASE_MIN_PER_BEAT } from './clock';
 import { acquire, here } from './combat';
 import { makeAmmoBox, makeItem, ITEMS } from './content/items';
 import { AMMO } from './content/ammo';
@@ -22,7 +23,7 @@ import { isFairGame } from './people';
  * out hiding, dead, or annoyed. Nothing is on a timer. Cash is the limit.
  */
 
-const present = (n: Npc | undefined, w: World): n is Npc => !!n && n.alive && !n.hostile && n.locationId === w.hero.locationId && n.downUntil <= w.beat;
+const present = (n: Npc | undefined, w: World): n is Npc => !!n && n.alive && !n.hostile && n.locationId === w.hero.locationId && n.downUntil <= w.clock;
 
 /** Haggling shaves up to 30% off. */
 export const price = (h: Hero, base: number): number => Math.max(1, Math.round(base * (1 - Math.min(0.3, skillLevel(h, 'haggling') * 0.03))));
@@ -80,7 +81,7 @@ interface DocPick {
 
 const docMemo = new WeakMap<World, { key: string; pick: DocPick | null }>();
 
-const canPatch = (n: Npc | undefined, w: World): n is Npc => !!n && n.alive && !n.hostile && n.downUntil <= w.beat && n.tags.includes('doc');
+const canPatch = (n: Npc | undefined, w: World): n is Npc => !!n && n.alive && !n.hostile && n.downUntil <= w.clock && n.tags.includes('doc');
 
 /**
  * The nearest doc she can pay and has reason to think is in: Doc Hexamer in the Halo's bathroom, or a street clinic
@@ -220,6 +221,17 @@ export function supplyCandidates(w: World): Candidate[] {
     }
   }
 
+  // ---- something to be heard with
+  if (loc.id === 'gun_shop' && present(gunsmith, w) && !h.inventory.some((i) => i.tags.includes('loudspeaker')) && skillLevel(h, 'speaking') >= 1) {
+    const cost = price(h, gearPrice('loudspeaker'));
+    if (cost <= h.cash - reserve(h)) {
+      out.push({
+        key: 'buy_loudspeaker', drives: { pride: 0.5, curiosity: 0.3 }, smart: 0.2, bonus: 0.2 + Math.min(skillLevel(h, 'speaking'), 30) * 0.015,
+        run: (c) => buyLoudspeaker(c, gunsmith!, cost),
+      });
+    }
+  }
+
   // ---- using what she bought
   const packs = medPacks(h);
   // Packs are the emergency kit: while the doc is a short walk away and she can pay him, she'd rather go there.
@@ -265,6 +277,15 @@ function buyMed(c: Ctx, keeper: Npc, id: string, cost: number): void {
   c.emit('buy_med_pack', 'good', { npc: keeper.name, item: MEDS[id]!.name, cost, packs: medPacks(h).length });
 }
 
+function buyLoudspeaker(c: Ctx, keeper: Npc, cost: number): void {
+  const h = c.w.hero;
+  h.cash -= cost;
+  keeper.affinity += 2;
+  train(c, 'haggling', 1);
+  h.inventory.push(makeItem('loudspeaker'));
+  c.emit('buy_loudspeaker', 'good', { npc: keeper.name, cost });
+}
+
 function buyAmmo(c: Ctx, keeper: Npc, type: string, cost: number): void {
   const h = c.w.hero;
   const a = AMMO[type]!;
@@ -295,6 +316,19 @@ export function buyGear(c: Ctx, keeper: Npc, id: string, cost: number): void {
   }
   c.emit('buy_gear', 'good', { variant: slot, npc: keeper.name, item: item.name, slot, cost, starter, gun: !!item.ammoType });
   acquire(c, item);
+}
+
+/** World minutes between the gunsmith's shipments. */
+export const SHELF_EVERY = 90 * BASE_MIN_PER_BEAT;
+
+/** Restocks the shelf when the world clock says a shipment is due, however many beats (or hours) that took. */
+export function tickShelf(c: Ctx): void {
+  const { w } = c;
+  if (w.shelfAt === undefined || w.shelfAt > w.clock + SHELF_EVERY) w.shelfAt = w.clock + SHELF_EVERY;
+  else if (w.clock >= w.shelfAt) {
+    restockShelf(c);
+    w.shelfAt = w.clock + SHELF_EVERY;
+  }
 }
 
 /** Shipments: every so often the gunsmith moves some stock on and gets some in, including something to suit whoever walks in. */

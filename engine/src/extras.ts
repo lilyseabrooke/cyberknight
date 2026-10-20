@@ -1,8 +1,10 @@
 import { famed } from './renown';
 import { bestTrait } from './instruments';
+import { every } from './clock';
 import type { Ctx, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, npcsAt, relocate } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
+import { billboardSpeech } from './speaking';
 import { makeItem } from './content/items';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { addCompanion, alliesWith, hasAlly, hasKind, newCompanion, removeCompanion, slotsFree } from './companions';
@@ -352,6 +354,7 @@ function hackBillboard(c: Ctx): void {
       train(c, 'guitar', 1 + jacked);
       c.emit('billboard', 'good', { variant: 'jacked', place: w.locations[h.locationId]!.name, fame: Math.round(gain * 10) / 10 });
     }
+    billboardSpeech(c);
   } else {
     h.hp -= 6;
     addHeat(w, 'atlas', 2);
@@ -522,10 +525,11 @@ export function ambientExtras(c: Ctx): void {
   const loc = w.locations[h.locationId]!;
 
   // --- allies: loyalty fades, antics happen, scouts find things
-  if (w.beat % 15 === 0) {
+  const neglect = every(w, 'loyalty', 45);
+  if (neglect > 0) {
     for (const a of [...h.companions]) {
       if (a.abilities.includes('sing')) continue;
-      a.loyalty -= a.loyalty < 30 ? 2 : 1;
+      a.loyalty -= (a.loyalty < 30 ? 2 : 1) * neglect;
       if (a.loyalty <= 0) removeCompanion(c, a, 'left');
     }
   }
@@ -556,7 +560,7 @@ export function ambientExtras(c: Ctx): void {
       w.counters.ads = (w.counters.ads ?? 0) + 1;
       c.emit('ad', 'mixed', { variant: hasImplantFlag(h, 'ad_blocker') ? 'blocked' : String(rng.int(1, 8)) });
     }
-    if (w.beat % 12 === 0) {
+    if (every(w, 'weather', 36) > 0) {
       let hit = 0;
       if (w.situation.weather === 'acid_rain' && (h.armor?.power ?? 0) < 3) {
         hit = 3;

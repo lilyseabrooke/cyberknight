@@ -75,6 +75,13 @@ fight it, dodge it, or sign with it, and none of that breaks the Atlas rule.
 - Musical progression, Muse's attention ladder and what Blackbird can do about Muse are in
   [`../GUITAR_PLAN.md`](../GUITAR_PLAN.md).
 
+## Titanware (a corporation, not a gang)
+
+The surveillance corporation: cyberware, hacking tech and Training Academies. See [`world.md`](world.md). It has no gang and no street soldiers; what it
+has is an **eye** (its logo) in the window of every venue that wants to be "Verified", and a vitals scanner on the door. It does not carry bounty
+paper and it is not allied with the NPD or with Atlas; it sells to both. Its franchised Academies are venue factions like any other, so an Academy can be
+closed by what happens to the person who runs it. Titanware gets no heat meter of its own yet (OPEN).
+
 ## Venues and shops
 
 Venues and shops (bars, clubs, gyms, pawn shops) are factions too (`kind: 'venue'|'shop'`), but **they are not permanent**: the owner can be killed,

@@ -53,7 +53,7 @@ const occupied = (b: PlaceBoard, p: Pos, except?: Id): boolean => (b.hero.x === 
 const walkableAt = (l: Layout, p: Pos): boolean => passable(l.grid, p.x, p.y);
 
 /** Everyone here who could be on the board: not her own company, and not on the floor. (A dungeon's garrison is there before it has noticed her.) */
-const presentAt = (w: World, locId: Id): Npc[] => everyoneAt(w, locId).filter((n) => n.alive && n.downUntil <= w.beat && !w.hero.companions.some((a) => a.npcId === n.id));
+const presentAt = (w: World, locId: Id): Npc[] => everyoneAt(w, locId).filter((n) => n.alive && n.downUntil <= w.clock && !w.hero.companions.some((a) => a.npcId === n.id));
 
 type Station = keyof Zones;
 
@@ -279,7 +279,7 @@ export function syncPlace(w: World, p: Placed): void {
   for (const id of Object.keys(board.ents)) if (!ids.has(id)) delete board.ents[id];
   board.bodies = board.bodies.filter((x) => {
     const n = w.npcs[x.npcId];
-    return !!n && n.locationId === board.loc && (!n.alive || n.downUntil > w.beat);
+    return !!n && n.locationId === board.loc && (!n.alive || n.downUntil > w.clock);
   });
   const rng = new Rng(`board:${board.loc}:${tickOf(w)}`);
   // After a long while away, those who were on a post are back on it.
@@ -474,7 +474,7 @@ export function goTo(c: Ctx, p: Placed, spot: Spot, o: { tell?: boolean } = {}):
   return moved;
 }
 
-const COUNTER_ACTS = new Set(['buy_ware', 'buy_stim', 'buy_med', 'buy_info', 'buy_gear', 'buy_ammo', 'pawn', 'pawndeal', 'fence']);
+const COUNTER_ACTS = new Set(['buy_ware', 'buy_stim', 'buy_med', 'buy_info', 'buy_gear', 'buy_loudspeaker', 'buy_ammo', 'pawn', 'pawndeal', 'fence']);
 const NEAR = new Set(['chat', 'flirt', 'kiss', 'pickpocket', 'threaten', 'armwrestle', 'analyze', 'ask_work']);
 
 /** Before she does something that needs her somewhere: put her there. (A fight, which she starts from where she stands, is left alone.) */
@@ -539,7 +539,7 @@ export function viewOf(w: World, p: Placed, o: { foes?: Npc[]; near?: number; ex
   const others = Object.keys(board.ents)
     .filter((id) => w.npcs[id] && !who.includes(w.npcs[id]!) && !(o.except ?? []).includes(id))
     .map((id) => w.npcs[id]!)
-    .filter((n) => n.alive && !n.hostile && n.downUntil <= w.beat && !n.tags.some((t) => ['robot', 'dragon', 'boss'].includes(t)) && n.archetype !== 'puppy' && !w.hero.companions.some((a) => a.npcId === n.id))
+    .filter((n) => n.alive && !n.hostile && n.downUntil <= w.clock && !n.tags.some((t) => ['robot', 'dragon', 'boss'].includes(t)) && n.archetype !== 'puppy' && !w.hero.companions.some((a) => a.npcId === n.id))
     .map((n) => unitOf(n, board.ents[n.id]!));
   return {
     w,
@@ -618,7 +618,7 @@ export function layBodies(p: Placed, w: World, fallen: Iterable<Id>, at: Record<
     const q = at[id];
     const n = w.npcs[id];
     if (!q || !n || p.board.bodies.some((x) => x.npcId === id)) continue;
-    if (!n.alive || n.downUntil > w.beat) p.board.bodies.push({ npcId: id, x: q.x, y: q.y, found: true });
+    if (!n.alive || n.downUntil > w.clock) p.board.bodies.push({ npcId: id, x: q.x, y: q.y, found: true });
   }
 }
 

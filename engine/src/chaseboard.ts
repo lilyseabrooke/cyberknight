@@ -256,7 +256,7 @@ export function hideScene(c: Ctx, cb: ChaseBoard, foes: { crew: Npc[]; gap: numb
   for (let i = 1; i < cb.path.length; i++) if (dist(cb.path[i]!, spot) < dist(cb.path[near]!, spot)) near = i;
   const line = cb.path.slice(0, Math.min(cb.path.length, near + 11));
   for (const f of foes) {
-    f.crew.filter((n) => n.alive && n.downUntil <= w.beat).forEach((n, k) => {
+    f.crew.filter((n) => n.alive && n.downUntil <= w.clock).forEach((n, k) => {
       lose(w, n);
       const i = Math.max(0, Math.floor(cb.s - f.gap) - k);
       const at = cb.path[i]!;
@@ -281,7 +281,7 @@ export function hideScene(c: Ctx, cb: ChaseBoard, foes: { crew: Npc[]; gap: numb
 export function runPast(w: World, cb: ChaseBoard, foes: { crew: Npc[] }[]): void {
   for (const f of foes) {
     for (const n of f.crew) {
-      if (!n.alive || n.downUntil > w.beat) continue;
+      if (!n.alive || n.downUntil > w.clock) continue;
       lose(w, n);
       const dest = cb.exitTo ?? w.locations[cb.loc]?.exits.find((e) => w.locations[e.to])?.to;
       if (dest && w.locations[dest]) moveNpc(w, n, dest);
@@ -322,7 +322,7 @@ export function leaveSearching(w: World, cb: ChaseBoard, foes: { crew: Npc[]; ga
   for (const f of foes) {
     const at = chaserTile(cb, f.gap).at;
     for (const n of f.crew) {
-      if (!n.alive || n.downUntil > w.beat) continue;
+      if (!n.alive || n.downUntil > w.clock) continue;
       if (n.locationId !== cb.loc) moveNpc(w, n, cb.loc);
       lose(w, n);
       syncPlace(w, cb.placed);

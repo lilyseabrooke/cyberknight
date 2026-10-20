@@ -222,7 +222,7 @@ describe('ways out', () => {
       const ev = events.find((e) => e.type === 'frame');
       if (ev && (ev.data.variant === 'deserved' || ev.data.variant === 'innocent')) {
         ok++;
-        expect(w.npcs[id]!.downUntil).toBeGreaterThan(w.beat);
+        expect(w.npcs[id]!.downUntil).toBeGreaterThan(w.clock);
         expect(w.heat.npd).toBeLessThan(4);
       }
     }

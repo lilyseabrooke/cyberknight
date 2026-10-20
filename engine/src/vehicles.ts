@@ -8,7 +8,7 @@ import { bankPull } from './bank';
 import { needsUrge } from './rest';
 import { supplyUrge } from './supply';
 import { condition, keyTo, normalize } from './cars';
-import { KINDS, removeCompanion } from './companions';
+import { KINDS, assistOf, removeCompanion } from './companions';
 import { policeChase } from './chase';
 import { skillValue, synergy, train } from './skills';
 import { workingCameras } from './witness';
@@ -207,7 +207,7 @@ const seatsOf = (comp: Companion, body: Vehicle['body'] = 'car'): number => (bod
 
 /** What a companion is worth in the car: guns, a guard, a jammer; healthy, and loyal. */
 function riderScore(comp: Companion): number {
-  const a = KINDS[comp.kind]?.assist ?? {};
+  const a = assistOf(comp);
   return (a.dmg ?? 0) * 0.6 + (a.absorb ?? 0) * 0.5 + (a.disable ? 6 : 0) + (comp.hp / comp.maxHp) * 3 + comp.loyalty / 25;
 }
 

@@ -27,7 +27,8 @@ PROTOCOL: new location, review: a pawn shop    both
    card), never from a handful of labels. Contradictory combinations are welcome.
 2. **Unbalanced.** Do not tune for fairness. Outliers and wild cards are features. The only limits are the ones the world
    supplies (money, finite stock, heat, grudges, bodies) and the ones that keep saves stable (determinism, own random
-   streams). No artificial cooldowns.
+   streams). No artificial cooldowns. Anything that lasts or turns over (stock, a fee's effect, a grudge) is measured in
+   clock time (world minutes), not beats: a beat can be seconds or hours. See `docs/DESIGN.md` §3.
 3. **Multidimensional.** Every kind of capability has something to do here. Capabilities are an **open set** (skills,
    stats, drives, items, implants, tags, goals) that other protocols keep extending: never write "fighter" or "rogue" in
    code. Write affordance rows with soft requirements and let skills move the odds.

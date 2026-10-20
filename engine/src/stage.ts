@@ -9,6 +9,7 @@ import { isFairGame } from './people';
 import { bondEvent, romanceMod } from './bonds';
 import { addRenown } from './renown';
 import { bestTrait, hasInstrument } from './instruments';
+import { BASE_MIN_PER_BEAT } from './clock';
 
 /**
  * Performing. Two things keep her from singing in one spot forever, and one thing makes a good night run away with her.
@@ -28,13 +29,17 @@ export const ACT_SKILL: Record<string, string> = {
   beatbox: 'beatbox', beat_battle: 'beatbox',
   graffiti: 'art', billboard_set: 'guitar', draw_out: 'guitar', cordon_teardown: 'guitar', serenade_song: 'guitar', dragon_song: 'guitar',
   booked_guitar: 'guitar', booked_vocals: 'vocals', booked_djing: 'djing', booked_beatbox: 'beatbox',
+  stump_speech: 'speaking',
 };
 
 const FATIGUE_PER_ACT = 0.22;
-const RECOVERY = 0.004;
+/** How much of a crowd's fatigue wears off per world minute. */
+const RECOVERY = 0.004 / BASE_MIN_PER_BEAT;
+/** How much of a room's wariness (of one kind of hustle) fades per world minute. */
+const WARY_FADE = 0.003 / BASE_MIN_PER_BEAT;
 
 /** Bigger stages are worth more. */
-export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : loc.kind === 'pawn' ? 0.7 : loc.kind === 'chop' ? 0.5 : 0.8);
+export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : loc.kind === 'pawn' ? 0.7 : loc.kind === 'chop' ? 0.5 : loc.kind === 'hub' ? 0.6 : 0.8);
 
 /** 1 for a crowd that hasn't heard her yet, falling towards 0 as it wears out. */
 export function freshness(w: World, locId: string, skill: string): number {
@@ -45,18 +50,19 @@ export function freshness(w: World, locId: string, skill: string): number {
   return 1 / (1 + 2.2 * tired);
 }
 
-export function tickVenues(w: World): void {
+/** `minutes` is the world time since the last tick; one ordinary beat if nobody says. */
+export function tickVenues(w: World, minutes: number = BASE_MIN_PER_BEAT): void {
   for (const loc of Object.values(w.locations)) {
     if (loc.wary) {
       for (const k of Object.keys(loc.wary)) {
-        loc.wary[k] = Math.max(0, loc.wary[k]! - 0.003);
+        loc.wary[k] = Math.max(0, loc.wary[k]! - WARY_FADE * minutes);
         if (loc.wary[k]! < 1e-9) delete loc.wary[k];
       }
       if (!Object.keys(loc.wary).length) delete loc.wary;
     }
     if (!loc.fatigue) continue;
     for (const k of Object.keys(loc.fatigue)) {
-      loc.fatigue[k] = Math.max(0, loc.fatigue[k]! - RECOVERY);
+      loc.fatigue[k] = Math.max(0, loc.fatigue[k]! - RECOVERY * minutes);
       if (loc.fatigue[k]! < 1e-9) delete loc.fatigue[k];
     }
     if (!Object.keys(loc.fatigue).length) delete loc.fatigue;

@@ -114,9 +114,28 @@ export interface Companion {
   /** 0..100. At zero they leave. */
   loyalty: number;
   abilities: string[];
+  /** A speech has them fired up: extra power until the beat. See speaking.ts. */
+  inspired?: { until: number; power: number };
   /** The NPC this companion used to be, if any (they go home if they leave). */
   npcId?: Id;
   home?: Id;
+  /** Experience, from fights, drills and shifts at a home; absent means none. Level comes from it (see companions.ts). */
+  xp?: number;
+  /** Level 1..100, kept in step with `xp`; absent means 1. Scales hp, power and assist. */
+  level?: number;
+}
+
+/** A companion posted at a home she owns, working for her while she is out (see crew.ts). */
+export interface Stationed {
+  comp: Companion;
+  /** What they are doing there (see content/stations.ts). */
+  job: string;
+  /** World clock when their work was last counted. */
+  since: number;
+  /** World clock when she posted them; absent means long ago. */
+  posted?: number;
+  /** What they have made and are holding for her: neodollars, and parts by id. */
+  stash: { cash: number; parts: Record<string, number> };
 }
 
 /** A car she is in. It goes with her along the streets and is parked where she walks into a building. See vehicles.ts and cars.ts. */
@@ -391,6 +410,37 @@ export type NpcGoalKind = 'give_cash' | 'cover' | 'back_me_up' | 'go_after' | 's
 /** The four ways she gets round somebody: the skills under Charm that make people do things. */
 export type InfluenceMethod = 'persuasion' | 'intimidation' | 'romance' | 'grifting';
 
+/** A speech under way. Lasts until `until` on the world clock (not in beats), and only while she stays where she began it. */
+export interface Speech {
+  loc: Id;
+  /** The world-clock minute it runs out. */
+  until: number;
+  /** What she is asking the crowd to do; chosen when the first listener turns up. */
+  cry?: NpcGoalKind;
+  /** Everyone who has listened so far, whether they went along or not. */
+  heard: Id[];
+  /** Who carries the goal themselves (at most a handful); the rest of those moved follow one of them. */
+  leaders: Id[];
+  /** How many streets out it carries: 0 is just where she stands. */
+  depth: number;
+  /** How much pull it keeps on people who are not standing in front of her. */
+  remote: number;
+  stretch: number;
+  edge: number;
+  /** How many people it has moved in all. */
+  moved: number;
+  /** The beat of the last thing she did to keep it going. If she does something else, it is over. */
+  beat: number;
+  /** When it began (world-clock minute), for how far through its time limit it is. */
+  began: number;
+  /** Stages in a row where nobody new came by or went along. */
+  dry: number;
+  /** How many people the last stage swept up. */
+  last: number;
+  /** Stages worked so far, counting the opening. */
+  stages: number;
+}
+
 /** Something Blackbird has put in somebody's head. They carry it out in their own way, for as long as it lasts. */
 export interface NpcGoal {
   id: number;
@@ -511,7 +561,7 @@ export interface Location {
   /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
   street?: StreetType;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty' | 'chop';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty' | 'chop' | 'hub';
   exits: Exit[];
   /** Where it stands on the hex grid (outdoor places only): every cell it covers, and the cell it is anchored on. See hexmap.ts. */
   hex?: { q: number; r: number; cells: [number, number][]; /** The way it runs, for streets: the direction it grew in. */ dir: number };
@@ -585,8 +635,44 @@ export interface Location {
   pawnRoom?: { main: Id; room: string };
   /** A chop shop's makeup: what it is built in, how good the bench is, what the door costs. Rolled with the place. See content/chops.ts. */
   chop?: ChopInfo;
+  /** A hacker hub's makeup: what it is, what it teaches and how. Rolled with the place. See content/hubs.ts. */
+  hub?: HubInfo;
   /** A pawn shop's shelf: what is on it, including whatever she hocked and may still buy back. Made the first time it is looked at. See pawnkit.ts. */
   shelf?: PawnLot[];
+}
+
+/** One line of a hub's syllabus: a technique and the way it is taught. (content/hubs.ts says what each id means.) */
+export interface SyllabusEntry {
+  /** A `LearnableId` (techniques.ts). */
+  tech: string;
+  /** cash, lessons, barter, trial, steal, referral or enrol. */
+  route: string;
+  /** What it costs in nd (cash, trial, the weight of the barter), before the day's situation. */
+  price: number;
+  /** For lessons and enrolment: how many sessions it takes. */
+  steps: number;
+}
+
+/**
+ * What a hacker hub is. Every field is rolled independently from the hub's own stream, so any combination can turn up.
+ * (content/hubs.ts says what each id means; ids that are no longer known are ignored, so the tables can grow.)
+ */
+export interface HubInfo {
+  variant: string;
+  shell: string;
+  /** 0 (a closet) to 4 (a sprawl). */
+  size: number;
+  /** 0 (derelict) to 4 (immaculate). */
+  condition: number;
+  /** 1..5. Teacher quality and prices. Independent of everything else. */
+  tier: number;
+  traits: string[];
+  /** Feature ids present on the floor. */
+  features: string[];
+  /** What it teaches, and how. */
+  syllabus: SyllabusEntry[];
+  /** A one-in-a-dozen oddity that breaks the rules. */
+  wild?: string;
 }
 
 /** What a chop shop is. Small on purpose: a shell, a bench and a door. (content/chops.ts says what each id means.) */
@@ -672,7 +758,7 @@ export interface GymInfo {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop' | 'hub';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -1025,6 +1111,8 @@ export interface Deed {
   district: District;
   /** The run she bought it in. */
   run: number;
+  /** Companions posted here, as many as the home has berths for. They stay through her deaths. See crew.ts. */
+  crew?: Stationed[];
 }
 
 /** The books on one night, settled when it ends. */
@@ -1129,6 +1217,12 @@ export interface World {
   heat: Record<string, number>;
   /** What the gunsmith has on the shelf tonight (and any other generated gear for sale), by item id. */
   arsenal?: Record<string, Item>;
+  /** Marks for `every()` in clock.ts: key -> the world-clock minute its last whole span ended. */
+  every?: Record<string, number>;
+  /** The world-clock minute of the gunsmith's next shipment (see `tickShelf`). */
+  shelfAt?: number;
+  /** The world clock at the last upkeep, so things that wear off with time can tell how much of it went by. */
+  upkeepAt?: number;
   situation: Situation;
   flags: Record<string, boolean>;
   /** Misc numeric counters (laser-tag wins, ads seen, etc.). */
@@ -1152,6 +1246,8 @@ export interface World {
   watchers?: Id[];
   /** Everyone carrying a goal Blackbird gave them, so the beat only has to look at them. See influence.ts. */
   influenced?: Id[];
+  /** A speech she is in the middle of, for as long as the clock says. People who come by while it lasts can be swept up in it. See speaking.ts. */
+  speech?: Speech;
   stats: { kills: number; fights: number; maxLevel: number; deposited: number; fees: number };
   over: boolean;
   ending: null | 'dead' | 'victory' | 'dawn';
@@ -1223,7 +1319,7 @@ export interface Pursuit {
   verdict?: 'take' | 'lure' | 'wait' | 'prep';
   assessedAt?: number;
   lureBeats?: number;
-  /** People she has written off as too much for her right now, until this beat. */
+  /** People she has written off as too much for her right now, until this world-clock minute. */
   passed: Record<Id, number>;
   /** Rooms she has already looked in while searching. */
   searched: Id[];
@@ -1307,7 +1403,7 @@ export interface AskOption {
   spec?: GoalSpec;
   /** She takes this on as her Calling if it's the answer. See callings.ts. */
   calling?: Calling;
-  /** Things she puts off if it's the answer: cooldown key -> beats. */
+  /** Things she puts off if it's the answer: cooldown key -> world minutes. */
   cool?: Record<string, number>;
 }
 
@@ -1348,6 +1444,8 @@ export interface Mind {
   hops: Record<Id, number>;
   /** Goals that ended, by `kind:subject`, so she doesn't pick the same one straight back up. */
   cooldown: Record<string, number>;
+  /** Like `cooldown`, but world-clock minutes: things that stay put aside for as long as the world takes, not as many choices. */
+  coolUntil?: Record<string, number>;
   /** The leaf goal that has been steering her most lately (so she doesn't flip-flop). */
   focus: number | null;
   tally: { done: number; dropped: number; revised: number; delayed: number };

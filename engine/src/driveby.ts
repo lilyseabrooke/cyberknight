@@ -6,6 +6,7 @@ import { spawnGroup, clamp } from './candidate';
 import { dead, pursuers, runChase, type Chaser } from './chase';
 import { roadClass } from './roads';
 import { scoutSaves } from './extras';
+import { talkDown } from './speaking';
 
 /**
  * Being attacked by a vehicle: an NPD patrol car pulling up on her, or a ganger drive-by. They arrive in a car (or on a bike), and she
@@ -107,7 +108,7 @@ export function vehicleAttack(c: Ctx, who: Attacker, crew: Npc[]): void {
     c.emit('attack_choice', 'mixed', { variant: 'stand', foe: crew[0]!.name, count: crew.length });
     // Their car stops where they got out of it, and it is cover for them and a way out.
     if (!w.strays?.[loc.id]) (w.strays ??= {})[loc.id] = { ...car, riders: [] };
-    fight(c, crew, { cause: who === 'npd' ? 'a police patrol' : 'a drive-by', joiners: false });
+    if (!talkDown(c, crew)) fight(c, crew, { cause: who === 'npd' ? 'a police patrol' : 'a drive-by', joiners: false });
     return;
   }
   c.emit('attack_choice', 'mixed', { variant: 'run', foe: crew[0]!.name, count: crew.length, on: h.vehicle ? 'wheels' : 'foot' });

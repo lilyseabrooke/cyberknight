@@ -17,6 +17,7 @@ import { tiesFrom } from './ties';
 import { DROPS } from './content/drops';
 import { applyUpgrades, settleAccount } from './lab';
 import { fadeFame } from './renown';
+import { stationedNpcIds } from './crew';
 import type { DeathRecord, Flight, Id, Npc, World } from './types';
 
 /**
@@ -133,11 +134,13 @@ export function endRun(w: World): Universe {
   // The dragons that are kept sleep until the next night.
   w.legacy.dragons = w.flights.filter((f) => f.persist);
   const companions = new Map(w.hero.companions.filter((c) => c.npcId).map((c) => [c.npcId!, c.home]));
+  // Anyone she posted at a home is still there.
+  const posted = stationedNpcIds(w);
   for (const n of allNpcs(w)) {
     // (Fans who turned up for a flash mob go back into the crowd, whatever they did tonight: there are always more.)
     if (n.id.startsWith('tmp_') && (!memorable(n) || n.tags.includes('fan'))) {
       removeNpc(w, n.id);
-    } else if (n.locationId.startsWith('_') && n.locationId !== AWAY) {
+    } else if (n.locationId.startsWith('_') && n.locationId !== AWAY && !posted.has(n.id)) {
       // Travelling with her, or gone for the night: they go home, or if they never had one, are free to turn up somewhere new.
       const home = n.home ?? companions.get(n.id);
       moveNpc(w, n, home && w.locations[home] ? home : AWAY);
@@ -195,7 +198,7 @@ function wakeTheWorld(u: Universe): void {
     if (!n.alive) continue;
     n.hp = n.maxHp;
     n.hostile = false;
-    n.downUntil = 0; // measured in beats, and the beats start over
+    n.downUntil = 0; // a world-clock time, and the clock starts over
     delete n.goals; // so are the errands Blackbird put in people's heads
     // People without a routine of their own go back to where they live.
     if (!n.haunts && !n.routine && n.home && n.home !== n.locationId && u.locations[n.home] && !isSealed(u, n.home)) moveNpc(u, n, n.home);

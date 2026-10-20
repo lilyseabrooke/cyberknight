@@ -38,6 +38,9 @@
 
 - **Pun / portmanteau / chirpy** pattern: Chem-Mart, Bullets & Bagels, Spray & Pray Paint Supply. Cheerful commercial
   tone, ideally with a second, darker meaning.
+- **Titanware brands** are *attentive and clinical*: Panopt, Lidless, Vigil Mk. 3, VitalSigns+, "Titanware Sees You", "Think the Right Way".
+  They sound like a hospital and a panopticon had a baby. Branch numbers are three digits (Branch 214). Never edgy, never loud; the menace is that it
+  is so interested in you. (Atlas brands are soothing and safe; Titanware brands are watchful and warm.)
 - **Atlas brands** are *soothing and safe*: Safe-T, Halcyon, Bastion, Aegis, "Atlas Care+". Never edgy; edgy is for
   gangs. The irony is the whole point.
 - **Muse brands** are *sweet and sparkly*: influencer warmth, hearts and emoji, version numbers on people. Its strike

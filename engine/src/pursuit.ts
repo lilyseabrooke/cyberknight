@@ -107,7 +107,7 @@ export function cashOptions(w: World, g: Goal, passed: Record<Id, number>): Opti
   const out: Option[] = [];
   const short = Math.max(30, (g.amount ?? 0) - w.hero.cash);
   for (const n of Object.values(w.npcs)) {
-    if (!n.alive || isTmp(n) || n.hostile || (passed[n.id] ?? 0) > w.beat) continue;
+    if (!n.alive || isTmp(n) || n.hostile || (passed[n.id] ?? 0) > w.clock) continue;
     const loc = where(w, n);
     if (!loc) continue;
     const d = dist(w, loc);
@@ -128,7 +128,7 @@ export function cashOptions(w: World, g: Goal, passed: Record<Id, number>): Opti
 function tipster(w: World, passed: Record<Id, number>): Npc | undefined {
   if (!tippable(w, '').length) return undefined;
   return Object.values(w.npcs)
-    .filter((n) => n.alive && !n.hostile && !isTmp(n) && (n.tags.includes('rumor') || n.tags.includes('dealer') || n.tags.includes('fixer')) && where(w, n) && (passed[n.id] ?? 0) <= w.beat)
+    .filter((n) => n.alive && !n.hostile && !isTmp(n) && (n.tags.includes('rumor') || n.tags.includes('dealer') || n.tags.includes('fixer')) && where(w, n) && (passed[n.id] ?? 0) <= w.clock)
     .sort((a, b) => dist(w, where(w, a)!) - dist(w, where(w, b)!))[0];
 }
 
@@ -181,7 +181,7 @@ function sizeUp(c: Ctx, g: Goal, p: Pursuit, n: Npc): void {
   }
   if (v === 'prep' && p.plan === 'bounty') {
     // Too much for her. Someone else, then.
-    p.passed[n.id] = w.beat + 90;
+    p.passed[n.id] = w.clock + 270;
     c.emit('pursuit', 'bad', { variant: 'pass', npc: n.name, goal: g.kind });
     g.pursuit = undefined;
   }
@@ -209,14 +209,14 @@ function cashTick(c: Ctx, g: Goal): void {
 
   // Is what she's working still worth working?
   let valid = !!p && !!n && n.alive && !n.hostile;
-  if (valid && p!.plan === 'bounty') valid = hasBounty(n) && knowsBounty(w, n!.id) && (p!.passed[n!.id] ?? 0) <= w.beat;
+  if (valid && p!.plan === 'bounty') valid = hasBounty(n) && knowsBounty(w, n!.id) && (p!.passed[n!.id] ?? 0) <= w.clock;
   if (valid && p!.plan === 'odd_jobs') valid = oddJobReady(w, n!);
   if (valid && p!.plan === 'ask') valid = tippable(w, '').length > 0;
   if (!valid) p = undefined;
 
   // Asking around gets her a few tries per tipster; then she tries someone else.
   if (p && p.plan === 'ask' && w.beat - p.since >= 8 && p.npc) {
-    g.pursuit!.passed[p.npc] = w.beat + 60;
+    g.pursuit!.passed[p.npc] = w.clock + 180;
     p = undefined;
   }
 
@@ -349,7 +349,7 @@ interface Gig {
 function fameOptions(w: World, g: Goal, blocked: Record<string, number>): Gig[] {
   const out: Gig[] = [];
   for (const a of FAME_ACTS) {
-    if ((blocked[a.fam] ?? 0) > w.beat) continue;
+    if ((blocked[a.fam] ?? 0) > w.clock) continue;
     const loc = a.venue(w);
     if (!loc) continue;
     const taste = Math.exp(0.35 * traitBias(w, { key: a.fam } as never));
@@ -370,7 +370,7 @@ function fameTick(c: Ctx, g: Goal): void {
   if (w.hero.fame >= (g.amount ?? 0)) return;
   let p = g.pursuit;
   const blocked = p?.passed ?? {};
-  if (p?.act && ((blocked[p.act] ?? 0) > w.beat)) p = undefined;
+  if (p?.act && ((blocked[p.act] ?? 0) > w.clock)) p = undefined;
   const review = !p || w.beat - p.since >= 10;
   if (review) {
     const opts = fameOptions(w, g, blocked);
@@ -398,7 +398,7 @@ function fameTick(c: Ctx, g: Goal): void {
     p.arrived ??= w.beat;
     // Got to the stage and couldn't go on: it's not happening tonight.
     if (w.beat - p.arrived > 5) {
-      p.passed[p.act] = w.beat + 60;
+      p.passed[p.act] = w.clock + 180;
       c.emit('pursuit', 'bad', { variant: 'perform_blocked', act: p.act, goal: 'fame' });
       g.pursuit = undefined;
     }

@@ -31,7 +31,7 @@ export const forSale = (w: World, office: Location): Listing[] => boardOf(w, off
 export const askingPrice = (w: World, l: Listing): number => haggle(w.hero, l.price);
 
 const agentOf = (w: World, office: Location): Npc | undefined =>
-  here(w).find((n) => n.archetype === 'realtor' && n.alive && !n.hostile && n.downUntil <= w.beat && n.locationId === office.id);
+  here(w).find((n) => n.archetype === 'realtor' && n.alive && !n.hostile && n.downUntil <= w.clock && n.locationId === office.id);
 
 const blurbFor = (l: Listing, rng: Rng): string => rng.pick(HOMES[l.kind].blurbs).replace('{name}', l.name.charAt(0).toUpperCase() + l.name.slice(1));
 

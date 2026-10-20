@@ -4,14 +4,14 @@ import { clamp } from './candidate';
 import { canDeepen, ensureDeep } from './deepen';
 import { moveNpc, npcsAt } from './population';
 import { isPerson } from './roads';
-import { cool } from './mind';
+import { coolFor } from './mind';
 import { ERRAND_KINDS, barNear, carStreet } from './errands';
 import { addGoal, goalOf, oddsWith, phrasing, wishes, type Wish } from './influence';
 
 /**
- * Moving a crowd: influence (influence.ts) on everyone in earshot at once. This is the standard set by the speaking work
- * (a stump speech puts a goal in a street's heads), with what she brings to it left open, so a speech, a flash mob of her
- * fans or anything else that sways a crowd can use it:
+ * Moving a crowd in one go: influence (influence.ts) on everyone in earshot at once, to the standard set by speaking
+ * (speaking.ts, where a speech is now worked in stages over clock time and sweeps up passers-by). This is the one-shot
+ * form, with what she brings to it left open, for things that sway a crowd in a single moment: a flash mob of her fans.
  *
  * - She picks the cry: the biggest thing she wants that a crowd can help with, or else whatever she feels like.
  * - Each person weighs it the way they'd weigh a one-to-one ask (`oddsWith`): how big it is, how it sits with who they
@@ -139,7 +139,7 @@ export function moveCrowd(c: Ctx, o: CrowdCall): Moved | null {
     const wish = wishFor(w, n, kind);
     if (!wish) continue;
     ensureDeep(w, n);
-    cool(w, `influence:${n.id}:${kind}`, 35);
+    coolFor(w, `influence:${n.id}:${kind}`, 105);
     const p = clamp(oddsWith(w, n, wish, 'persuasion', o.voice) + swell + o.edge, 0.03, 0.95);
     if (rng.chance(p)) willing.push({ n, wish, p });
   }

@@ -8,6 +8,8 @@ import { isBadGuy } from './traits';
 import { routeTo } from './plans';
 import { scoutSaves } from './extras';
 import { fanCouchCandidate, mobShields } from './fans';
+import { actionMinutes } from './clock';
+import { talkDown } from './speaking';
 
 /**
  * Heat, and what she does about it. Low heat only sends drones, which a competent hero can swat;
@@ -115,7 +117,7 @@ export function npdResponse(c: Ctx): boolean {
   // On foot on a street, a patrol car may be what pulls up.
   if (officers && patrolPullsUp(c, squad)) return true;
   c.emit('ambush', 'bad', { variant: officers ? 'npd' : 'npd_drone', count: squad.length, heat: npd });
-  fight(c, squad, { cause: officers ? 'an NPD ambush' : 'an NPD drone sweep', joiners: false });
+  if (!talkDown(c, squad)) fight(c, squad, { cause: officers ? 'an NPD ambush' : 'an NPD drone sweep', joiners: false });
   return true;
 }
 
@@ -150,10 +152,14 @@ export function laylowCandidates(w: World): Candidate[] {
         const { rng } = c;
         const p = clamp(0.4 + skillLevel(h, 'sneak') * 0.04 + (w.flags.blackout ? 0.2 : 0), 0.3, 0.85);
         let dropped = '';
-        for (const f of ['npd', 'atlas'] as const) {
-          if ((w.heat[f] ?? 0) > 0 && rng.chance(p)) {
-            w.heat[f] = w.heat[f]! - 1;
-            dropped = dropped || f;
+        // Heat cools with the time she spends out of sight: a chance per hour of the world clock the lying low takes.
+        const hours = Math.max(1, Math.round(actionMinutes('lay_low') / 60));
+        for (let i = 0; i < hours; i++) {
+          for (const f of ['npd', 'atlas'] as const) {
+            if ((w.heat[f] ?? 0) > 0 && rng.chance(p)) {
+              w.heat[f] = w.heat[f]! - 1;
+              dropped = dropped || f;
+            }
           }
         }
         if (h.drunk > 0 && rng.chance(0.25)) h.drunk--;
@@ -252,7 +258,7 @@ function frame(c: Ctx, n: Npc, bad: boolean): void {
     w.counters.frames = framed + 1;
     const drop = bad ? rng.int(1, 3) : rng.int(1, 2);
     w.heat.npd = Math.max(0, (w.heat.npd ?? 0) - drop);
-    n.downUntil = w.beat + 70;
+    n.downUntil = w.clock + 210;
     n.affinity -= 30;
     train(c, 'grifting', 3);
     train(c, 'sleight', 1);

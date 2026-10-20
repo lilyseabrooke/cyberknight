@@ -26,6 +26,14 @@ often preferable to a sanded-down version that feels worse.
 - If something feels good but is lopsided, keep it and mention the imbalance in passing. Don't fix it unprompted.
 - Do still fix real bugs: crashes, broken state, and rules that don't do what the code or docs say.
 
+## Standing design points
+
+- **Clock time over beat time.** Anything that lasts or turns over is measured in clock time (world minutes), not beats:
+  a beat can be seconds or hours. There is no beat-to-clock conversion (sleeping 8 hours is one beat, so is a wink). Use beats only to count actions or inside combat, stealth and chase scenes, where a beat is a few seconds. See `docs/DESIGN.md` §3.
+- **Hand-authored areas (the Rusty Halo etc.) are examples**, not the main show. No special treatment for being
+  hand-authored unless the area announces itself as an exception.
+- **Skills and level run 0 to 100**; 80 is very high even for an endgame run.
+
 ## Running tests
 
 - Use `npm test` (about 40 s) for all routine verification, together with `npm run typecheck`.

@@ -23,10 +23,10 @@ export const BASE_MIN_PER_BEAT = 3;
  */
 export const ACTION_MINUTES: Record<string, number> = {
   go: 2, chat: 2, ask_around: 4, ask_work: 4,
-  buy_ware: 4, buy_stim: 4, buy_med: 4, buy_info: 4, buy_gear: 4, buy_ammo: 4,
+  buy_ware: 4, buy_stim: 4, buy_med: 4, buy_info: 4, buy_gear: 4, buy_loudspeaker: 4, buy_ammo: 4,
   eat_noodles: 12, eat_dish: 15, cook: 25, order_drink: 10, buy_round: 10, sober_up: 40, hangout: 30, darts: 20, poker: 45, jam: 30,
   flirt: 15, kiss: 20, pool_date: 60, serenade: 20, serenade_girl: 20,
-  fish: 45, reel_in: 6, reel_girl: 6, rod_lift: 6, rod_tug: 8, rod_swing: 6, rod_bait: 30, busk: 30, sing_busk: 30, karaoke: 30, gig: 60, dj_set: 90, crash_gig: 60, guitar_duel: 30, beat_battle: 30,
+  fish: 45, reel_in: 6, reel_girl: 6, rod_lift: 6, rod_tug: 8, rod_swing: 6, rod_bait: 30, busk: 30, sing_busk: 30, karaoke: 30, gig: 60, dj_set: 90, crash_gig: 60, guitar_duel: 30, beat_battle: 30, stump_speech: 5, keep_speaking: 6, wrap_up: 2, rally_allies: 15, mirror_speech: 10,
   odd_jobs: 90, odd_request: 30, security_shift: 120, bodyguard_gig: 120, tend_bar: 90, courier_run: 45, take_contract: 15,
   lay_low: 120, hide_flight: 45, chase_flight: 12, duck_inside: 5, shelter_scream: 20, pay_tithe: 5, haggle_tithe: 8, get_patched: 30, use_med_pack: 10, patch_up: 20,
   burgle_home: 25, burgle_flat: 25, rob_paint_shop: 20, pickpocket: 10, scam_mark: 20, sell_fake_goods: 20, hack: 20, jack: 20,
@@ -36,8 +36,10 @@ export const ACTION_MINUTES: Record<string, number> = {
   draw_out: 30, flash_mob: 10, cordon_teardown: 60, hand_out_tapes: 20, take_tower: 30, booked_secret: 60, write_song: 45, serenade_song: 20, declare_song: 20, dragon_song: 10, booked_guitar: 60, booked_vocals: 60, booked_djing: 75, booked_beatbox: 45,
   hijack: 6,
   pawn: 30, pawnfight: 15, pawnquick: 6, pawndeal: 20,
-  chopin: 8, bench: 45, benchcraft: 60, scavenge: 30,
+  chopin: 8, bench: 45,
+  hub: 30, hubfight: 15, hubquick: 6, hubdeal: 25, benchcraft: 60, scavenge: 30,
   realtybuy: 45, realtyview: 10,
+  station_ally: 10, swap_ally: 15, recall_ally: 10, crew_collect: 5, crew_job: 5, drill_ally: 60,
 };
 
 /** How long a car she has left on a street stays hers, by whose it was: the police and Atlas come for their own sooner. */
@@ -84,6 +86,20 @@ export function clockLabel(clock: number): string {
 export function nextEvening(clock: number, minGap = 6 * 60): number {
   const t = clock + minGap;
   return t + ((START_MINUTE - minuteOfDay(t) + MIN_PER_DAY) % MIN_PER_DAY);
+}
+
+/**
+ * How many whole `period`-minute spans of world clock have gone by since this was last asked about `key`
+ * (0 on the first ask). The span boundaries are kept, so nothing is lost or counted twice, whether a beat was
+ * a few seconds or a night's sleep. This is what a "every so often" tick should use instead of `w.beat % N`.
+ */
+export function every(w: World, key: string, period: number): number {
+  const marks = (w.every ??= {});
+  let last = marks[key];
+  if (last === undefined || last > w.clock) last = marks[key] = w.clock;
+  const n = Math.floor((w.clock - last) / period);
+  if (n > 0) marks[key] = last + n * period;
+  return n;
 }
 
 /** Let world time pass: a fight, an odd job, a long sleep. Minutes are never negative. */

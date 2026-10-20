@@ -422,7 +422,7 @@ describe('goals', () => {
       const w = world('halo_floor');
       const tiny = w.npcs.tiny!;
       const kill = want(w, { kind: 'kill', npc: tiny.id, mode: 'kill', struck: true });
-      tiny.downUntil = w.beat + 20;
+      tiny.downUntil = w.clock + 60;
       expect(tick(w).find((e) => e.type === 'goal_done')?.data.variant).toBe('settled');
       expect(w.mind.goals).not.toContain(kill);
     });

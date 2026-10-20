@@ -10,7 +10,7 @@ import { foeProfile } from './tactics';
 import { bump, footChance, stumble } from './footfx';
 import { grabVehicle, vehicleHere } from './vehicles';
 import { accident, hopChance } from './drivefx';
-import { KINDS, removeCompanion } from './companions';
+import { assistOf, removeCompanion } from './companions';
 import { skillValue, train } from './skills';
 import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
@@ -473,7 +473,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       const nearest = () => live.reduce((a, f) => (f.gap < a.gap ? f : a));
       const lead = nearest();
       const band = bandOf(lead.gap);
-      const armedBack = h.weapon.tags.includes('gun') || (!!car && h.companions.some((a) => a.hp > 0 && KINDS[a.kind]?.assist.dmg && car.riders.includes(a.id)));
+      const armedBack = h.weapon.tags.includes('gun') || (!!car && h.companions.some((a) => a.hp > 0 && assistOf(a).dmg && car.riders.includes(a.id)));
       const hpRatio = h.hp / h.maxHp;
       const carRatio = car ? car.hp / car.maxHp : 1;
       const bike = car?.body === 'bike';
@@ -910,7 +910,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
                 if (!rng.chance(0.6)) continue;
                 f.off = true;
                 f.gap = ESCAPE_GAP + 1;
-                for (const n of f.crew) n.downUntil = Math.max(n.downUntil, w.beat + 20);
+                for (const n of f.crew) n.downUntil = Math.max(n.downUntil, w.clock + 20);
               }
               sendAway(c, a.officers);
             } else if (a.side === 'all') {
@@ -1133,7 +1133,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   });
   // Anybody left looking for her on the street she is hiding on: that is a scene of its own.
   if (!w.over && !o.noSearch && result === 'escaped' && hid && h.hp > 0 && searching.size && h.locationId === searchStreet) {
-    const crew = [...searching].filter((n) => n.alive && n.locationId === h.locationId && n.downUntil <= w.beat);
+    const crew = [...searching].filter((n) => n.alive && n.locationId === h.locationId && n.downUntil <= w.clock);
     if (crew.length) streetHunt(c, crew, o.cause, { keepSpot: true });
   }
   // Anybody she knocked into on the way, who has had enough.
@@ -1192,7 +1192,7 @@ function getOut(c: Ctx, f: Chaser, at: string): void {
 /** What a rider with a gun adds to hers. */
 function riderShots(h: Ctx['w']['hero'], car: Vehicle): number {
   let d = 0;
-  for (const a of h.companions) if (a.hp > 0 && car.riders.includes(a.id)) d += (KINDS[a.kind]?.assist.dmg ?? 0) * 0.4;
+  for (const a of h.companions) if (a.hp > 0 && car.riders.includes(a.id)) d += (assistOf(a).dmg ?? 0) * 0.4;
   return d;
 }
 

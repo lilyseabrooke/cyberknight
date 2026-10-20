@@ -562,6 +562,52 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     desc: ['a customer taking a stolen scooter apart one panel at a time', 'someone hunched over a vice, extremely careful with something that looks like a toaster', 'a regular with a bag of mismatched bolts, sorting them by feel'],
   },
 
+  // ---------------- Hacker hubs (content/hubs.ts) ----------------
+  hub_sysop: {
+    role: 'sysop', level: [3, 6], tags: ['owner', 'staff', 'tinker', 'hacker'], faction: null,
+    names: 'person', weapons: ['judgment', 'zip_pistol', 'excalibur'], loot: ['data_slate', 'memory_shard', 'solder_kit', 'credchip'], lootChance: 0.55, cash: [60, 260],
+    desc: ['a sysop with four monitors reflected in her glasses and a mug that says WORLD\'S OKAYEST ADMIN', 'a sysop who answers every question with a link', 'a sysop in a hoodie older than most of the customers, eating noodles with a screwdriver', 'a sysop who has not looked up from the terminal since the last government'],
+  },
+  hub_dean: {
+    role: 'dean of aptitude', level: [3, 6], tags: ['owner', 'staff', 'hacker', 'titan'], faction: null,
+    names: 'person', weapons: ['service_pistol', 'stunner_mk3'], armors: ['leather_jacket'], armorChance: 0.4, loot: ['data_slate', 'credchip', 'memory_shard'], lootChance: 0.5, cash: [90, 320],
+    desc: ['a dean in a soft grey suit with a lanyard, a warm smile and a small eye on the lapel', 'a dean who asks how she is feeling and appears to hear the answer', 'a dean who has not stopped smiling since orientation, which was a long time ago'],
+  },
+  hub_teacher: {
+    role: 'instructor', level: [3, 5], tags: ['staff', 'tinker', 'hacker', 'teacher'], faction: null,
+    names: 'person', weapons: ['switchblade', 'excalibur'], loot: ['data_slate', 'memory_shard', 'solder_kit', 'credchip'], lootChance: 0.5, cash: [40, 160],
+    desc: ['an instructor with a laser pointer and the patience of someone who has explained it eleven times', 'an instructor who says "obviously" and then goes slowly', 'an instructor with a mug of cold tea and a very long, very quiet sigh', 'an instructor who teaches with their hands and never with a slide'],
+  },
+  hub_desk: {
+    role: 'front desk', level: [1, 3], tags: ['staff', 'clerk'], faction: null,
+    names: 'person', weapons: ['broken_bottle'], loot: ['credchip', 'walkman'], lootChance: 0.35, cash: [8, 50],
+    desc: ['a front-desk clerk with a ledger, a lanyard and a face that says "terms apply"', 'a clerk at the desk doing three things at once, none of them with eye contact', 'a clerk who knows everyone\'s membership tier and nothing about what they are for'],
+  },
+  hub_regular: {
+    role: 'regular', level: [1, 3], tags: ['regular', 'customer', 'hacker'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'data_slate', 'walkman'], lootChance: 0.3, cash: [3, 55],
+    desc: ['a regular hunched at a terminal, typing with the intensity of prayer', 'a regular with a pair of headphones the size of a small dog', 'a regular who has been here since yesterday and is not leaving until the thing compiles', 'a regular in a hoodie, eating cold noodles with one hand and typing with the other'],
+  },
+  hub_guard: {
+    role: 'door guard', level: [2, 4], tags: ['staff', 'strong', 'security', 'guard'], faction: null,
+    names: 'person', weapons: ['judgment', 'service_pistol', 'excalibur'], armors: ['leather_jacket'], armorChance: 0.4, loot: ['credchip', 'switchblade'], lootChance: 0.3, cash: [12, 70],
+    desc: ['a guard on a stool by the door with a list of handles and no photos', 'a large, calm guard who has heard every excuse for not having a pass', 'a guard who checks the bag and the face and, absurdly, the pulse'],
+  },
+  hub_bot: {
+    role: 'house AI', level: [2, 3], tags: ['robot', 'staff', 'clerk'], faction: null,
+    names: 'robot', weapons: [], loot: ['drone_core', 'memory_shard'], lootChance: 0.6, cash: [0, 0], hp: 60, power: 8,
+    desc: ['a house AI in a squat kiosk with a screen for a face that grades everyone to two decimal places', 'a cheerful kiosk that says "welcome, 6.2" to people it likes less'],
+  },
+  hub_counsellor: {
+    role: 'aptitude counsellor', level: [2, 4], tags: ['staff', 'titan', 'hacker'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'data_slate'], lootChance: 0.35, cash: [20, 90],
+    desc: ['a counsellor with a clipboard, a mug and a way of tilting their head that makes it hard to lie', 'a counsellor who wants to know how she feels about her feelings, with a small, happy eye on the lanyard', 'a counsellor with a lovely voice and a form for everything'],
+  },
+  tw_liaison: {
+    role: 'Titanware liaison', level: [2, 4], tags: ['staff', 'titan', 'liaison'], faction: null,
+    names: 'person', weapons: ['stunner_mk3'], armors: ['leather_jacket'], armorChance: 0.5, loot: ['data_slate', 'credchip', 'memory_shard'], lootChance: 0.5, cash: [30, 130],
+    desc: ['a Titanware liaison in a polo shirt with a small, open eye on the chest and a tablet that has already read her', 'a liaison with a lanyard and a laugh a half-second after the joke', 'a liaison who looks at her pulse before her face'],
+  },
 };
 
 /** Who these archetypes tend to be, beyond the job. Anything not listed is anyone between 22 and 55. */
@@ -609,6 +655,11 @@ const PEOPLE: Record<string, PersonSpec> = {
   pawn_guard: { women: 0.3, age: [24, 56] },
   chop_mechanic: { women: 0.5, age: [28, 66] },
   chop_guard: { women: 0.3, age: [24, 56] },
+  hub_sysop: { women: 0.45, age: [24, 62] },
+  hub_dean: { women: 0.5, age: [34, 64] },
+  hub_teacher: { women: 0.5, age: [26, 66] },
+  hub_counsellor: { women: 0.55, age: [26, 58] },
+  tw_liaison: { women: 0.5, age: [24, 52] },
 };
 
 export const GANGS: Record<string, string> = {

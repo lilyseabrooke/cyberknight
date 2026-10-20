@@ -9,7 +9,7 @@ import { isFairGame } from './people';
 import { fight, heroPower, here, remember } from './combat';
 import { synergy, train, type Part } from './skills';
 import { assistMult, ratio, statsOf, type NpcStat } from './npcstats';
-import { cool, cooling, priority } from './mind';
+import { coolFor, cooling, priority } from './mind';
 
 import { heartOf, romanceMod } from './bonds';
 import { learn, unknownFacts } from './knowledge';
@@ -101,7 +101,7 @@ export const covering = (w: World, n: Npc): boolean => !!n.goals?.some((g) => g.
 /** Who here has her back right now. */
 export function backers(w: World): Npc[] {
   const loc = w.hero.locationId;
-  return (w.influenced ?? []).map((id) => w.npcs[id]).filter((n): n is Npc => !!n && n.alive && !n.hostile && n.downUntil <= w.beat && n.locationId === loc && !!n.goals?.some((g) => g.kind === 'back_me_up' && w.beat < g.until));
+  return (w.influenced ?? []).map((id) => w.npcs[id]).filter((n): n is Npc => !!n && n.alive && !n.hostile && n.downUntil <= w.clock && n.locationId === loc && !!n.goals?.some((g) => g.kind === 'back_me_up' && w.beat < g.until));
 }
 
 /** What they add to a fight she is in. */
@@ -181,7 +181,7 @@ export function wishes(w: World, n: Npc): Wish[] {
   // Someone she'd like seen to.
   for (const g of open('kill')) {
     const t = g.npc ? w.npcs[g.npc] : undefined;
-    if (!t?.alive || t.id === n.id || t.tags.includes('boss') || t.tags.includes('dragon') || t.downUntil > w.beat) continue;
+    if (!t?.alive || t.id === n.id || t.tags.includes('boss') || t.tags.includes('dragon') || t.downUntil > w.clock) continue;
     const ties = regard(w, n.id, t.id);
     out.push({
       kind: 'go_after', target: t.id, urge: priority(w, g),
@@ -305,7 +305,7 @@ function attempt(c: Ctx, n: Npc, wish: Wish, method: InfluenceMethod): void {
   const words = phrasing(w, wish);
   const data = { npc: n.name, method, kind: wish.kind, ask: words.ask, deed: words.deed, ...(wish.target ? { target: nameOf(w, wish.target) } : {}) };
   const sk = method === 'romance' ? 'romance' : method;
-  cool(w, `influence:${n.id}:${wish.kind}`, 35);
+  coolFor(w, `influence:${n.id}:${wish.kind}`, 105);
   if (rng.chance(p)) {
     train(c, sk, 2 + Math.round(2 * wish.magnitude));
     addGoal(c, n, wish, method);
@@ -357,7 +357,7 @@ export function influenceTick(c: Ctx): void {
         finish(c, n, g, 'lapsed');
         continue;
       }
-      if (n.downUntil > w.beat) continue;
+      if (n.downUntil > w.clock) continue;
       const near = n.locationId === hero;
       if (g.kind === 'give_cash' && near) {
         let amount = Math.min(g.amount ?? 0, n.cash);

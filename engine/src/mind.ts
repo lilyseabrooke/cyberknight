@@ -36,9 +36,17 @@ export function depth(w: World, g: Goal): number {
 export const hasGoal = (w: World, kind: Goal['kind'], subject?: string): boolean =>
   w.mind.goals.some((g) => g.kind === kind && (subject === undefined || g.npc === subject || g.ware === subject || g.loc === subject));
 
-export const cooling = (w: World, key: string): boolean => (w.mind.cooldown[key] ?? 0) > w.beat;
+/**
+ * Cooldowns come in two kinds. `cool` counts beats, for pacing her own decisions ("don't ask again for 25 more choices").
+ * `coolFor` counts world minutes, for anything that is true of the world while time passes (a door she has written off, a job
+ * she has put down). A beat is anything from a few seconds to a night's sleep, so the two don't convert.
+ */
+export const cooling = (w: World, key: string): boolean => (w.mind.cooldown[key] ?? 0) > w.beat || (w.mind.coolUntil?.[key] ?? 0) > w.clock;
 export const cool = (w: World, key: string, beats: number): void => {
   w.mind.cooldown[key] = w.beat + beats;
+};
+export const coolFor = (w: World, key: string, minutes: number): void => {
+  (w.mind.coolUntil ??= {})[key] = w.clock + minutes;
 };
 
 /** Delayed goals (and everything beneath them) are on hold. */

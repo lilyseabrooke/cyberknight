@@ -193,7 +193,7 @@ export function witnessAssault(c: Ctx, foes: Npc[], opts: { noise: number }): Wi
         n.affinity -= 10;
         break;
       case 'flee':
-        n.downUntil = w.beat + rng.int(6, 14);
+        n.downUntil = w.clock + rng.int(18, 42);
         n.affinity -= 4;
         break;
       case 'film': {

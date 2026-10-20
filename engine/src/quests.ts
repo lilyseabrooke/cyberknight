@@ -6,7 +6,7 @@ import { addQuestSite, type SiteSpec } from './mapgen';
 import { addNpc } from './population';
 import { placeAt } from './movement';
 import { routeTo } from './plans';
-import { cool, cooling, hasGoal, topLevel, capacity } from './mind';
+import { coolFor, cooling, hasGoal, topLevel, capacity } from './mind';
 import { skillLevel, train } from './skills';
 import { hasAlly } from './companions';
 import { startQuestGoal } from './goals';
@@ -279,7 +279,7 @@ function decide(c: Ctx, giver: Npc, q: Quest, fact: Fact): void {
   const a = appraise(w, giver, q);
   const data = { ...jobData(w, giver, q), want: fact.kind, why: reason(a) };
   if (!rng.chance(a.accept)) {
-    cool(w, `quest_ask:${giver.id}`, 300);
+    coolFor(w, `quest_ask:${giver.id}`, 900);
     c.emit('quest', 'mixed', { variant: 'decline', ...data });
     return;
   }
@@ -313,7 +313,7 @@ function askQuest(c: Ctx, n: Npc, fact: Fact): void {
   ensureDeep(w, n);
   const q = ensureQuest(w, n, fact);
   if (!q) {
-    cool(w, `quest_ask:${n.id}`, 300);
+    coolFor(w, `quest_ask:${n.id}`, 900);
     return;
   }
   const known = ((w.mind.known ??= {})[n.id] ??= []);

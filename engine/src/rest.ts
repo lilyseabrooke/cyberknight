@@ -109,7 +109,7 @@ interface Errand {
 }
 
 /** Every place she knows how to get to, with the cost of the way and the first step. Hidden doors and shut doors don't count. */
-function reachFrom(w: World, from: Id, maxCost: number): Map<Id, { dist: number; next: Id }> {
+export function reachFrom(w: World, from: Id, maxCost: number): Map<Id, { dist: number; next: Id }> {
   const out = new Map<Id, { dist: number; next: Id }>([[from, { dist: 0, next: from }]]);
   const open: Id[] = [from];
   const done = new Set<Id>();
@@ -535,7 +535,7 @@ function visitors(c: Ctx, night: Night): Passer[] {
   const known = new Map<Id, Npc>();
   for (const n of [...everyoneAt(w, loc.id), ...hauntersOf(w, loc.id)]) known.set(n.id, n);
   for (const n of known.values()) {
-    if (night.seen.has(n.id) || !n.alive || n.hostile || n.downUntil > w.beat) continue;
+    if (night.seen.has(n.id) || !n.alive || n.hostile || n.downUntil > w.clock) continue;
     if (n.tags.some((t) => t === 'robot' || t === 'dragon' || t === 'boss') || n.archetype === 'puppy' || h.companions.some((a) => a.npcId === n.id)) continue;
     if (placeAt(w, n, w.clock) !== loc.id) continue;
     out.push(fromNpc(w, n));

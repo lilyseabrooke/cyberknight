@@ -35,7 +35,7 @@ import { appraise, giverPlace, livePending, objectiveRoom, questReady } from './
 import { MAX_IMPLANTS } from './content/implants';
 import { maybeAsk, waiting, type Proposal } from './advice';
 import {
-  MAX_DEPTH, capacity, childrenOf, cool, cooling, depth, focusFactor, goalById, hasGoal, interest, isHeld, isLeaf, priority, subjectOf, topLevel,
+  MAX_DEPTH, capacity, childrenOf, cool, coolFor, cooling, depth, focusFactor, goalById, hasGoal, interest, isHeld, isLeaf, priority, subjectOf, topLevel,
 } from './mind';
 import {
   SPEND, SITES, appeal, expectedEarn, fenceValue, isSafeSpot, isSold, keeperOf, knownSites, learnEarning, owns, routeTo, safeSpot, shopStock,
@@ -93,7 +93,7 @@ const foeOf = (w: World, g: Goal): Npc | undefined => (g.npc ? w.npcs[g.npc] : u
 
 /** Loud things. A hero trying to be quiet does not do these. */
 const NOISY = new Set([
-  'challenge', 'sweep', 'threaten', 'join_brawl', 'pickpocket', 'graffiti', 'karaoke', 'dj_set', 'gig', 'busk', 'serenade', 'jam', 'beatbox',
+  'challenge', 'sweep', 'threaten', 'join_brawl', 'pickpocket', 'graffiti', 'karaoke', 'dj_set', 'gig', 'busk', 'serenade', 'jam', 'beatbox', 'stump_speech',
   'laser_tag', 'billboard', 'engage_flight', 'challenge_dragon', 'refuse_tithe', 'stand_ground', 'steal_puppy', 'rob_paint_shop', 'threaten_clerk', 'armwrestle', 'hijack',
 ]);
 /** Things that look good to a girl who is watching. */
@@ -380,7 +380,7 @@ const KINDS: Record<GoalKind, Kind> = {
       if (!n) return { drop: 'moot' };
       if (!n.alive) return g.struck ? { done: 'kill' } : { drop: 'someone_else' };
       // Kills don't stick in a bar: they get knocked out and carried home. Close enough, says her pride.
-      if (g.struck && n.downUntil > w.beat) return { done: g.mode === 'kill' ? 'settled' : 'beat_up' };
+      if (g.struck && n.downUntil > w.clock) return { done: g.mode === 'kill' ? 'settled' : 'beat_up' };
       return null;
     },
     plan(c, g) {
@@ -473,7 +473,7 @@ const KINDS: Record<GoalKind, Kind> = {
       if (ready < 0.5 && apollo && !cooling(w, 'prep:dragon') && rng.chance(0.02 + 0.08 * h.competence)) {
         const have = armBest(h, apollo);
         adopt(c, { kind: 'weapon', parent: g.id, npc: apollo.id, amount: Math.min(32, have + 3), why: 'dragons do not care for tire irons', desire: g.desire, variant: 'prep', extra: { npc: 'Dragon plating' } });
-        cool(w, 'prep:dragon', 60);
+        coolFor(w, 'prep:dragon', 180);
       }
     },
     metric: (w, g) => (w.counters.dragon_kills ?? 0) * 10 + dragonReadiness(w, g) * 5,
@@ -948,7 +948,7 @@ function exploreFor(c: Ctx, parent: Goal, rate: number, known: () => number, why
 /** She sets out to rob somebody's home. The goal does the walking; see `burgle` above. */
 export function startBurglary(c: Ctx, n: Npc, home: Location, extra: EventData = {}): Goal | null {
   const g = adopt(c, { kind: 'burgle', loc: home.id, npc: n.id, why: 'she knows where the money sleeps', desire: 0.7, variant: 'burgle', extra: { npc: n.name, home: home.name, ...extra } });
-  if (!g) cool(c.w, `burgle:${n.id}`, 40);
+  if (!g) coolFor(c.w, `burgle:${n.id}`, 120);
   return g;
 }
 
@@ -1033,7 +1033,7 @@ function raidAsk(lead: Lead, spec: Spec, lean: 'clear' | 'leave', near: boolean)
     question, lean,
     options: [
       { id: 'clear', label: lead.kind === 'spot' ? `Go through ${place}` : `Clear out ${place}`, hint: doorHint(lead), spec },
-      { id: 'leave', label: 'Leave it', hint: 'not worth the trouble', cool: { [`raid:${lead.entrance.id}`]: 120 } },
+      { id: 'leave', label: 'Leave it', hint: 'not worth the trouble', cool: { [`raid:${lead.entrance.id}`]: 360 } },
     ],
     data: { place, dungeon: lead.kind, tier: lead.tier, near },
   };
@@ -1046,7 +1046,7 @@ function wantAsk(x: Ware, spec: Spec, cost: number, cash: number, shop: string):
     question: `The ${x.name} is ${money(cost)} and I'm ${money(short)} short. Save up for it?`, lean: 'save',
     options: [
       { id: 'save', label: `Save up for the ${x.name}`, hint: `${money(short)} to find`, spec },
-      { id: 'skip', label: 'Forget it', hint: 'walk away from the glass', cool: { [`buy:${x.id}`]: 150 } },
+      { id: 'skip', label: 'Forget it', hint: 'walk away from the glass', cool: { [`buy:${x.id}`]: 450 } },
     ],
     data: { item: x.name, price: cost, cash, short, shop, implant: x.kind === 'implant' },
   };
@@ -1073,7 +1073,7 @@ function earnAsk(w: World, g: Goal, pick: { lead?: Lead; site?: Site }): Proposa
   const options: AskOption[] = [];
   if (lead) options.push({ id: 'raid', label: `Raid ${lead.entrance.name}`, hint: doorHint(lead), spec: raidSpec(w, lead, g, g.desire * 0.95, "there is money in other people's buildings", 'raid_cash') });
   if (site) options.push({ id: 'heist', label: `Rob ${site.label}`, hint: 'quiet, if she manages it', spec: heistSpec(w, site, g, g.desire * 0.95, 'the quick way to money', 'heist') });
-  options.push({ id: 'steady', label: 'Odd jobs and bounties', hint: 'slow, and nobody shoots at her', cool: { bigscore: 150 } });
+  options.push({ id: 'steady', label: 'Odd jobs and bounties', hint: 'slow, and nobody shoots at her', cool: { bigscore: 450 } });
   const place = lead ? lead.entrance.name : site?.label ?? 'somewhere';
   return {
     question: lead && site ? `I'm ${money(short)} short. Raid ${lead.entrance.name}, rob ${site.label}, or work the street?` : `I'm ${money(short)} short. Go big at ${place}, or work the street?`,
@@ -1179,12 +1179,12 @@ function end(c: Ctx, g: Goal, how: 'done' | 'drop', variant: string, extra: Even
   const gone = new Set([g.id, ...descendants(w, g).map((x) => x.id)]);
   m.goals = m.goals.filter((x) => !gone.has(x.id));
   if (m.focus !== null && gone.has(m.focus)) m.focus = null;
-  cool(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 220 : variant === 'overloaded' ? 40 : 90);
+  coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : variant === 'overloaded' ? 120 : 270);
   // She still has the job, even if she's put it down for now. (And a place that looked like too much from the street still does.)
-  if (g.kind === 'quest' && variant === 'outmatched') cool(w, `quest:${subjectOf(g)}`, 240);
+  if (g.kind === 'quest' && variant === 'outmatched') coolFor(w, `quest:${subjectOf(g)}`, 720);
   if (g.kind === 'quest' && how === 'drop' && g.npc && w.npcs[g.npc]?.quest && !['gone', 'quest_failed'].includes(variant) && !(m.quests ??= []).includes(g.npc)) m.quests.push(g.npc);
-  if (g.kind === 'heist' && how === 'drop') cool(w, `heist:${g.loc}`, 120);
-  if (g.kind === 'raid' && how === 'drop') cool(w, `raid:${g.loc}`, variant === 'outmatched' ? 160 : 120);
+  if (g.kind === 'heist' && how === 'drop') coolFor(w, `heist:${g.loc}`, 360);
+  if (g.kind === 'raid' && how === 'drop') coolFor(w, `raid:${g.loc}`, variant === 'outmatched' ? 480 : 360);
   if (how === 'done') m.tally.done++;
   else m.tally.dropped++;
   const parent = goalById(w, g.parent);
@@ -1196,7 +1196,7 @@ function end(c: Ctx, g: Goal, how: 'done' | 'drop', variant: string, extra: Even
   } else {
     parent.frustration = Math.min(1, parent.frustration + 0.25);
     parent.setbacks++;
-    if (g.kind === 'weapon' && parent.kind === 'kill') cool(w, `prep:${parent.npc}`, 120);
+    if (g.kind === 'weapon' && parent.kind === 'kill') coolFor(w, `prep:${parent.npc}`, 360);
   }
 }
 
@@ -1381,7 +1381,7 @@ function formGoals(c: Ctx): void {
   if (hpFrac(w) >= 0.7 && !hasGoal(w, 'raid') && !waiting(w) && !cooling(w, 'advice') && !cooling(w, 'bigscore')) {
     const lead = knownDungeons(w).find((l) => l.entrance.gen?.parent === h.locationId && !cooling(w, `raid:${l.entrance.id}`) && !cooling(w, `door:${l.entrance.id}`));
     if (lead && rng.chance(0.08 * raidAppetite(w))) {
-      cool(w, `door:${lead.entrance.id}`, 30);
+      coolFor(w, `door:${lead.entrance.id}`, 90);
       maybeAsk(c, 'door', () => raidAsk(lead, raidSpec(w, lead, null, 0.45 + 0.3 * t.thrill, raidWhy(lead.kind), 'raid_idea'), rng.chance(clamp(0.3 + 0.45 * raidAppetite(w), 0.3, 0.9)) ? 'clear' : 'leave', true));
     }
   }
@@ -1644,7 +1644,7 @@ export function goalCandidates(w: World): Candidate[] {
     if (!ware || h.locationId !== ware.loc || isSold(w, ware.id) || owns(w, ware)) continue;
     const keeper = keeperOf(w, ware);
     const cost = wareCost(w, ware);
-    if (!keeper || !keeper.alive || keeper.hostile || keeper.locationId !== h.locationId || keeper.downUntil > w.beat || h.cash < cost) continue;
+    if (!keeper || !keeper.alive || keeper.hostile || keeper.locationId !== h.locationId || keeper.downUntil > w.clock || h.cash < cost) continue;
     out.push({
       key: `buy_ware:${ware.id}`, drives: {}, bonus: 0.5,
       run: (c) => {

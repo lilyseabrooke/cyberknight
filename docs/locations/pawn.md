@@ -224,8 +224,8 @@ Differences from the draft:
   itself) plus one or two rows each; "the sting" is Atlas heat on every hock and a row to spot it.
 - **Hot goods** (tagged `corp`, `gang`, `dragon`, `hot`) are refused with Atlas heat at the Atlas franchise and at a
   sting; fence fronts and gang drops pay 30% over for them; everyone else treats them as any other thing.
-- **Holds are counted in days.** At 3 minutes a beat a day is ~480 beats, so a hold of 2-14 days is long next to a test
-  run's 600 beats. In real play (no cap) she can come back for it; in a capped sim she rarely does.
+- **Holds are counted in days** of world-clock time. Beats don't convert to days, so a capped sim run can end before a
+  hold of 2-14 days runs out. In real play (no cap) she can come back for it; in a capped sim she rarely does.
 - **The till is topped up a little by traffic** (`tickPawns`), to a cap of 150nd a tier, so a shop she has drained
   recovers slowly. A bottomless till is never drained and pays 1.5x.
 - **Added after the spec:** a pool table in the back parlour (so `pool` has something to do), a `drunk` result field in
