@@ -76,7 +76,8 @@ describe('Muse shows', () => {
     expect(w.npcs[show.artist]!.faction).toBe('muse');
     expect(npcsAt(w, 'halo_floor').some((n) => n.archetype === 'muse_tech')).toBe(true);
     expect(templated(events, ['muse_show'])).toBe(true);
-    w.clock += 200;
+    // (A show lasts the evening.)
+    w.clock += 400;
     museShowTick(c);
     expect(w.mind.museShow).toBeUndefined();
     expect(pullAt(w, 'halo_floor')).toBeGreaterThan(50);
