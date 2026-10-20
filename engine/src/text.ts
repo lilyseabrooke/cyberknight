@@ -628,6 +628,8 @@ const T: Record<string, Entry> = {
   'pest_control:start': e((d) => [`${d.npc} points at the cellar door and the scratching behind it. ${Number(d.count) > 1 ? 'Cyber-rats, and plenty of them' : 'A cyber-rat'}, ${d.npc} says, is eating the wiring. Blackbird takes the job.`], ['Vermin. Finally, an enemy I can respect.', 'Small, chrome, and furious. We are going to get along.']),
   'pest_control:cleared': e((d) => [`The cellar goes quiet. ${d.npc} counts out ${d.amount} neodollars and tries not to look at what is left of the wiring.`], ['First blood. It was a rat, but it counts.', 'Pest control. A real career.']),
 
+  'sweeper_accost': e((d) => [Number(d.count) > 1 ? `Two street sweepers on ${d.place} stop sweeping, swivel their lenses at Blackbird and roll straight at her, brush arms whirring.` : `A street sweeper on ${d.place} stops mid-sweep, swivels its lens at Blackbird, decides she is litter, and rolls at her with its brush arm up.`], ['Oh, you want to do this? With a brush?', 'I am being attacked by municipal property.']),
+
   'security_shift:good': e((d) => [`Blackbird works the Neon Pharaoh's door for the night: mirrored shades, a bad attitude, and ${d.amount} neodollars by closing.`], ['Nobody gets past me. Nobody important, anyway.']),
   'security_shift:bad': e((d) => (d.npc ? [`${d.npc} tries to get past Blackbird the hard way. It does not go the way ${d.npc} planned.`] : ['The night shift is long, loud, and entirely uncompensated for the bruises.'])),
 

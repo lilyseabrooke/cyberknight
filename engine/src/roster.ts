@@ -59,6 +59,7 @@ export const ROSTERS: Record<Location['kind'], SlotDef[]> = {
     { role: 'noodler', count: [1, 1], chance: 0.3, resident: true },
     { role: 'ganger', count: [1, 2], chance: 0.4, faction: 'influence' },
     { role: 'drone', count: [1, 1], chance: 0.5, minSecurity: 2 },
+    { role: 'sweeper', count: [1, 2], chance: 0.7 },
   ],
   club: [
     { role: 'club_security', count: [1, 3], faction: 'venue', resident: true },

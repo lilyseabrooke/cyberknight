@@ -73,6 +73,13 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     armorChance: 0.5, loot: ['vipers_patch', 'credchip', 'gold_tooth', 'med_pack', 'patch_kit'], lootChance: 0.6, cash: [10, 60],
     desc: ['a ganger in a jacket covered in more patches than a quilt'],
   },
+  // The street's cheapest automation: municipal sweepers and litter-bots, bored enough to take a swing at anybody who looks at them.
+  // Made to be beaten by a level 1 (the grade scaling in `spawnNpc` only makes them tougher in rougher districts).
+  sweeper: {
+    role: 'street sweeper drone', level: [1, 1], tags: ['robot', 'patrol', 'sweeper'], faction: 'atlas',
+    names: 'robot', weapons: [], loot: ['scrap_metal', 'drone_core'], lootChance: 0.35, cash: [0, 0], hp: 9, power: 3,
+    desc: ['a municipal sweeper drone, a squat chrome bin on treads with a brush arm and an attitude'],
+  },
   corpo: {
     role: 'off-the-clock corporate drone', level: [2, 2], tags: ['augmented', 'corp', 'monitored'], faction: 'atlas',
     names: 'person', weapons: ['zip_pistol'], armors: ['kevlar_duster'], armorChance: 0.3,

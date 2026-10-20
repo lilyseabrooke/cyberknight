@@ -28,6 +28,7 @@ import { adviceTick, resolveAsk } from './advice';
 import { callingBias } from './callings';
 import { interest } from './mind';
 import { driveByRoll } from './driveby';
+import { sweeperRoll } from './sweepers';
 import { haloShun, heatBias, npdResponse } from './laylow';
 import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
@@ -340,6 +341,7 @@ function ambient(c: Ctx): void {
   if (starSecurity(c)) return;
   if (npdResponse(c)) return;
   if (driveByRoll(c)) return;
+  if (sweeperRoll(c)) return;
   // On a highway nothing else turns up: no muggers, no raids, no neighbours.
   if (loc.road === 'highway') return;
   // Atlas retrieval team.
