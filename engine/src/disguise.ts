@@ -260,6 +260,17 @@ function donStar(c: Ctx): void {
   c.emit('don', 'good', { variant: 'star', label: star.name, what: star.what, look: quality(dis.polish) });
 }
 
+/**
+ * Somebody famous who isn't one of the usual faces: a name a mission hands her (missions.ts). Worn like any star's (their fame, their
+ * standing with the law, a scandal if it comes apart), carried a little worse the more famous they are. Returns how well it sits.
+ */
+export function wearStar(c: Ctx, label: string, fame: number, polishBonus = 0): Disguise {
+  const dis = put(c, { kind: 'star', label, fame }, bearing(c.w.hero) - 0.012 * fame - 0.07 * Math.min(4, buzz(c.w, label)) + polishBonus);
+  addBuzz(c.w, label, 1);
+  train(c, 'acting', 1);
+  return dis;
+}
+
 /** Study someone from across the room and become them. */
 function mimic(c: Ctx, n: Npc): void {
   const dis = put(c, { kind: 'crew', label: n.name, crew: n.faction!, as: n.id }, bearing(c.w.hero) + 0.1);

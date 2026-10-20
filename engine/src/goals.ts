@@ -11,7 +11,9 @@ import { judgeSet } from './renown';
 import { museAfterSet } from './muse';
 import { songAfterSet } from './songs';
 import { bookingAt } from './bookings';
-import type { Booking } from './types';
+import type { Booking, Mission } from './types';
+import { missionAfterSet, missionById, missionLabel, missionMetric, missionVerdict, missionWhere } from './missions';
+import { MISSIONS } from './content/missions';
 import { SKILL_LABELS, skillLevel } from './skills';
 import { dayOf } from './clock';
 import { PLENTY_PARTS, knownBenches, lowOnParts, partsLeads } from './scavenge';
@@ -137,6 +139,7 @@ const goalData = (w: World, g: Goal, extra: EventData = {}): EventData => ({
   ...(g.kind === 'quest' ? questData(w, g) : {}),
   ...(g.kind === 'frog' ? frogData(w, g) : {}),
   ...(g.kind === 'game' ? gameData(w, g) : {}),
+  ...(g.kind === 'mission' ? { title: MISSIONS[missionById(w, g.mission)?.def ?? '']?.title ?? '' } : {}),
   ...extra,
 });
 
@@ -192,6 +195,23 @@ const KINDS: Record<GoalKind, Kind> = {
     metric: (w, g) => -distTo(w, g.loc!),
     targets: (w, g) => (w.hero.locationId === g.loc ? [] : [{ loc: g.loc!, value: 3.4 }]),
     bias: (w, g, fam) => (w.hero.locationId === g.loc && fam.startsWith('booked_') ? 6 : 0),
+  },
+  // ------------------------------------------------------------------ a mission (missions.ts)
+  // A story she is in. Where it pulls her moves with its stage, and nothing pulls while the stage is on hold; once she's there,
+  // the stage's own candidates are what it leans on.
+  mission: {
+    decay: 0.0006, stick: ['loyalty', 'artistry', 'curiosity'], patience: 400,
+    label: (w, g) => missionLabel(w, g.mission),
+    check: (w, g) => missionVerdict(w, g.mission),
+    plan(c, g) {
+      if (hpFrac(c.w) < 0.3 && missionWhere(c.w, g.mission)) delay(c, g, 40, 'hurt');
+    },
+    metric: (w, g) => missionMetric(w, g.mission),
+    targets(w, g) {
+      const to = missionWhere(w, g.mission);
+      return to && to !== w.hero.locationId ? [{ loc: to, value: 3.2 }] : [];
+    },
+    bias: (_w, g, fam, id) => (fam === 'mission' && id === g.mission ? 6 : 0),
   },
   // ------------------------------------------------------------------ buy
   buy: {
@@ -1255,6 +1275,11 @@ export function startBookingGoal(c: Ctx, b: Booking, place: string): Goal | null
   return adopt(c, { kind: 'booking', loc: b.loc, why: `${place} has her on the bill`, desire, variant: 'booking', extra: { place, amount: b.pay } });
 }
 
+/** She takes a mission on as a goal, if she has room for it. See missions.ts. */
+export function startMissionGoal(c: Ctx, m: Mission, desire: number): Goal | null {
+  return adopt(c, { kind: 'mission', mission: m.id, why: 'it is her story now', desire, variant: 'mission', extra: { title: MISSIONS[m.def]?.title ?? '' } });
+}
+
 /** She takes a job on as a goal, if she has room for it. */
 export function startQuestGoal(c: Ctx, giver: Npc, desire: number, variant: string): Goal | null {
   const q = giver.quest;
@@ -1266,7 +1291,7 @@ function adopt(c: Ctx, s: Spec): Goal | null {
   const { w, rng } = c;
   const m = w.mind;
   const parent = goalById(w, s.parent ?? null);
-  const subject = s.npc ?? s.ware ?? s.game ?? s.loc ?? '';
+  const subject = s.mission ?? s.npc ?? s.ware ?? s.game ?? s.loc ?? '';
   const same = m.goals.find((g) => g.kind === s.kind && g.parent === (parent?.id ?? null) && (s.kind === 'cash' || subjectOf(g) === subject));
   if (same) {
     same.desire = Math.max(same.desire, s.desire);
@@ -1300,7 +1325,7 @@ function adopt(c: Ctx, s: Spec): Goal | null {
     }
   }
   const g: Goal = {
-    id: m.nextId++, kind: s.kind, parent: parent?.id ?? null, npc: s.npc, ware: s.ware, loc: s.loc, ...(s.game ? { game: s.game } : {}), amount: s.amount, mode: s.mode,
+    id: m.nextId++, kind: s.kind, parent: parent?.id ?? null, npc: s.npc, ware: s.ware, loc: s.loc, ...(s.game ? { game: s.game } : {}), ...(s.mission ? { mission: s.mission } : {}), amount: s.amount, mode: s.mode,
     why: s.why, desire: clamp(s.desire, 0.1, 1), frustration: 0, born: w.beat, lastProgress: w.beat, metric: 0, delayUntil: 0, setbacks: 0,
     revisions: 0, lastFocus: 0, ...(s.calling ? { calling: true } : {}),
   };
@@ -1965,6 +1990,7 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
     judgeSet(c, fam, ACT_SKILL[fam]!, events);
     museAfterSet(c, fam, ACT_SKILL[fam]!, events);
     songAfterSet(c, fam, events);
+    missionAfterSet(c, fam, ACT_SKILL[fam]!, events);
   }
   if (pick && FAME_FAMILIES.has(fam)) {
     learnFame(w, fam, h.fame - before.fame);

@@ -54,6 +54,7 @@ import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './ro
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
 import { questCandidates } from './quests';
+import { missionCandidates } from './missions';
 import { influenceCandidates } from './influence';
 import { isFairGame } from './people';
 import { isBadGuy } from './traits';
@@ -228,6 +229,7 @@ export function gather(w: World): Candidate[] {
   out.push(...bondCandidates(w));
   out.push(...knowledgeCandidates(w));
   out.push(...questCandidates(w));
+  out.push(...missionCandidates(w));
   out.push(...laylowCandidates(w));
   out.push(...stageCandidates(w));
   out.push(...bookingCandidates(w));

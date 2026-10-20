@@ -951,6 +951,18 @@ const T: Record<string, Entry> = {
   'intent:karaoke': e(() => ['Blackbird takes the mic.', 'Blackbird has added her name to the karaoke list, above everyone else.']),
   // ---- gyms: the affordance rows carry their own prose (content/gym*.ts); one entry reads it back
   gym: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  // A mission tells itself: its lines live with its definition (content/missions/). See missions.ts.
+  mission: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'advice_ask:mission': e(
+    (d) => [`Blackbird taps her earpiece. "Lab. ${d.question}"`, `"Lab," says Blackbird, already walking. "${d.question}"`],
+    ['I have a plan. I have three plans. Pick one and it was mine.', 'Asking is what leaders do. Then they do whatever.'],
+  ),
+  'advice_taken:mission': e(
+    (d) => [`The lab says: "${d.label}." Blackbird nods as if it had been her idea, which, she will tell people, it was.`, `"${d.label}," says the lab. Blackbird says she had narrowed it down to that one anyway.`],
+    ['Good call. Mine, mostly.', 'Excellent. I have excellent staff.'],
+  ),
+  'goal_new:mission': e((d) => [`Blackbird has a story on her hands${d.title ? ` (${d.title})` : ''}. New objective: ${d.goal}.`, `${d.title ? `${d.title}. ` : ''}Blackbird adds it to the list, at the top: ${d.goal}.`], ['This is the bit in the film where it starts.', 'I love a story. Especially mine.']),
+  'goal_done:mission': e((d) => [`That's the end of it${d.title ? `: ${d.title}` : ''}. Blackbird files it away somewhere between "legend" and "anecdote".`, `${d.title ? `${d.title}: ` : ''}over. Blackbird will be telling this one for years, and it will get better every time.`], ['Roll credits.', 'And that is how it happened. Roughly.']),
   'intent:gym': e((d) => [String(d.text)]),
   'intent:gymquick': e((d) => [String(d.text)]),
   'intent:gymfight': e((d) => [String(d.text)]),
@@ -1354,6 +1366,7 @@ const T: Record<string, Entry> = {
   'charts:good': e((d) => [`Muse's clearance system, processing the broadcast, files Blackbird's "${d.title}" as an approved Muse release by mistake. By the time anyone notices, it's on every Muse playlist, every drone loudspeaker and the top of the chart. Atlas's dragons are flying their patrols to her song. (+${d.fame} fame)`, `Somewhere in Muse's automated licensing, a checkbox goes the wrong way: "${d.title}" by Blackbird is now officially the number one song in the city. Every dragon in the sky is playing it. Muse's lawyers are having a very long week. (+${d.fame} fame)`], ['Number one. With a bullet. Several, probably, coming my way.', 'Every dragon in the city is playing my song. Sing along, you big metal idiots.', 'Muse made me famous. Muse will regret that.']),
   'muse:breach_detonate': e((d) => [`Muse Legal is on the phone before the broadcast has finished: the contract is void, the advance is clawed back (${d.amount}nd), and her face is coming off every Muse screen. An Inspiration file is opened in her name, in red, with hearts.`], ['Worth every neodollar.', 'Free agent. Very free. Very wanted.']),
   'muse:breach_lumina': e((d) => [`Muse has a word for running off with its idol: breach. Lawyers take ${d.amount}nd. Inspiration takes an interest.`], ['Love is a breach of contract. Put it on the record.']),
+  'muse:breach_annex': e((d) => [`Muse notices that its signed artist has just walked out of a Clearance holding facility with seized property under her arm. The contract is terminated "with so much love 💔", the lawyers take ${d.amount}nd, and Inspiration is told her new address.`, `Somewhere in Muse Legal a light goes red: a signed artist, a Clearance seizure, the same night. Void, with feeling. ${d.amount}nd in fees, and Blackbird's name moves to a different list.`], ['Worth it. That guitar is worth a contract.', 'I was getting bored of being owned anyway.']),
   'muse:breach_show': e((d) => [`Muse notices that its signed artist just spoiled one of its shows. The contract is terminated "with love 💔", the lawyers take ${d.amount}nd, and Blackbird is free, and hunted.`], ['I was never good at being on a label.']),
   detonate_contract: e((d) => [`On the night of the LUMINA duet at ${d.place}, live on every Muse channel, Blackbird stops playing LUMINA's song and starts playing hers. Muse can't cut the feed fast enough. LUMINA, after a stunned second, finds the harmony. Neo watches a contract die on air. (+${d.fame} fame)`], ['That was the encore. That was my resignation.', 'Page thirty, torn out, live.']),
   'detonate_contract:rough': e((d) => [`At ${d.place}, mid-duet, Blackbird abandons LUMINA's song for one of her own, on live television. It is a bit ragged. It is also the most watched thing in Neo tonight. (+${d.fame} fame)`], ['Rough. Real. Mine.']),
@@ -2111,6 +2124,7 @@ const T: Record<string, Entry> = {
   'goal_resume:dragon': e(() => ['Blackbird glances at the sky and remembers the dragons. They have not forgotten her. They do not know her. But they have not forgotten her.'], ['Back to the hunt.']),
   'goal_resume:explore': e((d) => [`Blackbird looks down the street toward ${d.place ?? 'the unknown'} and remembers she meant to go and see.`], ['Right. The map has a blank spot. Rude.']),
   'goal_resume:burgle': e((d) => [`Blackbird glances toward ${d.npc}'s street and remembers the plan.`], ["The door's still there. I'm still going to open it."]),
+  'goal_resume:mission': e((d) => [`Blackbird's mind wanders back to the story she's in${d.title ? ` (${d.title})` : ''}: ${d.goal}.`, `Something reminds Blackbird of it, a chord through a door, a name on a poster: ${d.goal}. Right.`], ['Where was I. The good bit. I was at the good bit.']),
   'goal_resume:booking': e((d) => [`Blackbird checks the time and remembers: ${d.goal}. The crowd is not going to wait forever.`], ['The show. Right. I am the show.']),
   'goal_resume:heist': e((d) => [`Blackbird glances toward ${d.place} and remembers the plan.`], ["The job's still there. I'm still going to do it."]),
 

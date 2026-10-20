@@ -57,6 +57,11 @@ const MOMENTS: Record<string, Spec> = {
   'lumina:seduce': { kind: 'love', drama: 4, titles: () => ['Static and Strawberries', 'Backstage Pass'], about: (_d, w) => (w.npcs.lumina ? 'lumina' : undefined) },
   'lumina:seduce_public': { kind: 'love', drama: 5, titles: () => ['Static and Strawberries', 'Kissed the Idol'], about: (_d, w) => (w.npcs.lumina ? 'lumina' : undefined) },
   'lumina:freed': { kind: 'love', drama: 6, titles: () => ['Our Own Music', 'Out the Fire Exit (With LUMINA)'], about: (_d, w) => (w.npcs.lumina ? 'lumina' : undefined) },
+  // ---- missions (content/missions/)
+  'mission:last_kept': { kind: 'triumph', drama: 5, titles: (d) => [`${s(d.npc)}'s Last Set`, `Keep It (It Likes You)`, `The Guitar Called ${s(d.guitar, 'Mabel')}`] },
+  'mission:last_returned': { kind: 'triumph', drama: 5, titles: (d) => [`${s(d.npc)} Played the Last One`, `Give It Back`, `Something in My Eye`] },
+  'mission:mourned': { kind: 'heartbreak', drama: 4, titles: (d) => [`Never Heard ${s(d.npc)} Play`, `Safekeeping`, `The Corner Table`] },
+  'mission:usurped': { kind: 'scrape', drama: 5, titles: (d) => [`${s(d.npc)} (Live, One Night Only)`, `Comeback`, `Nobody Will Ever Play Like That Again`] },
   'broadcast_hijack:clean': { kind: 'muse', drama: 4, titles: () => ['Three and a Half Minutes', 'Prime Time'] },
   'broadcast_hijack:traced_after': { kind: 'muse', drama: 4, titles: () => ['Three and a Half Minutes', 'They Traced the Signal'] },
   'detonate_contract:good': { kind: 'muse', drama: 6, titles: () => ['Page Thirty (Torn Out)', 'Live on Every Channel'] },

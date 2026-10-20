@@ -685,6 +685,15 @@ export function addQuestSite(
   site: SiteSpec,
   giver: Id,
 ): { streets: Location[]; entrance: Location } {
+  const { streets, at, district } = trail(w, from, key, length);
+  const depth = at.gen?.depth ?? 1;
+  const entrance = sketch(w, at, MADE_TO_ORDER + (hashString(`${key}:site`) % 9000), site.role, district, depth, { tier: site.tier, ...(site.spot ? { spot: site.spot } : {}) });
+  entrance.gen!.quest = giver;
+  return { streets, entrance };
+}
+
+/** A trail of `length` new streets off `from`, all from `key`; the last one is expanded, so it is lived in like any other. */
+function trail(w: MapWorld, from: Location, key: string, length: number): { streets: Location[]; at: Location; district: District } {
   const rng = new Rng(`trail:${w.worldSeed}:${key}`);
   const streets: Location[] = [];
   let at = from;
@@ -694,12 +703,17 @@ export function addQuestSite(
     at = sketch(w, at, MADE_TO_ORDER + (hashString(`${key}:${i}`) % 9000), 'street', district, (at.gen?.depth ?? 0) + 1, { label: `{name}, ${pick(rng, TRAIL_TAIL)}` });
     streets.push(at);
   }
-  // The street the site is on is lived in like any other: it grows its own lots, and the site is one more thing on it.
   expand(w, at);
-  const depth = at.gen?.depth ?? 1;
-  const entrance = sketch(w, at, MADE_TO_ORDER + (hashString(`${key}:site`) % 9000), site.role, district, depth, { tier: site.tier, ...(site.spot ? { spot: site.spot } : {}) });
-  entrance.gen!.quest = giver;
-  return { streets, entrance };
+  return { streets, at, district };
+}
+
+/**
+ * An ordinary place made for a story (missions.ts): a bar, a club, a shop, on the last of a trail of new streets off `from`. Like a
+ * job's site it comes from `key`, so it is the same place however the save got there, and asking again returns it.
+ */
+export function addTrailPlace(w: MapWorld, from: Location, key: string, length: number, role: 'bar' | 'club' | 'shop'): Location {
+  const { at, district } = trail(w, from, key, length);
+  return sketch(w, at, MADE_TO_ORDER + (hashString(`${key}:place`) % 9000), role, district, at.gen?.depth ?? 1);
 }
 
 /** "the Chrome Vipers' dead drop", "Atlas drone repair bay 4-B". */

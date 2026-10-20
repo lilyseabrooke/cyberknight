@@ -1127,6 +1127,38 @@ export interface Legacy {
   report?: RunReport;
   /** The Cyberfrogs on the lab's shelf, by character number (index into FROGS, content/cyberfrogs.ts). Sent home the moment she gets them, so they outlive her. Absent before the first. */
   frogs?: Record<string, FrogShelf>;
+  /** Missions: small stories that happened to her, and the people and places in them. They are the world's, so they outlive her;
+   *  what she knows about them is her body's (`Mind.missions`). See missions.ts. */
+  missions?: Mission[];
+}
+
+/**
+ * A mission, as the world holds it: who is in it, where it happens, how far it has got and what was rolled for it. Plain data;
+ * what each stage means lives with its definition (content/missions/). See missions.ts.
+ */
+export interface Mission {
+  /** Unique within the save: the definition and a count ("safekeeping_1"). No colons: it goes in candidate keys. */
+  id: string;
+  /** Which mission (a key of MISSIONS). */
+  def: string;
+  /** The stage it has reached (a key of the definition's `stages`). */
+  stage: string;
+  /** Who is in it, by role: NPC ids. They are ordinary people and outlive it. */
+  cast: Record<string, Id>;
+  /** Where it happens, by role: location ids. */
+  places: Record<string, Id>;
+  /** What was rolled for it when it began (a variant per slot, the names of things). */
+  picks: Record<string, string>;
+  /** Its own bookkeeping: counters, a branch taken, numbers rolled. */
+  flags: Record<string, string | number | boolean>;
+  /** The current stage can't be done before this world minute (someone needs a day; the gig is tomorrow). */
+  waitUntil?: number;
+  /** How she first heard of it: someone after a set, the grapevine, a thing she found, or someone bringing it up again. */
+  via: string;
+  /** The night (a `legacy.runs` number) it began. */
+  run: number;
+  /** How it ended, once it has. */
+  ending?: string;
 }
 
 /** What the lab holds of one Cyberfrog character. */
@@ -1430,7 +1462,7 @@ export interface Frog {
   state?: 'taken' | 'lost';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'game' | 'guise' | 'frog' | 'booking';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'game' | 'guise' | 'frog' | 'booking' | 'mission';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
@@ -1482,6 +1514,8 @@ export interface Goal {
   blown?: boolean;
   /** Last beat this goal was steering her, to notice when she has drifted off it. */
   lastFocus: number;
+  /** mission: which one (a `Mission.id`). Where it pulls her changes with its stage. */
+  mission?: string;
   /** The opportunity she is working right now. See pursuit.ts. */
   pursuit?: Pursuit;
 }
@@ -1568,9 +1602,10 @@ export interface GoalSpec {
   extra?: EventData;
   /** Made because of her Calling. */
   calling?: boolean;
+  mission?: string;
 }
 
-export type AskKind = 'want' | 'earn' | 'door' | 'idle' | 'calling';
+export type AskKind = 'want' | 'earn' | 'door' | 'idle' | 'calling' | 'mission';
 
 /** One thing the lab can tell her. */
 export interface AskOption {
@@ -1585,6 +1620,8 @@ export interface AskOption {
   calling?: Calling;
   /** Things she puts off if it's the answer: cooldown key -> world minutes. */
   cool?: Record<string, number>;
+  /** The way a mission goes if it's the answer: which one, and the branch. See missions.ts. */
+  mission?: { id: string; pick: string };
 }
 
 /**
@@ -1655,6 +1692,8 @@ export interface Mind {
   lastPlay?: { game: string; hall: Id; went: 'record' | 'good' | 'bad'; beat: number };
   /** A game goal she has just finished leads somewhere: another of the same sort of thing. */
   gameNext?: { mode: 'rank' | 'beat' | 'try'; game?: string; hall: Id; beat: number };
+  /** The missions this body knows it is in, by id. Her side only: a new body knows none of them until somebody says. See missions.ts. */
+  missions?: string[];
   /** What she is waiting to hear from the lab about. See advice.ts. */
   ask?: Ask;
   /** How the lab's advice has gone this night. */

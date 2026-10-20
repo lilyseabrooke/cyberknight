@@ -269,6 +269,17 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['glitter_grenade', 'muse_lanyard', 'memory_shard'], lootChance: 1, cash: [150, 400],
     desc: ['an Inspiration team lead with a glitter-finish rifle and the smile of somebody about to post a heartfelt tribute'],
   },
+  // ---------------- missions (content/missions/) ----------------
+  old_master: {
+    role: 'retired guitar legend', level: [3, 5], tags: ['music', 'retired'], faction: null,
+    names: 'person', weapons: ['broken_bottle'], loot: ['walkman', 'credchip'], lootChance: 0.5, cash: [20, 90],
+    desc: ['an old guitarist with hands like knotted cable, nursing one drink for an hour and listening to everything', 'a retired legend in a jacket that used to be famous, at the corner table, where the speakers are best'],
+  },
+  collector: {
+    role: 'memorabilia collector', level: [2, 4], tags: ['corp', 'rich'], faction: null,
+    names: 'person', weapons: ['stunner_mk3'], loot: ['credchip', 'gold_tooth'], lootChance: 0.8, cash: [200, 600],
+    desc: ['a collector with soft hands, hard eyes and a catalogue number for everything in the room, including, possibly, her', "a rich collector in a coat with too many inside pockets, every one of them with somebody else's history in it"],
+  },
   gang_runner: {
     role: 'gang runner', level: [1, 2], tags: ['rowdy', 'ganger'], faction: 'ganger',
     names: 'person', weapons: ['broken_bottle', 'pool_cue', 'switchblade', 'zip_pistol'], armors: ['leather_jacket'], armorChance: 0.3,
@@ -734,6 +745,8 @@ const PEOPLE: Record<string, PersonSpec> = {
   helix_guard: { women: 0.4, age: [25, 52] },
   scientist: { age: [28, 62] },
   bandmate: { age: [20, 42] },
+  old_master: { age: [58, 84] },
+  collector: { age: [34, 70] },
   paint_clerk: { women: 0.6, age: [20, 40] },
   pharmacist: { age: [30, 62] },
   gunsmith: { age: [34, 64] },

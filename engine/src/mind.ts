@@ -56,7 +56,7 @@ export function isHeld(w: World, g: Goal): boolean {
 }
 
 /** The subject a goal is about, for deduping and cooldowns. */
-export const subjectOf = (g: Goal): string => g.npc ?? g.ware ?? g.game ?? g.loc ?? String(g.amount ?? '');
+export const subjectOf = (g: Goal): string => g.mission ?? g.npc ?? g.ware ?? g.game ?? g.loc ?? String(g.amount ?? '');
 
 /** How much she wants it now, 0..1: her own desire, or her parent's if she's only doing this for them. Frustration saps it. */
 export function priority(w: World, g: Goal): number {

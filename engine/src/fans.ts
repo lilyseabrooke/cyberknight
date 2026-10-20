@@ -6,6 +6,7 @@ import { block, famed, streetOf } from './renown';
 import { slip } from './stealth';
 import { spawnGroup } from './candidate';
 import { synergy } from './skills';
+import { missionGrapevine } from './missions';
 import { crowdData, moveCrowd, type Moved } from './crowd';
 
 /**
@@ -117,6 +118,8 @@ export function grapevineTick(c: Ctx): void {
     c.emit('grapevine', 'good', { variant: 'sighting', npc: n.name, place: w.locations[n.locationId]!.name });
     return;
   }
+  // Somebody she ought to meet, and a story that comes with them.
+  if (missionGrapevine(c)) return;
   // A door she doesn't know about yet.
   const leads = Object.values(w.locations).filter((l) => l.dungeon === l.id && l.gen && (w.locations[l.gen.parent]?.visits ?? 1) === 0);
   let best: { street: Id; name: string; dist: number } | null = null;

@@ -4,6 +4,7 @@ import { clamp } from './candidate';
 import { cool, coolFor, cooling, goalById } from './mind';
 import { adoptSpec } from './goals';
 import { adoptCalling } from './callings';
+import { resolveMissionPick } from './missions';
 
 /**
  * Asking the lab.
@@ -83,6 +84,7 @@ export function resolveAsk(c: Ctx, pick: string, by: 'lab' | 'self'): boolean {
   for (const [key, minutes] of Object.entries(opt.cool ?? {})) coolFor(w, key, minutes);
   if (opt.spec) adoptSpec(c, withBackup(opt.spec, by === 'lab'));
   if (opt.calling) adoptCalling(c, opt.calling, by);
+  if (opt.mission) resolveMissionPick(c, opt.mission.id, opt.mission.pick);
   return true;
 }
 

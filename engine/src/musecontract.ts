@@ -27,7 +27,7 @@ const file = (w: World): MuseFile => (w.legacy.muse ??= {});
 
 // ===================================================================== breaches
 
-export type Breach = 'detonate' | 'lumina' | 'show';
+export type Breach = 'detonate' | 'lumina' | 'show' | 'annex';
 
 /** Signed, and she's broken it. Lawyers, a fine, and the contract is void; done in public, Muse hunts her regardless. */
 export function breach(c: Ctx, how: Breach): void {
