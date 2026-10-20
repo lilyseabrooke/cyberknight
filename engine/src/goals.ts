@@ -862,7 +862,7 @@ const KINDS: Record<GoalKind, Kind> = {
   // shoves aside whatever it has to (`adopt`), she goes into places she would think twice about for it, and the goal ends when it is on its
   // way to the lab or it is gone. The trip there is ordinary travel; grabbing it is the `frog` action, once she is standing on it.
   frog: {
-    decay: 0, stick: ['loyalty'], patience: 600,
+    decay: 0, stick: ['loyalty'], patience: 60,
     label: (w, g) => {
       const f = frogRecord(w, g.loc);
       return f?.seen ? `get ${frogShort(f.char)}` : `find the Cyberfrog she can feel near ${w.locations[f?.door ?? g.loc ?? '']?.name ?? 'here'}`;
@@ -872,6 +872,8 @@ const KINDS: Record<GoalKind, Kind> = {
       if (!f) return { drop: 'moot' };
       if (f.state === 'taken') return { done: 'collected' };
       if (f.state === 'lost') return { drop: 'frog_lost' };
+      // Thrown off, caught or beaten for it again and again: it can wait for another night (or another her).
+      if ((f.tries ?? 0) >= 4) return { drop: 'frog_stuck' };
       // A shop that has shut for the night is still where the frog is: she waits for it to open.
       if (!isClosed(w, f.loc) && !routeTo(w, w.hero.locationId, f.loc)) return { drop: 'moot' };
       return null;
@@ -1306,7 +1308,7 @@ function end(c: Ctx, g: Goal, how: 'done' | 'drop', variant: string, extra: Even
   const gone = new Set([g.id, ...descendants(w, g).map((x) => x.id)]);
   m.goals = m.goals.filter((x) => !gone.has(x.id));
   if (m.focus !== null && gone.has(m.focus)) m.focus = null;
-  coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : g.kind === 'frog' ? 20 : variant === 'overloaded' ? 120 : 270);
+  coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : g.kind === 'frog' ? (variant === 'frog_lost' || variant === 'moot' ? 20 : 300) : variant === 'overloaded' ? 120 : 270);
   // Getting into a game is a habit: finishing one thing here leads to the next ("one more"), so it needs no long rest.
   if (g.kind === 'game' && g.loc) {
     coolFor(w, `game:${subjectOf(g)}`, how === 'done' ? 1 : 240);

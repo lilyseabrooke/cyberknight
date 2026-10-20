@@ -954,6 +954,10 @@ const T: Record<string, Entry> = {
     (d) => [`${d.frog} is gone, and that is that. Blackbird says nothing, which for Blackbird is a sort of scream.`],
     ['Somebody is going to pay for this. Somebody always does.'],
   ),
+  'goal_drop:frog_stuck': e(
+    (d) => [`Blackbird has gone at ${d.frog} four times now and it is still not in her pocket. She steps back. The frog, as ever, gives nothing away. It will keep.`],
+    ['Not tonight. Not forgotten. Not ever forgotten.', 'It is not going anywhere. That is the one thing I like about it.'],
+  ),
   // ---- hacker hubs (content/hub*.ts, hubkit.ts): same shape
   hub: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
   'intent:hub': e((d) => [String(d.text)]),
