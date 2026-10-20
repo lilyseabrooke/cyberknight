@@ -124,7 +124,13 @@ export function bestTrait(h: Hero, skill: string, trait: InstTrait): number {
 /** Levels her instrument adds to a skill. Cheap enough for skillValue: she carries a handful of things. */
 export function instrumentBonus(h: Hero, skill: string): number {
   if (skill !== 'guitar' && skill !== 'djing') return 0;
-  return bestTrait(h, skill, 'tone');
+  // Tone, plus a level for every three lines of the guitar's story (provenance.ts), on whichever guitar gives the most.
+  let best = 0;
+  for (const it of instrumentsOf(h)) {
+    const inst = instOf(it);
+    if (inst && INST_CLASSES[inst.cls]?.skills.includes(skill)) best = Math.max(best, inst.tone + Math.min(3, Math.floor((inst.story?.length ?? 0) / 3)));
+  }
+  return best;
 }
 
 /**

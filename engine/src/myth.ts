@@ -33,7 +33,15 @@ import { fameFrom } from './stage';
 export const MYTH_GRADE = 70;
 export function mythOdds(w: World, edge = 0): number {
   const h = w.hero;
-  return Math.max(0.02, Math.min(0.85, 0.45 + 0.03 * (skillValue(h, 'guitar') - MYTH_GRADE) + 0.04 * bestTrait(h, 'guitar', 'volume') + edge));
+  return Math.max(0.02, Math.min(0.85, 0.45 + 0.03 * (skillValue(h, 'guitar') - MYTH_GRADE) + 0.04 * bestTrait(h, 'guitar', 'volume') + clubNear(w) + edge));
+}
+
+/** A fan club round her block (fanclub.ts) is a headquarters: people who know the words and the plan. */
+function clubNear(w: World): number {
+  const loc = w.locations[w.hero.locationId];
+  if (!loc) return 0;
+  for (const sid of block(w, loc)) for (const e of w.locations[sid]?.exits ?? []) if (w.locations[e.to]?.venue?.kind === 'fanclub') return 0.05;
+  return 0;
 }
 
 /** What a repeat is worth: the first time is a legend, the fifth is a Tuesday. */

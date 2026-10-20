@@ -52,6 +52,7 @@ import { influenceTick } from './influence';
 import { positionFor, tickPlace } from './placeboard';
 import { anarchyAt, riotAt } from './myth';
 import { royaltiesTick } from './studio';
+import { provenanceTap } from './provenance';
 
 /** Only for headless loops and tests (runToEnd, sims). The game itself never caps a run: it ends when Blackbird does. */
 export const TEST_BEAT_CAP = 600;
@@ -158,6 +159,7 @@ export function makeCtx(w: World, rng: Rng, events: GameEvent[]): Ctx {
       const parent = open[open.length - 1];
       events.push({ beat: w.beat, type, outcome, data, ...(parent ? { in: parent } : {}) });
       noteMoment(w, type, outcome, data);
+      provenanceTap(w, type, outcome, data);
     },
     nest(type: string, outcome: Outcome, data: EventData, fn: () => void) {
       c.emit(type, outcome, data);

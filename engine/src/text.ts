@@ -164,7 +164,7 @@ function venueText(): Record<string, Entry> {
 }
 
 /** The families of the venues' own actions (studio.ts and friends) that announce themselves with a line of their own. */
-const VENUE_INTENTS = ['record', 'ghost_take', 'dub', 'press', 'relisten', 'bury_song'];
+const VENUE_INTENTS = ['record', 'ghost_take', 'dub', 'press', 'relisten', 'bury_song', 'luthbench', 'collect', 'buyback', 'graft', 'masterpiece'];
 
 const T: Record<string, Entry> = {
   depart: e(

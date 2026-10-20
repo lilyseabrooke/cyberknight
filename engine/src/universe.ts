@@ -17,6 +17,7 @@ import { tiesFrom } from './ties';
 import { DROPS } from './content/drops';
 import { applyUpgrades, settleAccount } from './lab';
 import { fadeFame } from './renown';
+import { loseGuitars } from './provenance';
 import { stationedNpcIds } from './crew';
 import type { DeathRecord, Flight, Id, Npc, World } from './types';
 
@@ -128,6 +129,8 @@ function recordDeath(w: World): void {
  */
 export function endRun(w: World): Universe {
   if (w.ending === 'dead') recordDeath(w);
+  // Her gear does not come with her into the next body; the city keeps it, and it turns up again (provenance.ts).
+  loseGuitars(w, w.ending === 'dead');
   // Neo remembers her as she was tonight; the next body walks out with it.
   w.legacy.fame = Math.max(0, w.hero.fame);
   settleAccount(w);

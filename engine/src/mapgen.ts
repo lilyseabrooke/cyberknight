@@ -632,6 +632,20 @@ export function addSpot(w: MapWorld, street: Location, key: string, slot: number
   return sketch(w, street, slot, 'spot', street.gen?.district ?? 'industrial', street.gen?.depth ?? 1, { tier, spot: key });
 }
 
+/** The child slot a place her fame builds (a fan club) takes on a street: high, so it never lands on one a street grows itself. */
+export const EMERGENT_SLOT = 900;
+
+/**
+ * A music venue on a street that already exists, put there on purpose (a fan club her fans have opened). Rolled from its own
+ * stream like any venue, in a slot of its own. Idempotent: asking again returns the one already there.
+ */
+export function addVenue(w: MapWorld, street: Location, kind: VenueKind, slot = EMERGENT_SLOT): Location {
+  expand(w, street);
+  const id = childId(street.id, slot);
+  if (w.locations[id]) return w.locations[id]!;
+  return sketch(w, street, slot, kind, street.gen?.district ?? 'tenement', street.gen?.depth ?? 1, {});
+}
+
 /** Child slots from here up are for places made to order (a job's trail and site), so they can't land on a slot a street grows on its own. */
 const MADE_TO_ORDER = 1000;
 

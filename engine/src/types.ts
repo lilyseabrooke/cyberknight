@@ -64,6 +64,11 @@ export interface InstrumentFx {
   resonates?: 'robot' | 'dragon';
   /** A held note that can floor a person: stun when it's swung, or played at them. */
   feedback: number;
+  /** What it has done, a line each (provenance.ts): a storied guitar plays better and, at five and ten lines, carries her name. */
+  story?: string[];
+  /** Hers, from a previous life (provenance.ts): the night it was lost. */
+  hers?: boolean;
+  life?: number;
 }
 
 /** What a weapon does besides hit. Every number is a trade against the base damage in `Item.power`. */
@@ -1071,6 +1076,10 @@ export interface Legacy {
   records?: Recording[];
   /** The world clock when royalties were last paid in (see studio.ts `royaltiesTick`). */
   royaltyAt?: number;
+  /** Her guitars from nights gone by, stories and all, waiting to turn up again somewhere (provenance.ts). */
+  lostGuitars?: Item[];
+  /** Instruments left on a luthier's bench: not on her, so they wait through a death (luthier.ts). */
+  tickets?: Ticket[];
   /** Gangs that have adopted her (a Rust Choir that liked her answer at the gate, and so on): their people start out warm. See cutting.ts. */
   adopted?: string[];
   /** Duels won at a gang's own venue, by gang, on the way to being adopted. */
@@ -1155,6 +1164,18 @@ export interface Song {
   /** Her guitar when she wrote it. */
   quality: number;
   run: number;
+}
+
+/** A guitar on a luthier's bench, and what is being done to it (luthier.ts). It is not on her, so it outlives her. */
+export interface Ticket {
+  id: string;
+  /** The luthier's. */
+  loc: Id;
+  item: Item;
+  /** setup, loud, harden, jack, resonate, restore, store, commission. */
+  job: string;
+  /** World minute it is ready. */
+  ready: number;
 }
 
 /** A take on tape. It is the grade it was played at, for good: a new body with fresh hands can still put it on. */

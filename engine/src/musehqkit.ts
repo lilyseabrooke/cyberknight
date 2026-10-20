@@ -2,6 +2,7 @@ import type { Ctx, Location, World } from './types';
 import { addHeat } from './combat';
 import { CLEARANCE } from './content/musehqs';
 import { genInstrument } from './instruments';
+import { addDeed, resurface } from './provenance';
 import { block, streetOf } from './renown';
 import { shiftPull } from './musescene';
 import { ban, type VenueView } from './venuekit';
@@ -50,6 +51,12 @@ export function loosen(w: World, loc: Location, d: number): void {
 
 /** A guitar Clearance took "for safekeeping", from a previous Blackbird, one way or another. */
 export function confiscated(c: Ctx, v: VenueView): ReturnType<typeof genInstrument> {
+  // One of her real ones, if the city has any (provenance.ts).
+  const old = resurface(c.w, c.rng);
+  if (old) {
+    addDeed(old, 'confiscated by Muse Clearance, for safekeeping');
+    return old;
+  }
   const g = genInstrument(c.rng.fork(`evidence:${v.main.id}:${c.w.legacy.runs}`), Math.min(9, v.info.tier + 2));
   if (g.inst) g.inst.signature = Math.max(1, g.inst.signature);
   g.name = `${g.name}, tagged CONFISCATED (FOR SAFEKEEPING), and very much hers`;

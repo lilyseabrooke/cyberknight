@@ -131,6 +131,50 @@ export const MUSIC_ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['service_pistol'], loot: ['corp_creds', 'data_slate', 'credchip'], lootChance: 0.8, cash: [120, 400],
     desc: ['an Atlas Mergers & Acquisitions consultant measuring the lobby with his eyes, and possibly a tape', 'a consultant from Atlas M&A, smiling the hungry smile of somebody who works for Gluttony'],
   },
+
+  // ---------------- Luthiers (content/luthiers.ts) ----------------
+  luthier: {
+    role: 'luthier', level: [3, 6], tags: ['owner', 'staff', 'luthier', 'tinker', 'musician'], faction: null,
+    names: 'person', weapons: ['cleaver', 'judgment'], loot: ['solder_kit', 'credchip', 'walkman'], lootChance: 0.5, cash: [60, 260],
+    desc: ['a luthier with sawdust in her eyebrows and a pencil behind each ear', 'a luthier who taps every board and listens to it like a doctor with a stethoscope', 'a luthier with glue on his fingers, varnish on his apron and very strong views about necks'],
+  },
+  luthier_bot: {
+    role: 'robot luthier', level: [3, 5], tags: ['robot', 'owner', 'staff', 'luthier'], faction: null,
+    names: 'robot', weapons: [], loot: ['drone_core', 'memory_shard', 'solder_kit'], lootChance: 0.6, cash: [0, 0], hp: 80, power: 9,
+    desc: ['a robot luthier with six careful arms, humming a dead master\'s favourite song in a dead master\'s voice'],
+  },
+  luthier_apprentice: {
+    role: 'apprentice', level: [1, 3], tags: ['staff', 'apprentice', 'tinker'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'solder_kit'], lootChance: 0.35, cash: [5, 40],
+    desc: ['an apprentice sanding the same neck for the third day, very carefully', 'an apprentice with a plaster on every finger and a look of total dedication'],
+  },
+  luthier_customer: {
+    role: 'customer', level: [1, 3], tags: ['customer', 'regular', 'musician'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'walkman'], lootChance: 0.3, cash: [20, 120],
+    desc: ['a customer holding a guitar in two pieces like a wounded pet', 'a customer trying every guitar on the wall and buying none of them', 'a touring guitarist with a broken neck (the guitar\'s) and a show tonight'],
+  },
+
+  // ---------------- Fan clubs (content/fanclubs.ts) ----------------
+  club_president: {
+    role: 'fan club president', level: [2, 4], tags: ['owner', 'staff', 'fan', 'superfan'], faction: null,
+    names: 'person', weapons: ['judgment'], loot: ['bootleg_tapes', 'credchip', 'walkman'], lootChance: 0.6, cash: [30, 150], startAffinity: 40,
+    desc: ['the fan club president, with a lanyard of every show she has played and a clipboard of every one she will', 'the president, in a T-shirt of her face from three bodies ago, who has not missed a show since', 'the president, crying slightly, because she is here'],
+  },
+  superfan: {
+    role: 'superfan', level: [1, 4], tags: ['fan', 'superfan', 'regular'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'walkman', 'bootleg_tapes'], lootChance: 0.5, cash: [20, 120], startAffinity: 35,
+    desc: ['a superfan in a work uniform under a Blackbird hoodie, who has come straight from a shift', 'a superfan with her lyrics on a forearm and a very important job they are about to mention', 'a superfan who has been waiting years to do her a favour'],
+  },
+  club_member: {
+    role: 'fan', level: [1, 3], tags: ['fan', 'regular', 'customer'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'walkman'], lootChance: 0.3, cash: [5, 60], startAffinity: 25,
+    desc: ['a fan in a T-shirt of her, from a body she does not have now', 'a member humming one of her B-sides', 'a fan who goes completely still when she walks in'],
+  },
+  tribute_guitarist: {
+    role: 'tribute guitarist', level: [3, 6], tags: ['musician', 'band', 'tribute', 'fan'], faction: null,
+    names: 'person', weapons: ['broken_bottle'], loot: ['credchip', 'walkman'], lootChance: 0.4, cash: [20, 120], startAffinity: 30,
+    desc: ['the guitarist from her tribute band, in her old haircut, who plays her riffs better than she can right now and knows it', 'a tribute guitarist with a wig, a borrowed swagger and her exact hand position from three bodies ago'],
+  },
 };
 
 /** Who these archetypes tend to be, beyond the job. */
@@ -155,4 +199,11 @@ export const MUSIC_PEOPLE: Record<string, PersonSpec> = {
   muse_receptionist: { women: 0.6, age: [21, 40] },
   muse_staffer: { women: 0.55, age: [22, 55] },
   atlas_consultant: { women: 0.35, age: [30, 60] },
+  luthier: { women: 0.45, age: [30, 80] },
+  luthier_apprentice: { women: 0.5, age: [18, 30] },
+  luthier_customer: { women: 0.45, age: [18, 66] },
+  club_president: { women: 0.6, age: [22, 70] },
+  superfan: { women: 0.55, age: [20, 64] },
+  club_member: { women: 0.55, age: [18, 70] },
+  tribute_guitarist: { women: 0.6, age: [20, 50] },
 };
