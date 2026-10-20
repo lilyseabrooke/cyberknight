@@ -232,7 +232,7 @@ describe('a fight on the grid', () => {
       if (flees.length) {
         fled++;
         expect(Number(end.data.fled)).toBeGreaterThan(0);
-        for (const f of s.foes) if (f.alive && f.downUntil > s.w.beat) expect(f.memories).toContain('fled from Blackbird');
+        for (const f of s.foes) if (f.alive && f.downUntil > s.w.clock) expect(f.memories).toContain('fled from Blackbird');
       }
       if (r === 'win' && Number(end.data.fled) > 0) expect(Number(end.data.killed) + Number(end.data.fled)).toBeLessThanOrEqual(Number(end.data.count));
     }

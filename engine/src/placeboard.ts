@@ -474,7 +474,7 @@ export function goTo(c: Ctx, p: Placed, spot: Spot, o: { tell?: boolean } = {}):
   return moved;
 }
 
-const COUNTER_ACTS = new Set(['buy_ware', 'buy_stim', 'buy_med', 'buy_info', 'buy_gear', 'buy_ammo', 'pawn', 'pawndeal', 'fence']);
+const COUNTER_ACTS = new Set(['buy_ware', 'buy_stim', 'buy_med', 'buy_info', 'buy_gear', 'buy_loudspeaker', 'buy_ammo', 'pawn', 'pawndeal', 'fence']);
 const NEAR = new Set(['chat', 'flirt', 'kiss', 'pickpocket', 'threaten', 'armwrestle', 'analyze', 'ask_work']);
 
 /** Before she does something that needs her somewhere: put her there. (A fight, which she starts from where she stands, is left alone.) */

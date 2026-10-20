@@ -9,6 +9,7 @@ import { addHeat, fight, here, npcsAt, relocate } from './combat';
 import { DRIVES } from './personality';
 import { riskScale, temperatureScale, traitBias } from './traits';
 import { ambientExtras, scoutSaves, tryTalkDown } from './extras';
+import { talkDown, speechTick } from './speaking';
 import { ambientDragons } from './dragons';
 import { tickDying } from './dying';
 import { ambientGraffiti } from './graffiti';
@@ -199,6 +200,7 @@ export function step(w: World): GameEvent[] {
   if (!w.over && !events.some((e) => e.type === 'fight_end')) ambientMind(c);
   if (!w.over) adviceTick(c);
   if (!w.over) influenceTick(c);
+  if (!w.over) speechTick(c);
   if (!w.over) mindTick(c);
   if (!w.over && !events.some((e) => e.type === 'fight_end')) {
     const cands = gather(w);
@@ -339,7 +341,7 @@ function ambient(c: Ctx): void {
     if (scoutSaves(c)) return;
     const squad = spawnGroup(c, 'helix_guard', 2);
     c.emit('ambush', 'bad', { variant: 'atlas', count: squad.length, heat: atlas });
-    fight(c, squad, { cause: 'an Atlas retrieval team', joiners: false });
+    if (!talkDown(c, squad)) fight(c, squad, { cause: 'an Atlas retrieval team', joiners: false });
     return;
   }
 
@@ -348,7 +350,7 @@ function ambient(c: Ctx): void {
     const heavy = heavyFor(w, loc.id);
     if (heavy) {
       c.emit('banned', 'bad', { npc: heavy.name, place: loc.name });
-      fight(c, [heavy], { cause: `being banned from ${loc.name}` });
+      if (!talkDown(c, [heavy])) fight(c, [heavy], { cause: `being banned from ${loc.name}` });
       return;
     }
   }
@@ -369,7 +371,7 @@ function ambient(c: Ctx): void {
     const squad = spawnGroup(c, 'npd_officer', 2);
     c.emit('raid', 'bad', { crackdown: w.situation.crackdown, place: w.locations.halo_floor?.name ?? 'the Rusty Halo' });
     if (h.drunk >= 2 || rng.chance(0.4)) {
-      fight(c, squad, { cause: 'a police raid', joiners: false });
+      if (!talkDown(c, squad)) fight(c, squad, { cause: 'a police raid', joiners: false });
     } else {
       const fine = Math.min(h.cash, rng.int(20, 60));
       h.cash -= fine;
@@ -384,7 +386,7 @@ function ambient(c: Ctx): void {
     if (scoutSaves(c)) return;
     const gang = spawnGroup(c, 'mugger', rng.int(1, 2));
     c.emit('mugging', 'bad', { count: gang.length });
-    fight(c, gang, { cause: 'a mugging', joiners: false });
+    if (!talkDown(c, gang)) fight(c, gang, { cause: 'a mugging', joiners: false });
     return;
   }
 

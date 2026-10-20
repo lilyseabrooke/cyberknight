@@ -221,6 +221,17 @@ export function supplyCandidates(w: World): Candidate[] {
     }
   }
 
+  // ---- something to be heard with
+  if (loc.id === 'gun_shop' && present(gunsmith, w) && !h.inventory.some((i) => i.tags.includes('loudspeaker')) && skillLevel(h, 'speaking') >= 1) {
+    const cost = price(h, gearPrice('loudspeaker'));
+    if (cost <= h.cash - reserve(h)) {
+      out.push({
+        key: 'buy_loudspeaker', drives: { pride: 0.5, curiosity: 0.3 }, smart: 0.2, bonus: 0.2 + Math.min(skillLevel(h, 'speaking'), 30) * 0.015,
+        run: (c) => buyLoudspeaker(c, gunsmith!, cost),
+      });
+    }
+  }
+
   // ---- using what she bought
   const packs = medPacks(h);
   // Packs are the emergency kit: while the doc is a short walk away and she can pay him, she'd rather go there.
@@ -264,6 +275,15 @@ function buyMed(c: Ctx, keeper: Npc, id: string, cost: number): void {
   keeper.affinity += 2;
   train(c, 'haggling', 1);
   c.emit('buy_med_pack', 'good', { npc: keeper.name, item: MEDS[id]!.name, cost, packs: medPacks(h).length });
+}
+
+function buyLoudspeaker(c: Ctx, keeper: Npc, cost: number): void {
+  const h = c.w.hero;
+  h.cash -= cost;
+  keeper.affinity += 2;
+  train(c, 'haggling', 1);
+  h.inventory.push(makeItem('loudspeaker'));
+  c.emit('buy_loudspeaker', 'good', { npc: keeper.name, cost });
 }
 
 function buyAmmo(c: Ctx, keeper: Npc, type: string, cost: number): void {

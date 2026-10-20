@@ -1,6 +1,6 @@
 import type { Companion, Ctx, Injury, Item, Location, Npc, ParkedVehicle, World } from './types';
 import type { EventData, Outcome } from './events';
-import { KINDS } from './companions';
+import { KINDS, allyPower } from './companions';
 import { foeArmor, fxOf, rating, vsMult } from './weapons';
 import { loaded, spendAmmo, wielded } from './arms';
 import { skillLevel, skillValue, train } from './skills';
@@ -353,7 +353,7 @@ export class Sim {
       comp: a,
       speed: shape.speed,
       flying: !!shape.flying,
-      power: a.power,
+      power: allyPower(this.w, a),
       hit: 0.75,
       reach: shape.reach,
       assist: k.assist,

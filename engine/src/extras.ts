@@ -2,6 +2,7 @@ import { every } from './clock';
 import type { Ctx, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, npcsAt, relocate } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
+import { billboardSpeech } from './speaking';
 import { makeItem } from './content/items';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { addCompanion, alliesWith, hasAlly, hasKind, newCompanion, removeCompanion, slotsFree } from './companions';
@@ -344,6 +345,7 @@ function hackBillboard(c: Ctx): void {
     addHeat(w, 'atlas', 1 + Math.min(2, hacks));
     train(c, 'tinkering', 2);
     c.emit('billboard', 'good', { variant: 'success' });
+    billboardSpeech(c);
   } else {
     h.hp -= 6;
     addHeat(w, 'atlas', 2);

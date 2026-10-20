@@ -26,6 +26,7 @@ export const ACT_SKILL: Record<string, string> = {
   dj_set: 'djing', backlot_set: 'djing',
   beatbox: 'beatbox', beat_battle: 'beatbox',
   graffiti: 'art',
+  stump_speech: 'speaking',
 };
 
 const FATIGUE_PER_ACT = 0.22;

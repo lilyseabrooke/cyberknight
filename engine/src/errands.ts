@@ -3,10 +3,10 @@ import type { EventData } from './events';
 import type { Trait } from './personality';
 import { clamp } from './candidate';
 import { traitOf } from './character';
-import { addHeat, remember } from './combat';
+import { addHeat, kill, remember } from './combat';
 import { heartOf } from './bonds';
 import { moveNpc, npcsAt, AWAY } from './population';
-import { opposed, ratio, statsOf } from './npcstats';
+import { opposed, ratio, statsOf, withAssist } from './npcstats';
 import { routeTo } from './plans';
 import { parkedVehicle, isPerson } from './roads';
 import { regard, tie } from './ties';
@@ -139,6 +139,13 @@ const GO_AFTER: Errand = {
         t.affinity -= 8;
         for (const goal of w.mind.goals) if (goal.kind === 'kill' && goal.npc === t.id) goal.struck = true;
         remember(t, 'was set on by someone Blackbird sent');
+        // A crowd at their back finishes it: the more people behind them, the likelier the other one does not get up again.
+        const crowd = (g.followers ?? []).filter((id) => w.npcs[id]?.alive).length;
+        if (crowd > 0 && t.alive && c.rng.chance(clamp(0.1 + 0.14 * Math.sqrt(crowd), 0, 0.9))) {
+          kill(c, w, t, 'a mob');
+          w.counters['cal.mob'] = (w.counters['cal.mob'] ?? 0) + 1;
+          c.emit('mob_kill', 'bad', { npc: n.name, target: t.name, crowd: crowd + 1, total: w.counters['cal.mob'] });
+        }
       } else n.affinity -= 2;
       return { won, loser: loser.name };
     };
@@ -329,8 +336,13 @@ function appeal(w: World, n: Npc, g: NpcGoal, a: Approach): number {
   return 2.4 * a.odds(w, n, g) + 0.5 * fit - a.risk * (1.6 - nerve) - 0.25 * (g.tries ?? 0) * a.risk;
 }
 
-/** One beat of an errand. */
+/** One beat of an errand. Whoever followed them into it is behind them: they go at it with higher stats. */
 export function runErrand(c: Ctx, n: Npc, g: NpcGoal, align: number): void {
+  const behind = (g.followers ?? []).filter((id) => c.w.npcs[id]?.alive).length;
+  withAssist(n, behind, () => errandBeat(c, n, g, align));
+}
+
+function errandBeat(c: Ctx, n: Npc, g: NpcGoal, align: number): void {
   const { w, rng } = c;
   const hero = w.hero.locationId;
   const spec = ERRANDS[g.kind]!;

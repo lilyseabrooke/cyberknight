@@ -89,6 +89,8 @@ export interface Companion {
   /** 0..100. At zero they leave. */
   loyalty: number;
   abilities: string[];
+  /** A speech has them fired up: extra power until the beat. See speaking.ts. */
+  inspired?: { until: number; power: number };
   /** The NPC this companion used to be, if any (they go home if they leave). */
   npcId?: Id;
   home?: Id;
@@ -366,6 +368,37 @@ export type NpcGoalKind = 'give_cash' | 'cover' | 'back_me_up' | 'go_after' | 's
 /** The four ways she gets round somebody: the skills under Charm that make people do things. */
 export type InfluenceMethod = 'persuasion' | 'intimidation' | 'romance' | 'grifting';
 
+/** A speech under way. Lasts until `until` on the world clock (not in beats), and only while she stays where she began it. */
+export interface Speech {
+  loc: Id;
+  /** The world-clock minute it runs out. */
+  until: number;
+  /** What she is asking the crowd to do; chosen when the first listener turns up. */
+  cry?: NpcGoalKind;
+  /** Everyone who has listened so far, whether they went along or not. */
+  heard: Id[];
+  /** Who carries the goal themselves (at most a handful); the rest of those moved follow one of them. */
+  leaders: Id[];
+  /** How many streets out it carries: 0 is just where she stands. */
+  depth: number;
+  /** How much pull it keeps on people who are not standing in front of her. */
+  remote: number;
+  stretch: number;
+  edge: number;
+  /** How many people it has moved in all. */
+  moved: number;
+  /** The beat of the last thing she did to keep it going. If she does something else, it is over. */
+  beat: number;
+  /** When it began (world-clock minute), for how far through its time limit it is. */
+  began: number;
+  /** Stages in a row where nobody new came by or went along. */
+  dry: number;
+  /** How many people the last stage swept up. */
+  last: number;
+  /** Stages worked so far, counting the opening. */
+  stages: number;
+}
+
 /** Something Blackbird has put in somebody's head. They carry it out in their own way, for as long as it lasts. */
 export interface NpcGoal {
   id: number;
@@ -391,6 +424,8 @@ export interface NpcGoal {
   tries?: number;
   /** Errands: not before this beat. */
   wait?: number;
+  /** People a speech moved along with them who are not simulated: they follow, and lend whoever is carrying this their numbers. See speaking.ts. */
+  followers?: Id[];
 }
 
 /**
@@ -1051,6 +1086,8 @@ export interface World {
   watchers?: Id[];
   /** Everyone carrying a goal Blackbird gave them, so the beat only has to look at them. See influence.ts. */
   influenced?: Id[];
+  /** A speech she is in the middle of, for as long as the clock says. People who come by while it lasts can be swept up in it. See speaking.ts. */
+  speech?: Speech;
   stats: { kills: number; fights: number; maxLevel: number; deposited: number; fees: number };
   over: boolean;
   ending: null | 'dead' | 'victory' | 'dawn';

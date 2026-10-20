@@ -564,7 +564,7 @@ describe('Ares', () => {
     expect(named.length).toBeGreaterThanOrEqual(3);
     expect(crowd.every((n) => !n.tags.includes('ganger'))).toBe(true);
     for (const e of events.filter((x) => x.type === 'ares_accuse')) expect(String(e.data.gang).length).toBeGreaterThan(0);
-    expect(crowd.filter((n) => !n.alive || n.downUntil > w.beat).length).toBeGreaterThanOrEqual(2);
+    expect(crowd.filter((n) => !n.alive || n.downUntil > w.clock).length).toBeGreaterThanOrEqual(2);
     // and nobody who matters drops dead on the spot: they are on the ground, and the clock is running
     expect(crowd.every((n) => n.alive || n.dying === undefined)).toBe(true);
   });
@@ -933,10 +933,10 @@ describe('dying', () => {
     startDying(w, a, 1);
     startDying(w, b, 0.1);
     expect(isDying(a) && a.alive).toBe(true);
-    expect(a.downUntil).toBeGreaterThan(w.beat);
+    expect(a.downUntil).toBeGreaterThan(w.clock);
     expect(w.dying).toEqual(['dy_a', 'dy_b']);
     // while they're dying they aren't people she can deal with
-    expect(Object.values(w.npcs).filter((n) => n.locationId === 'street_main' && n.id === 'dy_a' && n.downUntil <= w.beat)).toEqual([]);
+    expect(Object.values(w.npcs).filter((n) => n.locationId === 'street_main' && n.id === 'dy_a' && n.downUntil <= w.clock)).toEqual([]);
     // the worse hurt goes first
     w.clock += timeToDie(1) + 1;
     tickDying(c);
@@ -964,7 +964,7 @@ describe('dying', () => {
     tickDying(c);
     expect(n.alive).toBe(true);
     expect(n.dying).toBeUndefined();
-    expect(n.downUntil).toBeGreaterThan(w.beat);
+    expect(n.downUntil).toBeGreaterThan(w.clock);
     expect(w.dying).toEqual([]);
   });
 
