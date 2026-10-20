@@ -231,6 +231,11 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['glitter_grenade', 'muse_lanyard', 'med_pack', 'patch_kit'], lootChance: 0.55, cash: [40, 120],
     desc: ['a Muse Inspiration operative in pastel tactical armour, a heart decal on the visor and a very large gun', 'an Inspiration operative humming the Muse jingle under a mirrored visor, safety catch off'],
   },
+  muse_drone: {
+    role: 'Muse noise-abatement drone', level: [2, 2], tags: ['robot', 'patrol', 'muse', 'nonlethal'], faction: 'muse',
+    names: 'robot', weapons: [], loot: ['memory_shard', 'scrap_metal'], lootChance: 0.45, cash: [0, 0], hp: 30, power: 6,
+    desc: ['a pastel Muse noise-abatement drone with a tear-gas canister under each rotor and a speaker that only knows one sentence'],
+  },
   muse_tech: {
     role: 'Muse Broadcast technician', level: [2, 3], tags: ['muse', 'staff'], faction: 'muse',
     names: 'person', weapons: ['stunner_mk3'], loot: ['memory_shard', 'solder_kit', 'muse_lanyard'], lootChance: 0.6, cash: [20, 70],

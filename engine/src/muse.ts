@@ -1,7 +1,7 @@
 import type { Ctx, MuseFile, Npc, World } from './types';
 import type { GameEvent } from './events';
 import { addHeat, fight } from './combat';
-import { addNpc } from './population';
+import { addNpc, moveNpc, npcsAt } from './population';
 import { spawnNpc } from './content/archetypes';
 import { dangerOf } from './grade';
 import { SKILLS, type SkillId } from './content/skills';
@@ -12,10 +12,12 @@ import { INST_CLASSES, genInstrument } from './instruments';
  * Muse: Neo's entertainment conglomerate. Every channel, all the music, and the say over what music is allowed (Muse's).
  * See docs/setting/factions.md.
  *
- * Non-Muse music is technically illegal, and nobody cares about a busker. Muse only notices once someone is big enough,
+ * Non-Muse music is technically illegal, and nobody cares about a busker for long. Muse notices once someone is big enough,
  * and its attention climbs with her renown as a performer (`legacy.renown`), which outlives her, so Muse's file on her
  * does too (`legacy.muse`):
  *
+ * - **barely anyone**: noise-abatement drones. One or two turn up after a show that drew a crowd, announce
+ *   UNAUTHORIZED ENTERTAINMENT DETECTED and tear-gas the crowd away. They keep coming at every rung below signing.
  * - **a local name**: the Muse Clearance letter, then Clearance officers turning up at her sets (fines; a guitar taken
  *   "for safekeeping").
  * - **trending**: the Muse A&R scout and a contract. She signs or she doesn't, by her nature. Muse isn't Atlas: signing
@@ -27,6 +29,8 @@ import { INST_CLASSES, genInstrument } from './instruments';
  */
 
 const PERFORMING = ['guitar', 'vocals', 'djing', 'beatbox'];
+/** Renown at which Muse's noise-abatement drones start breaking up her shows: earlier than anything else Muse does. */
+export const MUSE_DRONES = 8;
 /** Renown at which Muse writes. */
 export const MUSE_LETTER = 15;
 /** Renown at which Muse sends a scout. */
@@ -60,12 +64,18 @@ export function museAfterSet(c: Ctx, act: string, skill: string, events: GameEve
   const m = file(w);
   if (m.signed) return;
   const r = museRenown(w);
-  if (r < MUSE_LETTER) return;
-  if (!m.lettered) {
+  if (r < MUSE_DRONES) return;
+  if (r >= MUSE_LETTER && !m.lettered) {
     m.lettered = true;
     c.emit('muse', 'mixed', { variant: 'letter', place: loc.name });
     return;
   }
+  // The smallest thing Muse sends, and the first: a drone or two to gas the crowd.
+  if (rng.chance(r < MUSE_LETTER ? 0.25 : 0.15)) {
+    museDrones(c, skill);
+    return;
+  }
+  if (r < MUSE_LETTER) return;
   const again = m.refused && m.offered !== undefined && w.legacy.runs - m.offered >= 2 && rng.chance(0.15);
   if (r >= MUSE_SCOUT && (m.offered === undefined || again)) {
     scout(c, r);
@@ -163,4 +173,40 @@ export function museTick(c: Ctx): void {
   if (!last || !last.killers.includes('muse') || m.tributeFor === last.run) return;
   m.tributeFor = last.run;
   c.emit('muse', 'mixed', { variant: 'tribute' });
+}
+
+// ===================================================================== drones
+
+/**
+ * UNAUTHORIZED ENTERTAINMENT DETECTED. A drone or two gas the place: the crowd scatters (and won't be keen on that spot for a
+ * while), Blackbird gets a lungful, and then the drones are hers to deal with.
+ */
+export function museDrones(c: Ctx, skill: string): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  const loc = w.locations[h.locationId]!;
+  const out = w.locations[loc.tossTo] ? loc.tossTo : loc.exits.find((e) => !e.gate && w.locations[e.to])?.to;
+  let scattered = 0;
+  if (out && out !== loc.id) {
+    for (const n of npcsAt(w, loc.id)) {
+      if (!n.alive || n.hostile || n.tags.includes('owner') || n.tags.includes('robot') || h.companions.some((a) => a.npcId === n.id)) continue;
+      moveNpc(w, n, out);
+      scattered++;
+    }
+  }
+  const f = (loc.fatigue ??= {});
+  f[skill] = (f[skill] ?? 0) + 0.5;
+  h.hp = Math.max(1, h.hp - 3);
+  h.buffs.push({ id: 'tear_gas', until: w.beat + 8, power: -2 });
+  const count = museRenown(w) >= MUSE_LETTER && rng.chance(0.5) ? 2 : 1;
+  const drones: Npc[] = [];
+  for (let i = 0; i < count; i++) {
+    let id = `tmp_${w.beat}_muse_drone_${i}`;
+    for (let k = 1; w.npcs[id]; k++) id = `tmp_${w.beat}_muse_drone_${i}_${k}`;
+    const d = addNpc(w, spawnNpc(rng, id, 'muse_drone', loc.id, { faction: 'muse' }));
+    d.hostile = true;
+    drones.push(d);
+  }
+  c.emit('muse', 'bad', { variant: 'drones', place: loc.name, count, scattered, to: out ? w.locations[out]!.name : '' });
+  fight(c, drones, { cause: 'a Muse noise-abatement drone', joiners: false });
 }

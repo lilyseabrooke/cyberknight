@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { beginRun, endRun, newUniverse } from './universe';
-import { MUSE_SCOUT, MUSE_STRIKE, inspirationStrike, museAfterSet, museAtBooking, museStanding, museTick, scout, strikeGrade } from './muse';
+import { MUSE_DRONES, MUSE_LETTER, MUSE_SCOUT, MUSE_STRIKE, inspirationStrike, museAfterSet, museAtBooking, museStanding, museTick, scout, strikeGrade } from './muse';
 import { personalityFrom } from './personality';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
 import { makeItem } from './content/items';
-import { always, never } from './testkit';
+import { always, never, rolls } from './testkit';
 
 const ctxOf = (w: World, rng: Rng = new Rng('m')) => {
   const events: GameEvent[] = [];
@@ -35,13 +35,43 @@ describe('Muse notices', () => {
   it('a local name gets the letter first, then Clearance officers at her sets', () => {
     const w = onStage('local', 30);
     w.hero.inventory.push(makeItem('vintage_guitar'));
-    const { c, events } = ctxOf(w, always());
+    // (No drones this time: the first roll is theirs.)
+    const { c, events } = ctxOf(w, rolls(0.99, 0));
     museAfterSet(c, 'busk', 'guitar', busked);
     expect(events[0]!.data.variant).toBe('letter');
     museAfterSet(c, 'busk', 'guitar', busked);
     expect(events[1]!.data.variant).toBe('confiscate');
     expect(w.hero.inventory.some((i) => i.tags.includes('instrument'))).toBe(false);
     for (const e of events) expect(hasTemplate(e), `${e.data.variant}`).toBe(true);
+  });
+
+  it('before anything else, a drone or two: UNAUTHORIZED ENTERTAINMENT DETECTED, and tear gas for the crowd', () => {
+    const w = onStage('drones', MUSE_DRONES + 1);
+    expect(MUSE_DRONES).toBeLessThan(MUSE_LETTER);
+    w.hero.maxHp = w.hero.hp = 500;
+    const crowd = Object.values(w.npcs).filter((n) => n.locationId === 'street_main' && !n.hostile && n.alive).length;
+    expect(crowd).toBeGreaterThan(0);
+    const { c, events } = ctxOf(w, always());
+    museAfterSet(c, 'busk', 'guitar', busked);
+    const e = events.find((x) => x.type === 'muse')!;
+    expect(e.data.variant).toBe('drones');
+    expect(Number(e.data.scattered)).toBeGreaterThan(0);
+    expect(hasTemplate(e)).toBe(true);
+    expect(w.hero.buffs.some((b) => b.id === 'tear_gas')).toBe(true);
+    expect(events.some((x) => x.type === 'fight_start')).toBe(true);
+    expect(w.legacy.muse?.lettered).toBeFalsy();
+  });
+
+  it('a nobody gets no drones; a signed Blackbird gets none either', () => {
+    const quiet = onStage('quiet', MUSE_DRONES - 1);
+    const q = ctxOf(quiet, always());
+    museAfterSet(q.c, 'busk', 'guitar', busked);
+    expect(q.events).toHaveLength(0);
+    const signed = onStage('signed', MUSE_DRONES + 1);
+    signed.legacy.muse = { signed: true };
+    const s = ctxOf(signed, always());
+    museAfterSet(s.c, 'busk', 'guitar', busked);
+    expect(s.events).toHaveLength(0);
   });
 
   it('a flop or an empty room tells Muse nothing', () => {
@@ -72,7 +102,7 @@ describe('the scout', () => {
     expect(scout(c)).toBe(false);
     expect(museStanding(w)).toBe('refused');
     const heat = w.heat.npd ?? 0;
-    museAfterSet(ctxOf(w, always()).c, 'busk', 'guitar', busked);
+    museAfterSet(ctxOf(w, rolls(0.99, 0)).c, 'busk', 'guitar', busked);
     expect(w.heat.npd ?? 0).toBeGreaterThan(heat);
     expect(hasTemplate(events[0]!)).toBe(true);
   });
@@ -103,7 +133,7 @@ describe('Inspiration', () => {
 
   it('a team turns up after a set, plays the jingle, and opens fire', () => {
     const w = hunted('strike', MUSE_STRIKE + 10);
-    const { c, events } = ctxOf(w, always());
+    const { c, events } = ctxOf(w, rolls(0.99, 0));
     museAfterSet(c, 'busk', 'guitar', busked);
     const e = events.find((x) => x.type === 'inspiration')!;
     expect(e.data.variant).toBe('set');
