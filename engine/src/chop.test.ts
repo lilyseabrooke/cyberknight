@@ -109,7 +109,7 @@ describe('where chop shops grow', () => {
           expect(g!.kind).toBe('chop');
           expect(g!.chop).toBeTruthy();
           expect(g!.faction?.startsWith('v:')).toBe(true);
-          for (const other of kids.filter((l) => !['gym', 'gymroom', 'pawn', 'pawnroom', 'chop'].includes(l!.gen!.role))) expect(g!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
+          for (const other of kids.filter((l) => !['gym', 'gymroom', 'pawn', 'pawnroom', 'chop', 'hub'].includes(l!.gen!.role))) expect(g!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
         }
       }
     }
