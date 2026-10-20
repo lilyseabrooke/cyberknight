@@ -8,6 +8,7 @@ import { expectation, streetOf } from './renown';
 import { fameFrom, prestige } from './stage';
 import { startBookingGoal } from './goals';
 import { museAtBooking } from './muse';
+import { makeItem } from './content/items';
 
 /**
  * Bookings: a night somebody wants her to play somewhere.
@@ -32,6 +33,8 @@ const MAX_OPEN = 3;
 export const GIG_LEVEL = 12;
 /** And before somebody wants her for a private function: a professional, the kind of name that gets past a cordon. */
 export const PRIVATE_LEVEL = 25;
+/** The underground books lower: a scene wants somebody Muse is cross with more than somebody famous. */
+export const SECRET_LEVEL = 8;
 
 const open = (w: World): Booking[] => (w.legacy.bookings ??= []);
 
@@ -64,6 +67,11 @@ export function privateRooms(w: World): Location[] {
   return [...out.values()].filter((l) => !l.dungeon && !w.dungeons[l.id] && !DUNGEONISH.has(l.gen?.role ?? '') && !l.sealed);
 }
 
+/** Somewhere a secret show could happen: a cellar, a back unit, the Halo's basement. Never a dungeon. */
+export function undergroundRooms(w: World): Location[] {
+  return Object.values(w.locations).filter((l) => (l.id === 'halo_arcade' || (l.gen && ['cellar', 'unit'].includes(l.gen.role))) && !l.dungeon && !w.dungeons[l.id] && !l.sealed);
+}
+
 /** Bars and clubs she's been to. */
 const stages = (w: World): Location[] => Object.values(w.locations).filter((l) => (l.kind === 'bar' || l.kind === 'club') && l.visits > 0 && !l.sealed);
 
@@ -78,9 +86,9 @@ function when(w: World, night: number): string {
 }
 
 /** Someone wants her to play. */
-export function offerBooking(c: Ctx, skill: string, kind: 'gig' | 'private'): Booking | null {
+export function offerBooking(c: Ctx, skill: string, kind: Booking['kind']): Booking | null {
   const { w, rng } = c;
-  const places = kind === 'private' ? privateRooms(w) : stages(w);
+  const places = kind === 'private' ? privateRooms(w) : kind === 'secret' ? undergroundRooms(w) : stages(w);
   const taken = new Set(open(w).map((b) => b.loc));
   const free = places.filter((l) => !taken.has(l.id));
   if (!free.length) return null;
@@ -88,7 +96,7 @@ export function offerBooking(c: Ctx, skill: string, kind: 'gig' | 'private'): Bo
   const exp = expectation(w, skill);
   const night = w.legacy.runs + (rng.chance(0.4) ? 0 : rng.int(1, 3));
   const host = hostAt(w, loc);
-  const fee = kind === 'private' ? 80 + 15 * exp + rng.int(0, 40) : (20 + 5 * exp) * prestige(loc) + rng.int(0, 20);
+  const fee = kind === 'private' ? 80 + 15 * exp + rng.int(0, 40) : kind === 'secret' ? 15 + 3 * exp + rng.int(0, 15) : (20 + 5 * exp) * prestige(loc) + rng.int(0, 20);
   const pay = Math.round(fee * (w.legacy.muse?.signed ? 1.5 : 1));
   const b: Booking = { id: `bk${w.legacy.runs}.${w.beat}.${loc.id}`, loc: loc.id, night, skill, kind, pay, ...(host ? { host: host.id } : {}) };
   open(w).push(b);
@@ -126,11 +134,14 @@ export function tickBookings(c: Ctx): void {
   const skill = bestKnown(w);
   if (!skill) return;
   const exp = expectation(w, skill);
-  if (exp < GIG_LEVEL || (list?.filter((b) => !b.played).length ?? 0) >= MAX_OPEN) return;
+  // Once Muse has noticed her (and she hasn't signed), there's a scene: secret shows, for less of a name.
+  const scene = !!w.legacy.muse?.lettered && !w.legacy.muse.signed;
+  if (exp < (scene ? SECRET_LEVEL : GIG_LEVEL) || (list?.filter((b) => !b.played).length ?? 0) >= MAX_OPEN) return;
   // Signed to Muse, the bookings come to her: more of them, and better paid.
   const muse = w.legacy.muse?.signed ? 2 : 1;
   if (!rng.chance(0.003 * muse * Math.min(4, exp / GIG_LEVEL))) return;
-  offerBooking(c, skill, exp >= PRIVATE_LEVEL && rng.chance(0.4) ? 'private' : 'gig');
+  const kind = exp < GIG_LEVEL || (scene && rng.chance(0.4)) ? 'secret' : exp >= PRIVATE_LEVEL && rng.chance(0.4) ? 'private' : 'gig';
+  offerBooking(c, skill, kind);
 }
 
 function missed(c: Ctx, b: Booking): void {
@@ -168,8 +179,13 @@ export function playBooking(c: Ctx, b: Booking): void {
     gainXp(c, 10);
     if (host?.alive) host.affinity += 10;
     for (const n of here(w)) if (!n.hostile && n !== host) n.affinity += 3;
+    if (b.kind === 'secret') {
+      // The scene: fewer people, but they're the ones who tell everyone. And somebody was recording.
+      loc.fans = (loc.fans ?? 0) + 5;
+      h.inventory.push(makeItem('bootleg_tapes'));
+    }
     c.emit(act, 'good', { ...data, variant: `${b.kind}_hit`, amount: b.pay });
-    museAtBooking(c);
+    if (b.kind !== 'secret') museAtBooking(c);
   } else {
     // The deposit, and not a neodollar more.
     const paid = Math.round(b.pay * 0.25);
@@ -177,6 +193,6 @@ export function playBooking(c: Ctx, b: Booking): void {
     train(c, b.skill as SkillId, 1);
     if (host?.alive) host.affinity -= 10;
     c.emit(act, 'bad', { ...data, variant: `${b.kind}_flop`, amount: paid });
-    museAtBooking(c);
+    if (b.kind !== 'secret') museAtBooking(c);
   }
 }

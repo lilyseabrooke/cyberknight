@@ -55,6 +55,8 @@ export function museAfterSet(c: Ctx, act: string, skill: string, events: GameEve
   if (!events.some((e) => e.type === act && e.outcome === 'good')) return;
   const loc = w.locations[w.hero.locationId]!;
   if (!audience(w, loc)) return;
+  // A secret show is secret: Muse doesn't hear about it.
+  if (w.legacy.bookings?.some((b) => b.kind === 'secret' && b.loc === loc.id && b.night === w.legacy.runs)) return;
   const m = file(w);
   if (m.signed) return;
   const r = museRenown(w);
@@ -82,8 +84,10 @@ export function museAfterSet(c: Ctx, act: string, skill: string, events: GameEve
   }
   if (!rng.chance(0.15)) return;
   const h = w.hero;
-  const axe = h.inventory.findIndex((i) => i.tags.includes('instrument'));
-  if (axe >= 0 && rng.chance(0.5)) {
+  // Contraband first: unlicensed recordings are the worst kind of music.
+  const tapes = h.inventory.findIndex((i) => i.tags.includes('contraband'));
+  const axe = tapes >= 0 ? tapes : h.inventory.findIndex((i) => i.tags.includes('instrument'));
+  if (axe >= 0 && rng.chance(tapes >= 0 ? 0.8 : 0.5)) {
     const [item] = h.inventory.splice(axe, 1);
     c.emit('muse', 'bad', { variant: 'confiscate', place: loc.name, item: item!.name });
   } else {

@@ -38,6 +38,7 @@ import { bookingCandidates } from './bookings';
 import { axeCandidates } from './axeplay';
 import { flashMobCandidate } from './fans';
 import { teardownCandidate } from './cordon';
+import { undergroundCandidates } from './underground';
 import { heatUrge } from './laylow';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
@@ -224,6 +225,7 @@ export function gather(w: World): Candidate[] {
   if (mob) out.push(mob);
   const teardown = teardownCandidate(w);
   if (teardown) out.push(teardown);
+  out.push(...undergroundCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));
   out.push(...discretionCandidates(w));

@@ -1,6 +1,6 @@
 # Guitar: what it opens up
 
-Status: **in progress.** The first six steps of the build order are built (see "As built"); the rest is plan.
+Status: **in progress.** The first seven steps of the build order are built (see "As built"); the rest is plan.
 Feel over balance: every number here is a first guess, to be felt out (or never tuned at all).
 
 ## As built
@@ -18,10 +18,11 @@ Feel over balance: every number here is a first guess, to be felt out (or never 
 | Fans as a resource, counted around her block: cover in a neighbourhood that loves her (and sticking out, famous, where nobody does); a fan's couch to lie low on, once a night per block; the grapevine (where her target was seen, a hideout off a street she hasn't walked); the flash mob, an influence on a crowd: some of her fans turn up as people, then everyone in earshot weighs what she asks of them (her guitar and charm for a voice, the turnout for an edge), the keenest six take it on as their own goal and the rest follow and lend them their numbers; around it, 12 beats of heavy cover that also holds back NPD responses; costs a tenth of the local fans and a point of heat; once a night per block | `fans.ts`, `crowd.ts`, `stealth.ts`, `laylow.ts` |
 | The cordon teardown: with 150+ fans inside the cordon, a guitar, and the Overpass PA or a billboard, she plays the anthem (a guitar roll, helped by spare fans, volume and a jacked guitar; once a night). If it lands, the cordon comes off for good (`liftCordon`) and CINDERJAW lifts off as a persistent roaming dragon (the Apollo family) that only comes back while she's past where the cordon was; if not, nothing comes down and a fifth of the district's fans walk. A fame goal pulls her to it | `cordon.ts`, `dragonmodels.ts` (`CINDERJAW_MODEL`), `dragons.ts`, `plans.ts` |
 | Inspiration teams: once she has refused Muse and her renown passes 150, strike squads (a Muse faction; operatives and team leads in pastel armour with heart-decal SMGs, glitter rifles and glitter grenades) hit her after public sets and at bookings, bigger and better the bigger she is; if they kill her, Muse posts a tribute next night | `muse.ts`, `content/archetypes.ts`, `content/items.ts`, `factions.ts` |
-| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts` |
+| The underground, once Muse has noticed her and she hasn't signed: secret shows (a booking kind in cellars, back units and the Halo basement; books from an expected grade of 8, pays less, Muse never hears about it, wins extra fans and a box of bootleg tapes); bootleg tapes (contraband: hand them out in a crowd for fans, sell them, or lose them to Clearance first); pirate towers (Muse relay masts on a tenth of generated streets, guarded by technicians or an Inspiration team; win and rewire one with tinkering, a jacked guitar helps; each night it plays her to its neighbourhood and Muse may take it back; one inside the cordon is a teardown stage) | `bookings.ts`, `underground.ts`, `muse.ts`, `cordon.ts` |
+| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts` |
 
 Not yet: the named Inspiration commander, LUMINA, breaking a Muse contract, resonance against dragons (step 9), and everything from
-step 7 of the build order on.
+step 8 of the build order on.
 
 ## The idea
 

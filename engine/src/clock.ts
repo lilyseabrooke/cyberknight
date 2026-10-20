@@ -33,7 +33,7 @@ export const ACTION_MINUTES: Record<string, number> = {
   eat_stall: 15, eat_bagel: 8, eat_plate: 25, scrounge: 20,
   raid_loot: 40, raid_ambush: 30, graffiti: 25, tail: 30, hunt_drone: 30, fence: 10, implant: 60,
   gym: 35, gymfight: 15, gymquick: 6,
-  draw_out: 30, flash_mob: 10, cordon_teardown: 60, booked_guitar: 60, booked_vocals: 60, booked_djing: 75, booked_beatbox: 45,
+  draw_out: 30, flash_mob: 10, cordon_teardown: 60, hand_out_tapes: 20, take_tower: 30, booked_secret: 60, booked_guitar: 60, booked_vocals: 60, booked_djing: 75, booked_beatbox: 45,
   hijack: 6,
   pawn: 30, pawnfight: 15, pawnquick: 6, pawndeal: 20,
   chopin: 8, bench: 45, benchcraft: 60, scavenge: 30,

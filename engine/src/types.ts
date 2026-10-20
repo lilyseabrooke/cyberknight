@@ -958,6 +958,8 @@ export interface MuseFile {
   refused?: number;
   /** The death (a `DeathRecord.run`) Muse has already posted a tribute for. */
   tributeFor?: number;
+  /** Muse relay masts she has taken for pirate radio, by street, and the night she took each. See underground.ts. */
+  towers?: Record<Id, number>;
 }
 
 /** A night she's been booked to play somewhere. */
@@ -969,8 +971,9 @@ export interface Booking {
   night: number;
   /** What they booked her for: guitar, singing, DJing, beatboxing. */
   skill: string;
-  /** 'gig': a stage at a bar or club. 'private': the entertainment, somewhere she couldn't otherwise get into. */
-  kind: 'gig' | 'private';
+  /** 'gig': a stage at a bar or club. 'private': the entertainment, somewhere she couldn't otherwise get into.
+   *  'secret': an underground show in a cellar, where Muse can't find it (see underground.ts). */
+  kind: 'gig' | 'private' | 'secret';
   /** Her fee, if it goes well. */
   pay: number;
   /** Who booked her, when somebody in particular did. */

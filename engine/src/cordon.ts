@@ -36,9 +36,9 @@ export const districtFans = (w: World): number => fansWhere(w, (l) => !l.gen || 
 /** Fans it takes: enough people at every exit to pull a barrier down. */
 export const TEARDOWN_FANS = 150;
 
-/** Where she can reach them all at once: the Overpass's PA, or a billboard. */
+/** Where she can reach them all at once: the Overpass's PA, a billboard, or a pirate tower of hers inside the cordon. */
 export function teardownStage(w: World, id: Id): boolean {
-  return id === 'overpass' || Object.values(w.features).some((f) => f.kind === 'billboard' && f.locationId === id);
+  return id === 'overpass' || Object.values(w.features).some((f) => f.kind === 'billboard' && f.locationId === id) || (!!w.legacy.muse?.towers?.[id] && inStartDistrict(w, id));
 }
 
 /** The places she'd play it from, if she knows them. */
