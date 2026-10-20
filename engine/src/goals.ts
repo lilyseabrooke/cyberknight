@@ -9,6 +9,8 @@ import { callingAfter, callingTargets, callingTick, spotlightFervor } from './ca
 import { SKILL_LABELS, skillLevel } from './skills';
 import { dayOf } from './clock';
 import { PLENTY_PARTS, knownBenches, lowOnParts, partsLeads } from './scavenge';
+import { frogRecord, frogWatch, type Sensed } from './cyberfrogs';
+import { frogShort } from './content/cyberfrogs';
 import { RECIPES, billText, canAfford, totalParts, type Bill, type Recipe } from './content/parts';
 import { ITEMS, makeItem } from './content/items';
 import { tinkerLevel } from './bench';
@@ -123,9 +125,16 @@ const goalData = (w: World, g: Goal, extra: EventData = {}): EventData => ({
   ...(g.loc && siteAt(g.loc) ? { place: siteAt(g.loc)!.label } : {}),
   ...((g.kind === 'raid' || g.kind === 'explore' || g.kind === 'scavenge') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
   ...(g.kind === 'quest' ? questData(w, g) : {}),
+  ...(g.kind === 'frog' ? frogData(w, g) : {}),
   ...extra,
 });
 
+
+/** Which Cyberfrog, and where, for the log: she only knows its name once she has seen it. */
+function frogData(w: World, g: Goal): EventData {
+  const f = frogRecord(w, g.loc);
+  return { place: (g.loc && w.locations[f?.door ?? g.loc]?.name) || 'somewhere', ...(f ? { frog: f.seen ? frogShort(f.char) : 'the Cyberfrog she can feel' } : {}) };
+}
 
 /** What the log needs to tell a job: who wants it, what it is, where, and the pay. */
 function questData(w: World, g: Goal): EventData {
@@ -773,6 +782,36 @@ const KINDS: Record<GoalKind, Kind> = {
     targets: (_w, g) => [{ loc: g.loc!, value: 2.8 }],
     bias: () => 0,
   },
+  // ------------------------------------------------------------------ frog
+  // A Cyberfrog she can feel nearby (cyberfrogs.ts). It does nothing, it is plastic, and she wants it more than anything she has going: it
+  // shoves aside whatever it has to (`adopt`), she goes into places she would think twice about for it, and the goal ends when it is on its
+  // way to the lab or it is gone. The trip there is ordinary travel; grabbing it is the `frog` action, once she is standing on it.
+  frog: {
+    decay: 0, stick: ['loyalty'], patience: 600,
+    label: (w, g) => {
+      const f = frogRecord(w, g.loc);
+      return f?.seen ? `get ${frogShort(f.char)}` : `find the Cyberfrog she can feel near ${w.locations[f?.door ?? g.loc ?? '']?.name ?? 'here'}`;
+    },
+    check(w, g) {
+      const f = frogRecord(w, g.loc);
+      if (!f) return { drop: 'moot' };
+      if (f.state === 'taken') return { done: 'collected' };
+      if (f.state === 'lost') return { drop: 'frog_lost' };
+      // A shop that has shut for the night is still where the frog is: she waits for it to open.
+      if (!isClosed(w, f.loc) && !routeTo(w, w.hero.locationId, f.loc)) return { drop: 'moot' };
+      return null;
+    },
+    plan() {},
+    metric: (w, g) => -distTo(w, g.loc!),
+    // Badly hurt, even this waits until she has been patched up (quietly: she is not going to announce it for each one).
+    targets: (w, g) => (hpFrac(w) < 0.3 ? [] : [{ loc: g.loc!, value: 4.5 }]),
+    bias(w, g, fam, id) {
+      if (fam === 'frog' && id === g.loc) return 9;
+      // Past the people holding it, if that is the way in.
+      if (fam === 'raid_ambush' && id && w.locations[id]?.dungeon && w.locations[id]?.dungeon === w.locations[g.loc ?? '']?.dungeon) return 2.5;
+      return 0;
+    },
+  },
   // ------------------------------------------------------------------ quest
   // A job for somebody (quests.ts). The trip there is ordinary travel; inside, she goes about it quietly or loudly: sneaking
   // straight for the room that matters, or clearing the place out on the way. Once the job is done she wants to find whoever
@@ -1106,11 +1145,16 @@ function adopt(c: Ctx, s: Spec): Goal | null {
     const top = topLevel(w);
     if (top.length >= capacity(w)) {
       const weakest = weakestOf(w, top);
-      if (s.desire < priority(w, weakest) + 0.12) {
-        if (rng.chance(0.2)) c.emit('goal_pass', 'mixed', { variant: 'full', goal: label(w, s), count: top.length });
-        return null;
+      // A Cyberfrog gets room made for it, whatever it costs: she drops something else, and if there is nothing else to drop she takes on one more.
+      if (s.kind === 'frog') {
+        if (weakest.kind !== 'frog') end(c, weakest, 'drop', 'overloaded', { replacement: label(w, s) });
+      } else {
+        if (s.desire < priority(w, weakest) + 0.12) {
+          if (rng.chance(0.2)) c.emit('goal_pass', 'mixed', { variant: 'full', goal: label(w, s), count: top.length });
+          return null;
+        }
+        end(c, weakest, 'drop', 'overloaded', { replacement: label(w, s) });
       }
-      end(c, weakest, 'drop', 'overloaded', { replacement: label(w, s) });
     }
   }
   const g: Goal = {
@@ -1153,7 +1197,7 @@ function end(c: Ctx, g: Goal, how: 'done' | 'drop', variant: string, extra: Even
   const gone = new Set([g.id, ...descendants(w, g).map((x) => x.id)]);
   m.goals = m.goals.filter((x) => !gone.has(x.id));
   if (m.focus !== null && gone.has(m.focus)) m.focus = null;
-  coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : variant === 'overloaded' ? 120 : 270);
+  coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : g.kind === 'frog' ? 20 : variant === 'overloaded' ? 120 : 270);
   // She still has the job, even if she's put it down for now. (And a place that looked like too much from the street still does.)
   if (g.kind === 'quest' && variant === 'outmatched') coolFor(w, `quest:${subjectOf(g)}`, 720);
   if (g.kind === 'quest' && how === 'drop' && g.npc && w.npcs[g.npc]?.quest && !['gone', 'quest_failed'].includes(variant) && !(m.quests ??= []).includes(g.npc)) m.quests.push(g.npc);
@@ -1225,9 +1269,22 @@ function review(c: Ctx, g: Goal): void {
 
 // ===================================================================== noticing and wanting
 
+/** She wants it: the goal, said in her own words (the text came with the sensing, see cyberfrogs.ts). */
+function adoptFrog(c: Ctx, s: Sensed): void {
+  const f = s.frog;
+  const place = c.w.locations[f.door ?? f.loc]?.name ?? 'somewhere';
+  adopt(c, {
+    kind: 'frog', loc: f.loc, why: 'it is a Cyberfrog', desire: 0.97,
+    variant: s.how === 'sense' ? 'frog_sense' : s.how === 'here' ? 'frog_here' : 'frog_back',
+    extra: { place, frog: f.seen ? frogShort(f.char) : 'the Cyberfrog she can feel', ...(s.text ? { text: s.text } : {}), ...(s.thought ? { thought: s.thought } : {}) },
+  });
+}
+
 function observe(c: Ctx): void {
   const { w } = c;
   const m = w.mind;
+  // A Cyberfrog nearby is the one thing she does not stop to think about.
+  for (const s of frogWatch(c)) adoptFrog(c, s);
   for (const n of here(w)) m.lastSeen[n.id] = w.hero.locationId;
   const fresh = [];
   for (const ware of shopStock(w)) {
@@ -1502,7 +1559,8 @@ export function ambientMind(c: Ctx): void {
 /** Too many goals: shed the weakest. */
 /** The goal she'd let go of first. What she is doing for her Calling goes last. */
 function weakestOf(w: World, top: Goal[]): Goal {
-  const pool = top.some((g) => !g.calling) ? top.filter((g) => !g.calling) : top;
+  const loose = top.some((g) => g.kind !== 'frog') ? top.filter((g) => g.kind !== 'frog') : top;
+  const pool = loose.some((g) => !g.calling) ? loose.filter((g) => !g.calling) : loose;
   return [...pool].sort((a, b) => priority(w, a) - priority(w, b))[0]!;
 }
 
@@ -1512,6 +1570,7 @@ function prune(c: Ctx): void {
     const top = topLevel(w);
     if (top.length <= capacity(w)) return;
     const weakest = weakestOf(w, top);
+    if (weakest.kind === 'frog') return; // (nothing but Cyberfrogs: she keeps all of them)
     end(c, weakest, 'drop', 'overloaded', {});
   }
 }

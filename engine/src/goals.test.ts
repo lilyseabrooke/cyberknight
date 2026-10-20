@@ -13,6 +13,7 @@ import { isFairGame } from './people';
 const world = (loc: string, traits: Parameters<typeof personalityFrom>[0] = {}, competence = 0.5): World => {
   const w = createWorld({ seed: 'goals2', competence, personality: personalityFrom(traits) });
   w.hero.locationId = loc;
+  w.flags.no_frogs = true; // these are about what she wants besides Cyberfrogs
   return w;
 };
 
