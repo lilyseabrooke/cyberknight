@@ -201,9 +201,9 @@ export const coverEase = (w: World, dest: Location): number => {
   return dis?.kind === 'crew' && crew && dis.crew === crew ? EASE : 1;
 };
 
-/** What she can count on a face doing for a building of some crew, before she has one on: the full ease, to the extent she thinks she can carry it. */
+/** What she can count on a face doing for a building of some crew, before she has one on: the full ease, to the extent she thinks she can carry it. (Nothing, if she has never really acted: she doesn't plan around a trick she hasn't got.) */
 export const bluffEase = (w: World, dest: Location): number =>
-  entranceCrew(dest) ? 1 - (1 - EASE) * clamp(bearing(w.hero) - 0.05 * ((dest.gen?.tier ?? 1) - 1) - 0.08, 0, 1) : 1; // (a better run place and a few more eyes than she'd like)
+  entranceCrew(dest) && skillLevel(w.hero, 'acting') >= 1 ? 1 - (1 - EASE) * clamp(bearing(w.hero) - 0.05 * ((dest.gen?.tier ?? 1) - 1) - 0.08, 0, 1) : 1; // (a better run place and a few more eyes than she'd like)
 
 /** How big a job she takes a building to be: with the face on, the ease it brings; without, the ease she reckons she could get. */
 export const planEase = (w: World, dest: Location): number => Math.min(coverEase(w, dest), bluffEase(w, dest));

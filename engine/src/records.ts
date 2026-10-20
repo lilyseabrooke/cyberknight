@@ -63,7 +63,7 @@ export function recordsCandidates(w: World): Candidate[] {
 function stealRecords(c: Ctx, loc: Location, game: { id: string; title: string }): void {
   const { w, rng } = c;
   const floor = isFloor(loc);
-  const p = odds(floor ? 0.2 : 0.32, 0.06, synergy(w.hero, ['stat:int', ['sneak', 0.6], ['tinkering', 0.4]]), 0.05, 0.88);
+  const p = odds(floor ? 0.22 : 0.34, 0.06, synergy(w.hero, ['stat:int', ['sneak', 0.6], ['tinkering', 0.4]]), 0.05, 0.88);
   const npc = here(w).find((n) => n.alive && !n.hostile && (n.tags.some((t) => ['clerk', 'staff'].includes(t)) || n.archetype === 'realtor'));
   const tok = { place: loc.name, title: game.title, npc: npc?.name ?? 'the clerk' };
   const fmt = (s: string): string => s.replace(/\{(\w+)\}/g, (m, k: string) => String((tok as Record<string, string>)[k] ?? m));
