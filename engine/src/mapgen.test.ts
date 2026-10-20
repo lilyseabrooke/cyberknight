@@ -5,6 +5,7 @@ import { relocate } from './combat';
 import { expand, seedFrontier, childId, dangerOf, liftCordon, sealCordon, START_DEPTH } from './mapgen';
 import { everyoneAt, verifyIndex } from './population';
 import { routeTo } from './plans';
+import { edgesOf } from './hexmap';
 import { createWorld } from './world';
 import { runToEnd } from './run';
 import type { Id, Location, World } from './types';
@@ -304,7 +305,7 @@ describe('the way into the starting district', () => {
     const queue = [from];
     while (queue.length) {
       const at = queue.shift()!;
-      for (const e of w.locations[at]!.exits) {
+      for (const e of edgesOf(w.locations[at]!)) {
         if (e.hidden || e.gate === 'locked' || without.includes(e.to) || seen.has(e.to)) continue;
         seen.set(e.to, seen.get(at)! + 1);
         queue.push(e.to);
@@ -324,16 +325,21 @@ describe('the way into the starting district', () => {
   });
 
   it('the Overpass is two streets from the lab lot, by either road, and not on Strand Street', () => {
-    for (const seed of ['a', 'b', 'c']) {
-      const w = createWorld({ seed: `pass-${seed}` });
+    for (let i = 0; i < 25; i++) {
+      const w = createWorld({ seed: `pass-${i}` });
       expect(w.locations.street_main!.exits.some((e) => e.to === 'overpass')).toBe(false);
       expect(w.locations.overpass!.exits.map((e) => e.to)).toEqual([childId('street_main', 0)]);
+      expect(w.locations.overpass!.hex).toBeDefined(); // (on the grid again, where grid links may add ways in; just none that are shorter)
       expect(hops(w, 'lab_lot', 'overpass')).toBe(3);
       // Lab lot, Strand Street, a new street, the Overpass.
       expect(hops(w, 'lab_lot', 'overpass', [childId('lab_lot', 0)])).toBe(3);
       // Lab lot, a new street, a new street, the Overpass.
       expect(hops(w, 'lab_lot', 'overpass', ['street_main'])).toBe(3);
       expect(hops(w, 'street_main', 'overpass')).toBe(2);
+      // Still so once the streets around it have grown.
+      relocate(w, childId('street_main', 0));
+      relocate(w, childId('lab_lot', 0));
+      expect(hops(w, 'lab_lot', 'overpass')).toBe(3);
     }
   });
 
