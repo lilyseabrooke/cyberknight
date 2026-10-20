@@ -1,6 +1,6 @@
 # Location spec: The Arcade (game hall)
 
-**Status:** DRAFT. Everything is **PROPOSED** unless it is in "Decided". Numbers are starting points; they are not tuned
+**Status:** IMPLEMENTED (see "What was built" at the end for where the build differs). Everything is **PROPOSED** unless it is in "Decided". Numbers are starting points; they are not tuned
 (principle 2). The internal id is `gamehall`; "arcade" is the word in prose. (`arcade` is already a street type, and the hub
 has an "arcade" variant, so the id stays out of their way.)
 
@@ -221,3 +221,53 @@ Muse is an entertainment conglomerate that runs the channels and licenses fun. O
 antagonist (Clearance, scouts, drones, strike teams). Here it is only the **brand on the licensed cabinets** and the
 voice of the spider: a warm influencer register ("We light up your world 🥰", "Fun guaranteed!") in the same breath as
 a machine stamped flat. If that branch lands, the setting entry (`factions.md`) is the one to extend.
+
+## 14. What was built (and where it differs from the draft)
+
+Code: `content/halls.ts` (variants, shells, traits, situations, wild cards, rooms, features, the twelve cabinet genres and 96
+titles, `rollHall`, `cabinetOf`, the audit clock `auditOnDay`, `hallRoster`), `content/hallplay.ts` (the words for playing each
+genre on each side of the licence, and for jailbreak / forge / hide / strip / smash / redeem), `content/hallafford.ts` /
+`hallcrime.ts` / `hallevents.ts` (the rows), `hallkit.ts` (the view, the cabinets, the audit catch-up, the spider, play,
+jailbreak, forge, hide, strip, smash, tickets), `hall.ts` (candidates, registration, `describeHall`), plus hooks in
+`mapgen.ts`, `roster.ts`, `combat.ts`, `shutdown.ts`, `stage.ts`, `interactions.ts`, `run.ts`, `clock.ts`, `hours.ts`,
+`layouts.ts`, `shapes.ts`, `hexmap.ts`, `grid.ts`, `text.ts`, `types.ts` and `placekit.ts`; people and goods in
+`content/archetypes.ts` (11 new, the spider among them) and `content/items.ts` (13 new). The skill is in `content/skills.ts`
+(`gaming`, group `tech`) and `content/tree.ts` (the Ghost branch takes the `tech` group). Tooling: `npm run halls`, and
+`npm run coverage` has a hall column. Tests: `hall.test.ts` (44).
+
+What exists: 12 variants (11 names, 3 blurbs and 2 wall lines each), 14 shells, 5 sizes, 5 conditions, 5 tiers, 41 traits,
+18 situations, 9 wild cards, 10 room kinds, 51 features (12 of them cabinets), 96 cabinet titles (48 Muse, 48 bootleg), and
+151 rows (45 play, craft and crowd; 40 stealth and the dark side; 66 situations, spider, wild cards and variant-only). Every
+skill, stat and drive has at least one row (the coverage test and `npm run coverage`).
+
+Differences from the draft:
+
+- **The spider is a clock-driven visitor, not a situation.** `auditOnDay` is a pure function of the seed and the day; the
+  hall catches up on visits that ended while she was away (`ensureCabs`, flagged per day in `w.counters`), so a bootleg den
+  she left for a week has been stamped on and rebuilt by the time she is back. While she is there, `tickHalls` spawns the
+  spider (`spider:<hall>:<day>`), and each beat it may check the next cabinet on its list.
+- **Only deviations are stored** (`Location.cabs`): a licence override, a forgery's quality, a score, `wrecked` and `hidden`
+  as clock minutes, and a generation number. A rebuilt cabinet is a new game, a new licence roll and a blank board.
+- **A changed cabinet is a different animal:** a jailbroken Muse cabinet keeps its title with "(cracked)" on it.
+- **Fame goes through `fameFrom`** under the cause `arcade` (the stage's prestige is 0.8 for an arcade, 1.3 for its stage).
+- **No hero state and no Muse faction.** The spider has no faction; its only mark on the world is `spiders_killed` and
+  `cabs_wrecked` in `w.counters`.
+- **Added after the spec:** `spidercalm:` and `spiderdead:` counters (a talked-down or killed spider cancels the visit,
+  including the catch-up), `hallban:` for a hall that has barred her, and a quiet row that reads the spider's diary (it
+  tells her when the next visit is due, from the clock itself).
+
+Numbers to watch when tuning (all deliberately unbalanced): `bootChance` per variant (0 for the flagship, 1 for the den), the
+price per play (`VARIANTS.*.play`, Muse costs 1.35x and bootlegs 0.65x), `champLevel` and `scoreOf` (how hard a board is and how
+it reads), the odds in `playOne` (a record needs a win first, then 0.1 + 0.05 per point over half the top), the audit chance
+(`VARIANTS.*.audit`, 0.12 to 0.5 a day), the 2-6 day rebuild, and the forgery's noticing curve in `noticed`.
+
+Real runs (40 autonomous nights): 9 found an arcade, 4 did something in one, 3 played a cabinet, 1 met the spider (16
+cabinets wrecked across the runs). The gym found 9 and used 4, the pawn shop 5 and 3, the hub 6 and 4, so the arcade sits
+in the same band.
+
+Thin spots: `gaming` has no row at the gym, the pawn shop or the hub (a console for hock, a lesson in the hub), and a few
+skills have one row here (`pool`, `hijack`, `fishing`, `marksmanship` has two).
+
+Still open: a goal that sends her back to an arcade for a record; pool tables (there is no pool table in the arcade, only
+an air-hockey row); what the Muse faction does with the spider if the guitar work lands; whether a licensed cabinet can be
+*restored* after a jailbreak (nothing does it today).
