@@ -59,6 +59,7 @@ import { cooling } from './mind';
 import { atLeast, awareness, bucketOf, coverAt, enterStealth, isSneaking, npcPerception, stealthCandidates } from './stealth';
 import { spatialStir } from './placeboard';
 import { analyze, perceived, perceivedRatio, ratio, readQuality, skillOf, statsOf } from './npcstats';
+import { mythCandidates } from './myth';
 
 const DRINKS = [
   'a Molotov Mule', 'a Synthahol Sunrise', 'a Liquid Chrome shooter', 'a Neutron Star Sour', 'three fingers of something blue',
@@ -234,6 +235,7 @@ export function gather(w: World): Candidate[] {
   out.push(...undergroundCandidates(w));
   out.push(...songCandidates(w));
   out.push(...museSceneCandidates(w));
+  out.push(...mythCandidates(w));
   out.push(...contractCandidates(w));
   out.push(...speakingCandidates(w));
   out.push(...goalCandidates(w));

@@ -1,6 +1,6 @@
 # Guitar: what it opens up
 
-Status: **in progress.** The first nine steps of the build order are built, and step 10's 10a and 10b are built (see "As built"); the rest is plan.
+Status: **built, bar the deferred pieces.** Every step of the build order is built (see "As built") except the wedge (10c) and the board hooks, both deferred.
 Feel over balance: every number here is a first guess, to be felt out (or never tuned at all).
 
 ## As built
@@ -28,10 +28,10 @@ Feel over balance: every number here is a first guess, to be felt out (or never 
 | The broadcast hijack: from a pirate tower of hers with a jacked guitar, once a night; 3-5 places she has never broken into get fans and lose Muse pull; Muse traces the signal (the tower is usually lost) and comes looking | `musescene.ts` |
 | The contract, both ways: signed, Muse books her a duet with LUMINA (a booking; LUMINA is there on the night; playing it warms LUMINA); or she detonates it, playing her own song live on every Muse channel. Breaches (detonating, running off with LUMINA, spoiling a Muse show while signed) cost a fine, void the contract, and mean she's hunted whatever her renown | `musecontract.ts`, `bookings.ts`, `musescene.ts` |
 | ENCORE: once she's hunted and very famous (renown 450, or half that after a public breach), Muse's commander leads the strikes herself and sometimes turns up just to watch. Beaten, she's pulled out and comes back; the third time she's gone for good. Seduced, she calls off the rest of the night, and a commander with feelings calls off strikes now and then | `musecontract.ts`, `muse.ts` |
-| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts`, `songs.test.ts`, `dragonsong.test.ts`, `musescene.test.ts`, `musecontract.test.ts` |
+| The myth tier: a guitar roll against a very high bar (about even at grade 70, a little better with a loud guitar), no gates, repeatable whenever the circumstances line up, each repeat worth 0.6× the last (`legacy.legends`). **The storm solo** (acid rain, somewhere high, once a night): a blackout, and the nearest Atlas outpost's robots are fried (the lightning finds her on a flop). **The riot** (60+ fans around her, Atlas nearby): the block is hers for six hours (no police, no drone sweeps), Atlas heat wiped, Muse pull down, and the shops on and off the block looted, hers included (a looted paint shop takes her paint stock with it). **The march** (after a riot she won, an outpost within reach): the outpost falls, cleared. **Down with the police** (40+ fans, the police on her): the streets within two hops go to anarchy for two days: no police responses or patrols, nobody calls them, no police heat for her there, three times the muggings and gangers collecting tolls (anarchy is a placeholder to be fleshed out). **It charts** (a broadcast hijack that lands at renown 600 with eight songs in the book): her song is number one for three nights, Muse pull drops everywhere, and dragons playing it are slower to notice her. The citywide tribute night was cut | `myth.ts`, `combat.ts` (`addHeat`), `laylow.ts`, `witness.ts`, `chase.ts`, `run.ts`, `musescene.ts`, `dragons.ts` |
+| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts`, `songs.test.ts`, `dragonsong.test.ts`, `musescene.test.ts`, `musecontract.test.ts`, `myth.test.ts` |
 
-Not yet: the wedge (10c, deferred), the board hooks (deferred until the board exists), resonance against dragons (step 9), and everything from
-step 10 of the build order on.
+Not yet: the wedge (10c, deferred) and the board hooks (deferred until the board exists). Anarchy is a bare state for now.
 
 ## The idea
 
@@ -281,8 +281,8 @@ Deliberately absurd, uncapped, each one a story the player will tell:
 - Out-playing a Hera Mk. V's broadcast so hard it lands to listen.
 - A stadium encore that turns into a march on Atlas HQ, with her at the front, still playing.
 - A song so big Muse's clearance system approves it by accident, and every Atlas dragon in the city plays it.
-- A citywide tribute night in which every bar in Neo plays her songs at once, Muse's channels included, and the NPD
-  quietly takes the night off.
+- ~~A citywide tribute night~~ (cut). In its place, **down with the police**: a district sings the police out and goes
+  to anarchy for a while.
 
 ---
 
@@ -318,7 +318,8 @@ The opportunities need a little machinery underneath. Kept short on purpose; eac
 8. **Songs**, as a flavour layer, with love songs for serenades and declarations.
 9. **Dragons out-played**: one play per family, odds against the dragon's grade, no level gates.
 10. **LUMINA, the broadcast hijack, the wedge, and board hooks,** one at a time.
-11. **Myth tier,** whenever one sounds fun.
+11. **Myth tier**: the storm solo, the riot and the march (on the nearest outpost, standing in for Atlas HQ), it charts,
+    and down with the police.
 
 ## Open questions for the author
 

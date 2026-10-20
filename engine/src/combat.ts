@@ -18,6 +18,7 @@ import { collectBounties } from './bounty';
 import { npcsAt } from './population';
 import { pinAt, settleAt } from './movement';
 import { populate } from './roster';
+import { anarchyAt } from './myth';
 import { expand, liftCordon } from './mapgen';
 import { ensureDeep } from './deepen';
 import { spreadDeed } from './ties';
@@ -78,6 +79,8 @@ export const hasInjury = (w: World, i: Injury): boolean => w.hero.injuries.inclu
 
 export function addHeat(w: World, faction: string | null, n: number): void {
   if (!faction) return;
+  // Anarchy: there are no police here to want her.
+  if (faction === 'npd' && anarchyAt(w, w.hero.locationId)) return;
   w.heat[faction] = Math.min(10, (w.heat[faction] ?? 0) + n);
 }
 

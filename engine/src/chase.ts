@@ -26,6 +26,7 @@ import { behindOf, cross, cutAcross, readingOf, startRoute, type Crosser, type M
 import { VIA } from './hexmap';
 import { TILES_PER_PACE, blockIn, doorTo, chaserSees, setBlock, leaveSearching, localSqueeze, hideGuess, hideScene, inTheWay, propNear, stepAside, openBoard, outsFrom, seesFrom, runPast, pinches, runOn, tileAt, type ChaseBoard, type Out } from './chaseboard';
 import type { Pos } from './grid';
+import { lawless } from './myth';
 
 /**
  * A chase: a fight at speed. There is no board, only how far apart everybody is, what the road is like, and what each side
@@ -898,7 +899,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
             }
           }
           // And if it goes on long enough for them to get here, they do.
-          if (!result && patrolAt !== null && round >= patrolAt) {
+          if (!result && patrolAt !== null && round >= patrolAt && !lawless(w, here.id)) {
             patrolAt = null;
             const foes = live.flatMap((f) => f.crew.filter((n) => n.alive));
             const a = patrolArrives(c, foes, here);

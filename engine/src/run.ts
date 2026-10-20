@@ -50,6 +50,7 @@ import { art } from './lab';
 import { gate, tickStealth } from './stealth';
 import { influenceTick } from './influence';
 import { positionFor, tickPlace } from './placeboard';
+import { anarchyAt, riotAt } from './myth';
 
 /** Only for headless loops and tests (runToEnd, sims). The game itself never caps a run: it ends when Blackbird does. */
 export const TEST_BEAT_CAP = 600;
@@ -398,17 +399,19 @@ function ambient(c: Ctx): void {
     return;
   }
 
-  // Muggers.
-  if (loc.outdoors && loc.id !== 'overpass' && loc.id !== 'halo_roof' && rng.chance(w.situation.weather === 'acid_rain' ? 0.015 : 0.03)) {
+  // Muggers. Anarchy brings them out, and the gangs with them.
+  const anarchy = anarchyAt(w, loc.id);
+  if (loc.outdoors && loc.id !== 'overpass' && loc.id !== 'halo_roof' && rng.chance((w.situation.weather === 'acid_rain' ? 0.015 : 0.03) * (anarchy ? 3 : 1))) {
     if (scoutSaves(c)) return;
-    const gang = spawnGroup(c, 'mugger', rng.int(1, 2));
-    c.emit('mugging', 'bad', { count: gang.length });
+    const gangers = anarchy && rng.chance(0.4);
+    const gang = gangers ? [...spawnGroup(c, 'gang_runner', rng.int(1, 2)), ...spawnGroup(c, 'gang_enforcer', 1)] : spawnGroup(c, 'mugger', rng.int(1, 2));
+    c.emit('mugging', 'bad', { count: gang.length, ...(anarchy ? { variant: gangers ? 'anarchy_gang' : 'anarchy' } : {}) });
     if (!talkDown(c, gang)) fight(c, gang, { cause: 'a mugging', joiners: false });
     return;
   }
 
   // Drone patrol.
-  const drone = npcsAt(w, loc.id).find((n) => n.archetype === 'drone' && !n.hostile);
+  const drone = riotAt(w, loc.id) ? undefined : npcsAt(w, loc.id).find((n) => n.archetype === 'drone' && !n.hostile);
   if (drone && rng.chance(0.14)) {
     if ((w.heat.atlas ?? 0) >= 1 || rng.chance(0.3)) {
       c.emit('drone', 'bad', { variant: 'spots', npc: drone.name });

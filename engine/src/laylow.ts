@@ -10,6 +10,7 @@ import { scoutSaves } from './extras';
 import { fanCouchCandidate, mobShields } from './fans';
 import { actionMinutes } from './clock';
 import { talkDown } from './speaking';
+import { lawless } from './myth';
 
 /**
  * Heat, and what she does about it. Low heat only sends drones, which a competent hero can swat;
@@ -101,6 +102,8 @@ export function npdResponse(c: Ctx): boolean {
   const loc = w.locations[w.hero.locationId]!;
   const npd = w.heat.npd ?? 0;
   if (!loc.outdoors || npd < 1) return false;
+  // A riot or anarchy: the police aren't coming here.
+  if (lawless(w, loc.id)) return false;
   // A flash mob of her fans is in the way, filming.
   if (mobShields(w)) return false;
   const officers = npd >= 4;

@@ -19,6 +19,7 @@ import { dangerOf } from './grade';
 import { DRAGON_MODELS, TERRITORIAL, dropFlights, flightModel, hasTrait, hopMinutes, reachPerBeat, rollTemper, runsDown, temperOf, type DragonModel } from './dragonmodels';
 import { startDying } from './dying';
 import { logSighting, noteFought, pickKnown } from './dragonlog';
+import { charting } from './myth';
 
 /**
  * The dragons that aren't Apollo. Each flies into a district, goes through the pattern of its kind, takes off, and is
@@ -321,7 +322,9 @@ function noticeChance(w: World, f: Flight): number {
   // Sharp-eyed ones notice sooner (a flight made without a temper of its own is average).
   const k = f.temper ? 0.6 + 0.8 * f.temper.alertness : 1;
   // Something loud a moment ago carries a long way, and they are listening.
-  return Math.min(0.95, baseNotice(w, f) * k + noiseBoost(w) * k);
+  // Her song is on its own loudspeaker: it's slower to pick her out.
+  const song = charting(w) ? 0.6 : 1;
+  return Math.min(0.95, (baseNotice(w, f) * k + noiseBoost(w) * k) * song);
 }
 
 function baseNotice(w: World, f: Flight): number {

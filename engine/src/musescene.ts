@@ -13,6 +13,7 @@ import { museRenown } from './muse';
 import { towersHeld } from './underground';
 import { startShowGoal } from './goals';
 import { breach } from './musecontract';
+import { maybeCharts } from './myth';
 
 /**
  * Muse's scene: who it puts on stage, and how much of a neighbourhood it owns.
@@ -354,4 +355,5 @@ export function broadcastHijack(c: Ctx): void {
   addHeat(w, 'atlas', 1);
   train(c, 'guitar', 4);
   c.emit('broadcast_hijack', 'good', { variant: traced ? 'traced_after' : 'clean', count: markets.length, place: markets[0]?.name ?? 'somewhere', place2: markets[1]?.name ?? '', fame: Math.round(gain), towers: towersHeld(w).length });
+  maybeCharts(c, museRenown(w));
 }

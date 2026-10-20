@@ -9,6 +9,7 @@ import { isFairGame } from './people';
 import { nerve, traitOf } from './character';
 import { regard } from './ties';
 import { covering } from './influence';
+import { lawless } from './myth';
 
 /**
  * Consequences for hitting people. If anyone sees it (a person, a drone, a security camera) the
@@ -100,6 +101,8 @@ export function reactionWeights(w: World, n: Npc, victim: Npc): Record<Reaction,
   } else if (feel <= -30) {
     rw.cheer += 3;
   }
+  // A riot or anarchy: nobody to call.
+  if (lawless(w, w.hero.locationId)) rw.call_cops = 0;
   return rw;
 }
 

@@ -596,6 +596,11 @@ export interface Location {
   fans?: number;
   /** Streets: how much of a hold Muse has here, 0..100 (absent is 50). Muse shows build it; her illegal ones wear it down. See musescene.ts. */
   musePull?: number;
+  /** Streets: rioting until this world minute (Atlas and the police stay out), and in anarchy until this one (no police at all). See myth.ts. */
+  riotUntil?: number;
+  anarchyUntil?: number;
+  /** Shops: the night (`legacy.runs`) a riot looted it. */
+  lootedRun?: number;
   /** Pieces of her graffiti up here. Drives diminishing fame and local consequences. */
   graffiti: number;
   /** Guard dogs and traps. Absent until somebody has had to find out. */
@@ -1026,6 +1031,8 @@ export interface Legacy {
   songs?: Song[];
   /** The deaths (`DeathRecord.run`) she has already spun into a cover story. */
   coverStories?: number[];
+  /** Myth acts she has pulled off, by kind, and how many times (each repeat is worth less). See myth.ts. */
+  legends?: Record<string, number>;
   /** What Muse, the entertainment conglomerate, makes of her. Absent until she's worth a letter. See muse.ts. */
   muse?: MuseFile;
   /** Lab upgrades she has, by node id, with the number of ranks bought. See content/tree.ts. */
@@ -1059,6 +1066,8 @@ export interface MuseFile {
   quietUntil?: number;
   /** She broke the contract in public: Muse hunts her whatever her renown. */
   detonated?: boolean;
+  /** Her song is on every dragon's loudspeaker, approved by accident, until this night (a `legacy.runs` number). See myth.ts. */
+  chartsUntil?: number;
   /** ENCORE, the Inspiration commander who took a personal interest: times beaten (she comes back twice), how she feels
    *  about Blackbird, and whether she's gone for good. See musecontract.ts. */
   encore?: { beaten: number; flame: number; gone?: boolean };
