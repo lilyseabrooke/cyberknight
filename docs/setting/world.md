@@ -58,6 +58,25 @@ Neo is full of corporations. **Atlas is just the big bad**, not the only company
 more exist independently (Helix Biotech is one). Don't make every corp Atlas's; independents can be allies, rivals,
 victims of Atlas takeovers, or just their own brand of shady.
 
+## Titanware
+
+**Titanware** is the other big name in Neo, and it is **not Atlas**. Atlas is the defence industry: dragons, tanks, shutdowns. Titanware is
+**cyberware and hacking tech**, and it is the **surveillance corporation**. Its logo is a creepy open **eye**, never blinking, and its pitch is that
+it cares about you so much it wants to know what every part of your body is doing. Its chrome reports pulse, sleep, mood and "engagement" to a
+dashboard you can see and a second one you cannot. Its tagline is "Titanware Sees You", and means it kindly.
+
+- **Texture:** subscription tiers for being watched (VitalSigns, VitalSigns+, VitalSigns Premier), brand names that sound like a hospital
+  and a panopticon had a baby (Panopt, Lidless, Vigil Mk. 3), an eye on everything, a "Verified" sticker in the window of any shop that wants the
+  discount.
+- **Titanware Training Academies** hand out glossy brochures that say **"Think the Right Way"**. They are thinly-veiled brainwashing (a quiz, a
+  mug, a module on gratitude), and they also, genuinely, teach Hack and Override techniques. The lessons are free; the modules are the price
+  (see [`../locations/hub.md`](../locations/hub.md)).
+- **Writing Titanware:** cheerful, attentive, a little too interested. Where Atlas announces, Titanware *asks how you are feeling*. The staff are
+  sincere and a bit frightening, and they are never grim: the worst it gets is an invasive questionnaire. Punch up at the brochure, never at the
+  students.
+- **Not Atlas's:** an independent. It can be rival to Atlas, supplier to Atlas, or neither. Blackbird is not neutral about Atlas, but she can be about
+  Titanware, and so the Academy can teach her without turning her.
+
 ## The Dragon Family
 
 Named after Greek gods, with a Mark number: **Apollo Mk. II** ("CINDERJAW", the stationary boss on the Kowloon
