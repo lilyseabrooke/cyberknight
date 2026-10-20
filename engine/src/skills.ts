@@ -67,5 +67,12 @@ export function train(c: Ctx, id: SkillId, xp = 1): void {
 
 export const hasImplantFlag = (h: Hero, flag: string): boolean => h.implants.some((i) => IMPLANTS[i]?.flag === flag);
 
-/** Linear helper: baseline chance plus a per-point bonus from a synergy value, clamped. */
-export const odds = (base: number, perPoint: number, syn: number, lo = 0.03, hi = 0.93): number => Math.max(lo, Math.min(hi, base + perPoint * syn));
+/**
+ * How a skill or a blend of skills and stats reads on the 0-to-10 scale the chances and bonuses in the rest of the engine were written for,
+ * when skills really run 0 to 100. Under 5 it is itself, so the first levels she gets matter just as much; above that it keeps rising but ever
+ * more slowly, to 10 at 100: level 10 is about 6, 25 about 8, 50 about 9. (Nothing should be certain at level 12 and nothing at all at 80.)
+ */
+export const feel = (x: number): number => (x <= 5 ? x : 5 + (5 * Math.log(x / 5)) / Math.log(20));
+
+/** Linear helper: baseline chance plus a per-point bonus from a synergy value (read on the 0-10 scale, see `feel`), clamped. */
+export const odds = (base: number, perPoint: number, syn: number, lo = 0.03, hi = 0.93): number => Math.max(lo, Math.min(hi, base + perPoint * feel(syn)));

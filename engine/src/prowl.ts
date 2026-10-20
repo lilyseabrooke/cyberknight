@@ -10,7 +10,7 @@ import { PROPS, type PropKind } from './content/props';
 import { commitBoard, placeOf, syncPlace, viewOf } from './placeboard';
 import type { CamMount } from './layout';
 import { overrideChance } from './override';
-import { skillLevel, skillValue, train, hasImplantFlag } from './skills';
+import { skillLevel, skillValue, train, hasImplantFlag, feel } from './skills';
 import { gainXp } from './combat';
 import { wielded } from './arms';
 import { fxOf } from './weapons';
@@ -225,7 +225,7 @@ export function camGain(b: Board, cam: CamMount, at: Pos, posture: Posture, t: n
   // Crouched behind a crate, a camera on the ceiling doesn't see her.
   if (posture === 'hold' && sheltered(b, cam, at)) return 0;
   const h = b.w.hero;
-  const mine = (1 - 0.05 * Math.min(10, skillLevel(h, 'sneak'))) * (hasImplantFlag(h, 'glow') ? 1.3 : 1);
+  const mine = (1 - 0.05 * Math.min(10, feel(skillLevel(h, 'sneak')))) * (hasImplantFlag(h, 'glow') ? 1.3 : 1);
   return 0.3 * c * POSTURE_SHOWS[posture] * (lit === 2 ? 1.2 : lit === 1 ? 0.8 : 0.4) * mine * 1.1;
 }
 
@@ -247,7 +247,7 @@ export function sightGain(b: Board, u: Pick<PUnit, 'x' | 'y' | 'facing' | 'wide'
   if (!hidden) return 0;
   const lit = lightAt(b, at);
   const h = b.w.hero;
-  const mine = (1 - 0.05 * Math.min(10, skillLevel(h, 'sneak'))) * (hasImplantFlag(h, 'glow') ? 1.3 : 1);
+  const mine = (1 - 0.05 * Math.min(10, feel(skillLevel(h, 'sneak')))) * (hasImplantFlag(h, 'glow') ? 1.3 : 1);
   const close = 1 - 0.6 * (d / range);
   return 0.3 * close * facing * hidden * POSTURE_SHOWS[posture] * (lit === 2 ? 1.2 : lit === 1 ? 0.8 : 0.4) * mine * keenness(u.npc);
 }
@@ -863,7 +863,7 @@ export function useProp(c: Ctx, b: Board, prop: Prop, say: Sink): void {
   const { w, rng } = c;
   const def = PROPS[prop.kind];
   train(c, 'tinkering', 1);
-  if (!rng.chance(def.override === false ? clamp(0.75 + 0.02 * skillValue(w.hero, 'athletics'), 0.4, 0.95) : overrideChance(w, 0.45))) {
+  if (!rng.chance(def.override === false ? clamp(0.75 + 0.02 * feel(skillValue(w.hero, 'athletics')), 0.4, 0.95) : overrideChance(w, 0.45))) {
     makeNoise(b, prop, 0.12, 'object');
     say('prowl_distract', 'bad', { variant: 'fail', prop: prop.kind, label: def.label });
     return;
@@ -915,7 +915,7 @@ export function prowlBoard(c: Ctx, b: Board, say: Sink): ProwlOutcome {
       for (const step of pathTo(b.grid, way, p.to)) {
         if (stepOf(b.grid, at, step, true).check) {
           train(c, 'athletics', 1);
-          if (!rng.chance(clamp(0.6 + 0.05 * skillValue(h, 'athletics') + 0.02 * heroStealth(w), 0.25, 0.95))) {
+          if (!rng.chance(clamp(0.6 + 0.05 * feel(skillValue(h, 'athletics')) + 0.02 * heroStealth(w), 0.25, 0.95))) {
             slipped = true;
             break;
           }

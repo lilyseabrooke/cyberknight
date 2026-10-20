@@ -5,7 +5,7 @@ import { isClosed } from './hours';
 import { GEAR_MARKUP, SHOP_ARMOR, gearPrice } from './content/shops';
 import { armBest, rating, shelfPrice } from './weapons';
 import { price } from './supply';
-import { skillLevel } from './skills';
+import { skillLevel, feel } from './skills';
 
 /**
  * What Blackbird knows about the world, as far as planning goes: how to get from here to there,
@@ -117,7 +117,7 @@ export function shopStock(w: World): Ware[] {
 
 /** What it would cost her today (haggling shaves a little off). */
 export function wareCost(w: World, ware: Ware): number {
-  return ware.kind === 'implant' ? Math.round(ware.price * (1 - Math.min(0.3, skillLevel(w.hero, 'haggling') * 0.03))) : price(w.hero, ware.price);
+  return ware.kind === 'implant' ? Math.round(ware.price * (1 - Math.min(0.3, feel(skillLevel(w.hero, 'haggling')) * 0.03))) : price(w.hero, ware.price);
 }
 
 export const keeperOf = (w: World, ware: Ware): Npc | undefined => (ware.kind === 'implant' ? w.npcs.doc : w.npcs.gunsmith);

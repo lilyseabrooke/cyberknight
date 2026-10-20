@@ -2,7 +2,7 @@ import { type Affordance } from '../affordances';
 import { banned, buyOne, counterLots, find, herLots, hockOne, hockable, redeemOne, runCheck, say, sellOne, usefulness, type PawnView } from '../pawnkit';
 import { lotState, redeemPrice, shelfPrice } from './pawns';
 import { type Check, type Result } from '../placekit';
-import { skillLevel, train } from '../skills';
+import { skillLevel, train, feel } from '../skills';
 import { kindle } from '../romance';
 import type { World } from '../types';
 
@@ -307,7 +307,7 @@ export const CRAFT: Affordance<PawnView>[] = [
         say(c, 'flirt.nobody', 'mixed', ['Blackbird leans on the counter at {shop} and finds there is nobody to be charming at. The parrot, if there is one, is unimpressed.'], ['Practice. For later.'], { shop: v.main.name });
         return;
       }
-      const p = 0.3 + 0.03 * h.charm + 0.04 * skillLevel(h, 'romance') + target.affinity / 300;
+      const p = 0.3 + 0.03 * h.charm + 0.04 * feel(skillLevel(h, 'romance')) + target.affinity / 300;
       if (rng.chance(Math.min(0.85, p))) {
         target.affinity += 10;
         kindle(h, 0.15);

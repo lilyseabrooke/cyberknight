@@ -6,7 +6,7 @@ import { clamp } from './candidate';
 import { VIA, edgesOf, restricted } from './hexmap';
 import { roadClass } from './roads';
 import { isShut } from './shutdown';
-import { skillValue, synergy, train } from './skills';
+import { skillValue, synergy, train, feel } from './skills';
 
 /**
  * Getting through the city the quick way. A chase has a route (the fleeing side's road to wherever it is going), and the other side
@@ -183,7 +183,7 @@ export function cross(c: Ctx, who: Crosser, leg: Leg): Crossing {
     }
     case 'barricade': {
       if (who.mode === 'foot') {
-        const p = who.hero ? clamp(0.45 + 0.03 * h.muscle + 0.03 * skillValue(h, 'melee'), 0.15, 0.9) : 0.4 + 0.4 * them;
+        const p = who.hero ? clamp(0.45 + 0.03 * h.muscle + 0.03 * feel(skillValue(h, 'melee')), 0.15, 0.9) : 0.4 + 0.4 * them;
         if (who.hero) train(c, 'melee', 1);
         return rng.chance(p) ? { delay: 0.8, hurt: 0, told: 'breach' } : { delay: 2, hurt: heroHurt(3), told: 'breach_failed' };
       }
@@ -194,14 +194,14 @@ export function cross(c: Ctx, who: Crosser, leg: Leg): Crossing {
       return { delay: bike ? 0.5 : 0.3, hurt: who.hero && r ? heroHurt(Math.round(r.taken * (bike ? 0.5 : SPILL)), 0.15) : 0, told: 'ram_barricade', wrecked: !!r?.wrecked };
     }
     case 'duct': {
-      const p = who.hero ? clamp(0.6 + 0.03 * skillValue(h, 'sneak') + 0.02 * refl, 0.2, 0.92) : 0.55 + 0.35 * them;
+      const p = who.hero ? clamp(0.6 + 0.03 * feel(skillValue(h, 'sneak')) + 0.02 * refl, 0.2, 0.92) : 0.55 + 0.35 * them;
       if (who.hero) train(c, 'sneak', 1);
       return rng.chance(p) ? { delay: 0.8, hurt: 0, told: 'crawl' } : { delay: 2, hurt: heroHurt(2, 0.1), told: 'crawl_stuck' };
     }
     case 'through': {
       // A shop is just a shop. A building somebody is guarding is not.
       if (!mid || !restricted(mid)) return { delay: 0.2, hurt: 0, told: 'through' };
-      const p = who.hero ? clamp(0.5 + 0.05 * skillValue(h, 'sneak') + 0.02 * refl - 0.04 * mid.security, 0.1, 0.9) : 0.5;
+      const p = who.hero ? clamp(0.5 + 0.05 * feel(skillValue(h, 'sneak')) + 0.02 * refl - 0.04 * mid.security, 0.1, 0.9) : 0.5;
       if (who.hero) train(c, 'sneak', 1);
       if (rng.chance(p)) return { delay: 0.4, hurt: 0, told: 'through' };
       if (who.hero) {
@@ -213,7 +213,7 @@ export function cross(c: Ctx, who: Crosser, leg: Leg): Crossing {
     }
     case 'ramp': {
       if (who.mode === 'foot') return { delay: 0.2, hurt: 0, told: 'stairs' };
-      const p = who.hero ? clamp(0.45 + 0.04 * skillValue(h, 'driving') + 0.025 * who.pace, 0.15, 0.92) : 0.4 + 0.4 * them;
+      const p = who.hero ? clamp(0.45 + 0.04 * feel(skillValue(h, 'driving')) + 0.025 * who.pace, 0.15, 0.92) : 0.4 + 0.4 * them;
       if (who.hero) train(c, 'driving', 2);
       if (rng.chance(p)) return { delay: -0.2, hurt: 0, told: 'jump' };
       const r = who.car ? hitCar(who.car, 22 + who.pace, 'ram') : null;
@@ -229,7 +229,7 @@ export function cross(c: Ctx, who: Crosser, leg: Leg): Crossing {
 /** How well she works out where somebody is going: Calculate, helped by the Hack stat. */
 export function readingOf(w: World): number {
   const h = w.hero;
-  return clamp(0.3 + 0.06 * synergy(h, ['calculate', ['stat:int', 0.5]]) + 0.01 * h.int, 0.15, 0.92);
+  return clamp(0.3 + 0.06 * feel(synergy(h, ['calculate', ['stat:int', 0.5]])) + 0.01 * h.int, 0.15, 0.92);
 }
 
 export interface Cut {

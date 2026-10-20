@@ -2,7 +2,7 @@ import type { Ctx, Hero, Location, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, relocate, remember } from './combat';
 import { clamp, levelRisk, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
-import { hasImplantFlag, skillLevel, synergy, train } from './skills';
+import { hasImplantFlag, skillLevel, synergy, train, feel } from './skills';
 import { phaseOf } from './clock';
 import { npcsAt } from './population';
 import { meetHazards } from './hazards';
@@ -16,13 +16,13 @@ import { isFairGame } from './people';
  * zeroes the whole thing" rule would otherwise silently kill the stat-driven baseline these
  * actions already had before she's trained the new skill at all. */
 const HODDS = {
-  panhandle: (h: Hero) => 0.45 + h.charm * 0.02 + skillLevel(h, 'grifting') * 0.03,
-  coldRead: (h: Hero) => 0.3 + h.charm * 0.03 + skillLevel(h, 'streetwise') * 0.03 + skillLevel(h, 'grifting') * 0.03,
-  scamMark: (h: Hero) => 0.3 + skillLevel(h, 'cards') * 0.05 + skillLevel(h, 'sleight') * 0.03 + skillLevel(h, 'grifting') * 0.04,
-  sellFakeGoods: (h: Hero) => 0.4 + h.charm * 0.02 + skillLevel(h, 'haggling') * 0.04 + skillLevel(h, 'grifting') * 0.03,
-  oddJobs: (h: Hero) => 0.78 + skillLevel(h, 'athletics') * 0.02 + skillLevel(h, 'hustling') * 0.02,
-  securityShift: (h: Hero) => 0.55 + h.muscle * 0.02 + skillLevel(h, 'intimidation') * 0.03 + skillLevel(h, 'hustling') * 0.02,
-  courierRun: (h: Hero) => 0.6 + skillLevel(h, 'streetwise') * 0.03 + skillLevel(h, 'hustling') * 0.02,
+  panhandle: (h: Hero) => 0.45 + h.charm * 0.02 + feel(skillLevel(h, 'grifting')) * 0.03,
+  coldRead: (h: Hero) => 0.3 + h.charm * 0.03 + feel(skillLevel(h, 'streetwise')) * 0.03 + feel(skillLevel(h, 'grifting')) * 0.03,
+  scamMark: (h: Hero) => 0.3 + feel(skillLevel(h, 'cards')) * 0.05 + feel(skillLevel(h, 'sleight')) * 0.03 + feel(skillLevel(h, 'grifting')) * 0.04,
+  sellFakeGoods: (h: Hero) => 0.4 + h.charm * 0.02 + feel(skillLevel(h, 'haggling')) * 0.04 + feel(skillLevel(h, 'grifting')) * 0.03,
+  oddJobs: (h: Hero) => 0.78 + feel(skillLevel(h, 'athletics')) * 0.02 + feel(skillLevel(h, 'hustling')) * 0.02,
+  securityShift: (h: Hero) => 0.55 + h.muscle * 0.02 + feel(skillLevel(h, 'intimidation')) * 0.03 + feel(skillLevel(h, 'hustling')) * 0.02,
+  courierRun: (h: Hero) => 0.6 + feel(skillLevel(h, 'streetwise')) * 0.03 + feel(skillLevel(h, 'hustling')) * 0.02,
 };
 
 
@@ -275,7 +275,7 @@ function bodyguardGig(c: Ctx, n: Npc): void {
   const h = w.hero;
   dropFlag(n, 'wants_escort');
   train(c, 'hustling', 2);
-  const ambushChance = clamp(0.4 - skillLevel(h, 'hustling') * 0.025, 0.15, 0.4);
+  const ambushChance = clamp(0.4 - feel(skillLevel(h, 'hustling')) * 0.025, 0.15, 0.4);
   if (rng.chance(ambushChance)) {
     const muggers = spawnGroup(c, 'mugger', rng.int(1, 2));
     c.emit('bodyguard_gig', 'mixed', { variant: 'ambush', npc: n.name });
@@ -315,7 +315,7 @@ function burgleHome(c: Ctx, n: Npc): void {
     leaveHome(c, home);
     return;
   }
-  const p = clamp(0.35 + skillLevel(h, 'lockpicking') * 0.05 + skillLevel(h, 'sneak') * 0.04 - n.level * 0.03 - home.security * 0.04, 0.05, 0.85);
+  const p = clamp(0.35 + feel(skillLevel(h, 'lockpicking')) * 0.05 + feel(skillLevel(h, 'sneak')) * 0.04 - n.level * 0.03 - home.security * 0.04, 0.05, 0.85);
   train(c, 'lockpicking', 2);
   if (rng.chance(p)) {
     const cash = Math.min(Math.round(n.cash * 0.9), rng.int(80, 220) + home.security * 25);
@@ -348,7 +348,7 @@ function burgleFlat(c: Ctx, block: Location): void {
   const h = w.hero;
   const door = nextDoor(c, block);
   const occupied = rng.chance(phaseOf(w.clock) === 'day' ? 0.35 : 0.7);
-  const hears = clamp(0.4 + skillLevel(h, 'sneak') * 0.05 + h.competence * 0.1 + (hasImplantFlag(h, 'sonic_ear') ? 0.3 : 0), 0.1, 0.95);
+  const hears = clamp(0.4 + feel(skillLevel(h, 'sneak')) * 0.05 + h.competence * 0.1 + (hasImplantFlag(h, 'sonic_ear') ? 0.3 : 0), 0.1, 0.95);
   const knows = rng.chance(hears);
   if (knows && occupied) {
     c.emit('burgle_flat', 'mixed', { variant: 'busy', place: door.name });
@@ -359,7 +359,7 @@ function burgleFlat(c: Ctx, block: Location): void {
     leaveHome(c, door);
     return;
   }
-  const p = clamp(0.3 + skillLevel(h, 'lockpicking') * 0.05 + skillLevel(h, 'sneak') * 0.04 - door.security * 0.05 - (knows ? 0 : 0.05), 0.05, 0.8);
+  const p = clamp(0.3 + feel(skillLevel(h, 'lockpicking')) * 0.05 + feel(skillLevel(h, 'sneak')) * 0.04 - door.security * 0.05 - (knows ? 0 : 0.05), 0.05, 0.8);
   train(c, 'lockpicking', 2);
   if (occupied) {
     // Somebody is home, and she didn't know.
@@ -389,7 +389,7 @@ function burgleFlat(c: Ctx, block: Location): void {
 function protectionRacket(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.muscle * 0.03 + skillLevel(h, 'intimidation') * 0.05 - n.level * 0.04, 0.1, 0.85);
+  const p = clamp(0.3 + h.muscle * 0.03 + feel(skillLevel(h, 'intimidation')) * 0.05 - n.level * 0.04, 0.1, 0.85);
   train(c, 'intimidation', 2);
   if (rng.chance(p)) {
     const cut = Math.min(n.cash, rng.int(20, 60));
@@ -472,7 +472,7 @@ function oddRequest(c: Ctx, n: Npc): void {
   dropFlag(n, 'favor');
   const favor = rng.pick(FAVORS);
   const skill = favor === 'scare_someone' ? 'intimidation' : favor === 'walk_me_home' ? 'athletics' : 'streetwise';
-  const p = clamp(0.4 + skillLevel(h, skill) * 0.04 + skillLevel(h, 'hustling') * 0.02 + synergy(h, ['streetwise', ['stat:charm', 0.3]]) * 0.02, 0.15, 0.88);
+  const p = clamp(0.4 + feel(skillLevel(h, skill)) * 0.04 + feel(skillLevel(h, 'hustling')) * 0.02 + feel(synergy(h, ['streetwise', ['stat:charm', 0.3]])) * 0.02, 0.15, 0.88);
   train(c, skill, 1);
   train(c, 'hustling', 1);
   if (rng.chance(p)) {

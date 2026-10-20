@@ -1,7 +1,7 @@
 import { register, type Affordance, type Need } from '../affordances';
 import { FEATURES } from './gyms';
 import { addSore, banned, canPay, find, hasSituation, ladderBout, ladderFighters, runCheck, say, shiftsOf, soreOf, spar, trainSession, workShift, type Check, type GymView, type Result } from '../gymkit';
-import { skillLevel, train } from '../skills';
+import { skillLevel, train, feel } from '../skills';
 import { kindle } from '../romance';
 
 /**
@@ -292,7 +292,7 @@ export const CROWD: Affordance<GymView>[] = [
       const { w, rng } = c;
       const target = find(v, 'fair', rng)!;
       const h = w.hero;
-      const p = 0.3 + 0.03 * h.charm + 0.04 * skillLevel(h, 'romance') + target.affinity / 300;
+      const p = 0.3 + 0.03 * h.charm + 0.04 * feel(skillLevel(h, 'romance')) + target.affinity / 300;
       if (rng.chance(Math.min(0.85, p))) {
         target.affinity += 10;
         kindle(h, 0.15);

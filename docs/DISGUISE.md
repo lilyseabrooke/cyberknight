@@ -5,7 +5,7 @@ Skill: `acting` (social; its training also nudges grifting, speaking and flirtin
 
 ## The face
 
-`Hero.disguise` is the face she has on: who she is (`label`), what kind (`crew` | `role` | `star`), how well she carries it (`polish`, 0..1, set when she puts it on from `acting`, charm and int, about 0.4 with nothing to go on, 0.6 at level 10, 0.75 at 30, 0.9 at 50) and when it wears off (`until`, a world minute: 90 minutes at level 0, a quarter hour more for every four levels, up to 7 hours). The same code serves a cheap trick and a skilled one; nothing is rolled once and kept except the polish.
+`Hero.disguise` is the face she has on: who she is (`label`), what kind (`crew` | `role` | `star`), how well she carries it (`polish`, 0..1, set when she puts it on from `acting`, charm and int, about 0.4 with nothing to go on, 0.7 at level 10, 0.8 at 50, with middling charm and int) and when it wears off (`until`, a world minute: 90 minutes at level 0, a quarter hour more for every four levels, up to 7 hours). The same code serves a cheap trick and a skilled one; nothing is rolled once and kept except the polish.
 
 | Face | Where it is put on | What it is good for |
 |---|---|---|
@@ -56,11 +56,11 @@ Faces are planned, not worn on a whim (`guise` goals, `goals.ts`):
 - **Wearing a star's face puts her under the star's heat.** Her own police heat is set aside (`Disguise.parked`) and `w.heat.npd` *is* the star's until the face comes off, so every existing system (the police response, bribes, a fixer, decay, chases) works on the star's heat. She may put on a face the law is after and not know why she is being picked up.
 - **What she does as a star is on the star's account.** All heat she would gain, from any faction, goes to the one number. A fight in front of witnesses is the same: the face goes after the witnesses have seen it. When the face comes off, her own heat comes back untouched. She is still in trouble for as long as she wears it.
 - **The star's people find out.** Any heat she adds to a star's account is *blame*. Usually a letter follows after two to ten hours (`cd_at_*`): more likely the more she added, and bigger the more blame. When she is next outdoors after that, a private security patrol turns up (`star_security`, 2 to 4 of them): the archetype has `security`, not `cop`, so beating it off builds no police heat. It comes once.
-- **Losing the heat by losing the face.** Any other face (a crew, a lanyard) records the heat she picks up while wearing it (`Disguise.heat`). `shake_heat` drops the face and tries to lose that heat. It is hard: 5% with no skill, about 1 in 4 with acting and sneak in the 20s, 1 in 2 in the 50s, never better than 3 in 5, and 3% off for every point of heat she is trying to lose. A miss still drops the face, and the heat stays.
+- **Losing the heat by losing the face.** Any other face (a crew, a lanyard) records the heat she picks up while wearing it (`Disguise.heat`). `shake_heat` drops the face and tries to lose that heat. It is hard: about 1 in 10 with acting and sneak at 5, 1 in 4 at 20, 2 in 5 at 50, 1 in 2 at 80 (middling int; never better than 3 in 5), and 3% off for every point of heat she is trying to lose. A miss still drops the face, and the heat stays.
 
 ## Scale
 
-Skills run 0 to 100 and stats 0 to 10 (80 is very high). The acting numbers are written for that: `bearing`, the shake-heat check and the small skill terms (+0.3% hold per level, +0.6% working a girl per level, +0.5% desire per level) are per level on a 0-100 scale, not on 0-10.
+Skills run 0 to 100 and stats 0 to 10 (80 is very high). The chances written across the engine assume a 0-10 scale, so `skills.ts` has `feel(x)`, which turns a skill or a blend into that scale: itself up to 5, then rising ever more slowly to 10 at 100 (level 10 is 6.2, 25 is 7.7, 50 is 8.8, 80 is 9.6). `odds()` applies it to the blend it is given, and probability and bonus terms that took a raw skill level wrap it in `feel()`. Early levels behave as they did; the rest of the range now counts. The small acting terms that are plain per-level numbers (+0.3% hold per level and so on) are on the raw 0-100 scale and don't use it.
 
 ## Left out / open
 

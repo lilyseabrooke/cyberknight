@@ -7,7 +7,7 @@ import { addNpc } from './population';
 import { placeAt } from './movement';
 import { routeTo } from './plans';
 import { coolFor, cooling, hasGoal, topLevel, capacity } from './mind';
-import { skillLevel, train } from './skills';
+import { skillLevel, train, feel } from './skills';
 import { hasAlly } from './companions';
 import { startQuestGoal } from './goals';
 import { crewOf, dungeonOf, estimatePressure, rearm, roomOf, standing, tolerance, tripAlarm, typicalPressure } from './dungeons';
@@ -356,7 +356,7 @@ function hackSystem(c: Ctx, d: Dungeon, loc: Id, giver: Npc, q: Quest): void {
   const h = w.hero;
   const room = roomOf(d, loc)!;
   const watched = standing(w, d, loc).length > 0;
-  const p = clamp(0.38 + h.int * 0.055 + skillLevel(h, 'tinkering') * 0.03 + (hasAlly(w, 'hack') ? 0.08 : 0) - 0.04 * d.tier - (watched ? 0.12 : 0), 0.08, 0.92);
+  const p = clamp(0.38 + h.int * 0.055 + feel(skillLevel(h, 'tinkering')) * 0.03 + (hasAlly(w, 'hack') ? 0.08 : 0) - 0.04 * d.tier - (watched ? 0.12 : 0), 0.08, 0.92);
   train(c, 'tinkering', 2);
   const data = { ...jobData(w, giver, q), watched };
   if (rng.chance(p)) {
@@ -382,7 +382,7 @@ function takeThing(c: Ctx, d: Dungeon, loc: Id, giver: Npc, q: Quest): void {
   const h = w.hero;
   const room = roomOf(d, loc)!;
   const watched = standing(w, d, loc).length > 0;
-  const p = clamp(0.8 - 0.03 * d.tier + skillLevel(h, 'lockpicking') * 0.03 + skillLevel(h, 'sneak') * 0.02 - (watched ? 0.12 : 0), 0.1, 0.95);
+  const p = clamp(0.8 - 0.03 * d.tier + feel(skillLevel(h, 'lockpicking')) * 0.03 + feel(skillLevel(h, 'sneak')) * 0.02 - (watched ? 0.12 : 0), 0.1, 0.95);
   train(c, 'sneak', 1);
   const data = { ...jobData(w, giver, q), watched };
   if (rng.chance(p)) {

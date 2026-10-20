@@ -5,7 +5,7 @@ import { makeAmmoBox, makeItem } from './content/items';
 import { AMMO_IDS } from './content/ammo';
 import { tierFor } from './content/fishing';
 import { streetTypeOf } from './streettypes';
-import { odds, skillLevel, synergy, train } from './skills';
+import { odds, skillLevel, synergy, train, feel } from './skills';
 import { hasKind } from './companions';
 import { kindle } from './romance';
 import { bondEvent } from './bonds';
@@ -35,7 +35,7 @@ export const ODDS = {
   art: (h: Hero) => odds(0.42, 0.06, synergy(h, ['art', ['stat:reflex', 0.5]])),
   ask: (h: Hero) => odds(0.3, 0.065, synergy(h, ['streetwise', ['stat:charm', 0.5]])),
   trick: (h: Hero) => odds(0.3, 0.06, synergy(h, ['rapport', ['tinkering', 0.4]])),
-  fish: (h: Hero) => odds(0.45, 0.012, synergy(h, ['fishing', ['stat:int', 0.3]])),
+  fish: (h: Hero) => odds(0.45, 0.03, synergy(h, ['fishing', ['stat:int', 0.3]])),
   parkour: (h: Hero) => odds(0.35, 0.055, synergy(h, ['athletics', ['stat:reflex', 0.5]])),
 };
 
@@ -72,7 +72,7 @@ export function hobbyCandidates(w: World): Candidate[] {
   // ---- the green room: guitar
   if (feat('guitar')) {
     const band = crowd.filter((n) => n.tags.includes('band'));
-    out.push({ key: 'jam', drives: { pride: 0.8, curiosity: 0.5, lust: 0.15 }, bonus: skillLevel(h, 'guitar') * 0.03, risk: band.length ? 0.4 : 0, run: jam });
+    out.push({ key: 'jam', drives: { pride: 0.8, curiosity: 0.5, lust: 0.15 }, bonus: feel(skillLevel(h, 'guitar')) * 0.03, risk: band.length ? 0.4 : 0, run: jam });
     if (!owns('instrument')) {
       out.push({ key: 'steal_guitar', drives: { greed: 0.9, curiosity: 0.4, pride: 0.3 }, risk: band.length ? 1.0 : 0.2, run: stealGuitar });
     }
@@ -86,7 +86,7 @@ export function hobbyCandidates(w: World): Candidate[] {
   }
   // ---- fishing, anywhere there is water, if she has found something to fish with
   if (owns('rod') && waterHere(w)) {
-    out.push({ key: 'fish', drives: { curiosity: 0.5, greed: 0.3, thirst: 0.1 }, bonus: 0.1 + skillLevel(h, 'fishing') * 0.03, risk: 0.1, intent: {}, run: fish });
+    out.push({ key: 'fish', drives: { curiosity: 0.5, greed: 0.3, thirst: 0.1 }, bonus: 0.1 + feel(skillLevel(h, 'fishing')) * 0.03, risk: 0.1, intent: {}, run: fish });
   }
   // ---- the kitchen
   if (feat('stove')) {
@@ -174,7 +174,7 @@ function grabCue(c: Ctx): void {
 function darts(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const bet = Math.min(h.cash, rng.int(10, 30) + Math.floor(skillLevel(h, 'throwing') * 3));
+  const bet = Math.min(h.cash, rng.int(10, 30) + Math.floor(feel(skillLevel(h, 'throwing')) * 3));
   if (rng.chance(ODDS.darts(h))) {
     h.cash += bet;
     train(c, 'throwing', 2);

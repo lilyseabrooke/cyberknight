@@ -68,6 +68,7 @@ Departures from the sketch, and why:
 |---|---|---|
 | Skill level | `sqrt(xp/2)`, capped at 10 (implants and held weapon add up to a ceiling of 12) | `skills.ts` `skillValue` |
 | Skill combination | weighted geometric mean of skills and stats on a 0-10 scale; any zero factor gives zero | `skills.ts` `synergy` |
+| Skill to chance | skills run 0-100 but chances and bonuses are written for 0-10: `feel` is the identity up to 5, then log-compressed to 10 at 100; `odds()` and the per-level terms use it. A bonus that is already written per level of a 0-100 skill (fishing rods, speaking's caps, weapon skill in a fight) does not. | `skills.ts` `feel`, `odds` |
 | Odds | `odds(base, perPoint, synergy)` is about `base + 0.06 x synergy`, clamped to 0.03-0.93; older code uses inline `clamp(...)` | `hobbies.ts`, `stage.ts`, `placekit.ts` |
 | Combat power | `level x 2 + muscle + weapon + weaponSkill x 0.6`; skill adds at most 6 | `combat.ts` `heroPower` |
 | Enemy stats | `hp = 18 + 12 x level`, `power = 2 x level + weapon`; bosses hand-set | `content/archetypes.ts` `spawnNpc` |

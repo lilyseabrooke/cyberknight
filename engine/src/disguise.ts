@@ -3,7 +3,7 @@ import type { EventData } from './events';
 import { clamp, spawnGroup, type Candidate } from './candidate';
 import { addHeat, fight, here, remember } from './combat';
 import { every } from './clock';
-import { odds, skillLevel, synergy, train } from './skills';
+import { feel, odds, skillLevel, synergy, train } from './skills';
 import { GANGS } from './content/archetypes';
 import { isFairGame } from './people';
 import { bondEvent, romanceMod } from './bonds';
@@ -212,9 +212,9 @@ export const planEase = (w: World, dest: Location): number => Math.min(coverEase
 
 /**
  * How well she carries a face when she puts it on. Nothing to go on is about two in five. Skills run 0 to 100 and stats 0 to 10, and the
- * stats pull the blend down: acting 10 with middling stats is about 0.6, acting 30 about 0.75, acting 50 about 0.9.
+ * stats pull the blend down: with middling charm and int, acting 5 is about 0.65, 20 about 0.75, 50 about 0.85 (`odds` reads it through `feel`).
  */
-export const bearing = (h: Hero): number => odds(0.4, 0.025, synergy(h, ['acting', ['stat:charm', 0.4], ['stat:int', 0.3]]), 0.15, 0.92);
+export const bearing = (h: Hero): number => odds(0.4, 0.055, synergy(h, ['acting', ['stat:charm', 0.4], ['stat:int', 0.3]]), 0.15, 0.92);
 
 /** Minutes of world time it holds: an hour and a half, and another quarter hour for every four levels, up to seven hours. */
 const lasts = (h: Hero): number => clamp(90 + 4 * skillLevel(h, 'acting'), 90, 420);
@@ -471,8 +471,8 @@ function shakeHeat(c: Ctx): void {
   if (!dis) return;
   const gained = dis.heat ?? {};
   const total = Object.values(gained).reduce((a, b) => a + b, 0);
-  // (Acting, sneak and int blended: level 20s and middling int are about 1 in 4, level 50s about 1 in 2, and level 80s no better than 3 in 5.)
-  const p = clamp(odds(0.05, 0.012, synergy(h, ['acting', ['sneak', 0.5], ['stat:int', 0.3]]), 0.03, 0.6) - 0.03 * total, 0.03, 0.6);
+  // (Acting, sneak and int blended, then bent so that it takes a lot: nothing at level 0, about 1 in 10 at 5, 1 in 4 at 20, 2 in 5 at 50, 1 in 2 at 80.)
+  const p = clamp(0.6 * (feel(synergy(h, ['acting', ['sneak', 0.5], ['stat:int', 0.3]])) / 10) ** 2.5 - 0.03 * total, 0.03, 0.6);
   strip(c, false);
   if (rng.chance(p)) {
     for (const [f, v] of Object.entries(gained)) w.heat[f] = Math.max(0, (w.heat[f] ?? 0) - v);

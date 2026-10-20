@@ -6,7 +6,7 @@ import { hasAlly } from './companions';
 import { kindle } from './romance';
 import { isFairGame } from './people';
 import { makeCan } from './graffiti';
-import { skillLevel, synergy, train } from './skills';
+import { skillLevel, synergy, train, feel } from './skills';
 import { ODDS } from './hobbies';
 import { clamp, revealExit, spawnGroup, dutchHere, type Candidate } from './candidate';
 import { heavyFor } from './shutdown';
@@ -109,7 +109,7 @@ function robTill(c: Ctx, f: Feature): void {
 function karaoke(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.25 + h.charm * 0.03 + 0.06 * synergy(h, ['vocals', ['music', 0.5]]) + Math.min(h.drunk, 3) * 0.04 - Math.max(0, h.drunk - 4) * 0.1, 0.1, 0.88);
+  const p = clamp(0.25 + h.charm * 0.03 + 0.06 * feel(synergy(h, ['vocals', ['music', 0.5]])) + Math.min(h.drunk, 3) * 0.04 - Math.max(0, h.drunk - 4) * 0.1, 0.1, 0.88);
   train(c, 'vocals', 2);
   const roll = rng.next();
   if (roll < p) {
@@ -135,7 +135,7 @@ function pool(c: Ctx): void {
   const h = w.hero;
   const rival = rng.pick(here(w).filter((n) => n.tags.includes('rowdy') && !n.hostile));
   // Better players bet bigger.
-  const bet = Math.min(h.cash, rng.int(15, 50) + Math.floor(skillLevel(h, 'pool') * 6));
+  const bet = Math.min(h.cash, rng.int(15, 50) + Math.floor(feel(skillLevel(h, 'pool')) * 6));
   const p = clamp(ODDS.pool(h) - rival.level * 0.03 - h.drunk * 0.03, 0.08, 0.92);
   if (rng.chance(p)) {
     h.cash += bet;
@@ -189,7 +189,7 @@ function laserTag(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   h.cash -= 15;
-  const p = clamp(0.3 + h.reflex * 0.03 + 0.06 * synergy(h, ['marksmanship', ['stat:reflex', 0.5]]) - h.drunk * 0.04, 0.1, 0.9);
+  const p = clamp(0.3 + h.reflex * 0.03 + 0.06 * feel(synergy(h, ['marksmanship', ['stat:reflex', 0.5]])) - h.drunk * 0.04, 0.1, 0.9);
   train(c, 'marksmanship', 2);
   if (rng.chance(p)) {
     const prize = rng.int(15, 45);
@@ -216,7 +216,7 @@ function laserTag(c: Ctx): void {
 function crackSafe(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.15 + h.int * 0.04 + 0.05 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]), 0.05, 0.85);
+  const p = clamp(0.15 + h.int * 0.04 + 0.05 * feel(synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]])), 0.05, 0.85);
   train(c, 'lockpicking', 2);
   if (rng.chance(p)) {
     const take = rng.int(200, 450);
@@ -315,7 +315,7 @@ function dance(c: Ctx): void {
   const h = w.hero;
   const dancers = here(w).filter((n) => n.archetype === 'dancer' || isFairGame(n));
   if (dancers.length) kindle(h, 0.02);
-  const p = clamp(0.3 + h.charm * 0.025 + 0.06 * synergy(h, ['dancing', ['stat:charm', 0.5]]) + Math.min(h.drunk, 2) * 0.03, 0.15, 0.88);
+  const p = clamp(0.3 + h.charm * 0.025 + 0.06 * feel(synergy(h, ['dancing', ['stat:charm', 0.5]])) + Math.min(h.drunk, 2) * 0.03, 0.15, 0.88);
   train(c, 'dancing', 2);
   if (rng.chance(p)) {
     for (const d of dancers) d.affinity += 10;
@@ -368,7 +368,7 @@ function scrapPile(c: Ctx, f: Feature): void {
   f.uses++;
   train(c, 'scavenging', 2);
   // A sharper eye for scrap shifts the odds away from the bad/nothing outcomes and towards finds.
-  const boost = Math.min(0.18, skillLevel(h, 'scavenging') * 0.025);
+  const boost = Math.min(0.18, feel(skillLevel(h, 'scavenging')) * 0.025);
   const roll = clamp(rng.next() - boost, 0, 0.999);
   if (roll < 0.1) {
     h.hp -= 5;
@@ -395,7 +395,7 @@ function scrapPile(c: Ctx, f: Feature): void {
 function relay(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.int * 0.05 + skillLevel(h, 'tinkering') * 0.05, 0.1, 0.85);
+  const p = clamp(0.3 + h.int * 0.05 + feel(skillLevel(h, 'tinkering')) * 0.05, 0.1, 0.85);
   if (rng.chance(p)) {
     const drop = rng.int(1, 3);
     w.heat.atlas = Math.max(0, (w.heat.atlas ?? 0) - drop);
@@ -430,7 +430,7 @@ function jobBoard(c: Ctx): void {
     h.cash += pay;
     c.emit('job_board', 'good', { variant: 'rumor_job', amount: pay });
   } else if (gig === 'skiptrace') {
-    const p = clamp(0.45 + h.muscle * 0.03 + skillLevel(h, 'intimidation') * 0.04 + lvl * 0.02, 0.1, 0.85);
+    const p = clamp(0.45 + h.muscle * 0.03 + feel(skillLevel(h, 'intimidation')) * 0.04 + lvl * 0.02, 0.1, 0.85);
     if (rng.chance(p)) {
       const pay = rng.int(50, 140);
       h.cash += pay;
@@ -442,7 +442,7 @@ function jobBoard(c: Ctx): void {
       if (mark) fight(c, [mark], { cause: 'chasing down a skip for a flyer job' });
     }
   } else {
-    const p = clamp(0.5 + skillLevel(h, 'athletics') * 0.03 + lvl * 0.02, 0.15, 0.85);
+    const p = clamp(0.5 + feel(skillLevel(h, 'athletics')) * 0.03 + lvl * 0.02, 0.15, 0.85);
     if (rng.chance(p)) {
       const pay = rng.int(20, 50);
       h.cash += pay;

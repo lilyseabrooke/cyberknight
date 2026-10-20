@@ -19,7 +19,7 @@ import { genWeapon } from './weapons';
 import { gunsOwned } from './arms';
 import { meetHazards } from './hazards';
 import { sneakBonus } from './extras';
-import { skillLevel, train } from './skills';
+import { skillLevel, train, feel } from './skills';
 import { basePower, dangerOf } from './grade';
 import { startRaid } from './goals';
 import { nightfall, stockQuest } from './quests';
@@ -537,9 +537,9 @@ function openCache(c: Ctx, d: Dungeon, loc: Location, cache: Cache): void {
   const cover = watched && !w.hero.stealth && !d.aware.includes(loc.id) ? coverFor(w, d) : undefined;
   const lock = cache.kind === 'data' ? 'tinkering' : 'lockpicking';
   const skill =
-    cache.kind === 'data' ? h.int * 0.05 + skillLevel(h, 'tinkering') * 0.03
+    cache.kind === 'data' ? h.int * 0.05 + feel(skillLevel(h, 'tinkering')) * 0.03
     : cache.kind === 'supplies' || cache.kind === 'arms' || cache.kind === 'armor' ? 0.2
-    : skillLevel(h, 'lockpicking') * 0.04 + h.int * 0.02;
+    : feel(skillLevel(h, 'lockpicking')) * 0.04 + h.int * 0.02;
   const p = clamp(0.8 - HARD[cache.kind] - 0.03 * d.tier + skill - (watched && !cover ? 0.12 : 0), 0.1, 0.95);
   train(c, lock, 2);
   const data = { kind: d.kind, cache: cache.kind, what: CACHE_LABEL[cache.kind], place: loc.name };
