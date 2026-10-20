@@ -46,6 +46,11 @@ Notes: success that is secretly the mistake; escalating numbers ("half a mil", "
 
 **Baseline:** cocky, self-assured, knows she's the hero.
 
+**She never admits she dies.** The lab rebuilds her from a cached copy, and she keeps that to herself: if Atlas learned
+about the resurrection tech it would come for the lab. Out loud, every death is spun: she narrowly survived, it was a
+rumour (Atlas puts them about), it was a lookalike, it was a flesh wound. Her private thoughts can know better
+("I would rather not get into it"); her mouth, her songs and anything said in public never do.
+
 **Per-save personality:** every save's Blackbird is a *vector* of independent 0..1 traits (0.5 = unremarkable), not a type. The vector is rolled once per save (`engine/src/personality.ts`) and drives both the decision AI (see DESIGN.md §4) and the voice quirks in the prose layer. Traits:
 - *Wants:* `fame` (the whole city knows her name), `justice` (put bad guys through walls), `impress` (impress girls, all of them), `romantic` (The One, singular, and faithful to her), `drink`, `gamble`, `temper`.
 - *Nerve and judgement:* `courage`, `reckless`, `impulsive`, `thrill`.

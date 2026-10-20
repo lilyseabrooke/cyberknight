@@ -8,6 +8,7 @@ import { SPOTLIGHT_LINE, type Want } from './content/callings';
 import { callingAfter, callingTargets, callingTick, spotlightFervor } from './callings';
 import { judgeSet } from './renown';
 import { museAfterSet } from './muse';
+import { songAfterSet } from './songs';
 import { bookingAt } from './bookings';
 import type { Booking } from './types';
 import { SKILL_LABELS, skillLevel } from './skills';
@@ -1696,6 +1697,7 @@ export function mindAfter(c: Ctx, pick: Candidate | null, before: Before, events
   if (pick && ACT_SKILL[fam]) {
     judgeSet(c, fam, ACT_SKILL[fam]!, events);
     museAfterSet(c, fam, ACT_SKILL[fam]!, events);
+    songAfterSet(c, fam, events);
   }
   if (pick && FAME_FAMILIES.has(fam)) {
     learnFame(w, fam, h.fame - before.fame);

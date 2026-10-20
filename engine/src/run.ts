@@ -35,6 +35,7 @@ import { fadeFame } from './renown';
 import { grapevineTick } from './fans';
 import { museTick } from './muse';
 import { towersTick } from './underground';
+import { noteMoment, songsTick } from './songs';
 import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
 import { satietyBias, tickSatiety } from './romance';
@@ -151,6 +152,7 @@ export function makeCtx(w: World, rng: Rng, events: GameEvent[]): Ctx {
       }
       const parent = open[open.length - 1];
       events.push({ beat: w.beat, type, outcome, data, ...(parent ? { in: parent } : {}) });
+      noteMoment(w, type, outcome, data);
     },
     nest(type: string, outcome: Outcome, data: EventData, fn: () => void) {
       c.emit(type, outcome, data);
@@ -294,6 +296,7 @@ function upkeep(c: Ctx): void {
   grapevineTick(c);
   museTick(c);
   towersTick(c);
+  songsTick(c);
   tickGyms(c);
   tickPawns(c);
   if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;

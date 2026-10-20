@@ -1,6 +1,6 @@
 # Guitar: what it opens up
 
-Status: **in progress.** The first seven steps of the build order are built (see "As built"); the rest is plan.
+Status: **in progress.** The first eight steps of the build order are built (see "As built"); the rest is plan.
 Feel over balance: every number here is a first guess, to be felt out (or never tuned at all).
 
 ## As built
@@ -20,10 +20,11 @@ Feel over balance: every number here is a first guess, to be felt out (or never 
 | Muse noise-abatement drones, the first thing Muse sends: from a performing renown of 8 (before the letter), now and then after a show that drew a crowd, one or two pastel drones announce UNAUTHORIZED ENTERTAINMENT DETECTED. She gets a shot at each before it fires (shooting, throwing or melee, with reflex; a gun helps). Any still up tear-gas the place (the crowd scatters and the spot goes cold for that skill; she coughs, -2 power for a few beats) and then she fights them. With the drones down she can pick the show back up (a guitar roll, harder through gas): the crowd comes back and it's the night they remember, with fame, renown and fans, more of each the harder it was; they keep coming at every rung short of signing | `muse.ts`, `content/archetypes.ts` |
 | Inspiration teams: once she has refused Muse and her renown passes 150, strike squads (a Muse faction; operatives and team leads in pastel armour with heart-decal SMGs, glitter rifles and glitter grenades) hit her after public sets and at bookings, bigger and better the bigger she is; if they kill her, Muse posts a tribute next night | `muse.ts`, `content/archetypes.ts`, `content/items.ts`, `factions.ts` |
 | The underground, once Muse has noticed her and she hasn't signed: secret shows (a booking kind in cellars, back units and the Halo basement; books from an expected grade of 8, pays less, Muse never hears about it, wins extra fans and a box of bootleg tapes); bootleg tapes (contraband: hand them out in a crowd for fans, sell them, or lose them to Clearance first); pirate towers (Muse relay masts on a tenth of generated streets, guarded by technicians or an Inspiration team; win and rewire one with tinkering, a jacked guitar helps; each night it plays her to its neighbourhood and Muse may take it back; one inside the cordon is a teardown stage) | `bookings.ts`, `underground.ts`, `muse.ts`, `cordon.ts` |
-| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts` |
+| Songs, a flavour layer: song-worthy events (kisses, slaps, breakups, CINDERJAW, the teardown, a comeback, Muse drones and scouts, bans, blackouts, Callings...) go on her mind as moments; somewhere quiet with a guitar she writes one up (guitar, music, a little int); the songbook outlives her; after a good set the log sometimes names the song. Her deaths become cover stories (a close call, a rumour, a lookalike), never a confession. Love songs about someone can be sung to them (a serenade) or played in public (a declaration; a partner takes it badly) | `songs.ts`, `run.ts` (the moment tap), `text.ts` |
+| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts`, `songs.test.ts` |
 
 Not yet: the named Inspiration commander, LUMINA, breaking a Muse contract, resonance against dragons (step 9), and everything from
-step 8 of the build order on.
+step 9 of the build order on.
 
 ## The idea
 
@@ -171,21 +172,15 @@ holds it open for a night. Killing CINDERJAW is one way. Guitar's way:
 
 ### 3. Leverage (bending people)
 
-- **Serenade** (guitar plus romance): already exists in miniature. Higher grades turn it into real leverage: a love song
-  for a person changes how they feel about her, and a love song *about* a person, played in public, changes how
-  everyone else sees them (good or bad, depending on the song).
-- **The diss track** (guitar 10+, a song about someone): ruins a reputation. A corrupt sergeant becomes a district joke
-  and gets transferred; a gang boss loses face and their crew splits; a shopkeeper's prices drop out of embarrassment.
-  Also the surest way to make someone come looking for her, which is useful when she wants a fight on her terms
-  (bounty marks flushed out by a song).
+- **Love songs** (author's call: songs are mostly flavour, and love songs are the part that does something): a song she
+  wrote about somebody she kissed can be sung to them (a serenade with a real upside) or played in public (a
+  declaration: a showy subject is thrilled, a private one mortified, and a partner of theirs takes it badly).
 - **The jingle** (fame): a company pays well for a jingle. An independent company becomes an ally. An Atlas front
   becomes a sabotage opportunity: the jingle has a hidden message, or she plays it backwards at the launch.
 - **The superfan inside:** past about fame 30, some generated NPCs in institutions are fans (a desk sergeant, a Helix
   lab tech, a dragon technician, an Atlas middle manager, a Muse Clearance officer who keeps her bootlegs in a drawer).
   A superfan can be asked one favour: a door left open, a file leaked, a patrol re-routed. Signing something for them
   helps.
-- **The song as blackmail:** "It'd be a shame if this one charted." A threatened song works like a threat, aimed at
-  someone's career instead of their kneecaps.
 
 ### 4. Allies and crowds
 
@@ -292,8 +287,8 @@ The opportunities need a little machinery underneath. Kept short on purpose; eac
 - **Instruments** rolled like weapons (class, tier, traits). Traits that open doors: `volume` (draws crowds and guards),
   `jacked` (plugs into PA towers, billboards, a dragon's speaker; with Override), `resonance` (vs robots, vs dragons),
   `hardened` (survives being swung), and the guitar case that holds more than a guitar.
-- **Songs** written from what happened this run (the log already knows): diss tracks, love songs, anthems. Songs and
-  recordings live in `legacy`.
+- **Songs** written from what happened (a moment log tapped from events), kept in a songbook on the legacy. Mostly
+  flavour: titles in the log. Her deaths are material, spun as close calls, rumours and lookalikes, never admitted.
 - **Crowds** with a grade from `gen.danger` and a type (punks, ravers, corpos, Rust Choir, cops at a noise complaint),
   and **expectation** from fame. A set compares how she plays to both.
 - **Fans** by district, with named superfans, in `legacy`. Disappointment drains them sharply.
@@ -313,7 +308,7 @@ The opportunities need a little machinery underneath. Kept short on purpose; eac
 5. **Fans as a resource:** cover, couches, grapevine, then flash mobs.
 6. **The cordon teardown.**
 7. **Inspiration teams,** then the underground (secret gigs, contraband records, pirate towers).
-8. **Songs:** diss tracks and love songs as leverage.
+8. **Songs**, as a flavour layer, with love songs for serenades and declarations.
 9. **Dragons out-played** (resonance, the Demeter hijack).
 10. **LUMINA, the broadcast hijack, the wedge, and board hooks,** one at a time.
 11. **Myth tier,** whenever one sounds fun.

@@ -934,6 +934,10 @@ export interface Legacy {
   slump?: Record<string, { sets: number; lost: number }>;
   /** Gigs she's been booked for. They wait for her through a death: the calendar doesn't know. See bookings.ts. */
   bookings?: Booking[];
+  /** Songs she has written. The cached copy remembers every one (her hands are another matter). See songs.ts. */
+  songs?: Song[];
+  /** The deaths (`DeathRecord.run`) she has already spun into a cover story. */
+  coverStories?: number[];
   /** What Muse, the entertainment conglomerate, makes of her. Absent until she's worth a letter. See muse.ts. */
   muse?: MuseFile;
   /** Lab upgrades she has, by node id, with the number of ranks bought. See content/tree.ts. */
@@ -960,6 +964,31 @@ export interface MuseFile {
   tributeFor?: number;
   /** Muse relay masts she has taken for pirate radio, by street, and the night she took each. See underground.ts. */
   towers?: Record<Id, number>;
+}
+
+/** Something that happened that she could write a song about. Kept on her mind for the night. See songs.ts. */
+export interface Moment {
+  kind: SongKind;
+  /** Titles it suggests, in her voice. */
+  titles: string[];
+  /** Who it's about, for a love song. */
+  about?: Id;
+  /** How much of a song it is: bigger moments get written first. */
+  drama: number;
+  beat: number;
+}
+
+export type SongKind = 'love' | 'heartbreak' | 'triumph' | 'scrape' | 'muse' | 'cover' | 'stage' | 'life';
+
+/** A song she wrote. Mostly it's a title that turns up in the log; a love song can also be sung to its subject. */
+export interface Song {
+  id: string;
+  title: string;
+  kind: SongKind;
+  about?: Id;
+  /** Her guitar when she wrote it. */
+  quality: number;
+  run: number;
 }
 
 /** A night she's been booked to play somewhere. */
@@ -1304,6 +1333,8 @@ export interface Ask {
 }
 
 export interface Mind {
+  /** Things that happened tonight that she might write a song about (songs.ts). */
+  moments?: Moment[];
   goals: Goal[];
   nextId: number;
   wares: Record<string, Ware>;
