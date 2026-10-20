@@ -1,4 +1,5 @@
 import { noiseBoost } from './stealth';
+import { inStartDistrict } from './cordon';
 import { dragonChase } from './chase';
 import type { Ctx, DragonTemper, Flight, Id, Location, Npc, Roam, World } from './types';
 import { addHeat, fight, heroPower, npcsAt, relocate, remember } from './combat';
@@ -709,6 +710,11 @@ function flyOff(c: Ctx, f: Flight, m: DragonModel, elapsed: number): void {
 /** A persistent dragon returns to the district she is in. */
 function comeBack(c: Ctx, f: Flight, m: DragonModel): void {
   const { w, rng } = c;
+  // CINDERJAW won't go back to the district that tore its cordon down: it turns up past where the cordon was.
+  if (f.kind === 'apollo' && inStartDistrict(w, w.hero.locationId)) {
+    f.roam!.returnAt = w.clock + 60;
+    return;
+  }
   const anchor = anchorOf(w, w.hero.locationId);
   if (!anchor) {
     f.roam!.returnAt = w.clock + 30;

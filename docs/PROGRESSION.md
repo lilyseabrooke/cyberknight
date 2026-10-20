@@ -15,7 +15,7 @@ Status: **built, apart from the items under "Not done yet" below.** The sketch w
 | Dungeon tier from danger, garrison grade, pressure estimates | `content/dungeons.ts`, `content/spots.ts`, `dungeons.ts` |
 | Skills uncapped, steeper XP, fight training by relative grade, generic titles above level 8 | `skills.ts`, `content/skills.ts`, `combat.ts` |
 | Hero power, hp per level and XP per level on the same curves | `combat.ts`, `lab.ts` |
-| CINDERJAW as the gate (`legacy.gate`) | `combat.ts`, `mapgen.ts`, `gate.test.ts` |
+| CINDERJAW as the gate (`legacy.gate`); or the fans tear the cordon down and CINDERJAW roams (`docs/GUITAR_PLAN.md`) | `combat.ts`, `mapgen.ts`, `gate.test.ts`, `cordon.ts` |
 | Tools | `npm run danger` (the field by depth), `npm run district-size` |
 
 Departures from the sketch, and why:

@@ -1,4 +1,5 @@
 import type { Hero, Id, Item, Npc, Ware, World } from './types';
+import { teardownVenue } from './cordon';
 import { hasInstrument } from './instruments';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { ITEMS } from './content/items';
@@ -248,6 +249,7 @@ export const FAME_ACTS: FameAct[] = [
   { fam: 'billboard', prior: 3.0, venue: (w) => featureAt(w, 'billboard') },
   { fam: 'graffiti', skill: 'art', prior: 1.2, venue: (w) => seen(w, 'street_main') },
   { fam: 'parkour', prior: 0.8, venue: (w) => featureAt(w, 'parkour') },
+  { fam: 'cordon_teardown', skill: 'guitar', prior: 10, venue: (w) => teardownVenue(w) },
 ];
 
 export const FAME_FAMILIES = new Set([...FAME_ACTS.map((a) => a.fam), 'film_flight', 'beatbox', 'serenade', 'serenade_girl', 'dancefloor']);

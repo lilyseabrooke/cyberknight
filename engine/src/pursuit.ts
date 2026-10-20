@@ -270,7 +270,7 @@ export function pursuitTargets(w: World, g: Goal): { loc: Id; value: number }[] 
     return venue ? [{ loc: venue, value: 3.0 }] : null;
   }
   if (g.kind === 'dragon') {
-    if (g.mode === 'apollo') return w.npcs.dragon?.alive && w.flags.dragon_known ? [{ loc: w.npcs.dragon.locationId, value: 3.0 }] : null;
+    if (g.mode === 'apollo') return w.npcs.dragon?.alive && w.flags.dragon_known && w.locations[w.npcs.dragon.locationId] ? [{ loc: w.npcs.dragon.locationId, value: 3.0 }] : null;
     // Flights come to her, wherever it is open sky. She goes and looks.
     const spots = Object.entries(w.locations).filter(([id, l]) => l.outdoors && id !== 'overpass' && (l.visits ?? 0) > 0);
     let best: { loc: Id; d: number } | null = null;

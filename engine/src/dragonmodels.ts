@@ -34,7 +34,7 @@ export interface DragonModel {
   pattern?: Pattern;
 }
 
-const PATTERN: Partial<Record<DragonFamily, Pattern>> = { demeter: 'prowl', ares: 'rampage', hermes: 'deliver', artemis: 'sweep' };
+const PATTERN: Partial<Record<DragonFamily, Pattern>> = { demeter: 'prowl', ares: 'rampage', hermes: 'deliver', artemis: 'sweep', apollo: 'sweep' };
 const m = (family: DragonFamily, mark: number, speed: number, ...traits: DragonTrait[]): DragonModel => ({ family, mark, speed, traits, pattern: PATTERN[family] });
 
 /** On the fight board an ordinary person goes 3 and Blackbird 3-7, so these read against her. */
@@ -52,11 +52,17 @@ export const DRAGON_MODELS: Record<string, DragonModel> = {
   ares4: m('ares', 4, 10, 'relentless', 'screams'),
 };
 
+/**
+ * CINDERJAW once the cordon is torn down round it: out of a job, it flies. Not in `DRAGON_MODELS` (nothing spawns
+ * another one); `flightModel` finds it for the one flight it ever makes. See cordon.ts.
+ */
+export const CINDERJAW_MODEL: DragonModel = m('apollo', 2, 3);
+
 /** What the board assumes for a dragon it has no entry for (CINDERJAW). */
 export const DEFAULT_DRAGON_SPEED = 3;
 
 export const modelOf = (archetype: string | undefined): DragonModel | undefined => (archetype ? DRAGON_MODELS[archetype] : undefined);
-export const flightModel = (f: Pick<Flight, 'kind' | 'model'>): DragonModel => DRAGON_MODELS[f.model ?? f.kind]!;
+export const flightModel = (f: Pick<Flight, 'kind' | 'model'>): DragonModel => DRAGON_MODELS[f.model ?? f.kind] ?? (f.kind === 'apollo' ? CINDERJAW_MODEL : DRAGON_MODELS[f.kind]!);
 export const dragonSpeed = (archetype: string): number => DRAGON_MODELS[archetype]?.speed ?? DEFAULT_DRAGON_SPEED;
 export const hasTrait = (archetype: string | undefined, t: DragonTrait): boolean => !!modelOf(archetype)?.traits.includes(t);
 
@@ -112,6 +118,8 @@ export const FAMILY_TEMPER: Record<DragonFamily, DragonTemper> = {
   hermes: { curiosity: 0.5, aggression: 0.1, territoriality: 0.1, patience: 0.2, alertness: 0.4 },
   demeter: { curiosity: 0.4, aggression: 0.3, territoriality: 0.5, patience: 0.8, alertness: 0.6 },
   ares: { curiosity: 0.3, aggression: 0.85, territoriality: 0.4, patience: 0.3, alertness: 0.5 },
+  // Spent its whole life holding one overpass. Wherever it goes now, it picks a spot and holds it.
+  apollo: { curiosity: 0.3, aggression: 0.7, territoriality: 0.85, patience: 0.6, alertness: 0.5 },
 };
 
 /** A dragon's own temper: its family's, each dial moved by up to about a third either way. */

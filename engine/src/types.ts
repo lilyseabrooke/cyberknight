@@ -783,7 +783,7 @@ export interface Damsel {
 /** A dragon flight overhead. She has a few beats to decide what to do about it. */
 export interface Flight {
   /** The family: picks the text and the behaviour. The model within it (and its mark) is `model`. */
-  kind: 'artemis' | 'hera' | 'hermes' | 'demeter' | 'ares';
+  kind: 'artemis' | 'hera' | 'hermes' | 'demeter' | 'ares' | 'apollo';
   /** The archetype flying, e.g. `ares4`. Absent means the family's own first model (`artemis`, `hera`). See dragonmodels.ts. */
   model?: string;
   ids: Id[];

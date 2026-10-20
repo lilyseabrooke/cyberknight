@@ -20,7 +20,7 @@ import { crowdData, moveCrowd, type Moved } from './crowd';
  * - **The flash mob:** she calls them out, and it's an influence on a crowd (crowd.ts). Some of her fans turn up as people
  *   in the street, keen on her (they go back into the crowd when the night ends); then she asks the whole crowd in earshot for something (have her back, look the other
  *   way, deal with somebody, or whatever she fancies), and each of them weighs it as they would a one-to-one ask, with
- *   her name as a performer for a voice and the occasion for an edge. The willing take it on as their own goal. Around
+ *   her guitar (and charm) for a voice and the occasion for an edge. The willing take it on as their own goal. Around
  *   that, for a while the place is a crowd chanting her name: cover for anything, a wall the police won't push through.
  *   Once a night per block, it costs some fans (they are fickle), and an unlawful assembly is heat. Scaled up, it's how a
  *   cordon comes down.
@@ -153,8 +153,8 @@ export function flashMobCandidate(w: World, urge: number): Candidate | null {
 /** Kinds of people who turn up when she calls. */
 const FAN_KINDS = ['patron', 'dancer', 'street_kid', 'drifter'];
 
-/** Her pull as a performer: the best of her performing skills, with charm. It's her name they're answering. */
-const pull = (w: World): number => Math.max(...['guitar', 'vocals', 'djing', 'beatbox'].map((s) => synergy(w.hero, [s as 'guitar', ['stat:charm', 0.6]])));
+/** Her voice to a flash mob is her guitar: she plays them the thing they came for, and asks. (A speech's voice is speaking.) */
+const pull = (w: World): number => synergy(w.hero, ['guitar', ['stat:charm', 0.6]]);
 
 /** Some of the fans she calls turn up as people on the street, and they're keen. The rest are the crowd around them. */
 function fansArrive(c: Ctx, fans: number): Npc[] {
