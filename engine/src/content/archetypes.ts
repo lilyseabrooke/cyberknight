@@ -256,6 +256,12 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['stunner_mk3'], loot: ['memory_shard', 'solder_kit', 'muse_lanyard'], lootChance: 0.6, cash: [20, 70],
     desc: ['a Muse Broadcast technician in a pastel hi-vis vest, guarding a relay mast with a stun gun and a lanyard'],
   },
+  encore: {
+    role: 'Inspiration commander', level: [8, 8], tags: ['security', 'augmented', 'muse', 'commander', 'strong'], faction: 'muse',
+    names: 'person', weapons: ['sparkle_rifle'], armors: ['inspiration_armour'], armorChance: 1,
+    loot: ['glitter_grenade', 'memory_shard', 'muse_lanyard'], lootChance: 1, cash: [300, 600],
+    desc: ['ENCORE, the Inspiration commander: pastel plate with a gold trim nobody else is allowed, a glitter rifle with a kill count in hearts, and a smile she saves for Blackbird'],
+  },
   inspiration_lead: {
     role: 'Muse Inspiration team lead', level: [6, 7], tags: ['security', 'augmented', 'muse', 'commander', 'strong'], faction: 'muse',
     names: 'person', weapons: ['sparkle_rifle'], armors: ['inspiration_armour'], armorChance: 1,

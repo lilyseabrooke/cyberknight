@@ -7,6 +7,7 @@ import { dangerOf } from './grade';
 import { SKILLS, type SkillId } from './content/skills';
 import { addRenown, audience } from './renown';
 import { enforcement, shiftPull } from './musescene';
+import { encoreActive, encoreTruce, encoreWatches, settleEncore, summonEncore } from './musecontract';
 import { odds, synergy, train } from './skills';
 import { INST_CLASSES, genInstrument } from './instruments';
 
@@ -49,7 +50,7 @@ const file = (w: World): MuseFile => (w.legacy.muse ??= {});
 export function museStanding(w: World): 'nobody' | 'local' | 'trending' | 'refused' | 'hunted' | 'signed' {
   const m = w.legacy.muse;
   if (m?.signed) return 'signed';
-  if (m?.refused) return museRenown(w) >= MUSE_STRIKE ? 'hunted' : 'refused';
+  if (m?.refused) return museRenown(w) >= MUSE_STRIKE || m.detonated ? 'hunted' : 'refused';
   const r = museRenown(w);
   return r >= MUSE_SCOUT ? 'trending' : r >= MUSE_LETTER ? 'local' : 'nobody';
 }
@@ -96,8 +97,15 @@ export function museAfterSet(c: Ctx, act: string, skill: string, events: GameEve
   if (m.refused) {
     // A hijacked broadcast has Muse looking for her.
     const alert = (w.counters.muse_alert_until ?? -1) > w.clock ? 2 : 1;
-    if (r >= MUSE_STRIKE && rng.chance(0.3 * e * alert)) {
+    const hunted = r >= MUSE_STRIKE || !!m.detonated;
+    // A commander with feelings calls some of it off.
+    const soft = 1 / (1 + 0.5 * (m.encore?.flame ?? 0));
+    if (hunted && !encoreTruce(w) && rng.chance(0.3 * e * alert * soft)) {
       inspirationStrike(c, 'set');
+      return;
+    }
+    if (encoreActive(w) && !encoreTruce(w) && rng.chance(0.2 * e)) {
+      encoreWatches(c);
       return;
     }
     if (rng.chance(0.3 * e)) {
@@ -159,7 +167,10 @@ export function inspirationStrike(c: Ctx, at: 'set' | 'booking'): void {
   const grade = strikeGrade(w, dangerOf(loc));
   const size = Math.min(5, 2 + Math.floor((r - MUSE_STRIKE) / 150));
   const team: Npc[] = [];
-  for (let i = 0; i < size; i++) {
+  // When it's personal, ENCORE leads it herself.
+  const encore = encoreActive(w);
+  if (encore) team.push(summonEncore(c, true));
+  for (let i = team.length; i < size; i++) {
     const kind = i === 0 && r >= MUSE_STRIKE * 2 ? 'inspiration_lead' : 'inspiration_trooper';
     let id = `tmp_${w.beat}_${kind}_${i}`;
     for (let k = 1; w.npcs[id]; k++) id = `tmp_${w.beat}_${kind}_${i}_${k}`;
@@ -167,14 +178,15 @@ export function inspirationStrike(c: Ctx, at: 'set' | 'booking'): void {
     n.hostile = true;
     team.push(n);
   }
-  c.emit('inspiration', 'bad', { variant: at, place: loc.name, count: team.length, npc: team[0]!.name, lead: team[0]!.archetype === 'inspiration_lead' });
+  c.emit('inspiration', 'bad', { variant: at, place: loc.name, count: team.length, npc: team[0]!.name, lead: team[0]!.archetype === 'inspiration_lead', encore });
   fight(c, team, { cause: 'an Inspiration strike', joiners: false });
+  if (encore) settleEncore(c);
 }
 
 /** After a booked set: when she's too big to ignore, Muse read the poster too. */
 export function museAtBooking(c: Ctx): void {
   const { w, rng } = c;
-  if (museStanding(w) === 'hunted' && rng.chance(0.3 * enforcement(w, w.hero.locationId))) inspirationStrike(c, 'booking');
+  if (museStanding(w) === 'hunted' && !encoreTruce(w) && rng.chance(0.3 * enforcement(w, w.hero.locationId))) inspirationStrike(c, 'booking');
 }
 
 /** Once a night: if Inspiration got her last time, Muse has posted about it. */

@@ -1057,6 +1057,11 @@ export interface MuseFile {
   lumina?: { version: number; warmth: number; flame: number; free?: boolean };
   /** Muse is busy licking its wounds until this night (a `legacy.runs` number): it barely enforces anything. */
   quietUntil?: number;
+  /** She broke the contract in public: Muse hunts her whatever her renown. */
+  detonated?: boolean;
+  /** ENCORE, the Inspiration commander who took a personal interest: times beaten (she comes back twice), how she feels
+   *  about Blackbird, and whether she's gone for good. See musecontract.ts. */
+  encore?: { beaten: number; flame: number; gone?: boolean };
 }
 
 /** A Muse artist playing near her tonight, with Muse security. See musescene.ts. */
@@ -1109,8 +1114,9 @@ export interface Booking {
   /** What they booked her for: guitar, singing, DJing, beatboxing. */
   skill: string;
   /** 'gig': a stage at a bar or club. 'private': the entertainment, somewhere she couldn't otherwise get into.
-   *  'secret': an underground show in a cellar, where Muse can't find it (see underground.ts). */
-  kind: 'gig' | 'private' | 'secret';
+   *  'secret': an underground show in a cellar, where Muse can't find it (see underground.ts).
+   *  'duet': signed to Muse, a night on stage with LUMINA (page thirty of the contract; see musecontract.ts). */
+  kind: 'gig' | 'private' | 'secret' | 'duet';
   /** Her fee, if it goes well. */
   pay: number;
   /** Who booked her, when somebody in particular did. */

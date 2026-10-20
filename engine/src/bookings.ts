@@ -9,6 +9,7 @@ import { fameFrom, prestige } from './stage';
 import { startBookingGoal } from './goals';
 import { museAtBooking } from './muse';
 import { makeItem } from './content/items';
+import { startShow } from './musescene';
 
 /**
  * Bookings: a night somebody wants her to play somewhere.
@@ -96,7 +97,7 @@ export function offerBooking(c: Ctx, skill: string, kind: Booking['kind']): Book
   const exp = expectation(w, skill);
   const night = w.legacy.runs + (rng.chance(0.4) ? 0 : rng.int(1, 3));
   const host = hostAt(w, loc);
-  const fee = kind === 'private' ? 80 + 15 * exp + rng.int(0, 40) : kind === 'secret' ? 15 + 3 * exp + rng.int(0, 15) : (20 + 5 * exp) * prestige(loc) + rng.int(0, 20);
+  const fee = kind === 'duet' ? 300 + 20 * exp : kind === 'private' ? 80 + 15 * exp + rng.int(0, 40) : kind === 'secret' ? 15 + 3 * exp + rng.int(0, 15) : (20 + 5 * exp) * prestige(loc) + rng.int(0, 20);
   const pay = Math.round(fee * (w.legacy.muse?.signed ? 1.5 : 1));
   const b: Booking = { id: `bk${w.legacy.runs}.${w.beat}.${loc.id}`, loc: loc.id, night, skill, kind, pay, ...(host ? { host: host.id } : {}) };
   open(w).push(b);
@@ -124,6 +125,8 @@ export function tickBookings(c: Ctx): void {
         w.counters[key] = 1;
         c.emit('booking', 'mixed', { variant: 'tonight', place: w.locations[b.loc]?.name ?? 'somewhere', skill: SKILLS[b.skill as SkillId]?.label ?? b.skill, amount: b.pay, level: Math.round(expectation(w, b.skill)) });
       }
+      // The duet: LUMINA is there for it.
+      if (b.kind === 'duet' && !w.mind.museShow && w.locations[b.loc]) startShow(c, w.locations[b.loc]!, true);
       if ((w.beat % 10 === 0 || w.counters[key] === 1) && !w.mind.goals.some((g) => g.kind === 'booking' && g.loc === b.loc)) {
         w.counters[key] = 2;
         startBookingGoal(c, b, w.locations[b.loc]?.name ?? 'somewhere');
@@ -140,7 +143,9 @@ export function tickBookings(c: Ctx): void {
   // Signed to Muse, the bookings come to her: more of them, and better paid.
   const muse = w.legacy.muse?.signed ? 2 : 1;
   if (!rng.chance(0.003 * muse * Math.min(4, exp / GIG_LEVEL))) return;
-  const kind = exp < GIG_LEVEL || (scene && rng.chance(0.4)) ? 'secret' : exp >= PRIVATE_LEVEL && rng.chance(0.4) ? 'private' : 'gig';
+  // Signed, page thirty: a night on stage with LUMINA.
+  const duet = !!w.legacy.muse?.signed && !w.legacy.muse.lumina?.free && exp >= GIG_LEVEL && !list?.some((b) => b.kind === 'duet') && rng.chance(0.3);
+  const kind = duet ? 'duet' : exp < GIG_LEVEL || (scene && rng.chance(0.4)) ? 'secret' : exp >= PRIVATE_LEVEL && rng.chance(0.4) ? 'private' : 'gig';
   offerBooking(c, skill, kind);
 }
 
@@ -184,6 +189,8 @@ export function playBooking(c: Ctx, b: Booking): void {
       loc.fans = (loc.fans ?? 0) + 5;
       h.inventory.push(makeItem('bootleg_tapes'));
     }
+    // Sharing a stage warms LUMINA to her.
+    if (b.kind === 'duet' && w.legacy.muse?.lumina) w.legacy.muse.lumina.warmth++;
     c.emit(act, 'good', { ...data, variant: `${b.kind}_hit`, amount: b.pay });
     if (b.kind !== 'secret') museAtBooking(c);
   } else {

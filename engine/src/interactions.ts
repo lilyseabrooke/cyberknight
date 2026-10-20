@@ -43,6 +43,7 @@ import { teardownCandidate } from './cordon';
 import { undergroundCandidates } from './underground';
 import { songCandidates } from './songs';
 import { museSceneCandidates } from './musescene';
+import { contractCandidates } from './musecontract';
 import { heatUrge } from './laylow';
 import { speakingCandidates } from './speaking';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
@@ -233,6 +234,7 @@ export function gather(w: World): Candidate[] {
   out.push(...undergroundCandidates(w));
   out.push(...songCandidates(w));
   out.push(...museSceneCandidates(w));
+  out.push(...contractCandidates(w));
   out.push(...speakingCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));

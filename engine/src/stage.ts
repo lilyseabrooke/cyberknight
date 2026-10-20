@@ -27,7 +27,7 @@ export const ACT_SKILL: Record<string, string> = {
   jam: 'guitar', gig: 'guitar', busk: 'guitar', guitar_duel: 'guitar',
   dj_set: 'djing', backlot_set: 'djing',
   beatbox: 'beatbox', beat_battle: 'beatbox',
-  graffiti: 'art', billboard_set: 'guitar', draw_out: 'guitar', cordon_teardown: 'guitar', serenade_song: 'guitar', dragon_song: 'guitar', chart_war: 'guitar', crash_show: 'guitar', broadcast_hijack: 'guitar',
+  graffiti: 'art', billboard_set: 'guitar', draw_out: 'guitar', cordon_teardown: 'guitar', serenade_song: 'guitar', dragon_song: 'guitar', chart_war: 'guitar', crash_show: 'guitar', broadcast_hijack: 'guitar', detonate_contract: 'guitar',
   booked_guitar: 'guitar', booked_vocals: 'vocals', booked_djing: 'djing', booked_beatbox: 'beatbox',
   stump_speech: 'speaking',
 };

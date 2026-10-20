@@ -1,6 +1,6 @@
 # Guitar: what it opens up
 
-Status: **in progress.** The first nine steps of the build order are built, and step 10 is under way (10a) (see "As built"); the rest is plan.
+Status: **in progress.** The first nine steps of the build order are built, and step 10's 10a and 10b are built (see "As built"); the rest is plan.
 Feel over balance: every number here is a first guess, to be felt out (or never tuned at all).
 
 ## As built
@@ -26,9 +26,11 @@ Feel over balance: every number here is a first guess, to be felt out (or never 
 | Muse shows: now and then near her, a generated Muse artist (a person or a robot, at the local grade or hers; dead ones stay dead) or, once she's big, LUMINA, with security, for an evening. A guitarist with something to prove takes on a fame goal. She can steal the crowd from across the street (`chart_war`), take the stage (`crash_show`; fluff it and she's walked out), or take the artist apart (`wreck_show`); LUMINA taken apart comes back as the next version | `musescene.ts`, `plans.ts`, `goals.ts` |
 | LUMINA: charm her (warmth), seduce her (a kiss in public is +10 fame and the story of the night), and once she's warm enough, "run away with me and we'll make our own music": she leaves Muse for good and Muse goes quiet for three nights. Signed or not | `musescene.ts` |
 | The broadcast hijack: from a pirate tower of hers with a jacked guitar, once a night; 3-5 places she has never broken into get fans and lose Muse pull; Muse traces the signal (the tower is usually lost) and comes looking | `musescene.ts` |
-| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts`, `songs.test.ts`, `dragonsong.test.ts`, `musescene.test.ts` |
+| The contract, both ways: signed, Muse books her a duet with LUMINA (a booking; LUMINA is there on the night; playing it warms LUMINA); or she detonates it, playing her own song live on every Muse channel. Breaches (detonating, running off with LUMINA, spoiling a Muse show while signed) cost a fine, void the contract, and mean she's hunted whatever her renown | `musecontract.ts`, `bookings.ts`, `musescene.ts` |
+| ENCORE: once she's hunted and very famous (renown 450, or half that after a public breach), Muse's commander leads the strikes herself and sometimes turns up just to watch. Beaten, she's pulled out and comes back; the third time she's gone for good. Seduced, she calls off the rest of the night, and a commander with feelings calls off strikes now and then | `musecontract.ts`, `muse.ts` |
+| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts`, `songs.test.ts`, `dragonsong.test.ts`, `musescene.test.ts`, `musecontract.test.ts` |
 
-Not yet: the named Inspiration commander (ENCORE), the LUMINA duet and breaking a Muse contract (10b), the wedge (10c, deferred), the board hooks (deferred until the board exists), resonance against dragons (step 9), and everything from
+Not yet: the wedge (10c, deferred), the board hooks (deferred until the board exists), resonance against dragons (step 9), and everything from
 step 10 of the build order on.
 
 ## The idea

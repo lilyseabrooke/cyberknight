@@ -191,7 +191,8 @@ describe('Inspiration', () => {
   it('the bigger she gets, the bigger and better the team', () => {
     const w = hunted('grade', MUSE_STRIKE);
     const low = strikeGrade(w, 0);
-    w.legacy.renown = { guitar: MUSE_STRIKE * 4 };
+    // (Below ENCORE's interest: past that she leads it herself, see musecontract.test.ts.)
+    w.legacy.renown = { guitar: MUSE_STRIKE * 2.5 };
     expect(strikeGrade(w, 0)).toBeGreaterThan(low);
     const { c, events } = ctxOf(w, never());
     inspirationStrike(c, 'set');

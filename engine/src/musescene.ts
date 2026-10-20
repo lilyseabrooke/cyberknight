@@ -12,6 +12,7 @@ import { bestTrait, hasInstrument } from './instruments';
 import { museRenown } from './muse';
 import { towersHeld } from './underground';
 import { startShowGoal } from './goals';
+import { breach } from './musecontract';
 
 /**
  * Muse's scene: who it puts on stage, and how much of a neighbourhood it owns.
@@ -182,6 +183,7 @@ export function chartWar(c: Ctx, show: MuseShow): void {
   const data = { npc: artist.name, place: venue.name, street: loc.name, lumina: show.lumina };
   if (rng.chance(showOdds(w, show))) {
     show.done = 'stolen';
+    if (file(w).signed) breach(c, 'show');
     // The crowd crosses the street.
     for (const n of npcsAt(w, venue.id)) if (n.alive && !n.hostile && n.faction !== 'muse' && !n.tags.includes('owner')) moveNpc(w, n, loc.id);
     loc.fans = (loc.fans ?? 0) + (show.lumina ? 20 : 8);
@@ -205,6 +207,7 @@ export function crashShow(c: Ctx, show: MuseShow): void {
   // Their stage, their crowd: harder than across the street.
   if (rng.chance(showOdds(w, show, -0.1))) {
     show.done = 'crashed';
+    if (file(w).signed) breach(c, 'show');
     venue.fans = (venue.fans ?? 0) + (show.lumina ? 25 : 10);
     shiftPull(w, venue.id, -20);
     const gain = fameFrom(c, (show.lumina ? 12 : 3) + show.grade / 8, 'crash_show');
@@ -231,6 +234,7 @@ export function wreckShow(c: Ctx, show: MuseShow): void {
   // Dead or out cold, the show is over.
   if (w.over || (artist.alive && artist.downUntil <= w.clock)) return;
   show.done = 'wrecked';
+  if (file(w).signed) breach(c, 'show');
   shiftPull(w, venue.id, -25);
   addHeat(w, 'npd', 1);
   const gain = fameFrom(c, show.lumina ? 15 : 4, 'wreck_show');
@@ -305,6 +309,8 @@ export function freeLumina(c: Ctx, show: MuseShow): void {
     w.hero.fame += 15;
     c.emit('lumina', 'good', { variant: 'freed', npc: lumina.name, place: w.locations[show.loc]!.name });
     moveNpc(w, lumina, AWAY);
+    // Running off with Muse's idol is, among other things, a breach of contract.
+    if (file(w).signed) breach(c, 'lumina');
   } else {
     l.warmth = Math.max(0, l.warmth - 1);
     c.emit('lumina', 'mixed', { variant: 'free_fail', npc: lumina.name });
