@@ -25,7 +25,7 @@ export const CRIME: Affordance<HubView>[] = [
     sees: 'A regular so deep in a terminal that their coat has gone.', stakes: 'A wallet; a scene.', consequence: 'A grudge, if caught.',
     drives: { greed: 0.6 }, bonus: 0, risk: 0.3, ok: (w, v) => open(w, v) && !!find(v, 'fair'),
     check: { who: 'fair', parts: ['sleight', ['sneak', 0.5]], base: 0.4, per: 0.07, dark: 0.1,
-      win: R(['{npc} is lost in a terminal at {hub}. Their coat is on the back of the chair, and the coat has a pocket. {amount}nd later, the coat has less to say.', 'Blackbird passes behind {npc} at {hub}, brushes a coat, thanks it for its service. {amount}nd.'], { cash: [12, 55], from: 'who', train: [['sleight', 2], ['sneak', 1]], xp: 2, thought: ['They will not notice. They never do. They are hackers.'] }),
+      win: R(['{npc} is lost in a terminal at {hub}. {Their} coat is on the back of the chair, and the coat has a pocket. {amount}nd later, the coat has less to say.', 'Blackbird passes behind {npc} at {hub}, brushes a coat, thanks it for its service. {amount}nd.'], { cash: [12, 55], from: 'who', train: [['sleight', 2], ['sneak', 1]], xp: 2, thought: ['They will not notice. They never do. They are hackers.'] }),
       lose: R(['{npc} turns at the wrong moment. "Hey." The word hangs there. It is a very quiet room.', 'The hand in the pocket meets another hand. {npc} breathes in.'], { affinity: -10, heat: ['place', 1], train: [['sleight', 1]], thought: ['I was checking for a fire exit.'] }) },
   }),
   row({
@@ -56,13 +56,22 @@ export const CRIME: Affordance<HubView>[] = [
       lose: R(['The vent at {hub} gives a loud pop. Everyone looks up. Blackbird looks down at them, through the grille, with a very small wave.', 'She wriggles into the vent and finds that someone else is already in it, and they have a snack.'], { hp: -2, affinity: -3, train: [['sneak', 1]], thought: ['That grille was supposed to be loose.'] }) },
   }),
   row({
-    id: 'skylight-in', where: { feature: ['skylight', 'side_door'] }, pace: 'quick',
+    id: 'skylight-in', where: { feature: 'skylight' }, pace: 'quick',
     needs: ['skill:sneak', 'stat:reflex', 'drive:bravery'],
-    sees: 'A skylight that does not quite close, and a side door with a bar across it and a sign: ALARMED.', stakes: 'A free session; a fall, an alarm.', consequence: 'Nothing, if clean.',
+    sees: 'A skylight that does not quite close.', stakes: 'A free session; a fall, an alarm.', consequence: 'Nothing, if clean.',
     drives: { bravery: 0.4, curiosity: 0.2 }, bonus: 0, risk: 0.3, ok: open,
     check: { parts: ['sneak', ['stat:reflex', 0.6]], base: 0.45, per: 0.07, dark: 0.1,
-      win: R(['Blackbird goes in at {hub} by the skylight, drops onto a table with a thump no one hears over the fans, and takes a free hour at the best rig in the room.', 'The side door at {hub} has an alarm that is the same make as one she once cut. It was the same. She is in, free, and nobody has asked.'], { train: [['sneak', 2], ['tinkering', 2]], xp: 3, thought: ['Free. I can do free. I specialise.', 'Rent is a state of mind.'] }),
-      lose: R(['The skylight at {hub} is more slippery than it looks. Blackbird comes through it faster than she meant to.', 'The side door shrieks. Blackbird says "oh" and keeps walking, as if she were meant to.'], { hp: -4, affinity: -4, heat: ['place', 1], train: [['sneak', 1]], thought: ['A deliberate landing. For the people.'] }) },
+      win: R(['Blackbird goes in at {hub} by the skylight, drops onto a table with a thump no one hears over the fans, and takes a free hour at the best rig in the room.', 'The skylight at {hub} gives with one push. She is in, free, and nobody has asked.'], { train: [['sneak', 2], ['tinkering', 2]], xp: 3, thought: ['Free. I can do free. I specialise.', 'Rent is a state of mind.'] }),
+      lose: R(['The skylight at {hub} is more slippery than it looks. Blackbird comes through it faster than she meant to.', 'Blackbird gets one leg through the skylight at {hub} and a shoe comes off, and falls, and rings like a bell.'], { hp: -4, affinity: -4, heat: ['place', 1], train: [['sneak', 1]], thought: ['A deliberate landing. For the people.'] }) },
+  }),
+  row({
+    id: 'side-door-in', where: { feature: 'side_door' }, pace: 'quick',
+    needs: ['skill:sneak', 'skill:tinkering', 'drive:bravery'],
+    sees: 'A side door with a bar across it and a sign saying ALARMED.', stakes: 'A free session; an alarm.', consequence: 'Nothing, if clean.',
+    drives: { bravery: 0.3, curiosity: 0.2 }, bonus: 0, risk: 0.3, ok: open,
+    check: { parts: ['sneak', ['tinkering', 0.5], ['stat:reflex', 0.3]], base: 0.45, per: 0.07, dark: 0.1,
+      win: R(['The side door at {hub} has an alarm of a make she once cut. It was the same make. She is in, free, and nobody has asked.', 'Blackbird lifts the bar on the side door at {hub}, holds the contact shut with a coin and walks through like she was meant to.'], { train: [['sneak', 2], ['tinkering', 2]], xp: 3, thought: ['Rent is a state of mind.', 'A coin. A good use of a coin.'] }),
+      lose: R(['The side door at {hub} shrieks. Blackbird says "oh" and keeps walking, as if she were meant to.', 'The bar on the side door at {hub} falls with a clang that takes the whole room round to look.'], { hp: -1, affinity: -4, heat: ['place', 1], train: [['sneak', 1]], thought: ['The alarm is a bit loud. For an alarm.'] }) },
   }),
   row({
     id: 'wipe-cameras', where: { feature: 'camera_console' }, pace: 'quick',
@@ -88,7 +97,7 @@ export const CRIME: Affordance<HubView>[] = [
     sees: 'A newcomer with the right terminal and the wrong password.', stakes: 'An hour; their cash, or a grudge from the whole room.', consequence: 'Word gets round.',
     drives: { greed: 0.6, pride: 0.2 }, bonus: 0, risk: 0.3, ok: (w, v) => open(w, v) && !!find(v, 'fair'),
     check: { who: 'fair', parts: ['grifting', ['tinkering', 0.5], ['stat:charm', 0.5]], base: 0.4, per: 0.07,
-      win: R(['A newcomer at {hub} has just found out what their handle is worth. Blackbird "helps" by asking for the password. {amount}nd goes away through an account that is not theirs.', 'Blackbird sits beside {npc} and offers a little help with their terminal. When they stand up, they are {amount}nd lighter, and grateful.'], { cash: [15, 70], from: 'who', train: [['grifting', 3]], xp: 3, thought: ['Education. They will thank me. In a decade.', 'A lesson. On the house. Mine.'] }),
+      win: R(['A newcomer at {hub} has just found out what {their} handle is worth. Blackbird "helps" by asking for the password. {amount}nd goes away through an account that is not theirs.', 'Blackbird sits beside {npc} and offers a little help with their terminal. When {they} stand{s} up, {they} {is} {amount}nd lighter, and grateful.'], { cash: [15, 70], from: 'who', train: [['grifting', 3]], xp: 3, thought: ['Education. They will thank me. In a decade.', 'A lesson. On the house. Mine.'] }),
       lose: R(['{npc} stops typing and says, to the whole room, "Is this person trying to get my password?" Everyone looks.', 'The phish at {hub} bites back: {npc} sets a canary and Blackbird walks into it.'], { affinity: -10, heat: ['place', 1], train: [['grifting', 1]], thought: ['It was a very good phish. They were a very good fish.'] }) },
   }),
   row({
@@ -115,7 +124,7 @@ export const CRIME: Affordance<HubView>[] = [
     sees: 'A regular alone at a terminal, with a wallet and no friends.', stakes: 'A word; their cash, or a scene.', consequence: 'A grudge.',
     drives: { greed: 0.5, bravery: 0.3 }, bonus: -0.1, risk: 0.3, ok: (w, v) => open(w, v) && !!find(v, 'fair'),
     check: { who: 'fair', parts: ['intimidation', ['stat:muscle', 0.5]], base: 0.5, per: 0.06,
-      win: R(['Blackbird leans over {npc}\'s shoulder at {hub} and says one quiet thing. {amount}nd comes out of {their} pocket without another word.', '{npc} looks up, sees Blackbird, and finds {amount}nd in {their} jacket they had forgotten about.'], { cash: [10, 50], from: 'who', train: [['intimidation', 2]], xp: 2, affinity: -8, thought: ['A friendly reminder of the exchange rate.'] }),
+      win: R(['Blackbird leans over {npc}\'s shoulder at {hub} and says one quiet thing. {amount}nd comes out of {their} pocket without another word.', '{npc} looks up, sees Blackbird, and finds {amount}nd in {their} jacket that {they} had forgotten about.'], { cash: [10, 50], from: 'who', train: [['intimidation', 2]], xp: 2, affinity: -8, thought: ['A friendly reminder of the exchange rate.'] }),
       lose: R(['{npc} stands up at {hub}, all the way up. It is a longer way than expected.', '{npc} laughs. It is not a nice laugh. It goes on.'], { affinity: -10, hp: -2, thought: ['That one was bigger than they look.'] }) },
   }),
   row({

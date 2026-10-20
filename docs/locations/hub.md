@@ -1,6 +1,6 @@
 # Location spec: Hacker Hub (the Patch Bay)
 
-**Status:** DRAFT (see "What was built" at the end once it lands). Everything is **PROPOSED** unless it is in "Decided". Numbers are
+**Status:** IMPLEMENTED (see "What was built" at the end for where the build differs). Everything is **PROPOSED** unless it is in "Decided". Numbers are
 starting points; they are not tuned (see CLAUDE.md, "feel over balance").
 
 ## 0. Decided
@@ -120,7 +120,7 @@ scanner. 2-12 per hub, by size and variant.
 
 ## 7. Affordances: what each capability sees
 
-Row schema as in `affordances.ts` (`id`, `where`, `needs`, `sees`, `stakes`, `consequence`, `drives`). About 50 rows in `content/hub*.ts`. The syllabus
+Row schema as in `affordances.ts` (`id`, `where`, `needs`, `sees`, `stakes`, `consequence`, `drives`). About 50 rows in `content/hub*.ts` (78 as built). The syllabus
 itself is not a table of rows: it is a list on the hub (`HubInfo.syllabus`), turned into candidates in `hub.ts` (like the chop shop's ways in).
 
 | Capability | Sees | Does |
@@ -206,4 +206,35 @@ That is the slimmer list, on purpose.
 
 ## 14. What was built
 
-*(filled in when it lands)*
+Code: `content/hubs.ts` (what a hub is, the techniques table `TECHS`, routes, prices, `rollHub`, the people), `content/hubafford.ts` /
+`hubcrime.ts` / `hubevents.ts` (the rows), `hubkit.ts` (the view, `runCheck`, the seven teaching routes, Right Thinking), `hub.ts`
+(candidates, the syllabus family, `hubUrge`, `describeHub`), plus hooks in `mapgen.ts`, `roster.ts`, `content/archetypes.ts`, `grid.ts`,
+`hexmap.ts`, `layouts.ts`, `hours.ts`, `stage.ts`, `shutdown.ts`, `clock.ts`, `run.ts`, `interactions.ts` and `text.ts`. Tooling: `npm run hubs`,
+`npm run coverage`. Tests: `hub.test.ts`.
+
+Differences from the draft:
+
+- **No child rooms.** A hub is one floor with features, like the chop shop. (The spec's section 3 already said so; the protocol's room graph
+  is for the big places.)
+- **The syllabus is the main thing, not rows:** `HubInfo.syllabus` is turned into `hubdeal:learn:<tech>:<route>` candidates (a family of its
+  own, so a long menu cannot crowd it out), and `hubUrge` pulls her toward a hub with a line on the board she could take, and back to one
+  where a lesson is half done. 78 registry rows around it (the spec said about 50).
+- **Skills:** 14 of them named across the rows (plus the four stats and six drives), by design (the author asked for a slimmer list). `npm run coverage` therefore shows `-` for music,
+  dancing, fishing, cooking and the rest. Tinkering has 42 rows, INT 32.
+- **Routes:** the seven in 8.1. The "duel the teacher" idea became the `trial`.
+- **Right Thinking** is a counter on the world (`counters.think`, at most 8) and a small, reversible nudge to five personality traits
+  (`THINK_STEP` in `hubkit.ts`); the weights are recomputed. `deprogram` takes steps back out. Not built: Titanware heat (OPEN, as in 13).
+- **Not built:** a hustle (a shift at the desk); a per-beat tick (there is no shelf or stock to turn over); a "kill goal" row (killing the
+  sysop works through the ordinary fight and shuts the hub).
+- **Wild cards built:** all eight (the Master, the cursed course, the honeypot, the ghost instructor, all-you-can-learn, every terminal trapped,
+  three for one, Branch Zero).
+
+Numbers to watch (all deliberately unbalanced): technique prices (`TECHS`, `rollPrice`), the Master's x4, the trial base 0.30, steal base
+0.22 (it loses a lot in real runs), the alumna discount, `THINK_STEP`.
+
+Real runs (400 autonomous runs, three competence levels): a hub was in reach in about 1 run in 3 and she walked into one in 26 of them
+(6.5%, the same as the pawn shop and the gym), took part in the syllabus in about half of those and came out with a technique in 6
+(1.5%); the first Academy module showed up in 1. Lessons mostly stay half done after one visit; `hubUrge` now adds a pull back for them.
+
+Verification: `npm run typecheck` and `npm test` green. `npm run test:full` was **not** run, per CLAUDE.md (balance is out of scope and
+the change touches no core simulation logic).

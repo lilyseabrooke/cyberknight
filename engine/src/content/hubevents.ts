@@ -64,7 +64,7 @@ export const SITUATIONAL: Affordance<HubView>[] = [
     drives: { pride: 0.3, curiosity: 0.2 }, bonus: 0.05, ok: (w, v) => open(w, v) && !!find(v, 'regular'),
     check: { who: 'regular', parts: ['streetwise', ['stat:charm', 0.5], ['persuasion', 0.4]], base: 0.55, per: 0.06,
       win: R(['Blackbird tells {npc} at {hub} where the raid is coming from. By morning half the rigs in the building are in a boot. {npc} presses {amount}nd on her. "For the tip."', 'Word of the raid at {hub} goes round in four minutes, and she is the source. {npc} owes her.'], { cash: [10, 50], from: 'who', train: [['streetwise', 1]], xp: 2, affinity: 6, thought: ['A good deed, with a margin.'] }),
-      lose: R(['Blackbird starts to warn {npc} at {hub} and is told, very quietly, that they know. Everyone knows.', '"Raid?" says {npc}. "What raid?" Everyone at {hub} looks at her.'], { affinity: -2, thought: ['I was early. That counts.'] }) },
+      lose: R(['Blackbird starts to warn {npc} at {hub} and is told, very quietly, that {they} know{s}. Everyone knows.', '"Raid?" says {npc}. "What raid?" Everyone at {hub} looks at her.'], { affinity: -2, thought: ['I was early. That counts.'] }) },
   }),
   row({
     id: 'loot-stash', where: { situation: 'raid' }, pace: 'quick',

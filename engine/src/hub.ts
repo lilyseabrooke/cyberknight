@@ -132,7 +132,9 @@ export function hubUrge(w: World, to: Id): { bonus: number; smart: number } {
   if (!v || w.hero.locationId === to || w.hero.int < 2) return { bonus: 0, smart: 0 };
   const n = takeable(w, v).length;
   if (!n) return { bonus: 0, smart: 0 };
-  return { bonus: Math.min(0.8, 0.35 + 0.1 * n), smart: Math.min(0.5, 0.2 + 0.05 * n) };
+  // A lesson half done is a reason to go back.
+  const owed = v.info.syllabus.some((e) => (e.route === 'lessons' || e.route === 'enrol') && progress(w, v, e) > 0 && canTake(w, v, e)) ? 0.2 : 0;
+  return { bonus: Math.min(0.9, 0.35 + 0.1 * n + owed), smart: Math.min(0.5, 0.2 + 0.05 * n) };
 }
 
 // ===================================================================== the rows
