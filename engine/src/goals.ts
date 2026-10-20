@@ -26,6 +26,7 @@ import { getImplant } from './extras';
 import { possessive } from './mapgen';
 import { dangerOf } from './grade';
 import { estimatePressure, garrisonAlive, isEntrance, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
+import { coverEase } from './disguise';
 import { appraise, giverPlace, livePending, objectiveRoom, questReady } from './quests';
 import { MAX_IMPLANTS } from './content/implants';
 import { maybeAsk, waiting, type Proposal } from './advice';
@@ -215,7 +216,7 @@ const KINDS: Record<GoalKind, Kind> = {
       const ware = wareOf(w, g);
       if (!ware) return 0;
       const short = wareCost(w, ware) - w.hero.cash;
-      return short > 0 ? -short - 12 : -distTo(w, ware.loc);
+      return short > 0 ? -short - 12 : 0 - distTo(w, ware.loc);
     },
     targets(w, g) {
       const ware = wareOf(w, g);
@@ -556,7 +557,7 @@ const KINDS: Record<GoalKind, Kind> = {
     metric(w, g) {
       if (g.mode === 'escape') return 10 - (safeSpot(w, w.hero.locationId)?.dist ?? 6);
       if (g.mode === 'loot') return 1;
-      return -distTo(w, g.loc!);
+      return 0 - distTo(w, g.loc!);
     },
     targets(w, g) {
       if (g.mode === 'approach') return [{ loc: g.loc!, value: 3.2 }];
@@ -614,7 +615,7 @@ const KINDS: Record<GoalKind, Kind> = {
         if (hpFrac(w) < 0.5) return delay(c, g, 40, 'hurt');
         // A look at the place from the street, and a sharper head thinks twice.
         if (distTo(w, g.loc!) <= 2) {
-          const p = d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1, dangerOf(entrance));
+          const p = (d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1, dangerOf(entrance))) * coverEase(w, entrance);
           if (p > tolerance(w) * 1.15) end(c, g, 'drop', 'outmatched', { inside: false });
         }
         return;
@@ -639,8 +640,8 @@ const KINDS: Record<GoalKind, Kind> = {
     metric(w, g) {
       const entrance = w.locations[g.loc!];
       const d = w.dungeons[g.loc!];
-      if (g.mode === 'out' || g.mode === 'retreat') return -distTo(w, entrance?.tossTo ?? g.loc!);
-      if (!d || g.mode === 'approach') return -distTo(w, g.loc!);
+      if (g.mode === 'out' || g.mode === 'retreat') return 0 - distTo(w, entrance?.tossTo ?? g.loc!);
+      if (!d || g.mode === 'approach') return 0 - distTo(w, g.loc!);
       const visited = d.rooms.filter((r) => (w.locations[r.id]?.visits ?? 0) > 0).length;
       const taken = d.rooms.filter((r) => r.cache?.taken).length;
       const dead = d.garrison.filter((id) => !w.npcs[id]?.alive).length;
@@ -654,6 +655,8 @@ const KINDS: Record<GoalKind, Kind> = {
       return raidPlan(w, d).targets;
     },
     bias(w, g, fam, id) {
+      // The way in, if she is going to dress for it, is dressed.
+      if (fam === 'don_cover') return g.mode === 'approach' && id === g.loc ? 3.2 : 0;
       if (g.mode === 'out' || g.mode === 'retreat') {
         if (fam === 'raid_loot') return g.mode === 'out' ? 0 : -3;
         if (fam === 'raid_ambush') return -4;
@@ -769,7 +772,7 @@ const KINDS: Record<GoalKind, Kind> = {
     plan(c, g) {
       if (c.w.hero.locationId !== g.loc && hpFrac(c.w) < 0.5) delay(c, g, 40, 'hurt');
     },
-    metric: (w, g) => -distTo(w, g.loc!),
+    metric: (w, g) => 0 - distTo(w, g.loc!),
     targets: (_w, g) => [{ loc: g.loc!, value: 2.8 }],
     bias: () => 0,
   },
@@ -846,9 +849,9 @@ const KINDS: Record<GoalKind, Kind> = {
       const giver = g.npc ? w.npcs[g.npc] : undefined;
       const entrance = w.locations[g.loc!];
       if (g.mode === 'return') return 40 - (giver ? distTo(w, giverPlace(w, giver)) : 12);
-      if (g.mode === 'retreat') return -distTo(w, entrance?.tossTo ?? g.loc!);
+      if (g.mode === 'retreat') return 0 - distTo(w, entrance?.tossTo ?? g.loc!);
       const d = w.dungeons[g.loc!];
-      if (!d || g.mode === 'approach') return -distTo(w, g.loc!);
+      if (!d || g.mode === 'approach') return 0 - distTo(w, g.loc!);
       const visited = d.rooms.filter((r) => (w.locations[r.id]?.visits ?? 0) > 0).length;
       const dead = d.garrison.filter((id) => !w.npcs[id]?.alive).length;
       return 5 + visited * 2 + dead;

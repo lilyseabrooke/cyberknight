@@ -9,6 +9,7 @@ import { addCompanion, alliesWith, hasAlly, hasKind, newCompanion, removeCompani
 import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { spawnNpc } from './content/archetypes';
 import { fameFrom, tipScale } from './stage';
+import { shownFame } from './disguise';
 import { addNpc, moveNpc } from './population';
 import { isFairGame } from './people';
 import { feed } from './rest';
@@ -539,7 +540,7 @@ export function ambientExtras(c: Ctx): void {
   }
 
   // --- fans
-  if (h.fame >= 3 && loc.crowded && rng.chance(0.04)) {
+  if (shownFame(w) >= 3 && loc.crowded && rng.chance(0.04)) {
     const amt = rng.int(10, 40);
     h.cash += amt;
     c.emit('fan', 'good', { variant: String(rng.int(1, 4)), amount: amt, fame: h.fame });

@@ -31,6 +31,7 @@ While Blackbird sneaks, everyone who could notice her (a person, a drone, a dog,
 - **Witnessing** (`witness.ts`): out of stealth everyone who can see her and every working camera sees an assault. Sneaking, the fight is a stir (`0.35 + 0.8 x noise`) and only the ones it tips into Aware saw it.
 - **Planning** (`discretion.ts`): sneaking, exposure is how far along each watcher already is.
 - **Pickpocketing**: only from someone below Alert. Out of stealth it needs cover to slip into stealth first. Their Perception pushes back on the roll, Suspicious makes it worse, and a hit brushes awareness up.
+- **Disguise** (`disguise.ts`, [`DISGUISE.md`](DISGUISE.md)): dressed as the crew whose building it is, she is looked at once instead of sneaking, and goes through in plain view if it holds.
 - **Dungeons**: sneaking into a room with people in it plays the room as a board (below). Walking in openly keeps the room's general watchfulness roll. Quests in `sneak` mode enter stealth; going loud ends it.
 - **Fights** (`tactics.ts`): sneaking, a foe is only `alert` at the start if they already had a sense of her, so an unaware one can still be ambushed.
 - **Dragons** notice more for a few beats after something loud (`noiseBoost`).

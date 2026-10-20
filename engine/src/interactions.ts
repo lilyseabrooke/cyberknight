@@ -36,6 +36,7 @@ import { healUrge } from './urges';
 import { laylowCandidates } from './laylow';
 import { stageCandidates } from './stage';
 import { speakingCandidates } from './speaking';
+import { activeDisguise, canPass, coverEase, disguiseCandidates, shownFame } from './disguise';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
@@ -216,6 +217,7 @@ export function gather(w: World): Candidate[] {
   out.push(...laylowCandidates(w));
   out.push(...stageCandidates(w));
   out.push(...speakingCandidates(w));
+  out.push(...disguiseCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));
   out.push(...discretionCandidates(w));
@@ -276,7 +278,7 @@ export function gather(w: World): Candidate[] {
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },
       bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + (dest.kind === 'lair' && dest.dungeon === dest.id ? 0.2 : 0) + urge.bonus + pull.bonus,
       smart: (toDragon && ready ? 2.4 : 0) + urge.smart + pull.smart,
-      risk: dragonRisk * 1.4 + lurking + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest),
+      risk: dragonRisk * 1.4 + lurking + (e.gate === 'guarded' && !canPass(w, e.gate) ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest) * coverEase(w, dest),
       run: (c) => moveThrough(c, e),
     });
   }
@@ -589,7 +591,8 @@ function orderDrink(c: Ctx, bartender: Npc): void {
   const h = w.hero;
   const drink = rng.pick(DRINKS);
   const price = rng.int(8, 22);
-  const free = (bartender.affinity >= 15 && rng.chance(0.5)) || (h.fame >= 4 && rng.chance(0.35));
+  const star = activeDisguise(w)?.kind === 'star' ? activeDisguise(w) : undefined;
+  const free = (bartender.affinity >= 15 && rng.chance(0.5)) || (shownFame(w) >= 4 && rng.chance(0.35));
   const onTab = !free && h.cash < price;
   const cost = free ? 0 : onTab ? 0 : price;
   h.cash -= cost;
@@ -597,7 +600,7 @@ function orderDrink(c: Ctx, bartender: Npc): void {
   h.drunk += 1;
   bartender.affinity += 2;
   train(c, 'tolerance', 1);
-  c.emit('order_drink', 'mixed', { variant: free ? (h.fame >= 4 ? 'fame' : 'free') : onTab ? 'tab' : 'paid', drink, cost: onTab ? price : cost, npc: bartender.name, drunk: h.drunk, tab: h.tab });
+  c.emit('order_drink', 'mixed', { variant: free ? (star ? 'star' : h.fame >= 4 ? 'fame' : 'free') : onTab ? 'tab' : 'paid', drink, cost: onTab ? price : cost, npc: bartender.name, label: star?.label ?? '', drunk: h.drunk, tab: h.tab });
 }
 
 function buyRound(c: Ctx): void {

@@ -39,6 +39,7 @@ import { needsBias, tickNeeds } from './rest';
 import { BASE_MIN_PER_BEAT, FIGHT_MINUTES, actionMinutes, crossedDawn, dayOf, every } from './clock';
 import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
+import { disguiseTick } from './disguise';
 import { art } from './lab';
 import { gate, tickStealth } from './stealth';
 import { influenceTick } from './influence';
@@ -192,6 +193,7 @@ export function step(w: World): GameEvent[] {
   if (!w.over) noticeTick(c);
   if (!w.over) avengerTick(c);
   if (!w.over) partnerArrives(c);
+  if (!w.over) disguiseTick(c);
   if (!w.over) dungeonAmbient(c);
   if (!w.over && w.locations[w.hero.locationId]?.road !== 'highway') ambientExtras(c);
   if (!w.over) ambientDragons(c);

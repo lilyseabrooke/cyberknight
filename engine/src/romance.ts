@@ -42,7 +42,7 @@ export function gainSatiety(h: Hero, amount: number): void {
   h.satiety = Math.min(1, satietyOf(h) + amount);
 }
 
-const SATIETY_WEIGHT: Record<string, number> = { poach: 1.2, reconcile: 1, flirt: 1, kiss: 1.25, make_move: 1.6, pool_date: 0.9, serve_dish: 0.7, seduce_clerk: 0.9, dance: 0.4 };
+const SATIETY_WEIGHT: Record<string, number> = { poach: 1.2, reconcile: 1, flirt: 1, kiss: 1.25, make_move: 1.6, pool_date: 0.9, serve_dish: 0.7, seduce_clerk: 0.9, dance: 0.4, star_flirt: 1.1, don_star: 0.6 };
 
 /** A sated Blackbird doesn't want to chase anyone, with anyone. */
 export function satietyBias(w: World, cand: { key: string }): number {

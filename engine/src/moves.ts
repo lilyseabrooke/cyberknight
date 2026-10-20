@@ -5,6 +5,7 @@ import { sneakBonus, tryTalkDown } from './extras';
 import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { moveNpc } from './population';
 import { cross } from './shortcut';
+import { shownFame, tryGate } from './disguise';
 
 /** Resolve walking through an exit, including bouncers, locks, guards and jumps. */
 export function moveThrough(c: Ctx, exit: Exit): void {
@@ -26,6 +27,13 @@ export function moveThrough(c: Ctx, exit: Exit): void {
     return;
   }
 
+  // Passing for somebody the door lets through.
+  const face = exit.gate ? tryGate(c, exit) : null;
+  if (face) {
+    arrive(c, to, 'disguised', { label: face.label, kind: face.kind, gate: exit.gate!, place: dest.name });
+    return;
+  }
+
   switch (exit.gate) {
     case null:
       arrive(c, to, 'walk');
@@ -33,7 +41,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
 
     case 'bouncer': {
       const guards = npcsAt(w, 'neon_pharaoh').filter((n) => n.tags.includes('security'));
-      if (h.fame >= 5 && rng.chance(0.8)) {
+      if (shownFame(w) >= 5 && rng.chance(0.8)) {
         arrive(c, to, 'recognized');
       } else if (h.cash >= 40 && rng.chance(0.5)) {
         h.cash -= 40;

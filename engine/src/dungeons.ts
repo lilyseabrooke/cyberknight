@@ -23,6 +23,7 @@ import { skillLevel, train } from './skills';
 import { basePower, dangerOf } from './grade';
 import { startRaid } from './goals';
 import { nightfall, stockQuest } from './quests';
+import { EASE, coverFor, scrutinize } from './disguise';
 
 /**
  * Dungeons: Atlas outposts and ganger hideouts. A building on a street with rooms behind the door, a garrison in the
@@ -319,7 +320,8 @@ export function enterRoom(c: Ctx, loc: Location): void {
   // However she came to be here, she is raiding now.
   startRaid(c, d, 'wandered_in');
   // At the door she decides how to go in: a place she can't take loud, she creeps into; otherwise it is her nature.
-  if (isEntrance(loc) && !w.hero.stealth && d.clearedRun === null && !w.mind.goals.some((g) => g.kind === 'quest' && g.loc === d.id) && choosesQuiet(c)) enterStealth(c);
+  // (Dressed as one of them she just walks in.)
+  if (isEntrance(loc) && !w.hero.stealth && d.clearedRun === null && !coverFor(w, d) && !w.mind.goals.some((g) => g.kind === 'quest' && g.loc === d.id) && choosesQuiet(c)) enterStealth(c);
   // What the place keeps against people who let themselves in goes first.
   if (!meetHazards(c, loc)) {
     if (!w.over && w.hero.locationId === loc.id) {
@@ -333,6 +335,12 @@ export function enterRoom(c: Ctx, loc: Location): void {
   if (!foes.length) {
     // A spot with nobody minding it is just there for the taking.
     if (d.spot && roomOf(d, loc.id)?.cache && !roomOf(d, loc.id)!.cache!.taken) c.emit('dungeon_quiet', 'good', { kind: d.kind, crew: crewOf(d), place: loc.name, scene: d.scene ?? '', tier: d.tier });
+    return;
+  }
+  // Dressed as one of theirs, the room takes a look at her and, if it holds, goes back to its business with her in it.
+  const cover = w.hero.stealth || d.aware.includes(loc.id) ? undefined : coverFor(w, d);
+  if (cover) {
+    if (!cover.passed.includes(loc.id) && !scrutinize(c, cover, d, loc, foes, 'entering')) raiseAlarm(c, d, loc, 'seen');
     return;
   }
   // Sneaking, the room is played out as a board: who is looking where, and what she can do about it.
@@ -361,7 +369,7 @@ export function enterRoom(c: Ctx, loc: Location): void {
 }
 
 /** "three drones and a trooper", for the log. */
-function describe(foes: Npc[]): string {
+export function describe(foes: Npc[]): string {
   const by = new Map<string, number>();
   for (const f of foes) by.set(f.role, (by.get(f.role) ?? 0) + 1);
   const parts = [...by].map(([role, n]) => (n > 1 ? `${n} ${role}s` : `a ${role}`));
@@ -478,6 +486,12 @@ export function dungeonAmbient(c: Ctx): void {
   if (!loc || !d) return;
   checkCleared(c, d);
   if (!standing(w, d, loc.id).length || d.clearedRun !== null) return;
+  // Passing for one of them, it is the odd long look; a look she can hold or not.
+  const cover = w.hero.stealth || d.aware.includes(loc.id) ? undefined : coverFor(w, d);
+  if (cover) {
+    if (rng.chance(0.5 * (0.07 + 0.02 * d.tier + 0.04 * d.alert)) && !scrutinize(c, cover, d, loc, standing(w, d, loc.id), 'lingering')) raiseAlarm(c, d, loc, 'lingered');
+    return;
+  }
   // Sneaking, it is whoever in the room has worked out where she is; otherwise a little more of the room's attention each beat.
   if (w.hero.stealth ? standing(w, d, loc.id).some((n) => atLeast(bucketOf(w, n), 'aware')) : rng.chance(0.07 + 0.02 * d.tier + 0.04 * d.alert)) raiseAlarm(c, d, loc, 'lingered');
 }
@@ -519,18 +533,20 @@ function openCache(c: Ctx, d: Dungeon, loc: Location, cache: Cache): void {
   const { w, rng } = c;
   const h = w.hero;
   const watched = standing(w, d, loc.id).length > 0;
+  // (Opening things in front of people who think she belongs there is only a little less odd than doing it as herself.)
+  const cover = watched && !w.hero.stealth && !d.aware.includes(loc.id) ? coverFor(w, d) : undefined;
   const lock = cache.kind === 'data' ? 'tinkering' : 'lockpicking';
   const skill =
     cache.kind === 'data' ? h.int * 0.05 + skillLevel(h, 'tinkering') * 0.03
     : cache.kind === 'supplies' || cache.kind === 'arms' || cache.kind === 'armor' ? 0.2
     : skillLevel(h, 'lockpicking') * 0.04 + h.int * 0.02;
-  const p = clamp(0.8 - HARD[cache.kind] - 0.03 * d.tier + skill - (watched ? 0.12 : 0), 0.1, 0.95);
+  const p = clamp(0.8 - HARD[cache.kind] - 0.03 * d.tier + skill - (watched && !cover ? 0.12 : 0), 0.1, 0.95);
   train(c, lock, 2);
   const data = { kind: d.kind, cache: cache.kind, what: CACHE_LABEL[cache.kind], place: loc.name };
   if (rng.chance(p)) {
     cache.taken = true;
     const got = openLoot(c, d, cache);
-    train(c, 'sneak', 1);
+    train(c, cover ? 'acting' : 'sneak', 1);
     c.emit('dungeon_loot', 'good', { ...data, variant: cache.kind, amount: got.cash, item: got.items.slice(0, 2).join(' and '), count: got.items.length, watched });
     return;
   }
@@ -542,6 +558,11 @@ function openCache(c: Ctx, d: Dungeon, loc: Location, cache: Cache): void {
     c.emit('dungeon_loot', 'bad', { ...data, variant: 'jammed' });
   }
   // A noisy failure in a room with people in it, or a lot of noise anywhere else, is how a quiet job stops being one.
+  if (cover) {
+    // Fumbling a lock is a thing a look is given for.
+    if (!w.over && rng.chance(0.6) && !scrutinize(c, cover, d, loc, standing(w, d, loc.id), 'working')) raiseAlarm(c, d, loc, 'lingered');
+    return;
+  }
   if (!w.over && (watched ? rng.chance(0.6) : rng.chance(0.15)) && standing(w, d, loc.id).length) raiseAlarm(c, d, loc, 'tripped');
 }
 
@@ -632,7 +653,7 @@ export function raidPlan(w: World, d: Dungeon): RaidPlan {
   const dangerous = (room: Id): boolean => {
     const foes = standing(w, d, room);
     if (!foes.length) return false;
-    return pressure(w, foes) * ((w.locations[room]?.visits ?? 0) === 0 ? misread(w, room) : 1) > limit;
+    return pressure(w, foes) * ((w.locations[room]?.visits ?? 0) === 0 ? misread(w, room) : 1) * (coverFor(w, d) ? EASE : 1) > limit;
   };
   // Everywhere she's prepared to go from where she stands.
   const reach: Id[] = dangerous(from) ? [] : [from];

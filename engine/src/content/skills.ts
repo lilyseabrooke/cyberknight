@@ -47,6 +47,7 @@ export const SKILLS = {
   speaking: { label: 'speaking', group: 'social', spill: { streetwise: 0.1, intimidation: 0.05 }, titles: ['can say a sentence to a room, mostly', 'holds a crowd for a whole minute', 'finishes speeches people forgot they were listening to', 'could talk a riot into a queue, or a queue into a riot'] },
   rapport: { label: 'animal rapport', group: 'social', spill: { medicine: 0.1 }, titles: ['pigeons do not flee', 'dogs, robot and otherwise, like her', 'drones coo when she walks by', 'speaks fluent beast'] },
   grifting: { label: 'grifting', group: 'social', spill: { streetwise: 0.15, cards: 0.1 }, titles: ['can keep a straight face for one whole sentence', 'has a sob story for every occasion', 'could sell ice to a fridge', "Neo's most convincing liar, professionally"] },
+  acting: { label: 'acting', group: 'social', spill: { grifting: 0.15, speaking: 0.1, romance: 0.05 }, titles: ['has played a tree, convincingly', 'can hold a fake name through a whole conversation', 'becomes whoever the door is expecting', 'has not been entirely herself since Tuesday'] },
   // ---- crafts and care
   tolerance: { label: 'drinking', group: 'craft', titles: ['has a favorite drink, and a second', 'holds it better than most', 'is hydrated by whiskey', 'a liver with its own union'] },
   mixology: { label: 'mixology', group: 'craft', spill: { tolerance: 0.2 }, titles: ['pours straight', 'knows what bitters are for', 'invents drinks with unfortunate names', 'a bar-top alchemist'] },

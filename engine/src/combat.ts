@@ -30,6 +30,7 @@ import { loseContact } from './stealth';
 import { backersPower, backupJoins } from './influence';
 import { enterPlace, placeOf, syncPlace, describeSpot, keepPositions, layBodies } from './placeboard';
 import { cloneGrid } from './layout';
+import { endDisguise } from './disguise';
 
 export { npcsAt };
 
@@ -231,6 +232,8 @@ export function fight(c: Ctx, foesIn: Npc[], o: FightOpts): FightResult {
   const h = w.hero;
   const foes = foesIn.filter((f) => f.alive);
   if (!foes.length) return 'win';
+  // Nobody stays in character through a brawl.
+  endDisguise(c, 'fight');
   // The fight is one story: it opens with the squaring-up, and everything after (who saw, how each round went, the end) is told inside it.
   let result: FightResult = 'win';
   nested(
