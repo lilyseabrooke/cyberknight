@@ -651,7 +651,7 @@ const ROBOT = ['UNIT', 'MK', 'BOT', 'SENTRY', 'AUTO'];
 
 const KID = ['Pixel', 'Wire', "Lil' Static", 'Moth', 'Bytes', 'Glitch', 'Noodle', 'Zip', 'Tick', 'Dot', 'Rust', 'Mouse'];
 
-export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
+export function rollNpcName(rng: Rng, kind: ArchetypeDef['names'], gender?: Gender): string {
   if (kind === 'kid') return rng.pick(KID);
   if (kind === 'robot') return `${rng.pick(ROBOT)}-${rng.int(100, 999)}`;
   if (kind === 'monster') return 'CINDERJAW';
@@ -661,7 +661,7 @@ export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
   if (kind === 'nextday') return callsign(rng, 'HERMES', 'express');
   if (kind === 'demeter') return callsign(rng, 'DEMETER', 'demeter');
   if (kind === 'ares') return callsign(rng, 'ARES', 'ares');
-  return rollFullName(rng, undefined);
+  return rollFullName(rng, gender);
 }
 
 export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string; gender?: Gender; age?: number; grade?: number } = {}): Npc {
@@ -688,9 +688,10 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
   // Fixed-stat things (dogs, turrets, bots) are scaled from the grade they were written for.
   const ref = Math.max(5, (def.level[0] + def.level[1]) / 2);
   const hp = opts.grade === undefined ? def.hp ?? 18 + level * 12 : def.hp ? Math.round(def.hp * Math.max(1, baseHp(level) / baseHp(ref))) : Math.round(baseHp(level));
-  const name = opts.name ?? rollNpcName(rng, def.names);
   const machine = def.names !== 'person' && def.names !== 'kid';
-  const person = rollPerson(id, name, { ...PEOPLE[archetype], machine }, { gender: opts.gender, age: opts.age });
+  // Gender and age come first (keyed on the id when there's no name yet), and the name is rolled to suit.
+  const person = rollPerson(id, opts.name ?? '', { ...PEOPLE[archetype], machine }, { gender: opts.gender, age: opts.age });
+  const name = opts.name ?? rollNpcName(rng, def.names, person.gender);
   return {
     id,
     name,
