@@ -172,6 +172,8 @@ export function populate(w: World, loc: Location): Npc[] {
         npc.hp = npc.maxHp = bark.hp;
         npc.power = bark.power;
       }
+      // A gang that has adopted her (cutting.ts) is glad to see her.
+      if (npc.faction && w.legacy.adopted?.includes(npc.faction)) npc.affinity += 25;
       addNpc(w, npc);
       rehome(w, npc, loc, !!slot.resident);
       here.push(npc);

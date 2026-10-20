@@ -33,6 +33,8 @@ export const ACT_SKILL: Record<string, string> = {
   stump_speech: 'speaking',
   // A dubbed master over the PA (studio.ts): the crowd judges the tape.
   mime_guitar: 'guitar', mime_vocals: 'vocals', mime_djing: 'djing', mime_beatbox: 'beatbox',
+  // A bout at a cutting room (cutting.ts).
+  cut_guitar: 'guitar', cut_vocals: 'vocals', cut_djing: 'djing', cut_beatbox: 'beatbox',
 };
 
 const FATIGUE_PER_ACT = 0.22;

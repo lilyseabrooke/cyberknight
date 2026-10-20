@@ -1071,6 +1071,14 @@ export interface Legacy {
   records?: Recording[];
   /** The world clock when royalties were last paid in (see studio.ts `royaltiesTick`). */
   royaltyAt?: number;
+  /** Gangs that have adopted her (a Rust Choir that liked her answer at the gate, and so on): their people start out warm. See cutting.ts. */
+  adopted?: string[];
+  /** Duels won at a gang's own venue, by gang, on the way to being adopted. */
+  gangWins?: Record<string, number>;
+  /** The wedge (musehq.ts): the night until which Atlas is busy fighting Muse and sends fewer retrieval teams. */
+  atlasBusyUntil?: number;
+  /** Artists she freed from Muse contracts (musehq.ts). */
+  freed?: number;
   /** Her song is buried in the dragons' broadcast loop until this night (a `legacy.runs` number). See studio.ts. */
   buriedUntil?: number;
   /** Deeds she owns (see content/deeds.ts): bought once, kept through every death. Absent before the first. */

@@ -14,7 +14,7 @@
 
 | Principle | In practice |
 |---|---|
-| Maximalism | 9 variants × 12 shells × 5 sizes × 5 conditions × 5 tiers × 0-3 of 32 traits × 16 situations × 8 wild cards; 30 features |
+| Maximalism | 9 variants × 12 shells × 5 sizes × 5 conditions × 5 tiers × 0-3 of 33 traits × 16 situations × 8 wild cards; 31 features |
 | Unbalanced | royalties from a famous past life can fund the lab on their own; a haunted console adds 6 grades to every take; the golden mic adds 8 to singing; relistening to an old master is a lot of skill XP |
 | Multidimensional | 65 rows over 31 skills, the four stats and all seven drives; thin spots: pool, throwing, shooting, tracking, hijacking, cards, fishing |
 

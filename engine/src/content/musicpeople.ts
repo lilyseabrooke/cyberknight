@@ -57,6 +57,80 @@ export const MUSIC_ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['stunner_mk3'], loot: ['muse_lanyard', 'credchip', 'bootleg_tapes'], lootChance: 0.5, cash: [30, 110],
     desc: ['a Muse Clearance officer with a pastel clipboard and a stamp holster', 'a Clearance officer who calls every song "brave" before confiscating it', 'a Clearance officer humming a LUMINA chorus, highlighting lyrics in pink'],
   },
+
+  // ---------------- Cutting rooms (content/cuttings.ts) ----------------
+  cutting_host: {
+    role: 'host', level: [3, 6], tags: ['owner', 'staff', 'host'], faction: null,
+    names: 'person', weapons: ['judgment', 'zip_pistol'], loot: ['credchip', 'walkman'], lootChance: 0.5, cash: [80, 300],
+    desc: ['a host with a microphone, a bell and a voice that could start a riot or end one', 'a host in a sequinned jacket three sizes too loud, who calls every bout like a prize fight', 'a host with a clipboard of grudges and the patience of a landmine'],
+  },
+  cutting_champ: {
+    role: 'house champion', level: [4, 7], tags: ['musician', 'champion', 'regular'], faction: null,
+    names: 'person', weapons: ['broken_bottle', 'judgment'], loot: ['credchip', 'walkman'], lootChance: 0.4, cash: [40, 200],
+    desc: ['the house champion, leaning on the bar with a guitar across the back like a sword', 'the house champion: calm, scarred, two fingers taped, and nobody has seen them lose', 'the house champion, signing a fan\'s arm without looking up'],
+  },
+  cutting_robot: {
+    role: 'house robot', level: [4, 7], tags: ['robot', 'musician', 'champion'], faction: null,
+    names: 'robot', weapons: [], loot: ['drone_core', 'memory_shard', 'lumina_chip'], lootChance: 0.5, cash: [0, 0], hp: 120, power: 14,
+    desc: ['the house robot, a chrome guitarist with six arms and a face like a polite mirror', 'a robot champion humming a LUMINA chorus at a frequency only amps can hear'],
+  },
+  cutting_judge: {
+    role: 'judge', level: [2, 4], tags: ['staff', 'judge'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip'], lootChance: 0.3, cash: [20, 90],
+    desc: ['a judge with ear defenders around the neck and a scorecard in very small writing', 'a judge who has heard everything and liked eleven of it'],
+  },
+  cutting_challenger: {
+    role: 'challenger', level: [2, 5], tags: ['musician', 'challenger', 'regular'], faction: null,
+    names: 'person', weapons: ['broken_bottle'], loot: ['credchip', 'walkman'], lootChance: 0.35, cash: [10, 90],
+    desc: ['a challenger tuning by the side of the stage with the face of someone who has practised for this in a mirror', 'a challenger with a borrowed guitar and an enormous amount of hair', 'a challenger doing finger exercises at the bar, muttering a setlist'],
+  },
+  cutting_fan: {
+    role: 'punter', level: [1, 3], tags: ['regular', 'customer', 'crowd'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'walkman'], lootChance: 0.3, cash: [5, 60],
+    desc: ['a punter with a drink in each hand and an opinion in each ear', 'a punter in a T-shirt of a band that lost here last week', 'a punter who has seen every final for ten years and says the old champion was better'],
+  },
+  cutting_bouncer: {
+    role: 'bouncer', level: [3, 5], tags: ['staff', 'strong', 'security', 'guard'], faction: null,
+    names: 'person', weapons: ['judgment', 'service_pistol'], armors: ['leather_jacket'], armorChance: 0.5, loot: ['credchip'], lootChance: 0.3, cash: [15, 70],
+    desc: ['a bouncer who escorts the losers out with a hand on the shoulder, gently, like an undertaker', 'a bouncer with ear defenders and a look that says he has already heard the bad guitarist'],
+  },
+  muse_scout: {
+    role: 'Muse A&R scout', level: [2, 4], tags: ['muse', 'scout'], faction: 'muse',
+    names: 'person', weapons: ['stunner_mk3'], loot: ['muse_lanyard', 'credchip'], lootChance: 0.6, cash: [60, 220],
+    desc: ['a Muse A&R scout with a pastel lanyard and a pen already uncapped', 'a Muse scout taking notes in a notebook with a heart on it, smiling at nobody'],
+  },
+  crossroads_stranger: {
+    role: 'stranger', level: [8, 8], tags: ['musician', 'stranger', 'champion'], faction: null,
+    names: 'person', weapons: ['judgment'], loot: ['credchip', 'walkman'], lootChance: 0.5, cash: [100, 400],
+    desc: ['a stranger at the end of the bar in a good suit, with a guitar case that is very old and very clean, who knows her name'],
+  },
+
+  // ---------------- Muse buildings (content/musehqs.ts) ----------------
+  muse_exec: {
+    role: 'Muse executive', level: [4, 7], tags: ['owner', 'staff', 'muse', 'exec'], faction: 'muse',
+    names: 'person', weapons: ['stunner_mk3', 'service_pistol'], armors: ['leather_jacket'], armorChance: 0.4, loot: ['corp_creds', 'muse_lanyard', 'credchip'], lootChance: 0.7, cash: [150, 500],
+    desc: ['a Muse executive in a cashmere pastel suit, smiling at everything with the same exact smile', 'a Muse executive who says "we\'re a family here" and means the other kind of family', 'a Muse executive with a heart pin and a calendar full of acquisitions'],
+  },
+  muse_receptionist: {
+    role: 'Muse receptionist', level: [1, 3], tags: ['staff', 'muse', 'clerk'], faction: 'muse',
+    names: 'person', weapons: [], loot: ['muse_lanyard', 'credchip'], lootChance: 0.5, cash: [10, 60],
+    desc: ['a receptionist with a ring light, a headset and a voice like a LUMINA B-side', 'a receptionist who greets everyone by name and nobody by choice'],
+  },
+  muse_staffer: {
+    role: 'Muse staffer', level: [1, 3], tags: ['staff', 'muse', 'regular'], faction: 'muse',
+    names: 'person', weapons: [], loot: ['muse_lanyard', 'credchip', 'data_slate'], lootChance: 0.45, cash: [15, 90],
+    desc: ['a Muse staffer in a pastel cardigan, carrying a spreadsheet of feelings', 'a staffer with three lanyards, all different colours, and a tired face', 'a staffer humming a LUMINA chorus against their will'],
+  },
+  muse_visitor: {
+    role: 'visitor', level: [1, 2], tags: ['customer', 'regular'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'walkman'], lootChance: 0.3, cash: [10, 80],
+    desc: ['a tourist in a LUMINA T-shirt, filming the fountain', 'a nervous young singer with a demo and a parent', 'a fan holding a sign for LUMINA, and another, folded, for Blackbird'],
+  },
+  atlas_consultant: {
+    role: 'Atlas M&A consultant', level: [3, 5], tags: ['corp', 'atlas', 'consultant'], faction: 'atlas',
+    names: 'person', weapons: ['service_pistol'], loot: ['corp_creds', 'data_slate', 'credchip'], lootChance: 0.8, cash: [120, 400],
+    desc: ['an Atlas Mergers & Acquisitions consultant measuring the lobby with his eyes, and possibly a tape', 'a consultant from Atlas M&A, smiling the hungry smile of somebody who works for Gluttony'],
+  },
 };
 
 /** Who these archetypes tend to be, beyond the job. */
@@ -70,4 +144,15 @@ export const MUSIC_PEOPLE: Record<string, PersonSpec> = {
   studio_guard: { women: 0.3, age: [24, 52] },
   jingle_client: { women: 0.55, age: [26, 54] },
   clearance_officer: { women: 0.55, age: [24, 50] },
+  cutting_host: { women: 0.45, age: [30, 64] },
+  cutting_champ: { women: 0.5, age: [24, 66] },
+  cutting_judge: { age: [40, 78] },
+  cutting_challenger: { women: 0.5, age: [19, 52] },
+  cutting_bouncer: { women: 0.3, age: [26, 54] },
+  muse_scout: { women: 0.55, age: [26, 48] },
+  crossroads_stranger: { women: 0.5, age: [40, 90] },
+  muse_exec: { women: 0.55, age: [32, 62] },
+  muse_receptionist: { women: 0.6, age: [21, 40] },
+  muse_staffer: { women: 0.55, age: [22, 55] },
+  atlas_consultant: { women: 0.35, age: [30, 60] },
 };

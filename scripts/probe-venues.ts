@@ -18,7 +18,7 @@ for (let i = 0; i < n; i++) {
   }
   const acts = new Set<string>();
   for (const e of events) {
-    if (kinds.includes(e.type) || /^mime_|^(record|ghost_take|dub|press|relisten|bury_song|duel|cut_|repair|fanclub)/.test(e.type)) acts.add(`${e.type}:${String(e.data.variant ?? '').split('.')[0]}`);
+    if (kinds.includes(e.type) || /^mime_|^cut_|^(record|ghost_take|dub|press|relisten|bury_song)$/.test(e.type)) acts.add(`${e.type}:${String(e.data.variant ?? '').split('.')[0]}`);
   }
   for (const a of acts) did[a] = (did[a] ?? 0) + 1;
 }

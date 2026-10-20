@@ -155,7 +155,7 @@ function venueText(): Record<string, Entry> {
     out[k] = said;
     for (const f of ['', 'quick', 'fight', 'deal']) out[`intent:${k}${f}`] = intent;
   }
-  for (const k of ['mime_guitar', 'mime_vocals', 'mime_djing', 'mime_beatbox']) {
+  for (const k of ['mime_guitar', 'mime_vocals', 'mime_djing', 'mime_beatbox', 'cut_guitar', 'cut_vocals', 'cut_djing', 'cut_beatbox']) {
     out[k] = said;
     out[`intent:${k}`] = intent;
   }

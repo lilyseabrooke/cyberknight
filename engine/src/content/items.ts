@@ -100,6 +100,7 @@ export const ITEMS: Record<string, Def> = {
   lumina_master: l('the original master tapes of LUMINA 1.0 (Muse thinks they were destroyed)', 1400, ['relic', 'collectible', 'contraband', 'record']),
   vintage_mic: l('vintage ribbon microphone with a story', 260, ['collectible']),
   gold_record: l('somebody else\'s gold record, in a frame', 180, ['trophy', 'collectible']),
+  golden_plectrum: l('the golden plectrum (has never played a wrong note)', 500, ['collectible', 'relic', 'keepsake']),
   session_tapes: l('box of somebody\'s unreleased session tapes', 120, ['record', 'contraband']),
   // ---- gyms ----
   speed_gloves: w('speed gloves (weighted)', 6, 55, ['gloves']),
