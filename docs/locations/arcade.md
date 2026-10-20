@@ -271,3 +271,52 @@ skills have one row here (`pool`, `hijack`, `fishing`, `marksmanship` has two).
 Still open: a goal that sends her back to an arcade for a record; pool tables (there is no pool table in the arcade, only
 an air-hockey row); what the Muse faction does with the spider if the guitar work lands; whether a licensed cabinet can be
 *restored* after a jailbreak (nothing does it today).
+
+## 15. Games across Neo: liking, creators, and the gaming Callings
+
+The arcade was where Gaming started. This is how it spread.
+
+**Gaming at other places.** `content/gamerows.ts` adds 22 rows that lean on Gaming to the gym (a reaction lab, an esports
+bootcamp, a VR sparring sim...), the pawn shop (a console to hock, a cartridge to flip, a bootleg to fence) and the hacker hub
+(speed-runs, a ladder, a cabinet in the corner), and the Rusty Halo's laser-tag league takes a little help from it. The shared
+check runner (`placekit.ts`) tallies the money a Gaming check wins as `earned` on its event, anywhere, which is what the
+money Calling counts.
+
+**A score for every game** (`games.ts`, `Mind.games`). A game is a title, the same on every cabinet that runs it. For each one
+she has played she keeps: plays, wins, records, a losing streak, where she played it, and **how much she likes it** (-1 to 1).
+A record or a win raises it; a loss lowers it, faster the longer the streak and the shorter her temper. Crossing +0.45 or -0.4
+says so out loud once (`game_feeling`). It is her side only: it resets with her body, like her bonds.
+
+**A wound.** If a Muse compliance spider stamps on a cabinet of a game she liked (+0.3 and three plays), in front of her, that
+is a `game_lost` event, and **a wound for the spider Calling**. If it happened while she was away (the hall's catch-up), she
+finds the empty space the next time she is there (`Mind.mourn`).
+
+**Every game has a creator** (`creators.ts`). A Muse designer for a licensed game, a cracker for a bootleg, rolled from the
+world seed and the title, so the same person every time. **They exist nowhere until she finds out who they are**: the first
+time she learns, the person is made and settled in a flat, shop, bar, club or arcade out in Neo (weighted toward the dangerous
+and the unvisited), and she is told where when the route gives her an address. Five ways to learn, from five kinds of row:
+
+| Route | Where | Gives |
+|---|---|---|
+| `record`: number one on the game's board, the credits roll | any cabinet (`playOne`) | the name and the address |
+| `override`: an Override on the machine (Power Cut is the key that fits; more known, better odds) | `override-cabinet` (hall) | the name and the address |
+| `pros`: ask the champions, streamers and hustlers | `ask-the-pros` (hall; costs a round) | the name only |
+| `intel`: dig through credits, forums and patch notes | `dig-credits` (hall) | the name, or the address if she has the name |
+| `records`: take a copy out of a records office (a property office, or a records floor in a tower) | `records:steal` (`records.ts`) | the name and the address |
+
+A bad try at an Override marks her; a bad try at a registry bars her from that office.
+
+**The Callings** (`content/callings.ts`, group `play`):
+
+| Calling | Line | Born of | Counts | Bias / pull |
+|---|---|---|---|---|
+| **Number one** (`board`) | "get number one on a leaderboard that matters" / "have her name at the top of N leaderboards at once" | a record, a bracket won | boards she tops *right now* (a spider's wreck takes one away) | play, brackets, ladders; pulled to arcades she knows |
+| **Gaming money** (`gamecash`) | "make Nnd from nothing but playing games" (300 to 30,000) | a payout | `earned` on events, anywhere | play, bets, brackets, pawn and hub rows |
+| **Spiders** (`spiders`, a wound) | "put N Muse compliance spiders in the ground" | a loved game destroyed; killing or watching one | `spiders_killed` | fight the spider; against calming it; pulled to arcades, harder to one with a visit under way |
+| **The creator** (`creator`) | "find out who made "X", and flatline them", then "flatline Y, who made "X"" | hating a game | the creator dead | phase one: the intel rows and `records:steal`, and playing that very game; phase two: a hunt, as vengeance is |
+
+The creator Calling re-aims itself as she learns (`sync`): from a title, to a person, to a person at an address. The kill goal
+it makes is an ordinary goal, so the usual machinery applies: she preps, shops for a weapon, gets hurt, resumes.
+
+**What was not done:** no hero state beyond `Mind.games`; no fight changes; the creators have no bodyguards and no faction;
+nothing clamps any of it.
