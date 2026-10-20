@@ -3,7 +3,7 @@ import type { EventData } from './events';
 import type { Trait } from './personality';
 import { clamp } from './candidate';
 import { traitOf } from './character';
-import { addHeat, remember } from './combat';
+import { addHeat, kill, remember } from './combat';
 import { heartOf } from './bonds';
 import { moveNpc, npcsAt, AWAY } from './population';
 import { opposed, ratio, statsOf, withAssist } from './npcstats';
@@ -139,6 +139,13 @@ const GO_AFTER: Errand = {
         t.affinity -= 8;
         for (const goal of w.mind.goals) if (goal.kind === 'kill' && goal.npc === t.id) goal.struck = true;
         remember(t, 'was set on by someone Blackbird sent');
+        // A crowd at their back finishes it: the more people behind them, the likelier the other one does not get up again.
+        const crowd = (g.followers ?? []).filter((id) => w.npcs[id]?.alive).length;
+        if (crowd > 0 && t.alive && c.rng.chance(clamp(0.1 + 0.14 * Math.sqrt(crowd), 0, 0.9))) {
+          kill(c, w, t, 'a mob');
+          w.counters['cal.mob'] = (w.counters['cal.mob'] ?? 0) + 1;
+          c.emit('mob_kill', 'bad', { npc: n.name, target: t.name, crowd: crowd + 1, total: w.counters['cal.mob'] });
+        }
       } else n.affinity -= 2;
       return { won, loser: loser.name };
     };

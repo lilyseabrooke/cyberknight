@@ -399,6 +399,7 @@ function pull(c: Ctx, sp: Speech, people: Npc[], drift: number): Moved | null {
     remember(n, 'was swept up by a speech of Blackbird\'s');
   }
   sp.moved += willing.length;
+  w.counters['cal.crowd_best'] = Math.max(w.counters['cal.crowd_best'] ?? 0, sp.moved);
   const deed = kind === 'give_cash' ? 'passing the hat' : phrasing(w, first!).deed;
   return { kind, count: willing.length, lead, of: people.length, names: willing.map((x) => x.n.name), deed };
 }

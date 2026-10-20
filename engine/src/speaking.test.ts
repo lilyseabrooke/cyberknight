@@ -7,6 +7,10 @@ import { followersOf } from './influence';
 import { spawnGroup } from './candidate';
 import { supplyCandidates } from './supply';
 import { makeItem } from './content/items';
+import { adoptCalling, callingAfter, countOf, progressOf } from './callings';
+import { DEFS } from './content/callings';
+import { runErrand } from './errands';
+import type { Calling } from './types';
 import { spawnNpc } from './content/archetypes';
 import { addNpc, moveNpc } from './population';
 import { newCompanion, allyPower } from './companions';
@@ -434,5 +438,75 @@ describe('speaking', () => {
     expect(w.hero.cash).toBeLessThan(1000);
     expect(buys()).toBe(false);
     for (const e of events) expect(hasTemplate(e), e.type).toBe(true);
+  });
+
+  const calling = (id: string, extra: Partial<Calling> = {}): Calling => ({
+    id, since: 0, fervor: 0.7, goal: 100, base: 0, origin: { kind: 'spark', text: 'test', beat: 0 }, lastProgress: 0, last: 0, said: 0, ...extra,
+  });
+  const ev = (type: string, data: Record<string, string | number | boolean> = {}) => ({ beat: 40, type, outcome: 'good' as const, data });
+
+  it('has callings for speaking to a record crowd, for moving a lot of people, and for sending crowds to kill', () => {
+    for (const id of ['multitude', 'legion', 'mob']) expect(DEFS[id], id).toBeTruthy();
+    // legion counts everyone a speech moves: the opening and each wave that wanders in
+    const w = world('legion');
+    const { c } = ctxOf(w, 'l');
+    adoptCalling(c, calling('legion', { goal: 30 }));
+    callingAfter(c, null, 0, [ev('stump_speech', { variant: 'crowd', count: 5 }), ev('speech_joins', { variant: 'drift', count: 3, total: 8 })]);
+    expect(countOf(w, w.mind.calling!)).toBe(8);
+    callingAfter(c, null, 0, [ev('billboard_speech', { variant: 'crowd', count: 12 })]);
+    expect(countOf(w, w.mind.calling!)).toBe(20);
+    expect(progressOf(w, w.mind.calling!)).toBeCloseTo(20 / 30);
+  });
+
+  it('multitude is about the biggest single crowd, and always asks for more than she has managed', () => {
+    const w = bigStreet('multitude', 40);
+    const { c } = ctxOf(w, 'mm');
+    moveCrowd(c, { depth: 0, stretch: 1, edge: 0.3 });
+    const best = w.counters['cal.crowd_best'] ?? 0;
+    expect(best).toBeGreaterThan(10);
+    const goal = DEFS.multitude!.goal(new Rng('g'), 0.1, w);
+    expect(goal).toBeGreaterThan(best * 1.4);
+    adoptCalling(c, calling('multitude', { goal }));
+    expect(countOf(w, w.mind.calling!)).toBe(best);
+    // a smaller crowd later does not take it back
+    w.speech = undefined;
+    w.counters['cal.crowd_best'] = best + 25;
+    expect(countOf(w, w.mind.calling!)).toBe(best + 25);
+  });
+
+  it('a crowd behind someone sent after a target can kill them, and each kill counts for the mob calling', () => {
+    const run = (followers: number, seed: number): { dead: boolean; mob: number } => {
+      const w = world(`mob-${seed}`);
+      const t = Object.assign(spawnNpc(new Rng(`t${seed}`), `t${seed}`, 'patron', 'street_main', {}), { affinity: 0 });
+      addNpc(w, t);
+      const n = Object.assign(spawnNpc(new Rng(`n${seed}`), `n${seed}`, 'ganger', 'street_main', {}), { hp: 100, maxHp: 100 });
+      addNpc(w, n);
+      const ids: string[] = [];
+      for (let i = 0; i < followers; i++) {
+        const f = spawnNpc(new Rng(`f${seed}${i}`), `f${seed}_${i}`, 'patron', 'street_main', {});
+        addNpc(w, f);
+        ids.push(f.id);
+      }
+      const g = { id: 1, kind: 'go_after' as const, method: 'persuasion' as const, born: 0, until: 500, target: t.id, ...(followers ? { followers: ids } : {}) };
+      n.goals = [g];
+      w.influenced = [n.id];
+      w.hero.locationId = 'street_main';
+      const { c } = ctxOf(w, `r${seed}`);
+      for (let b = 0; b < 12 && t.alive && n.goals?.length; b++) {
+        w.beat += 5;
+        runErrand(c, n, g, 0);
+      }
+      return { dead: !t.alive, mob: w.counters['cal.mob'] ?? 0 };
+    };
+    let withCrowd = 0;
+    let alone = 0;
+    for (let i = 0; i < 40; i++) {
+      const a = run(20, i);
+      const b = run(0, i);
+      if (a.dead) { withCrowd++; expect(a.mob).toBe(1); }
+      if (b.dead) alone++;
+    }
+    expect(withCrowd).toBeGreaterThan(5);
+    expect(alone).toBe(0);
   });
 });
