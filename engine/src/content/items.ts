@@ -92,6 +92,7 @@ export const ITEMS: Record<string, Def> = {
   sparkle_rifle: w('Muse "Starstruck" rifle (glitter finish)', 24, 820),
   glitter_grenade: c('glitter grenade (it is a grenade)', 22, 40, ['throwable', 'fire']),
   inspiration_armour: a('pastel tactical armour, Inspiration issue', 5, 280),
+  lumina_chip: l('LUMINA\'s voice chip (still humming the chorus)', 900, ['relic', 'collectible']),
   bootleg_tapes: l('box of bootleg tapes of her own secret show (contraband)', 60, ['contraband', 'record']),
   muse_lanyard: l('Muse Inspiration lanyard ("Team Inspire 💖")', 15, ['corp']),
   // ---- gyms ----

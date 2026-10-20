@@ -56,7 +56,7 @@ export function crowdAround(w: World, depth = 1): Npc[] {
   const out: Npc[] = [];
   for (const id of earshot(w, depth)) {
     for (const n of npcsAt(w, id)) {
-      if (n.alive && !n.hostile && n.downUntil <= w.beat && canDeepen(n) && isPerson(n.tags, n.archetype) && !h.companions.some((a) => a.npcId === n.id)) out.push(n);
+      if (n.alive && !n.hostile && n.downUntil <= w.clock && canDeepen(n) && isPerson(n.tags, n.archetype) && !h.companions.some((a) => a.npcId === n.id)) out.push(n);
     }
   }
   return out;

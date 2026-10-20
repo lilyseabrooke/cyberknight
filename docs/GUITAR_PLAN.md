@@ -1,6 +1,6 @@
 # Guitar: what it opens up
 
-Status: **in progress.** The first nine steps of the build order are built (see "As built"); the rest is plan.
+Status: **in progress.** The first nine steps of the build order are built, and step 10 is under way (10a) (see "As built"); the rest is plan.
 Feel over balance: every number here is a first guess, to be felt out (or never tuned at all).
 
 ## As built
@@ -22,9 +22,13 @@ Feel over balance: every number here is a first guess, to be felt out (or never 
 | The underground, once Muse has noticed her and she hasn't signed: secret shows (a booking kind in cellars, back units and the Halo basement; books from an expected grade of 8, pays less, Muse never hears about it, wins extra fans and a box of bootleg tapes); bootleg tapes (contraband: hand them out in a crowd for fans, sell them, or lose them to Clearance first); pirate towers (Muse relay masts on a tenth of generated streets, guarded by technicians or an Inspiration team; win and rewire one with tinkering, a jacked guitar helps; each night it plays her to its neighbourhood and Muse may take it back; one inside the cordon is a teardown stage) | `bookings.ts`, `underground.ts`, `muse.ts`, `cordon.ts` |
 | Songs, a flavour layer: song-worthy events (kisses, slaps, breakups, CINDERJAW, the teardown, a comeback, Muse drones and scouts, bans, blackouts, Callings...) go on her mind as moments; somewhere quiet with a guitar she writes one up (guitar, music, a little int); the songbook outlives her; after a good set the log sometimes names the song. Her deaths become cover stories (a close call, a rumour, a lookalike), never a confession. Love songs about someone can be sung to them (a serenade) or played in public (a declaration; a partner takes it badly) | `songs.ts`, `run.ts` (the moment tap), `text.ts` |
 | Out-playing dragons: with a guitar, one go per dragon, no level gates; her guitar (with volume, jacked, and resonance against dragons) against the dragon's grade. Artemis: a decoy riff, it loses her. Hermes: its own delivery chime, it lands (even a Mk. III, which is far harder). Demeter: play over the harvest jingle in its demand, it announces her show and moves on (a flop is a refusal). Ares (any mark): a power riff to feed its appetite for violence, it moves on. CINDERJAW: its old lockdown signal, it drifts on. Hera Mk. V: play to it, it leaves; fail, it vaporizes her. Success is fame and renown for guitar, Atlas heat for the big ones, and a song moment | `dragonsong.ts`, `dragons.ts` |
-| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts`, `songs.test.ts`, `dragonsong.test.ts` |
+| Muse's pull per street (0-100, 50 by default): Muse shows that run to the end build it, her illegal shows wear it down (secret shows most), what she does to Muse shows wears it down a lot; Muse's drones, officers, warrants and strike teams come in proportion, and hardly at all where it has lost the block (or while it's quiet after losing LUMINA) | `musescene.ts`, `muse.ts` |
+| Muse shows: now and then near her, a generated Muse artist (a person or a robot, at the local grade or hers; dead ones stay dead) or, once she's big, LUMINA, with security, for an evening. A guitarist with something to prove takes on a fame goal. She can steal the crowd from across the street (`chart_war`), take the stage (`crash_show`; fluff it and she's walked out), or take the artist apart (`wreck_show`); LUMINA taken apart comes back as the next version | `musescene.ts`, `plans.ts`, `goals.ts` |
+| LUMINA: charm her (warmth), seduce her (a kiss in public is +10 fame and the story of the night), and once she's warm enough, "run away with me and we'll make our own music": she leaves Muse for good and Muse goes quiet for three nights. Signed or not | `musescene.ts` |
+| The broadcast hijack: from a pirate tower of hers with a jacked guitar, once a night; 3-5 places she has never broken into get fans and lose Muse pull; Muse traces the signal (the tower is usually lost) and comes looking | `musescene.ts` |
+| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts`, `songs.test.ts`, `dragonsong.test.ts`, `musescene.test.ts` |
 
-Not yet: the named Inspiration commander, LUMINA, breaking a Muse contract, resonance against dragons (step 9), and everything from
+Not yet: the named Inspiration commander (ENCORE), the LUMINA duet and breaking a Muse contract (10b), the wedge (10c, deferred), the board hooks (deferred until the board exists), resonance against dragons (step 9), and everything from
 step 10 of the build order on.
 
 ## The idea

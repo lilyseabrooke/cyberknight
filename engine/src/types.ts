@@ -594,6 +594,8 @@ export interface Location {
   wary?: Record<string, number>;
   /** People who saw her play here and liked it: her fans, as Neo counts them. Outlives her, like the place does. See renown.ts. */
   fans?: number;
+  /** Streets: how much of a hold Muse has here, 0..100 (absent is 50). Muse shows build it; her illegal ones wear it down. See musescene.ts. */
+  musePull?: number;
   /** Pieces of her graffiti up here. Drives diminishing fame and local consequences. */
   graffiti: number;
   /** Guard dogs and traps. Absent until somebody has had to find out. */
@@ -1050,6 +1052,26 @@ export interface MuseFile {
   tributeFor?: number;
   /** Muse relay masts she has taken for pirate radio, by street, and the night she took each. See underground.ts. */
   towers?: Record<Id, number>;
+  /** LUMINA, Muse's idol: which version is out (each one Blackbird takes apart is replaced), how she feels about
+   *  Blackbird, and whether she has left Muse to make her own music. See musescene.ts. */
+  lumina?: { version: number; warmth: number; flame: number; free?: boolean };
+  /** Muse is busy licking its wounds until this night (a `legacy.runs` number): it barely enforces anything. */
+  quietUntil?: number;
+}
+
+/** A Muse artist playing near her tonight, with Muse security. See musescene.ts. */
+export interface MuseShow {
+  loc: Id;
+  artist: Id;
+  lumina: boolean;
+  /** How good the artist is, on the grade scale. */
+  grade: number;
+  /** World minute it ends; if nobody spoiled it, Muse's pull there grows. */
+  until: number;
+  /** What she did to it, if anything. */
+  done?: 'stolen' | 'crashed' | 'wrecked' | 'freed';
+  /** What she's already tried on LUMINA at this show. */
+  tried?: string[];
 }
 
 /** Something that happened that she could write a song about. Kept on her mind for the night. See songs.ts. */
@@ -1429,6 +1451,8 @@ export interface Ask {
 }
 
 export interface Mind {
+  /** A Muse show on near her tonight (musescene.ts). */
+  museShow?: MuseShow;
   /** Things that happened tonight that she might write a song about (songs.ts). */
   moments?: Moment[];
   goals: Goal[];

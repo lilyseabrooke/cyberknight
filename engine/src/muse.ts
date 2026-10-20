@@ -6,6 +6,7 @@ import { spawnNpc } from './content/archetypes';
 import { dangerOf } from './grade';
 import { SKILLS, type SkillId } from './content/skills';
 import { addRenown, audience } from './renown';
+import { enforcement, shiftPull } from './musescene';
 import { odds, synergy, train } from './skills';
 import { INST_CLASSES, genInstrument } from './instruments';
 
@@ -60,19 +61,29 @@ export function museAfterSet(c: Ctx, act: string, skill: string, events: GameEve
   if (!events.some((e) => e.type === act && e.outcome === 'good')) return;
   const loc = w.locations[w.hero.locationId]!;
   if (!audience(w, loc)) return;
-  // A secret show is secret: Muse doesn't hear about it.
-  if (w.legacy.bookings?.some((b) => b.kind === 'secret' && b.loc === loc.id && b.night === w.legacy.runs)) return;
   const m = file(w);
-  if (m.signed) return;
+  // A secret show is secret: Muse doesn't hear about it, but the street does, and Muse's hold there slips.
+  if (w.legacy.bookings?.some((b) => b.kind === 'secret' && b.loc === loc.id && b.night === w.legacy.runs)) {
+    if (!m.signed) shiftPull(w, loc.id, -4);
+    return;
+  }
+  // Signed, her shows are Muse's shows.
+  if (m.signed) {
+    shiftPull(w, loc.id, 1);
+    return;
+  }
   const r = museRenown(w);
   if (r < MUSE_DRONES) return;
+  shiftPull(w, loc.id, -2);
+  // Where Muse has lost the street, it hardly bothers; where it owns it, it's keen.
+  const e = enforcement(w, loc.id);
   if (r >= MUSE_LETTER && !m.lettered) {
     m.lettered = true;
     c.emit('muse', 'mixed', { variant: 'letter', place: loc.name });
     return;
   }
   // The smallest thing Muse sends, and the first: a drone or two to gas the crowd.
-  if (rng.chance(r < MUSE_LETTER ? 0.25 : 0.15)) {
+  if (rng.chance((r < MUSE_LETTER ? 0.25 : 0.15) * e)) {
     museDrones(c, skill);
     return;
   }
@@ -83,17 +94,19 @@ export function museAfterSet(c: Ctx, act: string, skill: string, events: GameEve
     return;
   }
   if (m.refused) {
-    if (r >= MUSE_STRIKE && rng.chance(0.3)) {
+    // A hijacked broadcast has Muse looking for her.
+    const alert = (w.counters.muse_alert_until ?? -1) > w.clock ? 2 : 1;
+    if (r >= MUSE_STRIKE && rng.chance(0.3 * e * alert)) {
       inspirationStrike(c, 'set');
       return;
     }
-    if (rng.chance(0.3)) {
+    if (rng.chance(0.3 * e)) {
       addHeat(w, 'npd', 2);
       c.emit('muse', 'bad', { variant: 'warrant', place: loc.name });
     }
     return;
   }
-  if (!rng.chance(0.15)) return;
+  if (!rng.chance(0.15 * e)) return;
   const h = w.hero;
   // Contraband first: unlicensed recordings are the worst kind of music.
   const tapes = h.inventory.findIndex((i) => i.tags.includes('contraband'));
@@ -161,7 +174,7 @@ export function inspirationStrike(c: Ctx, at: 'set' | 'booking'): void {
 /** After a booked set: when she's too big to ignore, Muse read the poster too. */
 export function museAtBooking(c: Ctx): void {
   const { w, rng } = c;
-  if (museStanding(w) === 'hunted' && rng.chance(0.3)) inspirationStrike(c, 'booking');
+  if (museStanding(w) === 'hunted' && rng.chance(0.3 * enforcement(w, w.hero.locationId))) inspirationStrike(c, 'booking');
 }
 
 /** Once a night: if Inspiration got her last time, Muse has posted about it. */

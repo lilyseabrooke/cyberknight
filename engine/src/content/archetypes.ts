@@ -231,6 +231,21 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['glitter_grenade', 'muse_lanyard', 'med_pack', 'patch_kit'], lootChance: 0.55, cash: [40, 120],
     desc: ['a Muse Inspiration operative in pastel tactical armour, a heart decal on the visor and a very large gun', 'an Inspiration operative humming the Muse jingle under a mirrored visor, safety catch off'],
   },
+  lumina: {
+    role: 'Muse idol', level: [40, 40], tags: ['robot', 'muse', 'idol', 'boss'], faction: 'muse',
+    names: 'robot', weapons: [], loot: ['lumina_chip'], lootChance: 1, cash: [0, 0], hp: 700, power: 55,
+    desc: ['LUMINA, Muse\'s synthetic idol: chrome and light and a smile tuned in a lab to be exactly as warm as a hug from a stranger'],
+  },
+  muse_artist: {
+    role: 'Muse recording artist', level: [3, 5], tags: ['muse', 'performer'], faction: 'muse',
+    names: 'person', weapons: [], loot: ['muse_lanyard', 'credchip'], lootChance: 0.6, cash: [60, 200],
+    desc: ['a Muse recording artist in approved pastel, smiling the contractual smile'],
+  },
+  muse_bot_artist: {
+    role: 'Muse performer unit', level: [3, 5], tags: ['robot', 'muse', 'performer'], faction: 'muse',
+    names: 'robot', weapons: [], loot: ['memory_shard', 'scrap_metal'], lootChance: 0.7, cash: [0, 0],
+    desc: ['a Muse performer unit, all mirrored panels and auto-tune, with a serial number for a surname'],
+  },
   muse_drone: {
     role: 'Muse noise-abatement drone', level: [2, 2], tags: ['robot', 'patrol', 'muse', 'nonlethal'], faction: 'muse',
     names: 'robot', weapons: [], loot: ['memory_shard', 'scrap_metal'], lootChance: 0.45, cash: [0, 0], hp: 30, power: 6,

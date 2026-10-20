@@ -42,6 +42,7 @@ import { flashMobCandidate } from './fans';
 import { teardownCandidate } from './cordon';
 import { undergroundCandidates } from './underground';
 import { songCandidates } from './songs';
+import { museSceneCandidates } from './musescene';
 import { heatUrge } from './laylow';
 import { speakingCandidates } from './speaking';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
@@ -231,6 +232,7 @@ export function gather(w: World): Candidate[] {
   if (teardown) out.push(teardown);
   out.push(...undergroundCandidates(w));
   out.push(...songCandidates(w));
+  out.push(...museSceneCandidates(w));
   out.push(...speakingCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));

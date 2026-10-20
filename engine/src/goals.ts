@@ -1093,6 +1093,13 @@ export function adoptContract(c: Ctx, targetId: string, mode: 'kill' | 'beat_up'
   return adopt(c, { kind: 'kill', npc: targetId, mode, why, desire, variant: 'contract', extra: { npc: t.name } });
 }
 
+/** A Muse act is on near her, and her pride is up: she wants to show them. A fame goal, which a show near her will steer. */
+export function startShowGoal(c: Ctx, artist: string, place: string): Goal | null {
+  const t = traits(c.w);
+  const desire = clamp(0.5 + 0.3 * (t.fame - 0.5) + 0.2 * (t.vanity - 0.5) + 0.2 * (t.mischief - 0.5), 0.3, 0.9);
+  return adopt(c, { kind: 'fame', amount: Math.floor(c.w.hero.fame) + 6, why: `${artist} is playing ${place}`, desire, variant: 'muse_show', extra: { npc: artist, place } });
+}
+
 /** She's booked to play somewhere tonight, and means to show up. */
 export function startBookingGoal(c: Ctx, b: Booking, place: string): Goal | null {
   const t = traits(c.w);

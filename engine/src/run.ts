@@ -37,6 +37,7 @@ import { grapevineTick } from './fans';
 import { museTick } from './muse';
 import { towersTick } from './underground';
 import { noteMoment, songsTick } from './songs';
+import { museShowTick } from './musescene';
 import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
 import { tickCrews } from './crew';
@@ -307,6 +308,7 @@ function upkeep(c: Ctx): void {
   museTick(c);
   towersTick(c);
   songsTick(c);
+  museShowTick(c);
   tickGyms(c);
   tickPawns(c);
   tickCrews(c);

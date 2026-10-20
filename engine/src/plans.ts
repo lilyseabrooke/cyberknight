@@ -1,4 +1,5 @@
 import type { Hero, Id, Item, Npc, Ware, World } from './types';
+import { streetOf } from './renown';
 import { teardownVenue } from './cordon';
 import { hasInstrument } from './instruments';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
@@ -251,6 +252,9 @@ export const FAME_ACTS: FameAct[] = [
   { fam: 'graffiti', skill: 'art', prior: 1.2, venue: (w) => seen(w, 'street_main') },
   { fam: 'parkour', prior: 0.8, venue: (w) => featureAt(w, 'parkour') },
   { fam: 'cordon_teardown', skill: 'guitar', prior: 10, venue: (w) => teardownVenue(w) },
+  // A Muse show on near her: steal its crowd from across the street, or take its stage.
+  { fam: 'chart_war', skill: 'guitar', prior: 5, venue: (w) => (w.mind.museShow && !w.mind.museShow.done ? streetOf(w, w.locations[w.mind.museShow.loc]!).id : null) },
+  { fam: 'crash_show', skill: 'guitar', prior: 6, venue: (w) => (w.mind.museShow && !w.mind.museShow.done ? w.mind.museShow.loc : null) },
 ];
 
 export const FAME_FAMILIES = new Set([...FAME_ACTS.map((a) => a.fam), 'film_flight', 'beatbox', 'serenade', 'serenade_girl', 'dancefloor']);
