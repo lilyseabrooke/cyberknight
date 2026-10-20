@@ -51,10 +51,11 @@ export const FANS_FOR_COUCH = 15;
 export const FANS_FOR_TIPS = 20;
 export const FANS_FOR_MOB = 30;
 
-const MOB_BEATS = 12;
+/** How long a flash mob fills the street: world minutes. */
+const MOB_MINUTES = 40;
 
 /** A flash mob is filling this place right now. */
-export const mobHere = (w: World, locId: Id): boolean => (w.counters[`mob_until:${locId}`] ?? -1) > w.beat;
+export const mobHere = (w: World, locId: Id): boolean => (w.counters[`mob_until:${locId}`] ?? -1) > w.clock;
 
 /** Extra cover from the people around her: fans to hide among, a flash mob to vanish into. */
 export function fanCover(w: World, locId: Id): number {
@@ -176,7 +177,7 @@ export function flashMob(c: Ctx, fans = localFans(c.w, c.w.hero.locationId)): Mo
   const { w } = c;
   const loc = w.locations[w.hero.locationId]!;
   w.counters[`mob:${blockKey(w, loc.id)}`] = 1;
-  w.counters[`mob_until:${loc.id}`] = w.beat + MOB_BEATS;
+  w.counters[`mob_until:${loc.id}`] = w.clock + MOB_MINUTES;
   const turnout = Math.round(fans * 0.6);
   fansArrive(c, fans);
   // They are fickle: being called out costs some of them.

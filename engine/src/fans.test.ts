@@ -127,7 +127,7 @@ describe('the flash mob', () => {
     expect(hasTemplate(events.find((e) => e.type === 'flash_mob')!)).toBe(true);
     expect(npdResponse(ctxOf(w, always()).c)).toBe(false);
     expect(flashMobCandidate(w, 5)).toBeNull();
-    w.beat += 20;
+    w.clock += 60;
     expect(mobHere(w, 'street_main')).toBe(false);
   });
 });

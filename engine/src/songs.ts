@@ -121,7 +121,7 @@ export function songCandidates(w: World): Candidate[] {
   const h = w.hero;
   if (!hasInstrument(h)) return out;
   const moments = w.mind.moments ?? [];
-  if (moments.length && quiet(w) && (w.beat - (w.counters.last_song ?? -99)) >= 6) {
+  if (moments.length && quiet(w) && w.clock - (w.counters.last_song ?? -9999) >= 60) {
     const best = Math.max(...moments.map((m) => m.drama));
     out.push({ key: 'write_song', drives: { pride: 0.4, curiosity: 0.4 }, bonus: 0.05 * best, risk: 0, intent: {}, run: writeSong });
   }
@@ -144,7 +144,7 @@ export function songCandidates(w: World): Candidate[] {
 export function writeSong(c: Ctx): Song | null {
   const { w, rng } = c;
   const h = w.hero;
-  w.counters.last_song = w.beat;
+  w.counters.last_song = w.clock;
   const moments = w.mind.moments ?? [];
   if (!moments.length) return null;
   const romantic = h.personality.traits.romantic;
