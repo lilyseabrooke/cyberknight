@@ -998,7 +998,7 @@ export interface Legacy {
 
 /** What the lab holds of one Cyberfrog character. */
 export interface FrogShelf {
-  /** How many of this character she has sent home, all editions together. */
+  /** How many of this character she has sent home, all editions together; more than one means duplicates. */
   count: number;
   /** Which editions she has (keys of EDITIONS). */
   editions: string[];
@@ -1046,7 +1046,7 @@ export interface RunReport {
   /** What she was chasing when the night ended, for the lab's wall. Shown once; it does not carry into the next body. */
   calling?: { label: string; progress: number };
   /** Cyberfrogs she sent home that night, and how many different ones the lab holds now. */
-  frogs?: { got: number; owned: number };
+  frogs?: { got: number; owned: number; dupes: number };
   /** Balance before and after. */
   before: number;
   after: number;

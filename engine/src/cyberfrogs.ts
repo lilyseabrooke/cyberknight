@@ -394,6 +394,7 @@ function sendHome(c: Ctx, f: Frog): void {
   s.count++;
   if (!s.editions.includes(f.edition)) s.editions.push(f.edition);
   w.counters.frogs_got = (w.counters.frogs_got ?? 0) + 1;
+  if (!isNew) w.counters.frogs_dupes = (w.counters.frogs_dupes ?? 0) + 1;
   const owned = shelfSize(w);
   const extra = isNew ? rng.pick(LAB_FIRSTS) : rng.pick(LAB_DUPES);
   say(c, f, 'lab', 'good', [`${rng.pick(LAB_LINES)} ${extra} The shelf holds ${owned} of ${FROG_COUNT}.`], undefined, { count: s.count, owned, new: isNew ? 1 : 0 });

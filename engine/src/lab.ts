@@ -224,7 +224,7 @@ export function settleAccount(w: World): RunReport {
     level: w.hero.level,
     kills: w.stats.kills,
     beats: w.beat,
-    ...(w.counters.frogs_got || l.frogs ? { frogs: { got: w.counters.frogs_got ?? 0, owned: Object.keys(l.frogs ?? {}).length } } : {}),
+    ...(w.counters.frogs_got || l.frogs ? { frogs: { got: w.counters.frogs_got ?? 0, owned: Object.keys(l.frogs ?? {}).length, dupes: w.counters.frogs_dupes ?? 0 } } : {}),
     ...(w.mind.calling ? { calling: { label: callingLine(w.mind.calling), progress: Math.min(1, Math.max(0, progressOf(w, w.mind.calling))) } } : {}),
     before,
     after: l.account,

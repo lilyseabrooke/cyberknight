@@ -48,6 +48,15 @@ describe('the Cyberfrogs themselves', () => {
       names.add(f.name);
     });
     for (const e of EDITIONS) expect(e.weight).toBeGreaterThan(0);
+    // They have pronouns, and the bios use them.
+    const PRON = { man: /\b(he|his|him)\b/i, woman: /\b(she|her|hers)\b/i, nonbinary: /\b(they|their|them)\b/i, none: /\b(it|its)\b/i };
+    for (const f of FROGS) expect(f.bio, f.name).toMatch(PRON[f.gender]);
+    // Ribbit's grandmother Croaky fought in the war; which war is not said.
+    const croaky = FROGS.find((f) => f.name === 'Croaky')!;
+    expect(croaky.gender).toBe('woman');
+    expect(croaky.bio).toMatch(/fought in the War/);
+    expect(croaky.bio).toMatch(/grandmother of Ribbit/);
+    expect(FROGS.find((f) => f.name === 'Ribbit')!.bio).toMatch(/Croaky/);
     expect(frogName(0)).toBe('Cyberfrog Donald with a sword');
     expect(frogTitle(0, 'initial')).toBe('Cyberfrog Donald with a sword from the limited initial run');
   });
@@ -145,6 +154,8 @@ describe('getting one', () => {
     sc.do(`frog:${here}`);
     expect(w.legacy.frogs!['5']).toMatchObject({ count: 2, editions: ['glow', 'chrome'] });
     expect(shelfSize(w)).toBe(1);
+    expect(w.counters.frogs_got).toBe(2);
+    expect(w.counters.frogs_dupes).toBe(1);
   });
 
   it('a trap hurts: the car runs her over, and the crew that set it is on her', () => {
@@ -228,7 +239,7 @@ describe('the lab keeps them', () => {
     w.ending = 'dead';
     const next = endRun(w);
     expect(next.legacy.frogs!['77']).toMatchObject({ count: 1, editions: ['sealed'] });
-    expect(next.legacy.report?.frogs).toEqual({ got: 1, owned: 1 });
+    expect(next.legacy.report?.frogs).toEqual({ got: 1, owned: 1, dupes: 0 });
     const w2 = beginRun(next, { seed: 'frog-shelf#b' });
     expect(shelfSize(w2)).toBe(1);
     expect(w2.frogs).toBeUndefined();
