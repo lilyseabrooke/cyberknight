@@ -930,6 +930,12 @@ const T: Record<string, Entry> = {
   pawn: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
   // ---- chop shops and workbenches (chop.ts, bench.ts): same shape
   chop: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  // ---- hacker hubs (content/hub*.ts, hubkit.ts): same shape
+  hub: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:hub': e((d) => [String(d.text)]),
+  'intent:hubquick': e((d) => [String(d.text)]),
+  'intent:hubfight': e((d) => [String(d.text)]),
+  'intent:hubdeal': e((d) => [String(d.text)]),
   'intent:pawn': e((d) => [String(d.text)]),
   'intent:pawnquick': e((d) => [String(d.text)]),
   'intent:pawnfight': e((d) => [String(d.text)]),
@@ -1893,6 +1899,14 @@ const T: Record<string, Entry> = {
   'shut_down:chop_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. The radio plays on for a bar, and then someone turns it off. A very quiet person with a key shows Blackbird to the pavement and pulls the roller door down on the bench.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back and the bench is under a tarp.`],
     ['That is going to be a long night for the neighbourhood.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
+  'shut_down:hub': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor, nobody is left to run ${d.place}. Every screen goes dark at once, someone pulls the master switch and a very calm person shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The racks are off, the door is shut and the forum has started a thread about it.`],
+    ['I closed a hacker hub. That is a lot of people with nowhere to type.', 'No more lessons. Terrible for the economy. Good for me, today.'],
+  ),
+  'shut_down:hub_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. The racks hum on for a minute, and then a regular reaches over and turns them off, one at a time. Someone with a key shows Blackbird to the pavement.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back and the forum is a memorial.`],
+    ['That was somebody\'s whole life, in a rack.', 'It was always going to come to this. Not me. Him. Probably.'],
   ),
   'shut_down:clinic': e(
     (d) => [d.inside ? `With ${d.npc} out cold and nobody else qualified to hold a scalpel, ${d.place} locks up. The guards herd Blackbird to the door and the shutters come down on her heels.` : `${d.place} has shut. With ${d.npc} on the floor there is nobody left to hold the scalpel, and the guards have locked the door from the inside.`],
