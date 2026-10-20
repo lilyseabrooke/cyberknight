@@ -6,6 +6,7 @@ import type { StreetType } from './streettypes';
 import type { Trait } from './personality';
 import type { Faction } from './factions';
 import type { HomeKind } from './content/realty';
+import type { Heritage } from './content/names';
 
 /**
  * All world state is plain JSON (no classes, Sets or Maps) so a run can be saved to
@@ -742,6 +743,8 @@ export interface GenInfo {
   /** Steps of street from the hand-built district. */
   depth: number;
   district: District;
+  /** The quarter's heritage, if it has one (a Chinatown, a Little Lagos): inherited down from its street, and it leans the names of the people who turn up there. See content/names.ts. */
+  heritage?: Heritage;
   /** How dangerous it is, on the grade scale (grade.ts). Streets walk it from their parent; everything on a street shares it. Absent on maps made before danger existed. */
   danger?: number;
   /** An outermost street of the starting district: nothing runs on past it until the gate is open (mapgen.ts `liftCordon`). */

@@ -163,8 +163,8 @@ export function rollTies(w: World, n: Npc): void {
     if (kind === 'kin') {
       const rel = rng.weighted(RELATIVES, (r) => r.chance);
       const age = Math.max(18, n.age + rng.int(rel.age[0], rel.age[1]));
-      const first = rollNpcName(rng, 'person').split(' ')[0]!;
       const gender: Gender = rng.chance(0.47) ? 'woman' : rng.chance(0.94) ? 'man' : 'nonbinary';
+      const first = rollNpcName(rng, 'person', gender).split(' ')[0]!;
       const stub = makeStub(w, { name: surname ? `${first} ${surname}` : first, gender, age, archetype: rng.pick(['patron', 'drifter', 'noodler', 'cook']), faction: rng.chance(0.4) ? n.faction : null, lastKnown: undefined }, `kin_${n.id}_${i}`);
       stub.name = stub.name.trim();
       link(w, n.id, stub.id, 'kin', rng.int(35, 85), rng.int(35, 85));

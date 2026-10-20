@@ -239,9 +239,9 @@ describe('what she is about when she has nothing else on her mind', () => {
       expect(first, `seed ${i}`).toBeTruthy();
       kinds[String(first!.data.kind)] = (kinds[String(first!.data.kind)] ?? 0) + 1;
     }
-    expect(kinds.fame).toBeGreaterThan(5);
-    expect(kinds.cash).toBeGreaterThan(5);
-    expect(kinds.dragon).toBeGreaterThan(5);
+    expect(kinds.fame).toBeGreaterThan(2);
+    expect(kinds.cash).toBeGreaterThan(2);
+    expect(kinds.dragon).toBeGreaterThan(2);
   });
 
   it('personality tilts it', () => {

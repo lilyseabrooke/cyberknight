@@ -160,7 +160,7 @@ export function populate(w: World, loc: Location): Npc[] {
         here.push(cast);
         continue;
       }
-      const npc = spawnNpc(person, id, slot.role, loc.id, { faction: faction ?? undefined, ...(loc.gen ? { grade: dangerOf(loc) } : {}) });
+      const npc = spawnNpc(person, id, slot.role, loc.id, { faction: faction ?? undefined, ...(loc.gen ? { grade: dangerOf(loc), place: loc.gen } : {}) });
       if (slot.ephemeral) npc.ephemeral = true;
       // A clinic's dogs are as good as its street can afford (the same BARK models homes keep).
       if (loc.kind === 'clinic' && slot.role === 'guard_dog') {
