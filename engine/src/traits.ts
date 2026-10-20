@@ -73,6 +73,11 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   billboard: { fame: 1.4, techy: 1.0, mischief: 0.5 },
   graffiti: { fame: 1.2, artistry: 1.2, mischief: 0.6 },
   mirror: { vanity: 2.0 },
+  mirror_speech: { vanity: 2.0, artistry: 0.3 },
+  stump_speech: { fame: 0.8, sociable: 0.6, artistry: 0.3 },
+  keep_speaking: { fame: 0.5, sociable: 0.6, artistry: 0.2 },
+  wrap_up: { sociable: 0.2 },
+  rally_allies: { sociable: 0.6, kindness: 0.4 },
   recruit_kids: { fame: 0.6, kindness: 0.5 },
   // tinkering
   hack: { techy: 1.4 },
@@ -109,6 +114,7 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   eat_noodles: { appetite: 0.8 },
   eat_dish: { appetite: 0.8 },
   buy_gear: { vanity: 0.6 },
+  buy_loudspeaker: { fame: 0.4, sociable: 0.3 },
 };
 
 /** Fights that are only a good idea when the other side has it coming. */

@@ -168,7 +168,7 @@ const PRIOR: Record<string, number> = {
 };
 
 /** Spending, as opposed to earning. A hero saving up for something does not do these. */
-export const SPEND = new Set(['order_drink', 'buy_round', 'buy_gear', 'buy_stim', 'buy_stims', 'buy_noodles', 'buy_paint', 'implant', 'laser_tag', 'mix_molotov', 'buy_intel']);
+export const SPEND = new Set(['order_drink', 'buy_round', 'buy_gear', 'buy_loudspeaker', 'buy_stim', 'buy_stims', 'buy_noodles', 'buy_paint', 'implant', 'laser_tag', 'mix_molotov', 'buy_intel']);
 
 export const sellable = (i: Item): boolean => ['loot', 'weapon', 'armor', 'gadget'].includes(i.kind) && !i.tags.includes('instrument') && !i.tags.includes('quest') && !i.tags.includes('key');
 
@@ -245,6 +245,7 @@ export const FAME_ACTS: FameAct[] = [
   { fam: 'busk', skill: 'guitar', prior: 1.0, venue: (w) => (w.hero.inventory.some((i) => i.tags.includes('instrument')) ? seen(w, 'street_main') : null) },
   { fam: 'beat_battle', skill: 'beatbox', prior: 1.2, venue: (w) => seen(w, 'halo_floor') },
   { fam: 'billboard', prior: 3.0, venue: (w) => featureAt(w, 'billboard') },
+  { fam: 'stump_speech', skill: 'speaking', prior: 1.0, venue: (w) => seen(w, 'street_main') },
   { fam: 'graffiti', skill: 'art', prior: 1.2, venue: (w) => seen(w, 'street_main') },
   { fam: 'parkour', prior: 0.8, venue: (w) => featureAt(w, 'parkour') },
 ];
