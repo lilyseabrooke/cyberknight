@@ -210,11 +210,14 @@ export const planEase = (w: World, dest: Location): number => Math.min(coverEase
 
 // ===================================================================== putting it on
 
-/** How well she carries a face when she puts it on. Nothing to go on is about two in five. */
-export const bearing = (h: Hero): number => odds(0.4, 0.06, synergy(h, ['acting', ['stat:charm', 0.4], ['stat:int', 0.3]]), 0.15, 0.9);
+/**
+ * How well she carries a face when she puts it on. Nothing to go on is about two in five. Skills run 0 to 100 and stats 0 to 10, and the
+ * stats pull the blend down: acting 10 with middling stats is about 0.6, acting 30 about 0.75, acting 50 about 0.9.
+ */
+export const bearing = (h: Hero): number => odds(0.4, 0.025, synergy(h, ['acting', ['stat:charm', 0.4], ['stat:int', 0.3]]), 0.15, 0.92);
 
-/** Minutes of world time it holds. */
-const lasts = (h: Hero): number => clamp(90 + 15 * skillLevel(h, 'acting'), 90, 360);
+/** Minutes of world time it holds: an hour and a half, and another quarter hour for every four levels, up to seven hours. */
+const lasts = (h: Hero): number => clamp(90 + 4 * skillLevel(h, 'acting'), 90, 420);
 
 function put(c: Ctx, face: Pick<Disguise, 'kind' | 'label'> & Partial<Pick<Disguise, 'crew' | 'as' | 'fame'>>, polish: number): Disguise {
   const { w } = c;
@@ -318,7 +321,7 @@ export function disguiseTick(c: Ctx): void {
 
 /** How likely it is that the people in a room take her for one of their own. */
 export function holdOdds(w: World, dis: Disguise, d: Dungeon, foes: Npc[]): number {
-  let p = dis.polish + 0.01 * skillLevel(w.hero, 'acting');
+  let p = dis.polish + 0.003 * skillLevel(w.hero, 'acting');
   p -= 0.05 * (d.tier - 1); // the better run the place, the better they know their own
   p -= 0.03 * Math.min(5, foes.length - 1); // more pairs of eyes
   p -= 0.1 * d.alert; // something already went wrong here tonight
@@ -372,7 +375,7 @@ export function tryGate(c: Ctx, exit: Exit): Disguise | null {
   if (!canPass(w, exit.gate)) return null;
   const dis = w.hero.disguise!;
   const dest = w.locations[exit.to]!;
-  const p = clamp(dis.polish + 0.01 * skillLevel(w.hero, 'acting') - (exit.gate === 'guarded' ? 0.04 * dest.security : 0.05), 0.1, 0.95);
+  const p = clamp(dis.polish + 0.003 * skillLevel(w.hero, 'acting') - (exit.gate === 'guarded' ? 0.04 * dest.security : 0.05), 0.1, 0.95);
   if (rng.chance(p)) {
     train(c, 'acting', 2);
     return dis;
@@ -412,12 +415,12 @@ export function disguiseCandidates(w: World): Candidate[] {
     const crew = entranceCrew(dest);
     if (crew && meant.has(dest.id) && !(dis?.kind === 'crew' && dis.crew === crew)) {
       out.push({
-        key: `don_cover:${dest.id}`, drives: { greed: 0.5, curiosity: 0.3, pride: 0.3 }, bonus: 0.1 + 0.02 * lvl + 0.9 * meant.get(dest.id)!, smart: 0.4,
+        key: `don_cover:${dest.id}`, drives: { greed: 0.5, curiosity: 0.3, pride: 0.3 }, bonus: 0.1 + 0.005 * lvl + 0.9 * meant.get(dest.id)!, smart: 0.4,
         intent: { crew: crewKind(crew), gang: GANGS[crew] ?? '', place: dest.name }, run: (c) => donCover(c, dest, crew),
       });
     }
     if (rested && (e.gate === 'guarded' || e.gate === 'bouncer') && !canPass(w, e.gate)) {
-      out.push({ key: `don_staff:${e.to}`, drives: { curiosity: 0.4, greed: 0.2 }, bonus: 0.05 + 0.02 * lvl, intent: { place: dest.name }, run: (c) => donStaff(c, e) });
+      out.push({ key: `don_staff:${e.to}`, drives: { curiosity: 0.4, greed: 0.2 }, bonus: 0.05 + 0.005 * lvl, intent: { place: dest.name }, run: (c) => donStaff(c, e) });
     }
   }
 
@@ -431,11 +434,11 @@ export function disguiseCandidates(w: World): Candidate[] {
     if (aimed) {
       out.push({ key: 'don_star', drives: { pride: 0.6, lust: 0.6 }, bonus: 0.3, intent: {}, run: donStar });
     } else if (starRested(w) && crowd.length && best.polish >= 0.3 && buzz(w, best.star.name) < 1.5) {
-      out.push({ key: 'don_star', drives: { pride: 0.4, lust: 0.4, curiosity: 0.2 }, bonus: 0.04 + 0.02 * lvl, smart: 0.1, intent: {}, run: donStar });
+      out.push({ key: 'don_star', drives: { pride: 0.4, lust: 0.4, curiosity: 0.2 }, bonus: 0.04 + 0.005 * lvl, smart: 0.1, intent: {}, run: donStar });
     }
     // (Studying a person is for a crew she means to walk in on.)
     for (const n of here(w).filter((x) => x.alive && !x.hostile && isCrew(x.faction) && raidCrews.has(x.faction)).slice(0, 2)) {
-      out.push({ key: `mimic:${n.id}`, drives: { curiosity: 0.5, pride: 0.3 }, bonus: 0.05 + 0.02 * lvl, intent: { npc: n.name }, run: (c) => mimic(c, n) });
+      out.push({ key: `mimic:${n.id}`, drives: { curiosity: 0.5, pride: 0.3 }, bonus: 0.05 + 0.005 * lvl, intent: { npc: n.name }, run: (c) => mimic(c, n) });
     }
   }
 
@@ -454,7 +457,7 @@ export function disguiseCandidates(w: World): Candidate[] {
   if (dis?.kind === 'star') {
     for (const n of here(w)) {
       if (!isFairGame(n) || n.hostile || dis.fooled.includes(n.id)) continue;
-      out.push({ key: `star_flirt:${n.id}`, drives: { lust: 1.4, pride: 0.6 }, bonus: 0.4 + 0.02 * lvl, risk: 0.15, intent: { npc: n.name, star: dis.label }, run: (c) => starFlirt(c, n, dis) });
+      out.push({ key: `star_flirt:${n.id}`, drives: { lust: 1.4, pride: 0.6 }, bonus: 0.4 + 0.005 * lvl, risk: 0.15, intent: { npc: n.name, star: dis.label }, run: (c) => starFlirt(c, n, dis) });
     }
   }
   return out;
@@ -468,7 +471,8 @@ function shakeHeat(c: Ctx): void {
   if (!dis) return;
   const gained = dis.heat ?? {};
   const total = Object.values(gained).reduce((a, b) => a + b, 0);
-  const p = clamp(odds(0.06, 0.05, synergy(h, ['acting', ['sneak', 0.5], ['stat:int', 0.3]]), 0.03, 0.55) - 0.03 * total, 0.03, 0.55);
+  // (Acting, sneak and int blended: level 20s and middling int are about 1 in 4, level 50s about 1 in 2, and level 80s no better than 3 in 5.)
+  const p = clamp(odds(0.05, 0.012, synergy(h, ['acting', ['sneak', 0.5], ['stat:int', 0.3]]), 0.03, 0.6) - 0.03 * total, 0.03, 0.6);
   strip(c, false);
   if (rng.chance(p)) {
     for (const [f, v] of Object.entries(gained)) w.heat[f] = Math.max(0, (w.heat[f] ?? 0) - v);
@@ -498,7 +502,7 @@ function starFlirt(c: Ctx, n: Npc, dis: Disguise): void {
   const { w, rng } = c;
   const h = w.hero;
   const star = STARS.find((s) => s.name === dis.label);
-  const p = clamp(0.5 + 0.3 * dis.polish + 0.04 * skillLevel(h, 'acting') + n.affinity / 300 + romanceMod(w, n) - 0.06 * Math.min(4, buzz(w, dis.label)), 0.12, 0.93);
+  const p = clamp(0.5 + 0.3 * dis.polish + 0.006 * skillLevel(h, 'acting') + n.affinity / 300 + romanceMod(w, n) - 0.06 * Math.min(4, buzz(w, dis.label)), 0.12, 0.93);
   kindle(h, 0.05);
   if (rng.chance(p)) {
     addBuzz(w, dis.label, 0.5); // she tells her friends

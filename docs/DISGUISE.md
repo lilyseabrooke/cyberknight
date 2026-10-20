@@ -5,7 +5,7 @@ Skill: `acting` (social; its training also nudges grifting, speaking and flirtin
 
 ## The face
 
-`Hero.disguise` is the face she has on: who she is (`label`), what kind (`crew` | `role` | `star`), how well she carries it (`polish`, 0..1, set when she puts it on from `acting`, charm and int, about 0.4 with nothing to go on) and when it wears off (`until`, a world minute: 90 minutes at level 0, up to 6 hours). The same code serves a cheap trick and a skilled one; nothing is rolled once and kept except the polish.
+`Hero.disguise` is the face she has on: who she is (`label`), what kind (`crew` | `role` | `star`), how well she carries it (`polish`, 0..1, set when she puts it on from `acting`, charm and int, about 0.4 with nothing to go on, 0.6 at level 10, 0.75 at 30, 0.9 at 50) and when it wears off (`until`, a world minute: 90 minutes at level 0, a quarter hour more for every four levels, up to 7 hours). The same code serves a cheap trick and a skilled one; nothing is rolled once and kept except the polish.
 
 | Face | Where it is put on | What it is good for |
 |---|---|---|
@@ -56,7 +56,11 @@ Faces are planned, not worn on a whim (`guise` goals, `goals.ts`):
 - **Wearing a star's face puts her under the star's heat.** Her own police heat is set aside (`Disguise.parked`) and `w.heat.npd` *is* the star's until the face comes off, so every existing system (the police response, bribes, a fixer, decay, chases) works on the star's heat. She may put on a face the law is after and not know why she is being picked up.
 - **What she does as a star is on the star's account.** All heat she would gain, from any faction, goes to the one number. A fight in front of witnesses is the same: the face goes after the witnesses have seen it. When the face comes off, her own heat comes back untouched. She is still in trouble for as long as she wears it.
 - **The star's people find out.** Any heat she adds to a star's account is *blame*. Usually a letter follows after two to ten hours (`cd_at_*`): more likely the more she added, and bigger the more blame. When she is next outdoors after that, a private security patrol turns up (`star_security`, 2 to 4 of them): the archetype has `security`, not `cop`, so beating it off builds no police heat. It comes once.
-- **Losing the heat by losing the face.** Any other face (a crew, a lanyard) records the heat she picks up while wearing it (`Disguise.heat`). `shake_heat` drops the face and tries to lose that heat. It is hard: 6% plus 5% per point of acting, sneak and int, less 3% per point of heat, and no better than 55%. A miss still drops the face, and the heat stays.
+- **Losing the heat by losing the face.** Any other face (a crew, a lanyard) records the heat she picks up while wearing it (`Disguise.heat`). `shake_heat` drops the face and tries to lose that heat. It is hard: 5% with no skill, about 1 in 4 with acting and sneak in the 20s, 1 in 2 in the 50s, never better than 3 in 5, and 3% off for every point of heat she is trying to lose. A miss still drops the face, and the heat stays.
+
+## Scale
+
+Skills run 0 to 100 and stats 0 to 10 (80 is very high). The acting numbers are written for that: `bearing`, the shake-heat check and the small skill terms (+0.3% hold per level, +0.6% working a girl per level, +0.5% desire per level) are per level on a 0-100 scale, not on 0-10.
 
 ## Left out / open
 
