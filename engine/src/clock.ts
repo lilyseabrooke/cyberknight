@@ -35,6 +35,7 @@ export const ACTION_MINUTES: Record<string, number> = {
   gym: 35, gymfight: 15, gymquick: 6,
   hijack: 6,
   pawn: 30, pawnfight: 15, pawnquick: 6, pawndeal: 20,
+  hall: 30, hallfight: 15, hallquick: 6, halldeal: 20,
   chopin: 8, bench: 45,
   hub: 30, hubfight: 15, hubquick: 6, hubdeal: 25, benchcraft: 60, scavenge: 30,
   realtybuy: 45, realtyview: 10,

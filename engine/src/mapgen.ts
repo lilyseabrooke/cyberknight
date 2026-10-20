@@ -7,6 +7,7 @@ import { SPOTS, SPOT_AGAIN, SPOT_CHANCE, pickSpot, rollSpotTier, type SpotDef } 
 import { CONDITIONS, GYM_CHANCE, ROOMS, rollGym, roomTitle } from './content/gyms';
 import { OFFICE_BLURBS, REALTY_CHANCE, officeName } from './content/realty';
 import { PAWN_CHANCE, ROOMS as PAWN_ROOMS, rollPawn, roomTitle as pawnRoomTitle } from './content/pawns';
+import { HALL_CHANCE, ROOMS as HALL_ROOMS, rollHall, roomTitle as hallRoomTitle } from './content/halls';
 import { CHOP_CHANCE, rollChop } from './content/chops';
 import { HUB_CHANCE, rollHub } from './content/hubs';
 import { DISTRICT_DANGER, START_DEPTH, dangerOf, meanDanger, stepDanger } from './grade';
@@ -56,7 +57,7 @@ const NEXT_TO: Record<District, District[]> = {
   slum: ['tenement', 'industrial', 'nightlife'],
 };
 
-export type Lot = Exclude<GenRole, 'street' | 'clinic' | 'unit' | 'backroom' | 'cellar' | 'vip' | 'chamber' | 'spot' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop' | 'hub'>;
+export type Lot = Exclude<GenRole, 'street' | 'clinic' | 'unit' | 'backroom' | 'cellar' | 'vip' | 'chamber' | 'spot' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop' | 'hub' | 'gamehall' | 'gamehallroom'>;
 
 /** What stands along a street, by district. */
 export const LOTS: Record<District, Record<Lot, number>> = {
@@ -150,6 +151,9 @@ const BLURB: Record<Exclude<GenRole, 'street'>, string[]> = {
   chop: ['{name}: a chop shop, of sorts.'],
   // Hacker hubs write their own (content/hubs.ts).
   hub: ['{name}: a hacker hub, of sorts.'],
+  // Arcades write their own (content/halls.ts).
+  gamehall: ['{name}: an arcade, of sorts.'],
+  gamehallroom: ['{name}: a room in an arcade.'],
   realty: OFFICE_BLURBS,
 };
 
@@ -307,6 +311,8 @@ export function expand(w: MapWorld, loc: Location): void {
       if (!highway && new Rng(`chopchance:${w.worldSeed}:${loc.id}`).chance(CHOP_CHANCE[here])) add('chop', here, g.depth);
       // And a hacker hub, rarer, after that one for the same reason. (Its own stream again.)
       if (!highway && new Rng(`hubchance:${w.worldSeed}:${loc.id}`).chance(HUB_CHANCE[here])) add('hub', here, g.depth);
+      // And an arcade, after that one for the same reason. (Its own stream again.)
+      if (!highway && new Rng(`gamehallchance:${w.worldSeed}:${loc.id}`).chance(HALL_CHANCE[here])) add('gamehall', here, g.depth);
       // Loops. Everything here is decided now, from this street's own stream, between places that
       // already exist, so the shortcuts are the same whichever end of them she finds first.
       if (roads.length === 2 && rng.chance(LOOP_ROADS) && !highway) join(roads[0]!, roads[1]!, `a cut-through to ${roads[1]!.name}`, `a cut-through to ${roads[0]!.name}`);
@@ -381,6 +387,28 @@ export function expand(w: MapWorld, loc: Location): void {
       }
       break;
     }
+    case 'gamehall': {
+      // The rooms it rolled, each as the hall said: how hidden, how guarded, what it looks like.
+      const info = loc.gamehall;
+      if (!info) break;
+      for (const room of info.rooms) {
+        const def = HALL_ROOMS[room];
+        if (!def) continue;
+        const sec = def.abs ? Math.max(0, def.sec + 9) : loc.security + def.sec;
+        const title = hallRoomTitle(info, loc.name, room);
+        add('gamehallroom', g.district, g.depth, {
+          name: title,
+          hidden: rng.chance(def.hidden),
+          gate: def.gate,
+          security: def.abs ? Math.min(sec, 2) : sec,
+          cameras: def.cameras,
+          blurb: pick(rng, def.blurbs).replace('{name}', title.charAt(0).toUpperCase() + title.slice(1)),
+          label: def.label,
+          hallRoom: { main: loc.id, room },
+        });
+      }
+      break;
+    }
     case 'tunnel': {
       // A tunnel goes somewhere: on along itself for a stretch, then up into a street.
       const max = g.max ?? rng.int(1, 3);
@@ -437,13 +465,15 @@ interface ChildOpts {
   gymRoom?: { main: Id; room: string };
   /** Rooms of a pawn shop: which shop, and which room. */
   pawnRoom?: { main: Id; room: string };
+  /** Rooms of an arcade: which arcade, and which room. */
+  hallRoom?: { main: Id; room: string };
   /** A street that is a highway: no buildings, no people, and a road a car can really use. */
   highway?: boolean;
 }
 
 const KIND: Record<GenRole, Location['kind']> = {
   street: 'street', clinic: 'clinic', shop: 'shop', bar: 'bar', club: 'club', corp: 'corp', flat: 'home', unit: 'home', tunnel: 'tunnel', backroom: 'bar', cellar: 'tunnel', vip: 'club',
-  outpost: 'lair', hideout: 'lair', spot: 'lair', chamber: 'lair', gym: 'gym', gymroom: 'gym', pawn: 'pawn', pawnroom: 'pawn', realty: 'realty', chop: 'chop', hub: 'hub',
+  outpost: 'lair', hideout: 'lair', spot: 'lair', chamber: 'lair', gym: 'gym', gymroom: 'gym', pawn: 'pawn', pawnroom: 'pawn', realty: 'realty', chop: 'chop', hub: 'hub', gamehall: 'gamehall', gamehallroom: 'gamehall',
 };
 
 const clampSec = (n: number): number => Math.max(0, Math.min(9, Math.round(n)));
@@ -468,7 +498,7 @@ function sketch(
   // How dangerous: a street walks from its parent's danger toward what its depth should be; everything else shares its street's.
   const parentDanger = dangerOf(parent);
   const danger = street ? stepDanger(parentDanger, meanDanger(depth, START_DEPTH), DISTRICT_DANGER[district] ?? 0, new Rng(`danger:${w.worldSeed}:${id}`)) : parentDanger;
-  const interior = role === 'unit' || role === 'backroom' || role === 'cellar' || role === 'vip' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom' || (role === 'corp' && o.rank !== undefined) || (role === 'tunnel' && o.rank !== undefined);
+  const interior = role === 'unit' || role === 'backroom' || role === 'cellar' || role === 'vip' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom' || role === 'gamehallroom' || (role === 'corp' && o.rank !== undefined) || (role === 'tunnel' && o.rank !== undefined);
   const entrance = role === 'outpost' || role === 'hideout' || role === 'spot';
   const spot: SpotDef | undefined = role === 'spot' ? SPOTS[o.spot ?? '']! : undefined;
   // Dungeons draw on a stream of their own, so adding them to the map doesn't reshuffle anything else.
@@ -480,10 +510,12 @@ function sketch(
   // And a chop shop.
   // And a hub.
   const rolledHub = role === 'hub' ? rollHub(new Rng(`hub:${w.worldSeed}:${id}`), district, depth) : undefined;
+  // And an arcade.
+  const rolledHall = role === 'gamehall' ? rollHall(new Rng(`gamehall:${w.worldSeed}:${id}`), district, depth) : undefined;
   const rolledChop = role === 'chop' ? rollChop(new Rng(`chop:${w.worldSeed}:${id}`), district, depth) : undefined;
   const tier = spot ? o.tier ?? rollSpotTier(drng!, spot, danger) : entrance ? o.tier ?? rollTier(drng!, role as 'outpost' | 'hideout', danger, district) : undefined;
   // (An entrance is named once it's known whose it is, below.)
-  let name = o.name ?? rolled?.name ?? rolledPawn?.name ?? rolledChop?.name ?? rolledHub?.name ?? (entrance ? '' : o.highway ? `${rng.chance(0.5) ? pick(rng, STREET_ADJ) : pick(rng, STREET_NOUN)} ${pick(rng, HIGHWAY_SUFFIX)}` : nameFor(rng, role, district, parent, o.rank));
+  let name = o.name ?? rolled?.name ?? rolledPawn?.name ?? rolledChop?.name ?? rolledHub?.name ?? rolledHall?.name ?? (entrance ? '' : o.highway ? `${rng.chance(0.5) ? pick(rng, STREET_ADJ) : pick(rng, STREET_NOUN)} ${pick(rng, HIGHWAY_SUFFIX)}` : nameFor(rng, role, district, parent, o.rank));
   const deep = Math.min(2, Math.floor(depth / 4));
 
   let security: number;
@@ -511,10 +543,12 @@ function sketch(
     case 'pawnroom': security = o.security ?? parent.security; break;
     case 'chop': security = rolledChop!.security; break;
     case 'hub': security = rolledHub!.security; break;
+    case 'gamehall': security = rolledHall!.security; break;
+    case 'gamehallroom': security = o.security ?? parent.security; break;
   }
-  security = clampSec(Math.min(security, role === 'unit' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom' ? 9 : role === 'corp' || role === 'backroom' || role === 'vip' ? 9 : 6));
+  security = clampSec(Math.min(security, role === 'unit' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom' || role === 'gamehallroom' ? 9 : role === 'corp' || role === 'backroom' || role === 'vip' ? 9 : 6));
 
-  const crowded = role === 'gym' ? rolled!.crowded : role === 'pawn' ? rolledPawn!.crowded : role === 'chop' ? false : role === 'hub' ? rolledHub!.crowded : role === 'bar' ? rng.chance(0.3 + (district === 'nightlife' ? 0.3 : 0)) : role === 'club' || role === 'vip' ? true : street ? (o.highway ? false : rng.chance(CROWDED[district])) : false;
+  const crowded = role === 'gym' ? rolled!.crowded : role === 'pawn' ? rolledPawn!.crowded : role === 'chop' ? false : role === 'hub' ? rolledHub!.crowded : role === 'gamehall' ? rolledHall!.crowded : role === 'bar' ? rng.chance(0.3 + (district === 'nightlife' ? 0.3 : 0)) : role === 'club' || role === 'vip' ? true : street ? (o.highway ? false : rng.chance(CROWDED[district])) : false;
   const noCameras = role === 'flat' || (role === 'unit' && o.cameras === undefined) || role === 'tunnel' || role === 'cellar' || role === 'backroom' || entrance || role === 'chamber';
 
   // Its own corner of the city: a whiff of whoever is round about, and the owners where there are owners.
@@ -543,11 +577,11 @@ function sketch(
   else if (role === 'bar' || role === 'club') {
     faction = `v:${id}`;
     w.factions[faction] ??= { id: faction, name, kind: 'venue', relations: {} };
-  } else if (role === 'gym' || role === 'pawn' || role === 'chop' || role === 'hub') {
+  } else if (role === 'gym' || role === 'pawn' || role === 'chop' || role === 'hub' || role === 'gamehall') {
     faction = `v:${id}`;
     w.factions[faction] ??= { id: faction, name, kind: 'venue', relations: {} };
-  } else if (role === 'backroom' || role === 'vip' || role === 'cellar' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom') faction = parent.faction;
-  const blurbs = o.highway ? HIGHWAY_BLURB : street ? [`${name}. ${pick(rng, MOOD[district])}`] : rolled ? [rolled.blurb] : rolledPawn ? [rolledPawn.blurb] : rolledChop ? [rolledChop.blurb] : rolledHub ? [rolledHub.blurb] : spot ? spot.blurbs : entrance ? ENTRANCE_BLURB[role as 'outpost' | 'hideout'] : BLURB[role as Exclude<GenRole, 'street'>];
+  } else if (role === 'backroom' || role === 'vip' || role === 'cellar' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom' || role === 'gamehallroom') faction = parent.faction;
+  const blurbs = o.highway ? HIGHWAY_BLURB : street ? [`${name}. ${pick(rng, MOOD[district])}`] : rolled ? [rolled.blurb] : rolledPawn ? [rolledPawn.blurb] : rolledChop ? [rolledChop.blurb] : rolledHub ? [rolledHub.blurb] : rolledHall ? [rolledHall.blurb] : spot ? spot.blurbs : entrance ? ENTRANCE_BLURB[role as 'outpost' | 'hideout'] : BLURB[role as Exclude<GenRole, 'street'>];
 
   const toStreet = streetOf(w, parent);
   const loc: Location = {
@@ -586,6 +620,11 @@ function sketch(
     loc.pawn = rolledPawn.info;
     loc.graffiti = CONDITIONS[rolledPawn.info.condition]?.graffiti ?? 0;
   }
+  if (rolledHall) {
+    loc.gamehall = rolledHall.info;
+    loc.graffiti = CONDITIONS[rolledHall.info.condition]?.graffiti ?? 0;
+  }
+  if (o.hallRoom) loc.hallRoom = o.hallRoom;
   if (o.gymRoom) loc.gymRoom = o.gymRoom;
   if (o.pawnRoom) loc.pawnRoom = o.pawnRoom;
   if (entrance) loc.dungeon = id;
@@ -696,7 +735,7 @@ function nameFor(rng: Rng, role: GenRole, district: District, parent: Location, 
     case 'backroom': return `${possessive(parent.name)} back room`;
     case 'cellar': return `${possessive(parent.name)} cellar`;
     case 'vip': return `${possessive(parent.name)} VIP lounge`;
-    case 'outpost': case 'hideout': case 'spot': case 'chamber': case 'gym': case 'gymroom': case 'pawn': case 'pawnroom': case 'chop': case 'hub': return parent.name; // dungeons, gyms, pawn shops and chop shops name themselves; see sketch
+    case 'outpost': case 'hideout': case 'spot': case 'chamber': case 'gym': case 'gymroom': case 'pawn': case 'pawnroom': case 'chop': case 'hub': case 'gamehall': case 'gamehallroom': return parent.name; // dungeons, gyms, pawn shops and chop shops name themselves; see sketch
   }
 }
 

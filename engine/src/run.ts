@@ -33,6 +33,7 @@ import { passionBias, tickVenues } from './stage';
 import { tickHustles } from './hustles';
 import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
+import { tickHalls } from './hall';
 import { satietyBias, tickSatiety } from './romance';
 import { needsBias, tickNeeds } from './rest';
 import { BASE_MIN_PER_BEAT, FIGHT_MINUTES, actionMinutes, crossedDawn, dayOf, every } from './clock';
@@ -49,7 +50,7 @@ export const TEST_BEAT_CAP = 600;
 /** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
 const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
 
-const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight', 'hubfight', 'hijack', 'pursue']);
+const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight', 'hubfight', 'hallfight', 'hijack', 'pursue']);
 
 export function score(w: World, cand: Candidate): number {
   const h = w.hero;
@@ -295,6 +296,7 @@ function upkeep(c: Ctx): void {
   tickHustles(c);
   tickGyms(c);
   tickPawns(c);
+  tickHalls(c);
   const mellowed = every(w, 'affinity', 36);
   if (mellowed > 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity = n.affinity > 0 ? Math.max(0, n.affinity - mellowed) : Math.min(0, n.affinity + mellowed);
   // No passive regeneration, bar the lab's Steady Regeneration: a few hit points now and then, never past half health. Real wounds still want a med pack or a street doc.

@@ -20,6 +20,7 @@ import { DOC_FEE } from './content/shops';
 import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
+import { hallCandidates } from './hall';
 import { realtyCandidates, realtyPull } from './realty';
 import { benchUrge, chopCandidates } from './chop';
 import { hubCandidates, hubUrge } from './hub';
@@ -224,6 +225,7 @@ export function gather(w: World): Candidate[] {
   out.push(...vehicleCandidates(w));
   out.push(...getawayCandidates(w));
   out.push(...pawnCandidates(w));
+  out.push(...hallCandidates(w));
   out.push(...realtyCandidates(w));
   out.push(...chopCandidates(w));
   out.push(...hubCandidates(w));

@@ -936,6 +936,12 @@ const T: Record<string, Entry> = {
   'intent:hubquick': e((d) => [String(d.text)]),
   'intent:hubfight': e((d) => [String(d.text)]),
   'intent:hubdeal': e((d) => [String(d.text)]),
+  // ---- arcades (content/hall*.ts, hallkit.ts): same shape
+  hall: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:hall': e((d) => [String(d.text)]),
+  'intent:hallquick': e((d) => [String(d.text)]),
+  'intent:hallfight': e((d) => [String(d.text)]),
+  'intent:halldeal': e((d) => [String(d.text)]),
   'intent:pawn': e((d) => [String(d.text)]),
   'intent:pawnquick': e((d) => [String(d.text)]),
   'intent:pawnfight': e((d) => [String(d.text)]),
@@ -1909,6 +1915,14 @@ const T: Record<string, Entry> = {
   'shut_down:hub_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. The racks hum on for a minute, and then a regular reaches over and turns them off, one at a time. Someone with a key shows Blackbird to the pavement.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back and the forum is a memorial.`],
     ['That was somebody\'s whole life, in a rack.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
+  'shut_down:hall': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor, nobody is left to mind ${d.place}. Every cabinet goes to attract mode at once, which is worse. Someone pulls the master switch, and a very calm person with a lanyard shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The cabinets are off, the shutter is down and the high scores are, for now, a matter of record.`],
+    ['I closed an arcade. That is a lot of people with nowhere to lose.', 'No more tokens. Terrible for the economy. Good for me, today.'],
+  ),
+  'shut_down:hall_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. The attract screens play on for a minute, bleeping, and then a regular reaches over and switches them off, one at a time. Someone with a key shows Blackbird to the pavement.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, and every high score on the board is, from now on, final.`],
+    ['That is a lot of unfinished games.', 'It was always going to come to this. Not me. Him. Probably.'],
   ),
   'shut_down:clinic': e(
     (d) => [d.inside ? `With ${d.npc} out cold and nobody else qualified to hold a scalpel, ${d.place} locks up. The guards herd Blackbird to the door and the shutters come down on her heels.` : `${d.place} has shut. With ${d.npc} on the floor there is nobody left to hold the scalpel, and the guards have locked the door from the inside.`],

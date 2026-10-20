@@ -159,7 +159,7 @@ export function isLethal(foes: Npc[], w: World): boolean {
   if (foes.some((f) => marked(w, f))) return true;
   if (foes.some((f) => f.tags.some((t) => ['robot', 'cop', 'corp', 'boss'].includes(t)) && !f.tags.includes('nonlethal'))) return true;
   const kind = w.locations[w.hero.locationId]?.kind;
-  return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home' || kind === 'gym' || kind === 'pawn' || kind === 'realty');
+  return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home' || kind === 'gym' || kind === 'pawn' || kind === 'realty' || kind === 'gamehall');
 }
 
 export function maybeInjure(c: Ctx, hit: number, chance = 0.4): void {

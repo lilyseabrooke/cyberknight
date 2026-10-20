@@ -227,7 +227,7 @@ export function runCheckAs<V extends PlaceView>(kit: Kit<V>, c: Ctx, v: V, id: s
 export const friendly = (n: Npc): boolean => n.alive && !n.hostile && n.affinity > -25;
 
 /** The room of a place with this id, if it grew one. `tag` names the child-room field ('gymRoom', 'pawnRoom'). */
-export function roomWhere(w: { locations: Record<Id, Location> }, main: Location, tag: 'gymRoom' | 'pawnRoom', room: string): Location | undefined {
+export function roomWhere(w: { locations: Record<Id, Location> }, main: Location, tag: 'gymRoom' | 'pawnRoom' | 'hallRoom', room: string): Location | undefined {
   for (const e of main.exits) {
     const l = w.locations[e.to];
     if (l?.[tag]?.room === room && l[tag]!.main === main.id) return l;
