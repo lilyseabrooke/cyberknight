@@ -544,6 +544,60 @@ export function smash(c: Ctx, v: HallView, feature: string, text: WinLose): void
   say(c, 'smash.win', 'mixed', text.win, text.thought, { hall: v.main.name, ...tokOf(cab) }, { place: v.main.name });
 }
 
+/** The words for losing it at a machine. */
+export interface RageTexts {
+  muse: string[];
+  boot: string[];
+  /** Extras told after: she hurt her hand; she was shown out. */
+  hand: string[];
+  thrown: string[];
+  thought: string[];
+}
+
+/** She has just lost at a game she hates, and the cabinet is right there: is this the moment? */
+export function furious(w: World, v: HallView, feature: string | undefined): Cab | undefined {
+  const cab = feature ? cabAt(w, v, feature) : undefined;
+  const mem = cab ? w.mind.games?.[gameId(cab.title)] : undefined;
+  if (!playable(cab) || !mem) return undefined;
+  const sour = mem.felt === 'hate' || (mem.like <= -0.35 && mem.plays >= 3);
+  return sour && mem.streak >= 1 && w.beat - (mem.last ?? -99) <= 3 ? cab : undefined;
+}
+
+/**
+ * Lost at a game she hates, one time too many: she takes it out on the cabinet. It is scrapped until the owner brings another;
+ * she feels a great deal better about the game (and so, shortly, does her opinion of herself); the owner remembers; a knuckle
+ * may not forgive her; and a licensed cabinet in front of the bouncer can get her shown the door.
+ */
+export function rageSmash(c: Ctx, v: HallView, feature: string, text: RageTexts): void {
+  const { w, rng } = c;
+  const cab = cabAt(w, v, feature);
+  if (!playable(cab)) return;
+  wreckCab(w, v.main, cab.key);
+  const mem = w.mind.games?.[gameId(cab.title)];
+  if (mem) {
+    // Catharsis: the game is dead, and so is most of what she held against it.
+    mem.like = Math.min(1, mem.like + 0.35);
+    mem.streak = 0;
+    if (mem.like > -0.2) delete mem.felt;
+  }
+  const o = keeper(v);
+  const muse = cab.legal === 'muse';
+  if (o) {
+    o.affinity -= muse ? 10 : 3;
+    remember(o, muse ? 'watched Blackbird demolish a licensed cabinet over a score' : 'watched Blackbird lose it at a bootleg');
+  }
+  const tok = { hall: v.main.name, ...tokOf(cab) };
+  say(c, 'rage.win', 'mixed', muse ? text.muse : text.boot, text.thought, tok, { place: v.main.name });
+  if (rng.chance(0.3)) {
+    w.hero.hp = Math.max(1, w.hero.hp - rng.int(2, 6));
+    say(c, 'rage.hand', 'bad', text.hand, undefined, tok, { place: v.main.name });
+  }
+  if (rng.chance(muse ? 0.35 : 0.1) && (find(v, 'guard') || o)) {
+    w.counters[`hallban:${v.main.id}`] = 1;
+    say(c, 'rage.thrown', 'bad', text.thrown, undefined, { ...tok, npc: (find(v, 'guard') ?? o)?.name ?? 'the bouncer' }, { place: v.main.name });
+  }
+}
+
 // ===================================================================== tickets
 
 const PRIZES: { id: string; cost: number; weight: number }[] = [

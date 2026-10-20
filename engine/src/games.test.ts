@@ -27,6 +27,7 @@ import { CALLINGS, DEFS } from './content/callings';
 import { resolveAsk } from './advice';
 import { playOne } from './hallkit';
 import { goalBias, mindTick } from './goals';
+import { gather } from './interactions';
 import { goalLabel } from './goals';
 import { PLAY_TEXT } from './content/hallplay';
 import type { Calling, Ctx, GameEvent } from './types';
@@ -634,5 +635,92 @@ describe('getting into it: game goals', () => {
       mindTick(sc.ctx(always()));
       for (const e of sc.events.filter((x) => x.type === 'goal_new' && x.data.kind === 'game')) expect(hasLine(w, e), `${went} ${e.data.variant}`).toBe(true);
     }
+  });
+});
+
+
+describe('losing it', () => {
+  /** She has just lost, again, at a game she hates, in front of the cabinet. */
+  function furiousAt(legal: 'muse' | 'bootleg', o: { temper?: number; streak?: number; like?: number; age?: number } = {}) {
+    const sc = inHall('floor', { want: (l) => l.gamehall!.wild !== 'rigged' && quiet(l) });
+    const w = sc.w;
+    const main = mainOf(sc);
+    const key = floorCab(sc, legal);
+    const feature = key.split(':')[1]!;
+    const cab = cabByKey(w, main, key)!;
+    const g = remember(w, gameId(cab.title), cab.title, cab.genre, legal);
+    g.plays = 7;
+    g.like = o.like ?? -0.8;
+    g.felt = 'hate';
+    g.streak = o.streak ?? 3;
+    w.beat = 100;
+    g.last = w.beat - (o.age ?? 0);
+    w.hero.personality.traits.temper = o.temper ?? 0.9;
+    w.hero.cash = 300;
+    return { sc, w, main, key, feature, cab, g };
+  }
+
+  it('is offered right after losing at a game she hates, and not otherwise', () => {
+    const { sc, w, feature, g } = furiousAt('muse');
+    expect(sc.offers()).toContain(`hallquick:smash-in-a-rage:${feature}`);
+    g.streak = 0;
+    expect(sc.offers()).not.toContain(`hallquick:smash-in-a-rage:${feature}`);
+    g.streak = 2;
+    g.last = w.beat - 40;
+    expect(sc.offers()).not.toContain(`hallquick:smash-in-a-rage:${feature}`);
+    g.last = w.beat;
+    g.like = 0.4;
+    delete g.felt;
+    expect(sc.offers()).not.toContain(`hallquick:smash-in-a-rage:${feature}`);
+  });
+
+  it('wants it more with a short temper', () => {
+    const score = (temper: number) => {
+      const { sc, w, feature } = furiousAt('muse', { temper });
+      const cand = gather(w).find((c) => c.key === `hallquick:smash-in-a-rage:${feature}`)!;
+      void sc;
+      return cand.bonus ?? 0;
+    };
+    expect(score(0.95)).toBeGreaterThan(score(0.1) + 1);
+  });
+
+  it('scraps the cabinet, takes the edge off the game, and the owner remembers a licensed one', () => {
+    const { sc, w, main, key, feature, g } = furiousAt('muse');
+    const o = owner(sc);
+    const aff = o.affinity;
+    const evs = sc.do(`hallquick:smash-in-a-rage:${feature}`, always());
+    expect(cabByKey(w, main, key)!.wrecked).toBe(true);
+    expect(g.like).toBeGreaterThan(-0.8);
+    expect(g.streak).toBe(0);
+    expect(o.affinity).toBeLessThan(aff);
+    const main1 = evs.find((e) => e.type === 'hall' && e.data.variant === 'rage.win.win' || e.data.variant === 'rage.win');
+    expect(evs.some((e) => e.type === 'hall' && String(e.data.variant).startsWith('rage'))).toBe(true);
+    for (const e of evs.filter((x) => x.type === 'hall')) expect(hasLine(w, e), String(e.data.variant)).toBe(true);
+    void main1;
+    // It is not a wound: nobody else did it.
+    expect(evs.some((e) => e.type === 'game_lost')).toBe(false);
+  });
+
+  it('can cost her a knuckle and, at a licensed cabinet, her welcome; a bootleg owner minds less', () => {
+    const a = furiousAt('muse');
+    const hp = a.w.hero.hp;
+    const evs = a.sc.do(`hallquick:smash-in-a-rage:${a.feature}`, always());
+    expect(a.w.hero.hp).toBeLessThan(hp);
+    expect(evs.some((e) => e.data.variant === 'rage.hand')).toBe(true);
+    expect(evs.some((e) => e.data.variant === 'rage.thrown')).toBe(true);
+    expect(banned(a.w, a.main)).toBe(true);
+    const b = furiousAt('bootleg');
+    const o = owner(b.sc);
+    const aff = o.affinity;
+    b.sc.do(`hallquick:smash-in-a-rage:${b.feature}`, never());
+    expect(cabByKey(b.w, b.main, b.key)!.wrecked).toBe(true);
+    expect(o.affinity).toBe(aff - 3);
+    expect(banned(b.w, b.main)).toBe(false);
+  });
+
+  it('a cabinet that is already wrecked is not smashed twice', () => {
+    const { sc, w, main, key, feature } = furiousAt('muse');
+    main.cabs![key] = { legal: 'muse', wrecked: w.clock + 9999 };
+    expect(sc.offers()).not.toContain(`hallquick:smash-in-a-rage:${feature}`);
   });
 });

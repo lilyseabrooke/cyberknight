@@ -350,3 +350,17 @@ scores went, so a game she keeps coming back to ends up loved or hated, not a wa
 
 In ordinary nights almost nobody finds an arcade in the first place (about 5% play a cabinet at all, and most of those on the
 very last beats of a capped sim), so this changes what happens once she is there, not how often she goes.
+
+## 17. Losing it
+
+`smash-in-a-rage` (`content/hallrage.ts`, `rageSmash` in `hallkit.ts`): she has **just lost** (a losing streak, within the last three
+beats) at a game she has come to **hate** (`felt: 'hate'`, or liked at -0.35 or lower after three plays), and the cabinet is right
+there. The want is strong and is mostly temper (`1.4 + 3 x temper + 0.25 per loss in the streak`): in 36 seeded nights, with the
+losing streak already on her, she smashed it within three beats 39% of the time at temper 0.15, 61% at 0.5 and 69% at 0.9.
+It is a different animal from the cold `smash-cabinet` in `hallcrime.ts`, which needs no grudge and wants it far less.
+
+What it does: the cabinet is scrapped (wrecked for 2 to 6 days, like the spider's work, but she did it, so it is not a wound);
+her feeling about the game recovers by +0.35 and the streak resets (catharsis); the owner holds a licensed cabinet against her
+(-10 affinity; -3 for a bootleg); a 30% chance of a cut hand (-2 to -6 hp); and a 35% chance, 10% at a bootleg, of being shown out
+(`hallban`). The report line is one of three for a licensed cabinet or three for a bootleg, and the thought is always a
+self-satisfied one ("Therapeutic.", "Closure, with a stool.").
