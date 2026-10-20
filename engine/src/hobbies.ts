@@ -1,7 +1,10 @@
 import type { Ctx, Hero, Npc, World } from './types';
 import { acquire, addHeat, fight, gainXp, here, remember } from './combat';
 import { clamp, revealExit, type Candidate } from './candidate';
-import { makeItem } from './content/items';
+import { makeAmmoBox, makeItem } from './content/items';
+import { AMMO_IDS } from './content/ammo';
+import { tierFor } from './content/fishing';
+import { streetTypeOf } from './streettypes';
 import { odds, skillLevel, synergy, train } from './skills';
 import { hasKind } from './companions';
 import { kindle } from './romance';
@@ -32,10 +35,17 @@ export const ODDS = {
   art: (h: Hero) => odds(0.42, 0.06, synergy(h, ['art', ['stat:reflex', 0.5]])),
   ask: (h: Hero) => odds(0.3, 0.065, synergy(h, ['streetwise', ['stat:charm', 0.5]])),
   trick: (h: Hero) => odds(0.3, 0.06, synergy(h, ['rapport', ['tinkering', 0.4]])),
+  fish: (h: Hero) => odds(0.45, 0.012, synergy(h, ['fishing', ['stat:int', 0.3]])),
   parkour: (h: Hero) => odds(0.35, 0.055, synergy(h, ['athletics', ['stat:reflex', 0.5]])),
 };
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive;
+
+/** Is there water to fish in: the canal behind the club, or the edge of a wharf. */
+export function waterHere(w: World): boolean {
+  const loc = w.locations[w.hero.locationId]!;
+  return w.features.canal?.locationId === loc.id || (loc.kind === 'street' && streetTypeOf(loc) === 'wharf');
+}
 
 /** All the places-to-be-good-at-something. */
 export function hobbyCandidates(w: World): Candidate[] {
@@ -73,6 +83,10 @@ export function hobbyCandidates(w: World): Candidate[] {
   // ---- busking, anywhere outdoors, if she owns a guitar
   if (owns('instrument') && loc.outdoors && !['overpass', 'halo_roof'].includes(loc.id)) {
     out.push({ key: 'busk', drives: { pride: 0.7, greed: 0.5, curiosity: 0.3 }, risk: 0.2, run: busk });
+  }
+  // ---- fishing, anywhere there is water, if she has found something to fish with
+  if (owns('rod') && waterHere(w)) {
+    out.push({ key: 'fish', drives: { curiosity: 0.5, greed: 0.3, thirst: 0.1 }, bonus: 0.1 + skillLevel(h, 'fishing') * 0.03, risk: 0.1, intent: {}, run: fish });
   }
   // ---- the kitchen
   if (feat('stove')) {
@@ -401,6 +415,36 @@ function parkour(c: Ctx): void {
     }
     c.emit('parkour', 'bad', { variant: 'fall' });
   }
+}
+
+/** Someone nearby sees a woman with a drone winch on a stick, and has a face about it. */
+function fish(c: Ctx): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  const lvl = skillLevel(h, 'fishing');
+  const gawker = rng.pick([...here(w).filter((n) => alive(n) && !n.hostile), undefined])?.name ?? '';
+  train(c, 'fishing', 2);
+  if (!rng.chance(ODDS.fish(h))) {
+    const rod = h.inventory.find((i) => i.tags.includes('rod'));
+    if (rod && rng.chance(Math.max(0.02, 0.1 - lvl * 0.002))) {
+      h.inventory.splice(h.inventory.indexOf(rod), 1);
+      c.emit('fish', 'bad', { variant: 'snap', npc: gawker });
+    } else if (rng.chance(0.12)) {
+      h.hp -= 4;
+      c.emit('fish', 'bad', { variant: 'splash', npc: gawker });
+    } else {
+      c.emit('fish', 'mixed', { variant: 'nothing', npc: gawker });
+    }
+    return;
+  }
+  train(c, 'fishing', 2);
+  const tier = tierFor(rng.next() + Math.min(0.8, lvl * 0.008), lvl);
+  const id = rng.pick(tier.items);
+  const it = id === 'ammo' ? makeAmmoBox(rng.pick(AMMO_IDS), rng.int(tier.rounds[0], tier.rounds[1])) : makeItem(id);
+  if (tier.variant === 'prize') gainXp(c, 4);
+  if (tier.variant === 'legend') gainXp(c, 10);
+  c.emit('fish', tier.variant === 'junk' ? 'mixed' : 'good', { variant: id === 'ammo' ? 'ammo' : tier.variant, item: it.name, npc: gawker });
+  acquire(c, it);
 }
 
 function askAround(c: Ctx): void {

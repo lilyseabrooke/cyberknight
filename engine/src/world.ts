@@ -191,6 +191,7 @@ const FEATURES: [Id, string, string][] = [
   ['helix_dock', 'a stack of unmarked crates', 'crates'],
   ['helix_lab', 'the prototype vault', 'vault'],
   ['club_backlot', 'a heap of salvageable scrap', 'scrap_pile'],
+  ['club_backlot', 'a stretch of oily drainage canal', 'canal'],
   ['club_maintenance', 'an Atlas signal relay', 'relay'],
   ['street_main', 'a corkboard of handwritten gig flyers', 'job_board'],
   ...Object.entries(DROPS).map(([kind, d]): [Id, string, string] => [d.at, d.name, kind]),

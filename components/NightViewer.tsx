@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AMMO,
+  PARTS,
   describePersonality,
   clockLabel,
   dayOf,
@@ -81,6 +82,7 @@ interface Snapshot {
   wielding: string;
   weaponInfo: string;
   ammo: [string, number][];
+  parts: [string, number][];
   medPacks: string;
   medStock: number;
   armor: string;
@@ -155,6 +157,7 @@ function snap(w: World): Snapshot {
     wielding: wielded(h).name,
     weaponInfo: describeWeapon(wielded(h)),
     ammo: Object.entries(h.ammo).filter(([, n]) => n > 0).map(([t, n]) => [AMMO[t]?.label ?? t, n] as [string, number]),
+    parts: Object.entries(h.parts ?? {}).filter(([, n]) => n > 0).map(([t, n]) => [PARTS[t]?.label ?? t, n] as [string, number]),
     medPacks: Object.entries(medPacks(h).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => `${k} ${n}`).join(' · '),
     medStock: medStock(h),
     armor: h.armor?.name ?? 'nothing but attitude',
@@ -546,6 +549,7 @@ export default function NightViewer() {
               <dt>Weapon</dt><dd>{status.weapon}{status.wielding !== status.weapon && <span className="bad"> (dry: using {status.wielding})</span>}<br /><small>{status.weaponInfo}</small></dd>
               <dt>Medical</dt><dd className={status.medStock === 0 ? 'bad' : undefined}>{status.medPacks ? `${status.medPacks} (${status.medStock} HP)` : 'none (she cannot heal)'}</dd>
               <dt>Ammo</dt><dd>{status.ammo.length ? status.ammo.map(([t, n]) => `${n} ${t}`).join(' · ') : 'none'}</dd>
+              {status.parts.length > 0 && <><dt>Parts</dt><dd>{status.parts.map(([t, n]) => `${n} ${t}`).join(' · ')}</dd></>}
               <dt>Armor</dt><dd>{status.armor}</dd>
               {status.car && (
                 <>

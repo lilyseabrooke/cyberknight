@@ -4,6 +4,7 @@ import type { Calling, Id, Npc, World } from '../types';
 import type { GameEvent } from '../events';
 import { ACT_SKILL } from '../stage';
 import { skillLevel } from '../skills';
+import { streetTypeOf } from '../streettypes';
 import { MAX_IMPLANTS } from './implants';
 
 /**
@@ -57,6 +58,8 @@ export interface CallingDef {
   spark?(s: SparkCtx): number;
   /** It comes from a loss: if the moment was one, it counts as a wound. */
   wound?: boolean;
+  /** Why, when it came out of a wound and the usual account (a name, a killer) doesn't fit. */
+  woundWhy?(s: SparkCtx): string;
   /** Who or what it is about, from the moment. Whim picks one without a moment (`s` is absent). */
   aim?(w: World, rng: Rng, s?: SparkCtx, prev?: Calling): Target | null;
   /** The finish line. `u` is 0..1, how big the moment was (a wound is big). */
@@ -74,6 +77,12 @@ export interface CallingDef {
   /** What this grows into. */
   sequels?: { id: string; p: number }[];
 }
+
+/** Something came up on a line: a catch, or any rod trick that landed. */
+const isCatch = (e: GameEvent): boolean =>
+  (e.type === 'fish' && ['junk', 'trinket', 'haul', 'prize', 'legend', 'ammo'].includes(String(e.data.variant))) ||
+  (['reel_in', 'reel_girl', 'rod_lift', 'rod_tug', 'rod_swing'].includes(e.type) && e.outcome === 'good') ||
+  (e.type === 'rod_bait' && e.data.variant === 'landed');
 
 // ===================================================================== tallies
 
@@ -96,6 +105,7 @@ export const TALLY: Record<string, (e: GameEvent, w: World) => number> = {
   puppy: (e) => (e.type === 'steal_puppy' && e.data.variant === 'success' ? 1 : 0),
   bout: (e) => (((e.type === 'arm_wrestle' && e.data.variant === 'win') || (e.type === 'gym' && e.outcome === 'good')) ? 1 : 0),
   parkour: (e) => (e.type === 'parkour' && e.outcome === 'good' ? 1 : 0),
+  hooked: (e) => (isCatch(e) ? 1 : 0),
   escape: (e) => (e.type === 'chase_end' && (e.data.variant === 'escaped' || e.data.variant === 'won') && e.data.body === 'foot' ? 1 : 0),
   road: (e) => (e.type === 'chase_end' && e.outcome === 'good' && e.data.body !== 'foot' ? 1 : 0),
   table: (e) => (((e.type === 'pool' || e.type === 'darts') && e.data.variant === 'win') || (e.type === 'poker' && e.outcome === 'good') ? 1 : 0),
@@ -146,6 +156,17 @@ function whereSeen(w: World, pick: (n: Npc) => boolean, value = 1): { loc: Id; v
   }
   return [...seen].map(([loc, v]) => ({ loc, value: Math.min(value * v, value * 1.5) }));
 }
+
+/** Every bit of water she knows: the canal behind the club, and the edge of any wharf she has walked. */
+function waterSpots(w: World): { loc: Id; value: number }[] {
+  const out: { loc: Id; value: number }[] = [];
+  for (const l of Object.values(w.locations)) {
+    const water = w.features.canal?.locationId === l.id || (l.kind === 'street' && streetTypeOf(l) === 'wharf' && l.visits > 0);
+    if (water) out.push({ loc: l.id, value: 1.2 });
+  }
+  return out;
+}
+const hasRod = (w: World): boolean => w.hero.inventory.some((i) => i.tags.includes('rod'));
 
 /** Aimed at one npc by id, in a candidate key. */
 const npcOf = (w: World, id: string | undefined): Npc | undefined => (id ? w.npcs[id] : undefined);
@@ -601,6 +622,39 @@ export const CALLINGS: CallingDef[] = [
     measure: (w) => seenPlaces(w),
     want: () => [{ kind: 'explore', why: 'there is more city out there' }],
     sequels: [{ id: 'dragon', p: 0.1 }],
+  },
+  {
+    id: 'fish', origin: "something on the end of a line gave a tug, and she has not stopped feeling it", group: 'body', wound: true,
+    // The strange part: a loss or a close call can leave her with this too. Nobody can say why.
+    woundWhy: (s) => (s.lost
+      ? `${s.lost.data.name ?? 'someone'} is dead, and all Blackbird can think, over and over, is: if only I'd had a fish`
+      : `${(s.near?.data.by as string | undefined) || 'something'} nearly killed her, and the only thought she has is: if only I'd had a fish`),
+    line: (c) => (c.goal > 40 ? `land ${c.goal} things on a line, and one of them worth a legend` : `catch ${c.goal} things out of Neo's water, and not one of them a fish she would eat`),
+    fit: { curiosity: 1, mischief: 0.8, greed: 0.5, thrill: -0.8, impulsive: -0.9, temper: -0.4 },
+    whim: 1.1,
+    key: 'hooked',
+    spark(s) {
+      const { events } = s;
+      const best = events.filter((e) => e.type === 'fish' || e.type === 'rod_lift' || e.type === 'rod_bait').reduce((m, e) => {
+        const v = e.data.variant;
+        const x = v === 'legend' || (e.type === 'rod_lift' && e.outcome === 'good') ? 0.9 : v === 'prize' || v === 'landed' ? 0.8 : v === 'haul' || v === 'ammo' ? 0.6 : v === 'trinket' ? 0.45 : v === 'junk' ? 0.25 : 0;
+        return Math.max(m, x);
+      }, 0);
+      if (best) return best;
+      if (events.some((e) => ['reel_in', 'reel_girl', 'rod_tug', 'rod_swing'].includes(e.type) && e.outcome === 'good')) return 0.6;
+      if (events.some((e) => e.type === 'skill_up' && e.data.id === 'fishing')) return 0.55;
+      // And, inexplicably, a loss or a close call.
+      return hurt(s) ? 0.35 : 0;
+    },
+    goal: (rng, u) => near(rng, 6, 120, u),
+    bias(w, _cal, fam) {
+      if (['fish', 'reel_in', 'reel_girl', 'rod_lift', 'rod_tug', 'rod_swing', 'rod_bait'].includes(fam)) return 2.6;
+      // Without a rod she goes looking for one.
+      return !hasRod(w) && (fam === 'scrap_pile' || fam === 'dumpster') ? 1.8 : 0;
+    },
+    pull: (w) => (hasRod(w) ? waterSpots(w) : []),
+    want: () => [{ kind: 'explore', why: 'there is water out there she has not put a line in yet' }],
+    sequels: [{ id: 'score', p: 0.2 }, { id: 'heartbreaker', p: 0.2 }, { id: 'ghost', p: 0.2 }],
   },
   {
     id: 'cook', origin: "someone tasted her cooking and closed their eyes", group: 'body',

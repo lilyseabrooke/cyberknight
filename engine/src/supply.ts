@@ -61,7 +61,7 @@ function bestUpgrade(w: World, slot: 'weapon' | 'armor'): { id: string; cost: nu
 }
 
 /** Ammo types she owns a gun for and is running low on, most pressing first. */
-function ammoNeeds(h: Hero): { type: string; urgency: number }[] {
+export function ammoNeeds(h: Hero): { type: string; urgency: number }[] {
   const out = new Map<string, number>();
   for (const g of gunsOwned(h)) {
     const left = shotsLeft(h, g);

@@ -19,6 +19,7 @@
     "start": "next start",
     "gyms": "tsx scripts/gyms.ts",
     "pawns": "tsx scripts/pawns.ts",
+    "chops": "tsx scripts/chops.ts",
     "coverage": "tsx scripts/coverage.ts"
   },
   "devDependencies": {

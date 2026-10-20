@@ -64,7 +64,14 @@ export const ITEMS: Record<string, Def> = {
   vipers_patch: l('Chrome Vipers colors', 20, ['gang']),
   scrap_metal: l('bundle of salvaged scrap metal', 35),
   drone_core: l('scavenged drone core', 90, ['corp']),
+  // ---- fishing (hobbies.ts): the rod turns up in scrap, the rest comes out of the water ----
+  fishing_rod: l('fishing rod (an aerial, a drone winch, and a hook that used to be a paperclip)', 12, ['tool', 'rod']),
+  sodden_boot: l('sodden boot (left, size unknowable)', 2),
+  drowned_phone: l('waterlogged phone (it still buzzes)', 22, ['tech']),
+  glow_carp: l('three-eyed carp (glows; not for eating)', 12),
+  chrome_eel: l('chrome eel (alive, annoyed)', 55),
   // ---- consumables ----
+
   ...Object.fromEntries(Object.entries(MEDS).map(([id, m]) => [id, c(m.name, m.heal, m.price, ['med'])])),
   stim: c(STIMS.stim!.name, 6, 40, ['stim']),
   stim_iron: c(STIMS.stim_iron!.name, 0, 50, ['stim']),
