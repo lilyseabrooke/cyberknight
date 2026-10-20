@@ -1,6 +1,6 @@
 # Guitar: what it opens up
 
-Status: **in progress.** The first eight steps of the build order are built (see "As built"); the rest is plan.
+Status: **in progress.** The first nine steps of the build order are built (see "As built"); the rest is plan.
 Feel over balance: every number here is a first guess, to be felt out (or never tuned at all).
 
 ## As built
@@ -21,10 +21,11 @@ Feel over balance: every number here is a first guess, to be felt out (or never 
 | Inspiration teams: once she has refused Muse and her renown passes 150, strike squads (a Muse faction; operatives and team leads in pastel armour with heart-decal SMGs, glitter rifles and glitter grenades) hit her after public sets and at bookings, bigger and better the bigger she is; if they kill her, Muse posts a tribute next night | `muse.ts`, `content/archetypes.ts`, `content/items.ts`, `factions.ts` |
 | The underground, once Muse has noticed her and she hasn't signed: secret shows (a booking kind in cellars, back units and the Halo basement; books from an expected grade of 8, pays less, Muse never hears about it, wins extra fans and a box of bootleg tapes); bootleg tapes (contraband: hand them out in a crowd for fans, sell them, or lose them to Clearance first); pirate towers (Muse relay masts on a tenth of generated streets, guarded by technicians or an Inspiration team; win and rewire one with tinkering, a jacked guitar helps; each night it plays her to its neighbourhood and Muse may take it back; one inside the cordon is a teardown stage) | `bookings.ts`, `underground.ts`, `muse.ts`, `cordon.ts` |
 | Songs, a flavour layer: song-worthy events (kisses, slaps, breakups, CINDERJAW, the teardown, a comeback, Muse drones and scouts, bans, blackouts, Callings...) go on her mind as moments; somewhere quiet with a guitar she writes one up (guitar, music, a little int); the songbook outlives her; after a good set the log sometimes names the song. Her deaths become cover stories (a close call, a rumour, a lookalike), never a confession. Love songs about someone can be sung to them (a serenade) or played in public (a declaration; a partner takes it badly) | `songs.ts`, `run.ts` (the moment tap), `text.ts` |
-| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts`, `songs.test.ts` |
+| Out-playing dragons: with a guitar, one go per dragon, no level gates; her guitar (with volume, jacked, and resonance against dragons) against the dragon's grade. Artemis: a decoy riff, it loses her. Hermes: its own delivery chime, it lands (even a Mk. III, which is far harder). Demeter: play over the harvest jingle in its demand, it announces her show and moves on (a flop is a refusal). Ares (any mark): a power riff to feed its appetite for violence, it moves on. CINDERJAW: its old lockdown signal, it drifts on. Hera Mk. V: play to it, it leaves; fail, it vaporizes her. Success is fame and renown for guitar, Atlas heat for the big ones, and a song moment | `dragonsong.ts`, `dragons.ts` |
+| Tests | `renown.test.ts`, `bookings.test.ts`, `muse.test.ts`, `instruments.test.ts`, `fans.test.ts`, `crowd.test.ts`, `cordon.test.ts`, `underground.test.ts`, `songs.test.ts`, `dragonsong.test.ts` |
 
 Not yet: the named Inspiration commander, LUMINA, breaking a Muse contract, resonance against dragons (step 9), and everything from
-step 9 of the build order on.
+step 10 of the build order on.
 
 ## The idea
 
@@ -309,7 +310,7 @@ The opportunities need a little machinery underneath. Kept short on purpose; eac
 6. **The cordon teardown.**
 7. **Inspiration teams,** then the underground (secret gigs, contraband records, pirate towers).
 8. **Songs**, as a flavour layer, with love songs for serenades and declarations.
-9. **Dragons out-played** (resonance, the Demeter hijack).
+9. **Dragons out-played**: one play per family, odds against the dragon's grade, no level gates.
 10. **LUMINA, the broadcast hijack, the wedge, and board hooks,** one at a time.
 11. **Myth tier,** whenever one sounds fun.
 

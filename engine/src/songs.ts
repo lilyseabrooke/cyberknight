@@ -45,6 +45,12 @@ const MOMENTS: Record<string, Spec> = {
   // ---- triumphs
   victory: { kind: 'triumph', drama: 6, titles: () => ['Ballad of the Overpass', 'CINDERJAW Never Saw It Coming'] },
   'cordon_teardown:good': { kind: 'triumph', drama: 6, titles: () => ['Pull (The Cordon Song)', 'Every Exit at Once'] },
+  'dragon_song:artemis': { kind: 'triumph', drama: 3, titles: () => ['Decoy', 'The Patrol Went Left'] },
+  'dragon_song:hermes': { kind: 'triumph', drama: 3, titles: (d) => ['Sign Here', `Special Delivery (${s(d.cargo, 'Something Shiny')})`] },
+  'dragon_song:demeter': { kind: 'triumph', drama: 4, titles: () => ['It\'s Always Winter (Not Tonight)', 'The Night I Sang Down a Demeter'] },
+  'dragon_song:ares': { kind: 'triumph', drama: 4, titles: () => ['Power Riff for a Gang Buster', 'Fed It a Solo'] },
+  'dragon_song:apollo': { kind: 'triumph', drama: 4, titles: () => ['Lockdown (Reprise)', 'Go On, Shoo'] },
+  'dragon_song:hera': { kind: 'triumph', drama: 7, titles: () => ['The Sky Stopped to Listen', 'Hera Mk. V Has Taste'] },
   'dragon_film:good': { kind: 'triumph', drama: 2, titles: () => ['Content', 'Look Up (It Is Looking Down)'] },
   comeback: { kind: 'stage', drama: 4, titles: () => ['Never Left', 'Back (Like I Was Ever Gone)'] },
   'flash_mob:moved': { kind: 'stage', drama: 3, titles: () => ['Bring Everyone', 'Four Minutes After the Post'] },

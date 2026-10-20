@@ -1,4 +1,5 @@
 import { noiseBoost } from './stealth';
+import { dragonSongCandidate } from './dragonsong';
 import { inStartDistrict } from './cordon';
 import { dragonChase } from './chase';
 import type { Ctx, DragonTemper, Flight, Id, Location, Npc, Roam, World } from './types';
@@ -675,7 +676,7 @@ function telegraph(c: Ctx, f: Flight, m: DragonModel): void {
 
 // ---- leaving
 
-function takeOff(c: Ctx, f: Flight, m: DragonModel): void {
+export function takeOff(c: Ctx, f: Flight, m: DragonModel): void {
   const { w } = c;
   const r = f.roam!;
   r.stage = 'leave';
@@ -741,7 +742,7 @@ function comeBack(c: Ctx, f: Flight, m: DragonModel): void {
 }
 
 /** The flight is over: it moves on, or she has. */
-function finish(c: Ctx, f: Flight, left: boolean): void {
+export function finish(c: Ctx, f: Flight, left: boolean): void {
   const { w } = c;
   const m = flightModel(f);
   for (const id of f.ids) if (w.npcs[id]) w.npcs[id]!.alive = false;
@@ -750,7 +751,7 @@ function finish(c: Ctx, f: Flight, left: boolean): void {
 }
 
 /** It has had what it came for, from her. A roaming one carries on its way and pays her no further mind. */
-function concluded(c: Ctx, f: Flight): void {
+export function concluded(c: Ctx, f: Flight): void {
   if (f.roam) {
     f.phase = undefined;
     f.hidden = true;
@@ -761,7 +762,7 @@ function concluded(c: Ctx, f: Flight): void {
   finish(c, f, false);
 }
 
-function spotted(c: Ctx): void {
+export function spotted(c: Ctx): void {
   const { w } = c;
   const f = w.flight!;
   const m = flightModel(f);
@@ -788,7 +789,7 @@ const CAUSE: Record<string, string> = {
   ares4: 'an Ares Mk. IV gang-buster dragon',
 };
 
-function engage(c: Ctx, cause?: string): void {
+export function engage(c: Ctx, cause?: string): void {
   const f = c.w.flight!;
   const foes = flightFoes(c.w);
   if (!foes.length) return;
@@ -854,7 +855,7 @@ function payTithe(c: Ctx, amount: number): void {
 }
 
 /** Saying no, or saying nothing, is a threat to public security. */
-function refuse(c: Ctx, how: 'refuse' | 'silence' | 'haggle'): void {
+export function refuse(c: Ctx, how: 'refuse' | 'silence' | 'haggle'): void {
   const { w } = c;
   const f = w.flight ?? w.flights.find((x) => x.phase === 'demand')!;
   w.flight = f;
@@ -1020,6 +1021,9 @@ export function dragonCandidates(w: World): Candidate[] {
   }
 
   if (!f || f.locationId !== h.locationId) return out;
+  // A guitar, and a go at playing it out of the sky (dragonsong.ts).
+  const song = dragonSongCandidate(w, f);
+  if (song) out.push(song);
   if (f.phase === 'demand') return [...out, ...demandCandidates(w, f)];
   if (f.hidden || f.noticed) return out;
   const foes = flightFoes(w);
