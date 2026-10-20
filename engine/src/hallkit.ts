@@ -14,6 +14,8 @@ import { spawnNpc } from './content/archetypes';
 import { Rng } from './rng';
 import { SKILLS } from './content/skills';
 import { fameFrom } from './stage';
+import { baseTitle, gameDied, gameId, mournLater, ratePlay } from './games';
+import { learnCreator } from './creators';
 import { friendly, roomWhere, runCheckAs, sayAs, type Check, type Kit, type PlaceView } from './placekit';
 
 export { friendly };
@@ -212,12 +214,15 @@ export function ensureCabs(w: World, main: Location): void {
     if (spiderGone(w, main, d)) continue;
     for (const key of cabKeys(info)) {
       const cab = cabByKey(w, main, key);
-      if (cab && wouldWreck(w, main, cab, a)) wreckCab(w, main, key, a.end);
+      if (cab && wouldWreck(w, main, cab, a)) {
+        wreckCab(w, main, key, a.end);
+        mournLater(w, gameId(cab.title));
+      }
     }
   }
   w.counters[stamp] = today;
   // An old spider is not still standing about from a visit that ended.
-  const now = `spider:${main.id}:${today}`;
+  const now = `spider@${main.id}.${today}`;
   for (const n of everyoneAt(w, main.id)) if (n.archetype === 'muse_spider' && n.alive && !n.hostile && n.id !== now) moveNpc(w, n, AWAY);
 }
 
@@ -272,7 +277,7 @@ export function sayArrival(c: Ctx, hall: string): void {
 /** The spider, here for an audit: made the first time anyone looks. A pure function of the hall and the day. */
 export function ensureSpider(c: Ctx, main: Location, a: Audit): Npc | undefined {
   const { w } = c;
-  const id = `spider:${main.id}:${a.day}`;
+  const id = `spider@${main.id}.${a.day}`;
   if (w.npcs[id]) return w.npcs[id];
   if (w.counters[`spiderdead:${main.id}:${a.day}`]) return undefined;
   const rng = new Rng(`spidernpc:${w.worldSeed}:${id}`);
@@ -291,8 +296,13 @@ export function tickHalls(c: Ctx): void {
   if (!main?.gamehall) return;
   const info = main.gamehall;
   const today = dayOf(w.clock);
+  // A game of hers that was stamped on while she was away: she finds the space where it was.
+  for (const gid of w.mind.mourn?.splice(0) ?? []) {
+    const g = w.mind.games?.[gid];
+    if (g) c.emit('game_lost', 'bad', { variant: 'found', name: g.title, title: g.title, game: gid, by: 'a Muse compliance spider', like: Math.round(g.like * 100) / 100 });
+  }
   const a = auditNow(w, main);
-  const sid = `spider:${main.id}:${today}`;
+  const sid = `spider@${main.id}.${today}`;
   const spider = w.npcs[sid];
   if (!a) {
     // The visit is over: it leaves, if it was here, as it came.
@@ -335,6 +345,8 @@ export function tickHalls(c: Ctx): void {
   } else {
     wreckCab(w, main, key, a.end);
     say(c, 'spider.smash', 'bad', SPIDER.smash, undefined, tok, { place: main.name });
+    // If it was a game she loved, she watched it die.
+    gameDied(c, gameId(cab.title), sp.name, sp.id);
   }
 }
 
@@ -380,6 +392,7 @@ export function playOne(c: Ctx, v: HallView, feature: string, text: PlayTexts, o
   const good = rng.chance(Math.max(0.03, Math.min(0.95, p)));
   const pRecord = Math.max(0.01, Math.min(0.8, 0.1 + 0.05 * (syn - cab.top / 2)));
   const record = good && rng.chance(pRecord);
+  let earned = 0;
   const st = stateOf(v.main, cab.key);
   if (record) {
     st.top = cab.top + rng.int(1, 4);
@@ -398,6 +411,7 @@ export function playOne(c: Ctx, v: HallView, feature: string, text: PlayTexts, o
       if (owner) owner.cash -= amt;
       h.cash += amt;
       tok.amount = amt;
+      earned += amt;
     }
     fameFrom(c, fame, 'arcade');
   } else if (good) {
@@ -408,6 +422,7 @@ export function playOne(c: Ctx, v: HallView, feature: string, text: PlayTexts, o
       const amt = Math.max(1, Math.round(cab.price * rng.int(2, 5) * (rigged ? 2 : 1)));
       h.cash += amt;
       tok.amount = amt;
+      earned += amt;
     }
   }
   // Time at the machine: gaming first, the genre's other skills a little.
@@ -418,7 +433,11 @@ export function playOne(c: Ctx, v: HallView, feature: string, text: PlayTexts, o
     if (!id.startsWith('stat:') && id !== 'gaming' && id in SKILLS) train(c, id as keyof typeof SKILLS, xp * 0.3);
   }
   const lines = record ? side.record : good ? side.good : side.bad;
-  say(c, `play.${cab.genre}.${cab.legal}.${record ? 'record' : good ? 'good' : 'bad'}`, record || good ? 'good' : 'bad', lines, record || good ? side.thought : undefined, tok, { place: v.main.name });
+  say(c, `play.${cab.genre}.${cab.legal}.${record ? 'record' : good ? 'good' : 'bad'}`, record || good ? 'good' : 'bad', lines, record || good ? side.thought : undefined, tok, { place: v.main.name, ...(earned ? { earned } : {}) });
+  // What she makes of it: it goes into her memory of the game, and a record puts her name on the credits.
+  const gid = gameId(cab.title);
+  ratePlay(c, gid, baseTitle(cab.title), cab.genre, cab.legal, record ? 'record' : good ? 'good' : 'bad', v.main.id);
+  if (record) learnCreator(c, gid, 'record');
 }
 
 // ===================================================================== changing a cabinet

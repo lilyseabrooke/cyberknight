@@ -418,7 +418,7 @@ describe('the compliance spider', () => {
     const main = mainOf(sc);
     viewAt(sc.w);
     const evs = sc.run((c) => tickHalls(c), always());
-    const spider = sc.w.npcs[`spider:${main.id}:${a.day}`];
+    const spider = sc.w.npcs[`spider@${main.id}.${a.day}`];
     expect(spider).toBeTruthy();
     expect(spider!.archetype).toBe('muse_spider');
     expect(spider!.locationId).toBe(main.id);
@@ -452,7 +452,7 @@ describe('the compliance spider', () => {
     w.clock = a.end + 1;
     const gone = sc.run((c) => tickHalls(c), always());
     expect(gone.some((e) => e.data.variant === 'spider.leave')).toBe(true);
-    expect(w.npcs[`spider:${main.id}:${a.day}`]!.locationId).not.toBe(main.id);
+    expect(w.npcs[`spider@${main.id}.${a.day}`]!.locationId).not.toBe(main.id);
   });
 
   it('passes over a hidden cabinet and a good forgery, but not a poor one', () => {
@@ -516,7 +516,7 @@ describe('the compliance spider', () => {
     main.cabs = Object.fromEntries(keys.map((k) => [k, { legal: 'bootleg' as const }]));
     const a = intoAudit(sc);
     sc.run((c) => void ensureSpider(c, main, a), always());
-    const spider = w.npcs[`spider:${main.id}:${a.day}`]!;
+    const spider = w.npcs[`spider@${main.id}.${a.day}`]!;
     const c = sc.ctx(always());
     kill(c, w, spider, 'Blackbird');
     const evs = sc.run((cc) => {

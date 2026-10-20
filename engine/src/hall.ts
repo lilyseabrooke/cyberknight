@@ -6,8 +6,9 @@ import { FEATURES, featuresIn } from './content/halls';
 import { AFFORD } from './content/hallafford';
 import { CRIME } from './content/hallcrime';
 import { EVENTS } from './content/hallevents';
+import { INTEL } from './content/hallintel';
 
-register('hall', [...AFFORD, ...CRIME, ...EVENTS]);
+register('hall', [...AFFORD, ...CRIME, ...EVENTS, ...INTEL]);
 
 /**
  * Arcades, as seen from the decision loop: if she is standing in one (or one of its rooms), every row of the hall registry

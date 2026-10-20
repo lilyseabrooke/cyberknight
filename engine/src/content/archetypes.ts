@@ -532,6 +532,17 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'robot', weapons: [], loot: ['spider_leg', 'drone_core', 'memory_shard'], lootChance: 0.9, cash: [0, 0], hp: 170, power: 22,
     desc: ['a Muse compliance spider the size of a sofa, eight jointed legs clicking over the floor and a smiling face on a screen where a head should be', 'a Fun Compliance Unit: a spider of brushed pastel steel, a pair of pincers folded under a heart-shaped chin and a voice like a children\'s presenter', 'a hulking, cheerful spider on eight articulated legs, with a clipboard in one pincer and an angle grinder in another'],
   },
+  // ---------------- The people who made the games (creators.ts) ----------------
+  game_designer: {
+    role: 'game designer', level: [3, 6], tags: ['creator', 'designer', 'muse'], faction: null,
+    names: 'person', weapons: ['judgment', 'switchblade'], armors: ['leather_jacket'], armorChance: 0.4, loot: ['highscore_trophy', 'data_slate', 'credchip', 'memory_shard'], lootChance: 0.7, cash: [120, 420],
+    desc: ['a Muse game designer with a lanyard, an unlimited coffee card and a spreadsheet of exactly how much fun she is allowed to feel', 'a designer in a hoodie with LUMINA on the sleeve, who has never once lost to their own game and would like that noted', 'a Muse Fun Designer, a pastel stylus behind each ear, who speaks entirely in "engagement" and "delight"', 'a game designer who plays their own cabinets at night, in the dark, to make sure they are not too hard'],
+  },
+  game_cracker: {
+    role: 'game cracker', level: [3, 6], tags: ['creator', 'cracker', 'strong'], faction: null,
+    names: 'person', weapons: ['switchblade', 'zip_pistol', 'cleaver'], loot: ['cracked_board', 'bootleg_cart', 'debug_dongle', 'data_slate'], lootChance: 0.7, cash: [60, 260],
+    desc: ['a cracker in a hoodie two sizes too big, with a soldering iron behind one ear and a logo on the shirt that is not a company', 'a cracker who made the game in a weekend out of spite, and has regretted nothing since', 'a bootleg author with a bruise-coloured thermos and a drawer of boards no licence has ever touched', 'a cracker who signs their work with a skull and a joke about the manual'],
+  },
   // ---------------- Pawn shops (content/pawns.ts) ----------------
   pawn_broker: {
     role: 'pawnbroker', level: [3, 5], tags: ['owner', 'staff', 'broker'], faction: null,
@@ -687,6 +698,8 @@ const PEOPLE: Record<string, PersonSpec> = {
   pawn_fence: { age: [26, 60] },
   pawn_guard: { women: 0.3, age: [24, 56] },
   hall_owner: { age: [28, 70] },
+  game_designer: { age: [24, 62] },
+  game_cracker: { age: [19, 58] },
   hall_champion: { age: [19, 60] },
   hall_bootlegger: { age: [22, 58] },
   hall_guard: { women: 0.3, age: [24, 56] },

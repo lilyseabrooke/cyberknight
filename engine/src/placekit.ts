@@ -218,7 +218,9 @@ export function runCheckAs<V extends PlaceView>(kit: Kit<V>, c: Ctx, v: V, id: s
     h.hp = Math.max(1, h.hp - 6);
     tok.trap = kit.trapText ?? 'Something was wired.';
   }
-  sayAs(kit.event, c, `${id}.${win ? 'win' : 'lose'}`, win ? 'good' : 'bad', r.text, r.thought, tok, { place: v.main.name, ...(who ? { npc: who.name } : {}) });
+  // Money won by playing games is tallied (a Calling counts it): any check that leans on Gaming, anywhere, that pays out.
+  const earned = win && k.parts.some((p) => (Array.isArray(p) ? p[0] : p) === 'gaming') && typeof tok.amount === 'number' ? tok.amount : 0;
+  sayAs(kit.event, c, `${id}.${win ? 'win' : 'lose'}`, win ? 'good' : 'bad', r.text, r.thought, tok, { place: v.main.name, ...(who ? { npc: who.name } : {}), ...(earned > 0 ? { earned } : {}) });
   if (r.fight && who) fight(c, [who], { cause: kit.cause, assault: true });
   else if (r.thugs) fight(c, spawnGroup(c, r.thugs[0], r.thugs[1]), { cause: kit.cause });
 }

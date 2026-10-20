@@ -23,6 +23,8 @@ import {
   gangName,
   goalViews,
   callingView,
+  gameViews,
+  type GameView,
   type CallingView,
   type GoalView,
   IMPLANTS,
@@ -107,6 +109,8 @@ interface Snapshot {
   goals: GoalView[];
   /** What she has decided to do with her life, if anything. */
   calling: CallingView | null;
+  /** The games she has made up her mind about. */
+  games: GameView[];
   satiety: number;
   /** 0..1, from training; see gym.ts. */
   sore: number;
@@ -181,6 +185,7 @@ function snap(w: World): Snapshot {
     implants: h.implants.map((i) => IMPLANTS[i]?.name ?? i),
     goals: goalViews(w),
     calling: callingView(w),
+    games: gameViews(w),
     satiety: h.satiety ?? 0,
     sore: h.sore ?? 0,
     hunger: hungerOf(h),
@@ -525,6 +530,18 @@ export default function NightViewer() {
                   <span className="muted"> · {status.calling.how === 'whim' ? 'for no reason' : status.calling.how === 'wound' ? 'a wound' : 'a spark'}: {status.calling.origin}{status.calling.wavering ? ' · wavering' : ''}</span>
                 </p>
                 <Bar label={status.calling.goal > 1 ? `${status.calling.count} / ${status.calling.goal}` : status.calling.progress >= 1 ? 'done' : 'not yet'} value={Math.round(status.calling.progress * 100)} max={100} kind="xp" />
+              </div>
+            )}
+            {status.games.length > 0 && (
+              <div className="goals games">
+                <h3>Games she plays</h3>
+                <ul>
+                  {status.games.map((g) => (
+                    <li key={g.title}>
+                      <b>{g.title}</b> <span className="muted">· {g.plays} {g.plays === 1 ? 'play' : 'plays'} · {g.feeling} ({g.like > 0 ? '+' : ''}{g.like}){g.maker ? ` · made by ${g.maker}${g.where ? `, at ${g.where}` : ''}` : ''}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {status.goals.length > 0 && (

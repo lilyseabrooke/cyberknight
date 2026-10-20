@@ -113,6 +113,10 @@ export const BLURBS: Record<string, string> = {
 
 /** What she says to herself about each Calling, in her own voice. */
 const CALLING_VOWS: Record<string, string> = {
+  board: 'Three letters. At the top. Every time. Where they belong.',
+  gamecash: 'They said it was a hobby. They can say it again to my bank.',
+  spiders: 'Fun is guaranteed. So is this.',
+  creator: 'Somebody wrote that. Somebody is at home. I am going to visit.',
   vocals: 'They will hear me from the other side of the Wall.',
   guitar: 'My hands know. They have always known.',
   djing: 'Every floor in Neo. One at a time. In order.',
@@ -936,6 +940,51 @@ const T: Record<string, Entry> = {
   'intent:hubquick': e((d) => [String(d.text)]),
   'intent:hubfight': e((d) => [String(d.text)]),
   'intent:hubdeal': e((d) => [String(d.text)]),
+  // ---- what she makes of the games she plays (games.ts), and who made them (creators.ts)
+  'game_feeling:love': e(
+    (d) => [`Somewhere around the ${Number(d.like) >= 0.8 ? 'tenth' : 'sixth'} go, Blackbird realises she loves "${d.title}". Not likes. Loves. She tells nobody and plays it again.`, `"${d.title}" has her. Blackbird can feel it: that small, stupid, enormous thing where a game stops being a machine and starts being a friend.`],
+    ['Okay. Okay, I love this one.', 'It gets me. It actually gets me.'],
+  ),
+  'game_feeling:hate': e(
+    (d) => [`Blackbird has now lost to "${d.title}" ${Number(d.streak) > 1 ? `${$(d.streak)} times in a row` : 'again'} and has stopped pretending it is a game. It is a person, somewhere, who did this on purpose. She hates it.`, `Somewhere in "${d.title}", a designer made a decision. Blackbird has been living inside it. She is, calmly, beginning to hate whoever it was.`],
+    ['It cheats. It is not even good at cheating.', 'Whoever made this knew exactly what they were doing.'],
+  ),
+  'game_lost:spider': e(
+    (d) => [`${cap(String(d.by))} cuts "${d.title}" in half, in front of her, humming. Blackbird has loved that game for weeks. She watches it go up in a fountain of sparks and does not move a muscle.`, `"${d.title}" goes through a pincer and out the other side, and the cheerful voice says fun is guaranteed. Blackbird's hands close, slowly, on nothing.`],
+    ['That was mine. That was mine.', 'It said it cared. It said it cared the whole time.'],
+  ),
+  'game_lost:found': e(
+    (d) => [`Where "${d.title}" used to stand there is a clean rectangle in the dust and a small pink sticker that says FUN VERIFIED. Blackbird stands there for a while. Someone has swept up the glass.`, `"${d.title}" is gone. The hall has been audited. There is a rectangle on the floor where it was, and a lanyard, and nobody who will look her in the eye.`],
+    ['They took it while I was out.', 'A spider did this. A sticker, and a spider.'],
+  ),
+  'creator_learned:record': e(
+    (d) => [`Blackbird's three letters come up first on "${d.title}", and then the credits roll, which they do for a number one and nobody else. DESIGNED BY ${String(d.name).toUpperCase()}${d.place ? `, ${d.place}` : ''}. She reads it three times.`, `Number one on "${d.title}" unlocks a screen nobody sees. It has a name on it: ${d.name}, ${d.job}${d.place ? `, last known at ${d.place}` : ''}.`],
+    ['A name. A real person.', 'I should send flowers. Or something.'],
+  ),
+  'creator_learned:override': e(
+    (d) => [`Blackbird opens the back of "${d.title}" with an Override and reads the build's own files. The last commit is signed ${d.name}, ${d.job}${d.place ? `, from ${d.place}` : ''}. She would like to meet them.`, `The Override takes "${d.title}" apart like a pocket watch. At the bottom of the source, a name: ${d.name}. ${d.place ? `A note says where they work: ${d.place}.` : ''}`],
+    ['Never trust a machine with its own source open.', 'There you are.'],
+  ),
+  'creator_learned:pros': e(
+    (d) => [`Blackbird asks the pros about "${d.title}" and the whole row of them goes quiet, then loud. ${d.name}, they say. ${d.job}. Nobody knows where. Everybody has a theory.`, `A champion with a custom stick tells her who made "${d.title}", unprompted, in the voice of someone who has said it in a lot of bad moods. ${d.name}.`],
+    ['A name. That is a start.', 'They all hate them too. It is nice to have company.'],
+  ),
+  'creator_learned:intel': e(
+    (d) => [`An evening of forums, credits, a stranger's cache of old patch notes and a lot of squinting, and Blackbird has it: "${d.title}" was made by ${d.name}, ${d.job}${d.place ? `, who works at ${d.place}` : ''}.`, `The thread about "${d.title}" is eleven years old and furious. Under it, in a reply nobody read, is ${d.name}'s handle and a place: ${d.place ?? 'somewhere'}.`],
+    ['Paper trails are the best trails.', 'Digging pays. Nobody ever tells you that.'],
+  ),
+  'creator_learned:records': e(
+    (d) => [`The registry has a file on "${d.title}", and the file has a name: ${d.name}, ${d.job}${d.place ? `, filed at ${d.place}` : ''}. Blackbird takes a copy and leaves the original, which is the polite thing to do.`, `Out of a drawer that should have been locked comes the licensing record for "${d.title}". ${d.name}. ${d.place ? `A home address, even: ${d.place}.` : ''}`],
+    ['There is always a drawer.', 'Paperwork. The most dangerous thing in Neo.'],
+  ),
+  'creator_located:record': e((d) => [`The credits of "${d.title}" list a studio address after all: ${d.place}. ${d.name} is, as of the last update, still there.`], ['An address. Even better.']),
+  'creator_located:override': e((d) => [`Deeper in the build of "${d.title}", a config file points at ${d.place}. ${d.name} works there.`], ['Developers never clean up after themselves.']),
+  'creator_located:pros': e((d) => [`Someone knows where ${d.name} is. It is ${d.place}.`], ['Somebody always knows.']),
+  'creator_located:intel': e((d) => [`It takes three days of other people's receipts, but Blackbird has ${d.name}'s address: ${d.place}.`], ['An address. Now it is personal.']),
+  'creator_located:records': e((d) => [`The registry has ${d.name}'s home and workplace on the same page. ${d.place}. Blackbird tears the page out, in case.`], ['A neat little page. I will put it to good use.']),
+  // ---- a file taken out of a records office (records.ts)
+  records: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:records': e((d) => [String(d.text)]),
   // ---- arcades (content/hall*.ts, hallkit.ts): same shape
   hall: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
   'intent:hall': e((d) => [String(d.text)]),

@@ -4,6 +4,7 @@ import { CAB_FEATURES, GENRES, genreOfFeature, scoreOf } from './halls';
 import { PLAY_TEXT, REDEEM } from './hallplay';
 import { R, row } from './hallrow';
 import { train } from '../skills';
+import { gameId, memoryOf } from '../games';
 import type { World } from '../types';
 
 /**
@@ -41,6 +42,9 @@ export const PLAY: Affordance<HallView>[] = [
       // What she is good at pulls; a cheap go pulls; a record within reach pulls hardest.
       let a = 0.05 + Math.min(0.35, syn / 40) + (cab.price === 0 ? 0.15 : Math.max(0, 0.1 - cab.price / 80));
       if (syn > 0 && cab.top - syn < 6) a += 0.15;
+      // A game she has made something of pulls her back: one she loves, one she keeps losing at ("one more go"), one she has sunk time in.
+      const mem = memoryOf(w, gameId(cab.title));
+      if (mem) a += 0.25 * Math.max(0, mem.like) + Math.min(0.3, 0.06 * mem.streak) + Math.min(0.15, 0.015 * mem.plays);
       const tags = v.sit?.def.tags ?? [];
       if (tags.includes('hunt') || tags.includes('tournament') || tags.includes('free_play')) a += 0.12;
       if (tags.includes('rival')) a += 0.05;

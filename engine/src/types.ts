@@ -1286,8 +1286,8 @@ export interface Calling {
   /** Where the counter stood when she took it up, for callings that count from there. */
   base: number;
   /** Who or what it is about. `text` is how she names it ("the Chrome Vipers", "Pip"). */
-  target?: { npc?: Id; faction?: Id; skill?: string; text?: string };
-  origin: { kind: 'spark' | 'wound' | 'whim'; text: string; beat: number; /** A wound is a loss (someone died) or a brush (she nearly did). */ cause?: 'loss' | 'brush' };
+  target?: { npc?: Id; faction?: Id; skill?: string; text?: string; /** A game she is about, by id (see games.ts). */ game?: string };
+  origin: { kind: 'spark' | 'wound' | 'whim'; text: string; beat: number; /** A wound is a loss (someone died), a brush (she nearly did) or a game (one she loved was destroyed). */ cause?: 'loss' | 'brush' | 'game' };
   /** The last beat it moved, to tell a calling that's merely quiet from one she has forgotten. */
   lastProgress: number;
   /** Progress at the last look, to notice when it moves. */
@@ -1388,10 +1388,39 @@ export interface Mind {
   bonds?: Record<Id, Feelings>;
   /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */
   bounties?: Record<Id, 'scan' | 'scanner' | 'tip'>;
+  /** The games she has tried, by id: how it went, how much she likes it, what she has found out about who made it. Her side only; this resets with her body. See games.ts. */
+  games?: Record<string, GameMemory>;
+  /** Games of hers that were destroyed while she was away, to be mourned when she is next in the hall. */
+  mourn?: string[];
   /** What she is waiting to hear from the lab about. See advice.ts. */
   ask?: Ask;
   /** How the lab's advice has gone this night. */
   advice?: { asked: number; taken: number; lapsed: number; nextId: number };
+}
+
+/** What she has made of one game (a title, whatever cabinet it is on). Her side only. */
+export interface GameMemory {
+  title: string;
+  genre: string;
+  /** What licence the cabinets of it she has seen carried: bootleg or Muse. */
+  legal: 'muse' | 'bootleg';
+  plays: number;
+  wins: number;
+  records: number;
+  /** Losses in a row, right now. */
+  streak: number;
+  /** How much she likes it, -1 (hates it) to 1 (loves it). */
+  like: number;
+  /** Where she has made up her mind: set once the number crosses a line, and cleared when it comes back. */
+  felt?: 'love' | 'hate';
+  /** Cabinets of it she has watched die. */
+  lost?: number;
+  /** The arcades she has played it in (their main floors), newest last: where to go back to. */
+  where?: Id[];
+  /** The id of the NPC who made it, once she knows. */
+  creator?: Id;
+  /** She knows where they are, not only who. */
+  located?: boolean;
 }
 
 export interface Ctx {

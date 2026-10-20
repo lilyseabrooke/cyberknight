@@ -79,8 +79,9 @@ function baseOf(w: World, cal: Calling): number {
   if (!def) return 0;
   if (cal.id === 'gang') return tallyOf(w, `f_${cal.target?.faction}`);
   if (cal.id === 'dragon') return w.counters.dragon_kills ?? 0;
+  if (cal.id === 'spiders') return w.counters.spiders_killed ?? 0;
   if (cal.id === 'roof') return tallyOf(w, 'parkour') + tallyOf(w, 'escape');
-  if (cal.id === 'explore' || cal.id === 'kit' || cal.id === 'one' || cal.id === 'avenge') return 0;
+  if (cal.id === 'explore' || cal.id === 'kit' || cal.id === 'one' || cal.id === 'avenge' || cal.id === 'board' || cal.id === 'creator') return 0;
   return def.key ? tallyOf(w, def.key) : 0;
 }
 
@@ -92,8 +93,8 @@ export function callingBias(w: World, cand: { key: string }): number {
   if (!cal) return 0;
   const def = DEFS[cal.id];
   if (!def?.bias) return 0;
-  const [fam, id] = cand.key.split(':') as [string, string | undefined];
-  return def.bias(w, cal, fam, id) * cal.fervor;
+  const [fam, id, sub] = cand.key.split(':') as [string, string | undefined, string | undefined];
+  return def.bias(w, cal, fam, id, sub) * cal.fervor;
 }
 
 /** Places it pulls her towards, for the same arithmetic as a goal's: location and how badly. */
@@ -202,9 +203,9 @@ function pickSpark(c: Ctx, sctx: SparkCtx): { def: CallingDef; s: number } | nul
   if (!opts.length) return null;
   const pick = rng.weighted(opts, (o) => o.weight);
   // Leans strong. A moment that is vivid and fits her nearly always takes; one that doesn't, sometimes still does.
-  const wounded = !!hurt(sctx) && !!pick.def.wound;
+  const wounded = !!(hurt(sctx) ?? sctx.gameLost) && !!pick.def.wound;
   const p = clamp(0.12 + 0.75 * pick.s * Math.min(1.5, fitOf(w, pick.def)), 0, 0.9);
-  return rng.chance(wounded ? Math.max(p, sctx.lost ? 0.85 : 0.7) : p) ? pick : null;
+  return rng.chance(wounded ? Math.max(p, sctx.lost || sctx.gameLost ? 0.85 : 0.7) : p) ? pick : null;
 }
 
 /** Hit points left, as a share of her best, below which she was nearly dead. */
@@ -233,7 +234,7 @@ export function callingAfter(c: Ctx, pick: Candidate | null, gained: number, eve
   const cal = w.mind.calling;
   const fam = (pick?.key ?? '').split(':')[0] ?? '';
   const lost = events.find((e) => e.type === 'companion_lost');
-  const sctx: SparkCtx = { w, events, fam, gained, d, lost, near: closeCall(w, events, hpBefore) };
+  const sctx: SparkCtx = { w, events, fam, gained, d, lost, near: closeCall(w, events, hpBefore), gameLost: events.find((e) => e.type === 'game_lost') };
 
   if (cal) {
     const def = DEFS[cal.id];
@@ -263,14 +264,14 @@ export function callingAfter(c: Ctx, pick: Candidate | null, gained: number, eve
   if (w.over || w.beat < 12 || waiting(w) || cooling(w, 'calling')) return;
   const hit = pickSpark(c, sctx);
   if (!hit) return;
-  const h = hurt(sctx);
+  const h = hurt(sctx) ?? sctx.gameLost;
   const wound = !!h && !!hit.def.wound;
   const target = hit.def.aim?.(w, rng, sctx);
   if (hit.def.aim && !target) return;
   const by = (h?.data.by as string | undefined) || 'something';
   const why = !wound ? hit.def.origin : hit.def.woundWhy ? hit.def.woundWhy(sctx) : lost ? `${lost.data.name ?? 'someone'} is dead, and ${lost.data.by ?? 'someone'} did it` : `${by} nearly killed her, and she remembers every second of it`;
   const fresh = make(c, hit.def, wound ? 'wound' : 'spark', Math.min(1, hit.s * 0.7 + 0.35 * rng.next() + (wound ? 0.25 : 0)), why, target ?? undefined);
-  if (wound) fresh.origin.cause = lost ? 'loss' : 'brush';
+  if (wound) fresh.origin.cause = lost ? 'loss' : sctx.gameLost && !hurt(sctx) ? 'game' : 'brush';
   realise(c, fresh, !wound);
 }
 
@@ -310,6 +311,7 @@ export function callingTick(c: Ctx): void {
       cool(w, 'calling', BREATHER * 2);
       return;
     }
+    DEFS[cal.id]?.sync?.(w, cal);
     wish(c, cal);
     return;
   }
