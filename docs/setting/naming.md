@@ -10,7 +10,9 @@
 
 ## People
 
-- **Generated people** use the person generator (`engine/src/people.ts`): rolled names, pronouns, loadouts.
+- **Generated people** use the person generator (`engine/src/people.ts`): rolled names, pronouns, loadouts. Names come from
+  `engine/src/content/names.ts`: ~470 given names and ~290 surnames across many cultures, plus street handles (Nyx, Rook),
+  double-barreled surnames and the odd tag (Sterling-9). Add to the tables there.
   Don't hand-name generic NPCs; define an archetype and let it roll.
 - **Hand-named cast** gets a *memorable human name plus a role or nickname*: Dutch Okonkwo, Prophet Ray, Doc Hexamer,
   Chef Bao, Madame Zero. Pattern: **title/nickname + short name**, or a plain name with a flavor surname.

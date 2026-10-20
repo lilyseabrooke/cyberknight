@@ -5,6 +5,7 @@ import { rating, variantOf } from '../weapons';
 import { rollPerson, type PersonSpec } from '../people';
 import { baseHp, basePower } from '../grade';
 import { CALLSIGNS, callsign } from './callsigns';
+import { rollFullName } from './names';
 
 export interface ArchetypeDef {
   role: string;
@@ -646,14 +647,6 @@ export const GANGS: Record<string, string> = {
   choir: 'Rust Choir',
 };
 
-const FIRST = [
-  'Nyx', 'Juno', 'Kestrel', 'Mox', 'Rook', 'Zed', 'Vesper', 'Jinx', 'Sable', 'Dex', 'Marlowe', 'Echo', 'Pike',
-  'Lux', 'Ono', 'Fennec', 'Cass', 'Tarn', 'Ripley', 'Nova', 'Bishop', 'Quill', 'Raze', 'Odalys', 'Hex',
-];
-const LAST = [
-  'Calloway', 'Okonkwo-Vance', 'Vantablack', 'Ibarra', 'Kowalczyk', 'Nakamura-Reyes', 'Dross', 'Maddox', 'Sterling-9',
-  'Voss', 'Larkspur', 'Quint', 'Ashgrove', 'Tanaka-Bell', 'Lovelace', 'Achebe', 'Mercer', 'Hollis',
-];
 const ROBOT = ['UNIT', 'MK', 'BOT', 'SENTRY', 'AUTO'];
 
 const KID = ['Pixel', 'Wire', "Lil' Static", 'Moth', 'Bytes', 'Glitch', 'Noodle', 'Zip', 'Tick', 'Dot', 'Rust', 'Mouse'];
@@ -668,7 +661,7 @@ export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
   if (kind === 'nextday') return callsign(rng, 'HERMES', 'express');
   if (kind === 'demeter') return callsign(rng, 'DEMETER', 'demeter');
   if (kind === 'ares') return callsign(rng, 'ARES', 'ares');
-  return `${rng.pick(FIRST)} ${rng.pick(LAST)}`;
+  return rollFullName(rng, undefined);
 }
 
 export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string; gender?: Gender; age?: number; grade?: number } = {}): Npc {
