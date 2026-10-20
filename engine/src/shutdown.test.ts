@@ -84,10 +84,10 @@ describe('taking people down', () => {
     const mart = s.w.locations.chem_mart!;
     expect(mart.pendingShut).toBeDefined();
     expect(isShut(s.w, 'chem_mart')).toBe(false);
-    s.w.beat = mart.pendingShut!.due - 1;
+    s.w.clock = mart.pendingShut!.due - 1;
     s.run(closureTick);
     expect(isShut(s.w, 'chem_mart')).toBe(false);
-    s.w.beat = mart.pendingShut!.due;
+    s.w.clock = mart.pendingShut!.due;
     s.run(closureTick);
     expect(isShut(s.w, 'chem_mart')).toBe(true);
     expect(mart.shutBy).toBe('police');
@@ -108,7 +108,7 @@ describe('when the muscle goes down', () => {
     expect(isShut(s.w, 'halo_floor')).toBe(false);
     expect(floor.pendingHire).toBeDefined();
     expect(s.events.some((e) => e.type === 'house_decides' && e.data.variant === 'hire')).toBe(true);
-    s.w.beat = floor.pendingHire!.due;
+    s.w.clock = floor.pendingHire!.due;
     s.run(hiringTick);
     const door = npcsAt(s.w, 'halo_floor').find((n) => n.role === 'bouncer' && n !== tiny);
     expect(door).toBeDefined();

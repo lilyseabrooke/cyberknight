@@ -6,6 +6,7 @@ import { gainSatiety, satietyOf, tickSatiety } from './romance';
 import { cool, coolFor, cooling } from './mind';
 import { SHELF_EVERY, tickShelf } from './supply';
 import type { Ctx, GameEvent } from './types';
+import { every } from './clock';
 
 const world = (seed: string) => createWorld({ seed, competence: 0.8, personality: personalityFrom({}) });
 
@@ -51,5 +52,19 @@ describe('things that last are measured in world minutes, not beats', () => {
     tickShelf(c);
     expect(w.shelfAt).toBe(due + SHELF_EVERY);
     expect(JSON.stringify(Object.keys(w.arsenal ?? {}))).not.toBe(before);
+  });
+});
+
+describe('every(): periodic upkeep follows the world clock', () => {
+  it('counts whole spans, keeps the remainder, and does not care how many beats it took', () => {
+    const w = world('ct5');
+    expect(every(w, 'x', 30)).toBe(0);
+    w.clock += 29;
+    expect(every(w, 'x', 30)).toBe(0);
+    w.clock += 1;
+    expect(every(w, 'x', 30)).toBe(1);
+    w.clock += 8 * 60 + 10; // a night's sleep in one beat
+    expect(every(w, 'x', 30)).toBe(16);
+    expect(every(w, 'x', 30)).toBe(0);
   });
 });

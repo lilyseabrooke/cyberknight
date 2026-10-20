@@ -130,7 +130,7 @@ export function afterTakedown(c: Ctx, taken: Npc[]): void {
       if (!others.length) shut(c, wp.id, 'owner', f, f.alive ? 0 : 540, 'clinic');
     } else if (wp.kind === 'shop' && f.tags.includes('shopkeeper') && !wp.pendingShut) {
       // Somebody rings the police. They get there when they get there.
-      wp.pendingShut = { due: w.beat + rng.int(6, 14), who: f.id };
+      wp.pendingShut = { due: w.clock + rng.int(18, 42), who: f.id };
       if (wp.id === w.hero.locationId) c.emit('shut_down', 'bad', { variant: 'called', place: wp.name, npc: f.name });
     }
   }
@@ -141,7 +141,7 @@ export function closureTick(c: Ctx): void {
   const { w } = c;
   for (const loc of Object.values(w.locations)) {
     const p = loc.pendingShut;
-    if (!p || p.due > w.beat) continue;
+    if (!p || p.due > w.clock) continue;
     delete loc.pendingShut;
     const clerk = w.npcs[p.who] ?? npcNamed(w, p.who);
     if (!clerk || isShut(w, loc.id)) continue;
@@ -169,7 +169,7 @@ function weighMuscle(c: Ctx, at: Id, f: Npc): void {
     shut(c, at, 'owner', f, f.alive ? 0 : 360, 'muscle');
     return;
   }
-  place.pendingHire = { due: w.beat + rng.int(8, 16) };
+  place.pendingHire = { due: w.clock + rng.int(24, 48) };
   if (rooms.includes(w.hero.locationId)) c.emit('house_decides', 'mixed', { variant: 'hire', place: place.name, npc: f.name });
 }
 
@@ -180,7 +180,7 @@ export function hiringTick(c: Ctx): void {
   const { w, rng } = c;
   for (const loc of Object.values(w.locations)) {
     const p = loc.pendingHire;
-    if (!p || p.due > w.beat) continue;
+    if (!p || p.due > w.clock) continue;
     delete loc.pendingHire;
     if (isShut(w, loc.id) || !ARCHETYPES.bouncer) continue;
     // Somebody is already on the door (the hire was a rumour, or Tiny came back early): no second one.

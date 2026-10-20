@@ -34,7 +34,7 @@ import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
 import { satietyBias, tickSatiety } from './romance';
 import { needsBias, tickNeeds } from './rest';
-import { BASE_MIN_PER_BEAT, FIGHT_MINUTES, actionMinutes, crossedDawn, dayOf } from './clock';
+import { BASE_MIN_PER_BEAT, FIGHT_MINUTES, actionMinutes, crossedDawn, dayOf, every } from './clock';
 import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
 import { art } from './lab';
@@ -272,10 +272,13 @@ function upkeep(c: Ctx): void {
   closeUp(c);
   tickStealth(c);
   tickPlace(w);
-  if (w.beat % 10 === 0) for (const k of Object.keys(w.heat)) w.heat[k] = Math.max(0, (w.heat[k] ?? 0) - 1);
+  const cooled = every(w, 'heat', 30);
+  if (cooled > 0) for (const k of Object.keys(w.heat)) w.heat[k] = Math.max(0, (w.heat[k] ?? 0) - cooled);
   // The Halo's grudge fades faster than the police's.
-  if (w.beat % 5 === 0 && (w.heat.halo ?? 0) > 0) w.heat.halo!--;
-  if (w.beat % 8 === 0 && h.drunk > 0) h.drunk--;
+  const haloCooled = every(w, 'halo_heat', 15);
+  if (haloCooled > 0 && (w.heat.halo ?? 0) > 0) w.heat.halo = Math.max(0, w.heat.halo! - haloCooled);
+  const soberer = every(w, 'drunk', 24);
+  if (soberer > 0 && h.drunk > 0) h.drunk = Math.max(0, h.drunk - soberer);
   // How much world time has gone by since the last upkeep: a beat can be a few seconds or a night's sleep.
   const minutes = w.upkeepAt === undefined ? BASE_MIN_PER_BEAT : Math.max(0, w.clock - w.upkeepAt);
   w.upkeepAt = w.clock;
@@ -283,17 +286,20 @@ function upkeep(c: Ctx): void {
   tickNeeds(c);
   if (w.over) return;
   // Shipments arrive; tempers cool. No timers on her, just the world carrying on.
-  if (w.beat % 30 === 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2);
+  const shipments = every(w, 'paint', 90);
+  if (shipments > 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2 * shipments);
   tickShelf(c);
   tickVenues(w, minutes);
   tickHustles(c);
   tickGyms(c);
   tickPawns(c);
-  if (w.beat % 12 === 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity += n.affinity > 0 ? -1 : 1;
+  const mellowed = every(w, 'affinity', 36);
+  if (mellowed > 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity = n.affinity > 0 ? Math.max(0, n.affinity - mellowed) : Math.min(0, n.affinity + mellowed);
   // No passive regeneration, bar the lab's Steady Regeneration: a few hit points now and then, never past half health. Real wounds still want a med pack or a street doc.
-  if (w.beat % 10 === 0 && h.hp > 0 && h.hp < h.maxHp * 0.5) {
+  const rests = every(w, 'regen', 30);
+  if (rests > 0 && h.hp > 0 && h.hp < h.maxHp * 0.5) {
     const regen = art(w.legacy, 'regen');
-    if (regen > 0) h.hp = Math.min(Math.ceil(h.maxHp * 0.5), h.hp + regen);
+    if (regen > 0) h.hp = Math.min(Math.ceil(h.maxHp * 0.5), h.hp + regen * rests);
   }
   if (h.drunk >= 6 + Math.floor(skillLevel(h, 'tolerance') / 2)) {
     const lost = Math.round(h.cash * 0.4);

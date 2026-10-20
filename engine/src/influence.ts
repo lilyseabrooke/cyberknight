@@ -9,7 +9,7 @@ import { isFairGame } from './people';
 import { fight, heroPower, here, remember } from './combat';
 import { synergy, train, type Part } from './skills';
 import { ratio, statsOf, type NpcStat } from './npcstats';
-import { cool, cooling, priority } from './mind';
+import { coolFor, cooling, priority } from './mind';
 
 import { heartOf, romanceMod } from './bonds';
 import { learn, unknownFacts } from './knowledge';
@@ -295,7 +295,7 @@ function attempt(c: Ctx, n: Npc, wish: Wish, method: InfluenceMethod): void {
   const words = phrasing(w, wish);
   const data = { npc: n.name, method, kind: wish.kind, ask: words.ask, deed: words.deed, ...(wish.target ? { target: nameOf(w, wish.target) } : {}) };
   const sk = method === 'romance' ? 'romance' : method;
-  cool(w, `influence:${n.id}:${wish.kind}`, 35);
+  coolFor(w, `influence:${n.id}:${wish.kind}`, 105);
   if (rng.chance(p)) {
     train(c, sk, 2 + Math.round(2 * wish.magnitude));
     addGoal(c, n, wish, method);

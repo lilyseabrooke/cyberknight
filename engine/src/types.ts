@@ -1022,6 +1022,8 @@ export interface World {
   heat: Record<string, number>;
   /** What the gunsmith has on the shelf tonight (and any other generated gear for sale), by item id. */
   arsenal?: Record<string, Item>;
+  /** Marks for `every()` in clock.ts: key -> the world-clock minute its last whole span ended. */
+  every?: Record<string, number>;
   /** The world-clock minute of the gunsmith's next shipment (see `tickShelf`). */
   shelfAt?: number;
   /** The world clock at the last upkeep, so things that wear off with time can tell how much of it went by. */

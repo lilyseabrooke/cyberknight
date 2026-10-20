@@ -454,7 +454,7 @@ const KINDS: Record<GoalKind, Kind> = {
       if (ready < 0.5 && apollo && !cooling(w, 'prep:dragon') && rng.chance(0.02 + 0.08 * h.competence)) {
         const have = armBest(h, apollo);
         adopt(c, { kind: 'weapon', parent: g.id, npc: apollo.id, amount: Math.min(32, have + 3), why: 'dragons do not care for tire irons', desire: g.desire, variant: 'prep', extra: { npc: 'Dragon plating' } });
-        cool(w, 'prep:dragon', 60);
+        coolFor(w, 'prep:dragon', 180);
       }
     },
     metric: (w, g) => (w.counters.dragon_kills ?? 0) * 10 + dragonReadiness(w, g) * 5,
@@ -929,7 +929,7 @@ function exploreFor(c: Ctx, parent: Goal, rate: number, known: () => number, why
 /** She sets out to rob somebody's home. The goal does the walking; see `burgle` above. */
 export function startBurglary(c: Ctx, n: Npc, home: Location, extra: EventData = {}): Goal | null {
   const g = adopt(c, { kind: 'burgle', loc: home.id, npc: n.id, why: 'she knows where the money sleeps', desire: 0.7, variant: 'burgle', extra: { npc: n.name, home: home.name, ...extra } });
-  if (!g) cool(c.w, `burgle:${n.id}`, 40);
+  if (!g) coolFor(c.w, `burgle:${n.id}`, 120);
   return g;
 }
 
@@ -1355,7 +1355,7 @@ function formGoals(c: Ctx): void {
   if (hpFrac(w) >= 0.7 && !hasGoal(w, 'raid') && !waiting(w) && !cooling(w, 'advice') && !cooling(w, 'bigscore')) {
     const lead = knownDungeons(w).find((l) => l.entrance.gen?.parent === h.locationId && !cooling(w, `raid:${l.entrance.id}`) && !cooling(w, `door:${l.entrance.id}`));
     if (lead && rng.chance(0.08 * raidAppetite(w))) {
-      cool(w, `door:${lead.entrance.id}`, 30);
+      coolFor(w, `door:${lead.entrance.id}`, 90);
       maybeAsk(c, 'door', () => raidAsk(lead, raidSpec(w, lead, null, 0.45 + 0.3 * t.thrill, raidWhy(lead.kind), 'raid_idea'), rng.chance(clamp(0.3 + 0.45 * raidAppetite(w), 0.3, 0.9)) ? 'clear' : 'leave', true));
     }
   }
