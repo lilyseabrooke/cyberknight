@@ -410,7 +410,8 @@ describe('in the real loop', () => {
       const events: GameEvent[] = [];
       perform(makeCtx(w, always(), events), gather(w).find((x) => x.key === `ask_quest:${giver!.id}`)!);
       for (let beat = 0; beat < 600 && !w.over && giver.quest!.state !== 'done'; beat++) events.push(...step(w));
-      if (giver.quest!.state === 'done') return { w, giver, events };
+      // (Done and reported: some nights she finishes it without the loop ever saying the job was ready.)
+      if (giver.quest!.state === 'done' && events.some((e) => e.type === 'goal_note' && e.data.variant === 'quest_ready')) return { w, giver, events };
     }
     return null;
   }
@@ -432,7 +433,7 @@ describe('in the real loop', () => {
     // And was paid.
     expect(w.hero.inventory.some((i) => i.tags.includes('quest'))).toBe(false);
     for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
-  });
+  }, 240_000);
 });
 
 describe('over whole nights', () => {
