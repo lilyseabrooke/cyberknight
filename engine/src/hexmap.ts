@@ -280,7 +280,7 @@ const HAND_BUILT: [Id, [number, number][], number][] = [
   ['street_main', [[0, 0], [1, 0]], 0],
   ['halo_alley', [[0, 1]], 5],
   ['club_backlot', [[1, 1]], 0],
-  ['overpass', [[2, 0]], 0],
+  ['lab_lot', [[-1, -1]], 0],
   ['halo_floor', [[-1, 0]], 0],
   ['gun_shop', [[-1, 1]], 0],
   ['paint_shop', [[0, -1]], 0],

@@ -188,6 +188,7 @@ const ANCHORS: { at: Id; roads: Road[] }[] = [
       { label: 'Strand Street, west toward the freight yards', districts: ['industrial', 'tenement', 'slum'] },
     ],
   },
+  { at: 'lab_lot', roads: [{ label: 'a narrow lane running off from the lab', districts: ['market', 'tenement', 'nightlife'] }] },
   { at: 'club_backlot', roads: [{ label: 'a service road behind the lots', districts: ['industrial', 'slum'] }] },
   { at: 'halo_alley', roads: [{ label: 'a narrow cut between the buildings', districts: ['slum', 'tenement'] }] },
 ];
@@ -209,6 +210,26 @@ export function seedFrontier(w: MapWorld): void {
       sketch(w, from, i, 'street', district, 1, { label: road.label });
     });
   }
+  wireOverpass(w);
+}
+
+/**
+ * The Kowloon Overpass is not on Strand Street. Its one way in is the first road east off Strand (`street_main~0`), and the lab
+ * lot's own road meets that street too, so the dragon is Strand Street, then a street, then the Overpass, or the lab lot's lane,
+ * then that street, then the Overpass. Safe to call again (a save from before this gets the old door off Strand taken away).
+ */
+function wireOverpass(w: MapWorld): void {
+  const pass = w.locations.overpass;
+  const gate = w.locations[childId('street_main', 0)];
+  if (!pass || !gate) return;
+  const strand = w.locations.street_main;
+  if (strand) strand.exits = strand.exits.filter((e) => e.to !== pass.id);
+  pass.exits = pass.exits.filter((e) => e.to === gate.id);
+  pass.tossTo = gate.id;
+  pass.fleeTo = gate.id;
+  join(gate, pass, 'the Kowloon Overpass (where the dragon patrols)', `back down to ${gate.name}`);
+  const lane = w.locations[childId('lab_lot', 0)];
+  if (lane) join(lane, gate, `a cut-through to ${gate.name}`, `a cut-through to ${lane.name}`);
 }
 
 // ===================================================================== the cordon

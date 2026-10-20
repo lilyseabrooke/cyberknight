@@ -143,6 +143,8 @@ The gameplay *is* the unpredictability of what Blackbird chooses, so the core en
 
 **Setting:** one stretch of Neo. 16 locations: the Rusty Halo (bar floor, restroom with a street doc, kitchen, laser-tag basement, backroom with the fixer and a wall safe, roof), the alley behind it (dumpster, surveillance drone, a hidden maintenance hatch), Strand Street, the Neon Pharaoh nightclub (bouncers, security, dancers, a corporate heir), the maintenance crawlspace, the Helix Biotech loading dock, lobby and research wing (prototype vault with an experimental device), and the Kowloon Overpass where the cyberdragon CINDERJAW patrols.
 
+**Where the night starts:** the **lab back lot**, a small alley behind the lab with two ways out: Strand Street, and a generated lane. It has the lab's own drop point, the one deposit in Neo with no cut at all. The Overpass is not on Strand Street. Its one way in is the first generated street east of Strand, and the lab lot's lane meets that street too, so the dragon is always lab lot, then Strand Street (or the lane), then that street, then the Overpass. She does not begin in the bar, and does not stumble into the dragon early.
+
 **People:** ~40 NPCs with rolled names and rolled loadouts, including two romanceable women (the bartender and a hacker with a jealous streak), a robot puppy that can be pet or stolen, a six-armed cook, a twitchy dealer, a street prophet, an off-duty cop, a "monitored" corpo with half a million in tracking implants, and a barkeep with a bat named Judgment.
 
 **Per-run situational variables:** which two gangs are at war, and what the police are cracking down on this week.

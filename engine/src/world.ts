@@ -18,11 +18,17 @@ type LocDef = Omit<Location, 'visits' | 'id' | 'graffiti' | 'territory' | 'camer
 
 /** Security cameras by location. Anything she does in view of one gets reported. */
 const CAMERAS: Record<Id, number> = {
-  halo_floor: 1, halo_arcade: 1, halo_backroom: 1, street_main: 3, neon_pharaoh: 3, club_greenroom: 1, paint_shop: 1,
+  lab_lot: 0, halo_floor: 1, halo_arcade: 1, halo_backroom: 1, street_main: 3, neon_pharaoh: 3, club_greenroom: 1, paint_shop: 1,
   chem_mart: 2, gun_shop: 3, helix_dock: 3, helix_lobby: 4, helix_lab: 4, overpass: 2,
 };
 
 const LOCATIONS: Record<Id, LocDef> = {
+  // Where every night starts: a small alley behind the lab. Two ways out: Strand Street, and a generated street (see ANCHORS in mapgen.ts).
+  lab_lot: {
+    name: 'Lab back lot', kind: 'street', street: 'alley', security: 1, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'street_main',
+    blurb: 'Lab back lot: a service alley behind a roll-up door that never opens. A drain, a stack of dead monitors, and a hatch in the wall that takes deposits and asks nothing in return.',
+    exits: [ex('street_main', 'the mouth of the alley, onto Strand Street')],
+  },
   halo_floor: {
     name: 'The Rusty Halo', kind: 'bar', security: 1, crowded: true, outdoors: false, tossTo: 'street_main', fleeTo: 'halo_alley',
     exits: [
@@ -72,13 +78,13 @@ const LOCATIONS: Record<Id, LocDef> = {
   street_main: {
     name: 'Strand Street', kind: 'street', street: 'street', security: 3, crowded: true, outdoors: true, tossTo: 'halo_alley', fleeTo: 'halo_alley',
     exits: [
+      ex('lab_lot', 'the alley behind the lab'),
       ex('halo_floor', 'the Rusty Halo'),
       ex('halo_alley', 'the alley beside the Halo'),
       ex('neon_pharaoh', 'the Neon Pharaoh nightclub', { gate: 'bouncer' }),
       ex('paint_shop', 'Spray & Pray Paint Supply'),
       ex('chem_mart', 'Lucky Seven Chem-Mart (open 24 hours, regrets sold separately)'),
       ex('gun_shop', 'Bullets & Bagels'),
-      ex('overpass', 'the Kowloon Overpass (where the dragon patrols)'),
     ],
   },
   neon_pharaoh: {
@@ -160,8 +166,9 @@ const LOCATIONS: Record<Id, LocDef> = {
     ],
   },
   overpass: {
+    // Its one way in is a generated street two steps from the lab lot (wired in mapgen.ts: `wireOverpass`).
     name: 'Kowloon Overpass', kind: 'boss', security: 0, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'street_main',
-    exits: [ex('street_main', 'back down to Strand Street')],
+    exits: [],
   },
 };
 
@@ -244,7 +251,7 @@ export function makeHero(personality: Personality, realName: string, competence 
     fame: 0,
     tab: 0,
     implants: [],
-    locationId: 'halo_floor',
+    locationId: 'lab_lot',
     previousLocationId: 'street_main',
     personality,
     competence,
@@ -320,6 +327,7 @@ export function createWorld(opts: RunOptions): World {
   add('cook', 'halo_kitchen', { id: 'bao', name: 'Chef Bao' });
   add('fixer', 'halo_backroom', { id: 'madame', name: 'Madame Zero', gender: 'woman' });
   add('drone', 'halo_alley');
+  add('sweeper', 'lab_lot');
   add('noodler', 'street_main');
   add('paint_clerk', 'paint_shop', { id: 'clerk', gender: 'woman', single: true });
   add('pharmacist', 'chem_mart', { id: 'pharmacist' });
@@ -385,5 +393,11 @@ export function createWorld(opts: RunOptions): World {
   seedFrontier(world); // the hand-built district opens onto a city that gets made as she walks into it
   return world;
 }
+
+/** A hand-built place as a fresh location, for saves from before it existed. */
+export const handBuilt = (id: Id): Location | undefined => {
+  const d = LOCATIONS[id];
+  return d ? { id, visits: 0, cameras: CAMERAS[id] ?? 0, graffiti: 0, territory: null, ...d, exits: d.exits.map((e) => ({ ...e })), populated: true } : undefined;
+};
 
 export const gangName = (id: string): string => GANGS[id] ?? id;

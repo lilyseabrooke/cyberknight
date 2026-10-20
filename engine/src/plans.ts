@@ -46,7 +46,7 @@ export function routeTo(w: World, from: Id, to: Id): { dist: number; next: Id } 
 /** Somewhere she'd be happy to be standing after a bad idea: the nearest public place. */
 export function safeSpot(w: World, from: Id): { loc: Id; dist: number } | null {
   let best: { loc: Id; dist: number } | null = null;
-  for (const id of ['halo_floor', 'street_main', 'halo_alley', 'club_backlot']) {
+  for (const id of ['halo_floor', 'lab_lot', 'street_main', 'halo_alley', 'club_backlot']) {
     const r = routeTo(w, from, id);
     if (r && (!best || r.dist < best.dist)) best = { loc: id, dist: r.dist };
   }

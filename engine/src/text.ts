@@ -153,7 +153,7 @@ const CALLING_VOWS: Record<string, string> = {
 const T: Record<string, Entry> = {
   depart: e(
     (d) => [
-      `Night falls on Neo. Blackbird pushes through the doors of ${d.place}.`,
+      `Night falls on Neo. Blackbird steps out into ${d.place}.`,
       `Another night, another neighborhood the city forgot to fix. Blackbird walks into ${d.place}.`,
     ],
     ['Dragons, damsels, and a whole city that needs saving. Easy.', "Neo, I'm back. Try to keep up."],
@@ -2244,6 +2244,7 @@ const T: Record<string, Entry> = {
     (d) => {
       const tail = `${$(d.net)} neodollars go into her account${Number(d.fee) ? ` after a ${d.pct}% cut of ${$(d.fee)}` : ' with no cut at all'}. Balance: ${$(d.balance)}.`;
       switch (d.variant) {
+        case 'lab': return [`Blackbird feeds the lab's night-drop hatch, and a small speaker in the wall says "received" in a voice she is fairly sure is the lab guy doing an impression of a machine. ${tail}`];
         case 'alley': return [`Blackbird slides a loose brick out of the alley wall and feeds it the cash, one folded bill at a time. ${tail}`];
         case 'street': return [`The Ironvault ATM blinks twice and agrees to take her money, a state of affairs the screen's crack makes dubious. ${tail}`];
         case 'club': return [`The coat-check attendant slides an envelope under the glass and doesn't make eye contact. ${tail}`];
