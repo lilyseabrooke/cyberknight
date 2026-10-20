@@ -1,7 +1,7 @@
 import type { Ctx, Disguise, Dungeon, DungeonKind, Exit, Hero, Id, Location, Npc, World } from './types';
 import type { EventData } from './events';
-import { clamp, type Candidate } from './candidate';
-import { addHeat, here, remember } from './combat';
+import { clamp, spawnGroup, type Candidate } from './candidate';
+import { addHeat, fight, here, remember } from './combat';
 import { every } from './clock';
 import { odds, skillLevel, synergy, train } from './skills';
 import { GANGS } from './content/archetypes';
@@ -77,6 +77,57 @@ export function buzz(w: World, name: string): number {
 function addBuzz(w: World, name: string, amount: number): void {
   w.counters[`buzz_${slug(name)}`] = buzz(w, name) + amount;
   w.counters[`buzz_at_${slug(name)}`] = w.clock;
+}
+
+// ---- the law's interest in them, which she doesn't get to see
+
+/** Where the law stands with this star (0..10). Her own heat is set aside while she wears the face, and this is what the police see. */
+export const starHeat = (w: World, name: string): number => w.counters[`starheat_${slug(name)}`] ?? 0;
+const setStarHeat = (w: World, name: string, v: number): void => void (w.counters[`starheat_${slug(name)}`] = clamp(v, 0, 10));
+
+/** She's made trouble for a star. Sooner or later their people find out, and a patrol turns up with a letter. */
+function trouble(c: Ctx, name: string, added: number): void {
+  const { w, rng } = c;
+  const k = slug(name);
+  const blame = (w.counters[`blame_${k}`] ?? 0) + added;
+  w.counters[`blame_${k}`] = blame;
+  if ((w.counters[`cd_at_${k}`] ?? 0) > 0 || !rng.chance(clamp(0.3 + 0.15 * added, 0, 0.9))) return;
+  w.counters[`cd_at_${k}`] = w.clock + rng.int(120, 600);
+  w.counters[`cd_n_${k}`] = clamp(Math.floor(1 + blame / 2), 1, 3);
+}
+
+/**
+ * The star's people, if she has got one of them in trouble and they've found out: an armed patrol with a letter. It is private security,
+ * not the NPD, so beating it off builds no police heat. Only outdoors, and only once the time they took to find out has gone by.
+ */
+export function starSecurity(c: Ctx): boolean {
+  const { w, rng } = c;
+  if (!w.locations[w.hero.locationId]?.outdoors) return false;
+  for (const s of STARS) {
+    const k = slug(s.name);
+    const at = w.counters[`cd_at_${k}`] ?? 0;
+    if (at <= 0 || w.clock < at || !rng.chance(0.2)) continue;
+    const squad = spawnGroup(c, 'star_security', 1 + (w.counters[`cd_n_${k}`] ?? 1));
+    w.counters[`cd_at_${k}`] = 0;
+    w.counters[`blame_${k}`] = 0;
+    c.emit('ambush', 'bad', { variant: 'star_security', count: squad.length, label: s.name, what: s.what });
+    fight(c, squad, { cause: `${s.name}'s lawyers`, joiners: false });
+    return true;
+  }
+  return false;
+}
+
+/** The news, now and then: most stars are in no trouble most of the time, and trouble blows over. */
+function starNews(c: Ctx, wearing: Disguise | undefined): void {
+  const { w, rng } = c;
+  if (every(w, 'star_news', 120) <= 0) return;
+  for (const s of STARS) {
+    if (wearing?.kind === 'star' && wearing.label === s.name) continue; // (hers to deal with)
+    const now = starHeat(w, s.name);
+    const r = rng.next();
+    if (r < 0.05) setStarHeat(w, s.name, now + rng.int(1, 3));
+    else if (now > 0 && r < 0.45) setStarHeat(w, s.name, now - 1);
+  }
 }
 
 /** How well she would carry this star's face right now. */
@@ -167,8 +218,15 @@ const lasts = (h: Hero): number => clamp(90 + 15 * skillLevel(h, 'acting'), 90, 
 
 function put(c: Ctx, face: Pick<Disguise, 'kind' | 'label'> & Partial<Pick<Disguise, 'crew' | 'as' | 'fame'>>, polish: number): Disguise {
   const { w } = c;
+  if (w.hero.disguise) strip(c, false); // (whoever she was)
   const dis: Disguise = { ...face, until: w.clock + lasts(w.hero), polish: clamp(polish, 0.1, 0.95), passed: [], fooled: [] };
   w.hero.disguise = dis;
+  // A star's face brings the star's standing with the law: hers is set aside, theirs is what the police see until it comes off.
+  if (face.kind === 'star') {
+    dis.parked = w.heat.npd ?? 0;
+    dis.heat0 = starHeat(w, face.label);
+    w.heat.npd = dis.heat0;
+  }
   w.counters.face_at = w.clock;
   return dis;
 }
@@ -211,6 +269,12 @@ function strip(c: Ctx, exposed: boolean): void {
   const dis = w.hero.disguise;
   if (!dis) return;
   delete w.hero.disguise;
+  if (dis.kind === 'star' && dis.parked !== undefined) {
+    const now = w.heat.npd ?? 0;
+    setStarHeat(w, dis.label, now);
+    w.heat.npd = dis.parked;
+    if (now > (dis.heat0 ?? 0)) trouble(c, dis.label, now - (dis.heat0 ?? 0));
+  }
   if (!exposed) return;
   for (const id of dis.fooled) {
     const n = w.npcs[id];
@@ -240,6 +304,7 @@ export function endDisguise(c: Ctx, why: 'wore_off' | 'fight' | 'dropped'): void
 export function disguiseTick(c: Ctx): void {
   const { w, rng } = c;
   const dis = w.hero.disguise;
+  starNews(c, dis);
   if (!dis) return;
   if (w.clock >= dis.until) return endDisguise(c, 'wore_off');
   // A famous face in a crowd draws looks: every half hour somebody may know better.
@@ -379,6 +444,12 @@ export function disguiseCandidates(w: World): Candidate[] {
     out.push({ key: 'shed_face', drives: {}, bonus: 0.1, smart: 0.9, intent: { label: dis.label }, run: (c) => endDisguise(c, 'dropped') });
   }
 
+  // ---- losing the heat by losing the face
+  const gained = dis && dis.kind !== 'star' ? Object.values(dis.heat ?? {}).reduce((a, b) => a + b, 0) : 0;
+  if (dis && gained > 0 && !here(w).some((n) => n.hostile)) {
+    out.push({ key: 'shake_heat', drives: {}, smart: 1.0, bonus: Math.min(1, gained / 3), intent: { label: dis.label }, run: shakeHeat });
+  }
+
   // ---- working the room
   if (dis?.kind === 'star') {
     for (const n of here(w)) {
@@ -387,6 +458,26 @@ export function disguiseCandidates(w: World): Candidate[] {
     }
   }
   return out;
+}
+
+/** Slip out of the face and out of notice: whatever heat it picked up goes, if she can pull it off. A hard thing to do. */
+function shakeHeat(c: Ctx): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  const dis = h.disguise;
+  if (!dis) return;
+  const gained = dis.heat ?? {};
+  const total = Object.values(gained).reduce((a, b) => a + b, 0);
+  const p = clamp(odds(0.06, 0.05, synergy(h, ['acting', ['sneak', 0.5], ['stat:int', 0.3]]), 0.03, 0.55) - 0.03 * total, 0.03, 0.55);
+  strip(c, false);
+  if (rng.chance(p)) {
+    for (const [f, v] of Object.entries(gained)) w.heat[f] = Math.max(0, (w.heat[f] ?? 0) - v);
+    train(c, 'acting', 2);
+    c.emit('heat_shed', 'good', { variant: 'ok', label: dis.label, amount: total });
+    return;
+  }
+  train(c, 'acting', 1);
+  c.emit('heat_shed', 'bad', { variant: 'caught', label: dis.label, amount: total });
 }
 
 /** Is there anything left for this face to do where she is and where she is going? */

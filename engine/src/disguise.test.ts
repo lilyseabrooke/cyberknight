@@ -12,7 +12,8 @@ import { hasTemplate } from './text';
 import { SKILLS } from './content/skills';
 import { skillLevel } from './skills';
 import { mindTick } from './goals';
-import { STARS, TIRED, activeDisguise, bestStar, bluffEase, buzz, blow, disguiseTick as tick0, canPass, coverEase, coverFor, crewTag, disguiseTick, entranceCrew, holdOdds, shownFame } from './disguise';
+import { addHeat } from './combat';
+import { STARS, starHeat, starSecurity, TIRED, activeDisguise, bestStar, bluffEase, buzz, blow, disguiseTick as tick0, canPass, coverEase, coverFor, crewTag, disguiseTick, entranceCrew, holdOdds, shownFame } from './disguise';
 import type { Disguise, Goal, Location, World } from './types';
 
 /** A dungeon of this kind and tier on a street near the Halo, with Blackbird standing outside its door. */
@@ -442,8 +443,147 @@ describe('goals about faces', () => {
       ['intent', { variant: 'shed_face', label: 'x' }], ['disguise_end', { variant: 'dropped', label: 'x' }], ['disguise_blown', { variant: 'recognized', label: 'x', npc: 'y' }],
       ['star_scandal', { variant: 'mocked', label: 'x' }], ['star_scandal', { variant: 'lawyers', label: 'x', amount: 5 }],
       ['goal_new', { variant: 'cover_plan', place: 'x', goal: 'y' }], ['goal_new', { variant: 'star_plan', npc: 'x', goal: 'y' }],
-      ['goal_done', { variant: 'dressed', place: 'x' }], ['goal_done', { variant: 'won_over', npc: 'x' }], ['goal_drop', { variant: 'too_hot' }],
+      ['goal_resume', { variant: 'guise', place: 'x' }], ['goal_resume', { variant: 'guise', npc: 'x' }], ['goal_done', { variant: 'dressed', place: 'x' }], ['goal_done', { variant: 'won_over', npc: 'x' }], ['goal_drop', { variant: 'too_hot' }],
     ];
     for (const [type, data] of lines) expect(hasTemplate({ beat: 1, type, outcome: 'good', data }), `${type}:${data.variant}`).toBe(true);
+  });
+});
+
+describe('the law and the famous', () => {
+  const slug = (n: string) => n.toLowerCase().replace(/[^a-z]+/g, '_');
+  function crowdScene(seed = 'law'): { sc: Scenario; w: World } {
+    const sc = scenario({ seed, at: 'halo_floor' });
+    const girl = spawnNpc(new Rng('lg'), 'law_girl', 'patron', sc.w.hero.locationId, { name: 'Law Girl', gender: 'woman', age: 28 });
+    addNpc(sc.w, girl);
+    return { sc, w: sc.w };
+  }
+
+  it('wearing a star takes on their standing with the law, and her own is waiting when it comes off', () => {
+    const { sc, w } = crowdScene();
+    const star = bestStar(w).star;
+    w.counters[`starheat_${slug(star.name)}`] = 3;
+    w.heat.npd = 1;
+    sc.do('don_star', always());
+    expect(w.hero.disguise!.label).toBe(star.name);
+    expect(w.heat.npd).toBe(3);
+    sc.run((c) => void c.emit('x', 'mixed'));
+    w.clock += 400;
+    sc.run((c) => disguiseTick(c)); // wears off
+    expect(w.heat.npd).toBe(1);
+    expect(starHeat(w, star.name)).toBe(3);
+  });
+
+  it('what she does while she is a star goes on the star, whoever it was that wanted her', () => {
+    const { sc, w } = crowdScene('law2');
+    const star = bestStar(w).star;
+    sc.do('don_star', always());
+    w.heat.npd = 0;
+    sc.run(() => {
+      addHeat(w, 'npd', 2);
+      addHeat(w, 'atlas', 3); // (everything lands on the one account)
+    });
+    expect(w.heat.atlas ?? 0).toBe(0);
+    expect(w.heat.npd).toBe(5);
+    const ev = sc.run((c) => blow(c, 'recognized', { npc: 'x' }), always());
+    expect(ev.length).toBeGreaterThan(0);
+    expect(starHeat(w, star.name)).toBe(5);
+    expect(w.heat.npd ?? 0).toBe(0);
+    expect(w.heat.atlas ?? 0).toBe(0);
+    // and the star's people found out
+    expect(w.counters[`cd_at_${slug(star.name)}`]).toBeGreaterThan(w.clock);
+  });
+
+  it('then, outdoors, a patrol turns up with a letter, and beating it off is not a police matter', () => {
+    const sc = scenario({ seed: 'letter', at: 'street_main' });
+    const w = sc.w;
+    const star = STARS[0]!;
+    w.counters[`cd_at_${slug(star.name)}`] = w.clock - 1;
+    w.counters[`cd_n_${slug(star.name)}`] = 2;
+    w.heat.npd = 0;
+    w.hero.level = 30;
+    w.hero.maxHp = w.hero.hp = 900;
+    expect(w.locations[w.hero.locationId]!.outdoors).toBe(true);
+    const ev = sc.run((c) => void starSecurity(c), always());
+    expect(ev.some((e) => e.type === 'ambush' && e.data.variant === 'star_security' && e.data.label === star.name)).toBe(true);
+    expect(ev.some((e) => e.type === 'fight_start')).toBe(true);
+    expect(w.heat.npd ?? 0).toBe(0);
+    expect(w.counters[`cd_at_${slug(star.name)}`]).toBe(0);
+    // it only comes once
+    expect(sc.run((c) => void starSecurity(c), always())).toHaveLength(0);
+  });
+
+  it('they wait until she is outdoors and the time has come', () => {
+    const sc = scenario({ seed: 'wait', at: 'halo_floor' });
+    const w = sc.w;
+    const star = STARS[0]!;
+    w.counters[`cd_at_${slug(star.name)}`] = w.clock + 100;
+    expect(sc.run((c) => void starSecurity(c), always())).toHaveLength(0);
+    w.hero.locationId = 'street_main';
+    expect(sc.run((c) => void starSecurity(c), always())).toHaveLength(0);
+  });
+
+  it('stars have their own news: mostly nothing, now and then trouble, and trouble blows over', () => {
+    const sc = scenario({ seed: 'news', at: 'halo_floor' });
+    const w = sc.w;
+    sc.run((c) => disguiseTick(c)); // (starts the clock on it)
+    w.clock += 121;
+    sc.run((c) => disguiseTick(c), never());
+    expect(STARS.every((s) => starHeat(w, s.name) === 0)).toBe(true);
+    w.clock += 121;
+    sc.run((c) => disguiseTick(c), always());
+    expect(STARS.some((s) => starHeat(w, s.name) > 0)).toBe(true);
+    // it passes
+    w.counters[`starheat_${slug(STARS[0]!.name)}`] = 2;
+    w.clock += 121;
+    sc.run((c) => disguiseTick(c), rolls(0.3));
+    expect(starHeat(w, STARS[0]!.name)).toBe(1);
+  });
+
+  it('for any other face, the heat it picked up can be lost by losing it, if she is good enough', () => {
+    const sc = scenario({ seed: 'shake', at: 'street_main' });
+    const w = sc.w;
+    w.hero.disguise = face({ crew: 'atlas' });
+    w.heat.atlas = 0;
+    addHeat(w, 'atlas', 2);
+    expect(w.heat.atlas).toBe(2);
+    expect(w.hero.disguise!.heat).toEqual({ atlas: 2 });
+    expect(sc.offers()).toContain('shake_heat');
+    const bad = sc.do('shake_heat', never());
+    expect(bad.some((e) => e.type === 'heat_shed' && e.data.variant === 'caught')).toBe(true);
+    expect(w.heat.atlas).toBe(2);
+    expect(w.hero.disguise).toBeUndefined();
+
+    w.hero.disguise = face({ crew: 'atlas' });
+    addHeat(w, 'atlas', 2);
+    const heat = w.heat.atlas!;
+    const good = sc.do('shake_heat', always());
+    expect(good.some((e) => e.type === 'heat_shed' && e.data.variant === 'ok')).toBe(true);
+    expect(w.heat.atlas).toBe(heat - 2);
+  });
+
+  it('a fight in front of witnesses while she is a star is the star\'s, and her own heat is untouched', () => {
+    const { sc, w } = crowdScene('brawl');
+    const star = bestStar(w).star;
+    sc.do('don_star', always());
+    w.heat.npd = 0;
+    const real = w.heat.npd;
+    const victim = spawnNpc(new Rng('v'), 'victim1', 'mugger', w.hero.locationId);
+    addNpc(w, victim);
+    w.hero.level = 30;
+    w.hero.maxHp = w.hero.hp = 900;
+    const ev = sc.run((c) => void fight(c, [victim], { cause: 'a test', joiners: false, assault: true }), always());
+    expect(w.hero.disguise).toBeUndefined();
+    expect(ev.some((e) => e.type === 'disguise_end' && e.data.variant === 'fight')).toBe(true);
+    // (whoever saw it, saw the star)
+    expect(w.heat.npd ?? 0).toBe(real);
+    expect(starHeat(w, star.name)).toBeGreaterThan(0);
+  });
+
+  it('is written about', () => {
+    const lines: [string, Record<string, string | number | boolean>][] = [
+      ['intent', { variant: 'shake_heat', label: 'x' }], ['heat_shed', { variant: 'ok', label: 'x', amount: 1 }], ['heat_shed', { variant: 'caught', label: 'x', amount: 1 }],
+      ['ambush', { variant: 'star_security', count: 2, label: 'x', what: 'y' }],
+    ];
+    for (const [type, data] of lines) expect(hasTemplate({ beat: 1, type, outcome: 'bad', data }), `${type}:${data.variant}`).toBe(true);
   });
 });

@@ -39,7 +39,7 @@ import { needsBias, tickNeeds } from './rest';
 import { BASE_MIN_PER_BEAT, FIGHT_MINUTES, actionMinutes, crossedDawn, dayOf, every } from './clock';
 import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
-import { disguiseTick } from './disguise';
+import { disguiseTick, starSecurity } from './disguise';
 import { art } from './lab';
 import { gate, tickStealth } from './stealth';
 import { influenceTick } from './influence';
@@ -335,6 +335,7 @@ function ambient(c: Ctx): void {
   }
 
   // Police response: drones at low heat, officers at high. Lying low indoors keeps her out of reach.
+  if (starSecurity(c)) return;
   if (npdResponse(c)) return;
   if (driveByRoll(c)) return;
   // On a highway nothing else turns up: no muggers, no raids, no neighbours.

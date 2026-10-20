@@ -50,6 +50,14 @@ Faces are planned, not worn on a whim (`guise` goals, `goals.ts`):
 - **Looks.** In a crowd, every half hour, someone may know better (more likely the more talk there's been): `disguise_blown:recognized`.
 - **Found out** as a star (a girl, a fan, a bad pass): she loses a point of fame, the people around her think less of her (-2), and the talk goes up. If it's a face she's already worn a lot (buzz of 1.5 or more) the star's people send a bill (30-90nd) and a copy to the NPD (heat 1).
 
+## The law and the famous
+
+- **Stars have their own heat** (`starHeat`, 0..10), which she can't see. Most of the time it's zero; every two hours of world time a star has a 5% chance of a spike (1-3), and any trouble fades (about 40% a time it's checked). It is set while she is not wearing the face.
+- **Wearing a star's face puts her under the star's heat.** Her own police heat is set aside (`Disguise.parked`) and `w.heat.npd` *is* the star's until the face comes off, so every existing system (the police response, bribes, a fixer, decay, chases) works on the star's heat. She may put on a face the law is after and not know why she is being picked up.
+- **What she does as a star is on the star's account.** All heat she would gain, from any faction, goes to the one number. A fight in front of witnesses is the same: the face goes after the witnesses have seen it. When the face comes off, her own heat comes back untouched. She is still in trouble for as long as she wears it.
+- **The star's people find out.** Any heat she adds to a star's account is *blame*. Usually a letter follows after two to ten hours (`cd_at_*`): more likely the more she added, and bigger the more blame. When she is next outdoors after that, a private security patrol turns up (`star_security`, 2 to 4 of them): the archetype has `security`, not `cop`, so beating it off builds no police heat. It comes once.
+- **Losing the heat by losing the face.** Any other face (a crew, a lanyard) records the heat she picks up while wearing it (`Disguise.heat`). `shake_heat` drops the face and tries to lose that heat. It is hard: 6% plus 5% per point of acting, sneak and int, less 3% per point of heat, and no better than 55%. A miss still drops the face, and the heat stays.
+
 ## Left out / open
 
 - No costumes: a gang jacket or an Atlas vest in the inventory doesn't improve polish yet.

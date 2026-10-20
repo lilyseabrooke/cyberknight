@@ -163,6 +163,12 @@ export interface Disguise {
   passed: Id[];
   /** People who bought it, and will mind if it comes apart. */
   fooled: Id[];
+  /** A star's face: her own police heat, set aside while the star's is what the law sees (`w.heat.npd` is the star's until the face comes off). */
+  parked?: number;
+  /** A star's face: the star's heat when she put it on, to tell what she has added. */
+  heat0?: number;
+  /** Any other face: heat she has picked up while wearing it, which dropping the face might lose. */
+  heat?: Record<string, number>;
 }
 
 export interface Hero {
