@@ -588,7 +588,7 @@ describe('Blackbird in there', () => {
   });
 
   it('a hero who knows her limits gives up on a place that is more than she can take, and leaves', () => {
-    const { sc, w, id } = raiding('outpost', 5, { competence: 0.9 });
+    const { sc, w, id } = raiding('outpost', 5, { competence: 0.9, seed: 'limits-b' });
     frail(w);
     const d = w.dungeons[id]!;
     expect(raidPlan(w, d).blocked).toBe(true);

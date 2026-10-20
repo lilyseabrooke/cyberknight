@@ -22,6 +22,8 @@ import { isFairGame } from './people';
 import { buyGear, supplyUrge } from './supply';
 import { heatUrge } from './laylow';
 import { isClosed } from './hours';
+import { isShut } from './shutdown';
+import { cabsWithGame, gameAtFeature, gamesPlayed, hallHere, latestGame, memoryOf, remember, unplayedHere, firstCabOf } from './games';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { possessive } from './mapgen';
@@ -74,7 +76,7 @@ interface Kind {
   /** Places this goal wants her to be, and how badly. */
   targets(w: World, g: Goal): { loc: Id; value: number }[];
   /** How much this goal wants `family` (aimed at `id`) right now. Raw strength; scaled by how hard the goal is steering. */
-  bias(w: World, g: Goal, family: string, id: string | undefined): number;
+  bias(w: World, g: Goal, family: string, id: string | undefined, sub?: string): number;
 }
 
 // ===================================================================== helpers
@@ -126,6 +128,7 @@ const goalData = (w: World, g: Goal, extra: EventData = {}): EventData => ({
   ...(g.loc && siteAt(g.loc) ? { place: siteAt(g.loc)!.label } : {}),
   ...((g.kind === 'raid' || g.kind === 'explore' || g.kind === 'scavenge' || g.kind === 'guise') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
   ...(g.kind === 'quest' ? questData(w, g) : {}),
+  ...(g.kind === 'game' ? gameData(w, g) : {}),
   ...extra,
 });
 
@@ -845,6 +848,40 @@ const KINDS: Record<GoalKind, Kind> = {
     targets: (_w, g) => [{ loc: g.loc!, value: 2.8 }],
     bias: () => 0,
   },
+  // ------------------------------------------------------------------ game
+  // Getting into it. A game she has played makes her want to beat her own best, claim a spot on its board, or try the cabinet next
+  // to it; and finishing one of these makes her want another (formGameGoals, below). The trip is ordinary travel; once she is in
+  // the arcade the goal leans on which cabinet she plays.
+  game: {
+    decay: 0.0016, stick: ['vanity', 'thrill', 'curiosity', 'techy'], patience: 160,
+    label: (w, g) => gameLabel(w, g),
+    check(w, g) {
+      const hall = g.loc ? w.locations[g.loc] : undefined;
+      if (!hall?.gamehall || isShut(w, hall.id)) return { drop: 'moot' };
+      if (g.mode === 'try') return gamesPlayed(w) > (g.amount ?? 0) ? { done: 'tried' } : null;
+      const mem = g.game ? memoryOf(w, g.game) : undefined;
+      if (!mem) return { drop: 'moot' };
+      if (mem.records > (g.amount ?? 0)) return { done: 'record' };
+      if (!cabsWithGame(w, hall, g.game!).some((x) => x.standing)) return { drop: 'cabinet_gone' };
+      return null;
+    },
+    plan(c, g) {
+      if (hallHere(c.w)?.id !== g.loc && hpFrac(c.w) < 0.5) delay(c, g, 40, 'hurt');
+    },
+    metric(w, g) {
+      const played = g.mode === 'try' ? gamesPlayed(w) : g.game ? memoryOf(w, g.game)?.plays ?? 0 : 0;
+      return played * 3 - (hallHere(w)?.id === g.loc ? 0 : distTo(w, g.loc!));
+    },
+    targets: (_w, g) => [{ loc: g.loc!, value: 2.6 }],
+    bias(w, g, fam, id, sub) {
+      if (fam !== 'halldeal' || id !== 'play' || hallHere(w)?.id !== g.loc) return 0;
+      const gid = gameAtFeature(w, sub);
+      if (!gid) return 0;
+      // Strong, on purpose: once she is into it, the cabinet in front of her is worth more than the door behind her.
+      if (g.mode === 'try') return memoryOf(w, gid) ? -1 : 6;
+      return gid === g.game ? 6.5 : 0.4;
+    },
+  },
   // ------------------------------------------------------------------ quest
   // A job for somebody (quests.ts). The trip there is ordinary travel; inside, she goes about it quietly or loudly: sneaking
   // straight for the room that matters, or clearing the place out on the way. Once the job is done she wants to find whoever
@@ -1157,7 +1194,7 @@ function adopt(c: Ctx, s: Spec): Goal | null {
   const { w, rng } = c;
   const m = w.mind;
   const parent = goalById(w, s.parent ?? null);
-  const subject = s.npc ?? s.ware ?? s.loc ?? '';
+  const subject = s.npc ?? s.ware ?? s.game ?? s.loc ?? '';
   const same = m.goals.find((g) => g.kind === s.kind && g.parent === (parent?.id ?? null) && (s.kind === 'cash' || subjectOf(g) === subject));
   if (same) {
     same.desire = Math.max(same.desire, s.desire);
@@ -1186,7 +1223,7 @@ function adopt(c: Ctx, s: Spec): Goal | null {
     }
   }
   const g: Goal = {
-    id: m.nextId++, kind: s.kind, parent: parent?.id ?? null, npc: s.npc, ware: s.ware, loc: s.loc, amount: s.amount, mode: s.mode,
+    id: m.nextId++, kind: s.kind, parent: parent?.id ?? null, npc: s.npc, ware: s.ware, loc: s.loc, ...(s.game ? { game: s.game } : {}), amount: s.amount, mode: s.mode,
     why: s.why, desire: clamp(s.desire, 0.1, 1), frustration: 0, born: w.beat, lastProgress: w.beat, metric: 0, delayUntil: 0, setbacks: 0,
     revisions: 0, lastFocus: 0, ...(s.calling ? { calling: true } : {}),
   };
@@ -1226,6 +1263,11 @@ function end(c: Ctx, g: Goal, how: 'done' | 'drop', variant: string, extra: Even
   m.goals = m.goals.filter((x) => !gone.has(x.id));
   if (m.focus !== null && gone.has(m.focus)) m.focus = null;
   coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : variant === 'overloaded' ? 120 : 270);
+  // Getting into a game is a habit: finishing one thing here leads to the next ("one more"), so it needs no long rest.
+  if (g.kind === 'game' && g.loc) {
+    coolFor(w, `game:${subjectOf(g)}`, how === 'done' ? 1 : 240);
+    if (how === 'done') m.gameNext = { mode: g.mode === 'rank' ? 'beat' : g.mode === 'beat' ? 'try' : 'rank', game: g.mode === 'try' ? latestGame(w) : g.game, hall: g.loc, beat: w.beat };
+  }
   // She still has the job, even if she's put it down for now. (And a place that looked like too much from the street still does.)
   if (g.kind === 'quest' && variant === 'outmatched') coolFor(w, `quest:${subjectOf(g)}`, 720);
   if (g.kind === 'quest' && how === 'drop' && g.npc && w.npcs[g.npc]?.quest && !['gone', 'quest_failed'].includes(variant) && !(m.quests ??= []).includes(g.npc)) m.quests.push(g.npc);
@@ -1354,6 +1396,91 @@ export function recallJobs(c: Ctx): void {
   if (rng.chance(clamp(0.35 + 0.6 * a.score, 0.15, 0.9))) startQuestGoal(c, pick, a.desire, 'quest_resume');
 }
 
+/** What a game goal is called. */
+function gameLabel(w: World, g: Goal): string {
+  const title = (g.game && memoryOf(w, g.game)?.title) || 'it';
+  if (g.mode === 'try') return `try something new at ${w.locations[g.loc!]?.name ?? 'the arcade'}`;
+  return g.mode === 'beat' ? `beat her own best on "${title}"` : `get her name on the "${title}" board`;
+}
+
+function gameData(w: World, g: Goal): EventData {
+  const mem = g.game ? memoryOf(w, g.game) : undefined;
+  return { mode: g.mode ?? 'rank', ...(mem ? { title: mem.title, game: g.game! } : {}), ...(g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}) };
+}
+
+const GAME_WHY: Record<'rank' | 'beat' | 'try', string[]> = {
+  rank: ['the board has a gap exactly her shape', "somebody else's three letters are not staying up there", 'she can see the number from here'],
+  beat: ['her own best is right there, and it is beatable', 'she was not even trying, the first time'],
+  try: ['the cabinet next door has been looking at her', 'one more game will not hurt', 'everything here is a different way to be good at something'],
+};
+
+/**
+ * Getting sucked in. A game she has just played can turn into something to want: her own best to beat, a spot on its board to
+ * claim, or another cabinet in the same arcade to try. Finishing one of those leads to the next (rank, then beat it, then try
+ * something new, then claim that board). How easily she is pulled is her nature: vanity, thrill, the itch for fame, a head for
+ * tech, a love of the odds. One game goal at a time; the goal does the rest (it pulls her back and leans on which cabinet).
+ */
+function formGameGoals(c: Ctx): void {
+  const { w, rng } = c;
+  const m = w.mind;
+  const t = traits(w);
+  if (m.lastPlay && w.beat - m.lastPlay.beat > 3) delete m.lastPlay;
+  if (m.gameNext && w.beat - m.gameNext.beat > 400) delete m.gameNext;
+  const hallNow = hallHere(w);
+  if (!m.lastPlay && !m.gameNext && !hallNow) return;
+  if (hasGoal(w, 'game') || cooling(w, 'game_idea') || hpFrac(w) < 0.5) return;
+  const into = clamp(0.55 + 0.6 * (t.thrill - 0.5) + 0.5 * (t.vanity - 0.5) + 0.4 * (t.fame - 0.5) + 0.4 * (t.techy - 0.5) + 0.3 * (t.gamble - 0.5) + 0.3 * (t.curiosity - 0.5), 0.25, 1.5);
+  const desire = clamp(0.55 + 0.35 * into, 0.5, 0.95);
+  const make = (mode: 'rank' | 'beat' | 'try', hallId: Id, gid: string | undefined, variant: string): boolean => {
+    const hall = w.locations[hallId];
+    if (!hall?.gamehall) return false;
+    const mem = gid ? memoryOf(w, gid) : undefined;
+    if (mode !== 'try' && !mem) return false;
+    const g = adopt(c, {
+      kind: 'game', loc: hallId, ...(mode !== 'try' && gid ? { game: gid } : {}), mode, amount: mode === 'try' ? gamesPlayed(w) : mem!.records,
+      why: rng.pick(GAME_WHY[mode]), desire, variant, extra: { place: hall.name, ...(mem ? { title: mem.title } : {}), mode },
+    });
+    if (g) cool(w, 'game_idea', 15);
+    return !!g;
+  };
+  // "One more": what finishing one leads to.
+  const next = m.gameNext;
+  if (next) {
+    delete m.gameNext;
+    if (rng.chance(Math.min(0.95, 0.8 * into))) {
+      const hall = w.locations[next.hall];
+      if (hall && make(next.mode, next.hall, next.game, 'game_again')) return;
+    }
+  }
+  const last = m.lastPlay;
+  if (!last) {
+    // Just being in the place: the boards are lit, the cabinets are calling, and one of them has a number on it that is not hers.
+    const unplayed = hallNow ? unplayedHere(w, hallNow) : [];
+    if (!hallNow || !unplayed.length || !rng.chance(0.07 * into)) return;
+    if (rng.chance(0.6)) {
+      const gid = rng.pick(unplayed);
+      const cab = firstCabOf(w, hallNow, gid);
+      if (cab) {
+        remember(w, gid, cab.title, cab.genre, cab.legal);
+        if (make('rank', hallNow.id, gid, 'game_rank')) return;
+      }
+    }
+    make('try', hallNow.id, undefined, 'game_try');
+    return;
+  }
+  delete m.lastPlay;
+  const mem = memoryOf(w, last.game);
+  const hall = w.locations[last.hall];
+  if (!mem || !hall?.gamehall) return;
+  const mine = cabsWithGame(w, hall, last.game).some((x) => x.mine);
+  const pRank = last.went === 'bad' ? (mem.like > -0.4 ? 0.22 * into * (1 + 0.25 * Math.min(4, mem.streak)) : 0) : mine ? 0 : 0.35 * into;
+  const pBeat = last.went === 'record' ? 0.45 * into : last.went === 'good' && mine ? 0.25 * into : 0;
+  if (pBeat > 0 && rng.chance(pBeat) && make('beat', last.hall, last.game, 'game_beat')) return;
+  if (pRank > 0 && rng.chance(pRank) && make('rank', last.hall, last.game, 'game_rank')) return;
+  // And while she is here, the cabinet next door.
+  if (unplayedHere(w, hall).length && rng.chance(0.16 * (0.6 + t.curiosity) * into)) make('try', last.hall, undefined, 'game_try');
+}
+
 function formGoals(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
@@ -1386,6 +1513,8 @@ function formGoals(c: Ctx): void {
   recallJobs(c);
 
   formIdle(c);
+
+  formGameGoals(c);
 
   // Low on parts: somewhere with a heap of them lying about, and nobody minding it.
   if (lowOnParts(w) && hpFrac(w) >= 0.6 && !hasGoal(w, 'scavenge') && !cooling(w, 'scav_idea') && rng.chance(0.012 + 0.03 * Math.max(0, t.techy - 0.3) + 0.01 * Math.max(0, t.greed - 0.5))) {
@@ -1653,7 +1782,7 @@ const dungeonPull = (l: Lead): number => Math.min(2.5, 1.2 * Math.log1p(l.appeal
 export function goalBias(w: World, cand: { key: string }): number {
   const m = w.mind;
   if (!m.goals.length) return 0;
-  const [fam, id] = cand.key.split(':') as [string, string | undefined];
+  const [fam, id, sub] = cand.key.split(':') as [string, string | undefined, string | undefined];
   let s = 0;
   // A route hop doesn't override an errand: while she's standing where a pressing need can be met (ammo, a med pack, the doc), she finishes it first.
   if (fam === 'go' && id) {
@@ -1664,7 +1793,7 @@ export function goalBias(w: World, cand: { key: string }): number {
   }
   for (const d of m.drive) {
     const g = goalById(w, d.id);
-    if (g) s += KINDS[g.kind].bias(w, g, fam, id) * d.weight;
+    if (g) s += KINDS[g.kind].bias(w, g, fam, id, sub) * d.weight;
   }
   // Saving up. Drinks and gadgets come out of the same pocket.
   if (SPEND.has(fam)) {

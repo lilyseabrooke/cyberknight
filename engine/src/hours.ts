@@ -18,6 +18,7 @@ export const DEFAULT_HOURS: Partial<Record<Location['kind'], Hours>> = {
   pawn: [11, 3],
   chop: [8, 2],
   hub: [10, 4],
+  gamehall: [12, 3],
   realty: [9, 21],
   gym: [5, 1],
 };
@@ -25,7 +26,7 @@ export const DEFAULT_HOURS: Partial<Record<Location['kind'], Hours>> = {
 /** The hours a place keeps: its own, else its building's main room, else what its kind keeps. */
 export function hoursOf(w: Pick<World, 'locations'>, loc: Location): Hours | undefined {
   if (loc.hours) return loc.hours;
-  const main = loc.gymRoom?.main ?? loc.pawnRoom?.main;
+  const main = loc.gymRoom?.main ?? loc.pawnRoom?.main ?? loc.hallRoom?.main;
   const owner = main ? w.locations[main] : undefined;
   return owner?.hours ?? DEFAULT_HOURS[(owner ?? loc).kind];
 }
@@ -55,7 +56,7 @@ const CROWD: Partial<Record<Location['kind'], number[]>> = {
 };
 
 export function crowdAt(w: Pick<World, 'locations'>, loc: Location, clock: number): number {
-  const main = loc.gymRoom?.main ?? loc.pawnRoom?.main;
+  const main = loc.gymRoom?.main ?? loc.pawnRoom?.main ?? loc.hallRoom?.main;
   const kind = (main ? w.locations[main]?.kind : undefined) ?? loc.kind;
   return CROWD[kind]?.[hourOf(clock)] ?? 1;
 }

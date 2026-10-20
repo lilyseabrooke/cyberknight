@@ -10,6 +10,7 @@ Kinds of place that are rolled from many independent axes and offer something to
 | [`pawn.md`](pawn.md) | The second location: the pawn shop (hock things, buy them back off the shelf), implemented |
 | [`chop.md`](chop.md) | The third, and the smallest: the Chop Shop (a workbench behind a door: salvage, ammo, craft, upgrade on Tinkering), implemented |
 | [`hub.md`](hub.md) | The hacker hub: where Hacks and Overrides are taught (seven routes), including the Titanware Training Academy, implemented |
+| [`arcade.md`](arcade.md) | The arcade (`gamehall`): every cabinet is a Muse-approved Entertainment Cabinet or an illegal bootleg, a compliance spider calls to stamp on the bootlegs, and the Gaming skill lives here |
 
-Code: `engine/src/affordances.ts` (the shared row schema, registry and coverage), `engine/src/placekit.ts` (the machinery every place shares: `Check`, `Result`, `runCheck`), `engine/src/content/gym*.ts`, `engine/src/gym*.ts`, `engine/src/content/pawn*.ts`, `engine/src/pawn*.ts`, `engine/src/content/chops.ts`, `content/parts.ts`, `bench.ts`, `chop.ts`, `engine/src/content/hub*.ts`, `engine/src/hub*.ts`.
-Tools: `npm run gyms`, `npm run pawns`, `npm run chops`, `npm run hubs`, `npm run coverage`.
+Code: `engine/src/affordances.ts` (the shared row schema, registry and coverage), `engine/src/placekit.ts` (the machinery every place shares: `Check`, `Result`, `runCheck`), `engine/src/content/gym*.ts`, `engine/src/gym*.ts`, `engine/src/content/pawn*.ts`, `engine/src/pawn*.ts`, `engine/src/content/chops.ts`, `content/parts.ts`, `bench.ts`, `chop.ts`, `engine/src/content/hub*.ts`, `engine/src/hub*.ts`, `engine/src/content/halls.ts`, `engine/src/content/hall*.ts`, `engine/src/hallkit.ts`, `engine/src/hall.ts`.
+Tools: `npm run gyms`, `npm run pawns`, `npm run chops`, `npm run hubs`, `npm run halls`, `npm run coverage`.

@@ -22,6 +22,7 @@ export { MEDS } from './content/meds';
 export { goalLabel, goalBias, goalViews, type GoalView } from './goals';
 export { influenceOdds, wishes, alignment, phrasing, goalOf as npcGoalOf, METHODS as INFLUENCE_METHODS, type Wish } from './influence';
 export { callingView, type CallingView } from './callings';
+export { gameViews, type GameView } from './games';
 export { priority as goalPriority, capacity as goalCapacity } from './mind';
 export { describe as describeWeapon, rating as weaponRating, genWeapon, fxOf } from './weapons';
 export { clockLabel, phaseOf, dayOf, hourOf, catchUp, elapse, offlineMinutes, type Phase } from './clock';

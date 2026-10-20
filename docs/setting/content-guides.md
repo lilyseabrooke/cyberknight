@@ -109,6 +109,7 @@ the header of the file you're editing first.
 - **File:** `content/skills.ts` (`SkillDef { label, group, spill?, titles }`).
 - **Shape:** four **titles** for levels 1/3/5/8, funny and escalating ("steps lightly, sometimes" → "a rumor in a
   dark coat"). `spill` shares XP with related skills.
+- **Groups:** `music`, `aim`, `stealth`, `social`, `craft`, `body` and `tech` (just `gaming` so far). A skill tree line is made for every skill; `tech` sits in the Ghost branch ("Stealth and tech").
 - **Test:** `engine.skills.test.ts`.
 
 ## 11. Lab upgrades (skill tree)
@@ -141,7 +142,7 @@ and worked example is [`../locations/gym.md`](../locations/gym.md); the code is 
 only state, is [`../locations/pawn.md`](../locations/pawn.md) (`content/pawns.ts`, `content/pawn*.ts`, `pawnkit.ts`,
 `pawn.ts`). Both are built on `placekit.ts`: write a `Kit` (who works there, what its events are called) and the rest
 of the machinery (`runCheck`, results, lines) is shared. The smallest, [`../locations/chop.md`](../locations/chop.md), skips the registry for a typed list of ways through a door
-and adds the workbench (`bench.ts`, `content/parts.ts`): components, salvage, ammo, crafting and mods. The fourth, [`../locations/hub.md`](../locations/hub.md), is where the Hacks and Overrides of `techniques.ts` are taught: its core business is a *syllabus* on the place (`HubInfo.syllabus`, seven teaching routes) rather than rows, plus about eighty rows on a deliberately short list of capabilities (`content/hub*.ts`, `hubkit.ts`, `hub.ts`). A place's core business can use `pace: 'deal'`, which gives it a
+and adds the workbench (`bench.ts`, `content/parts.ts`): components, salvage, ammo, crafting and mods. The fourth, [`../locations/hub.md`](../locations/hub.md), is where the Hacks and Overrides of `techniques.ts` are taught: its core business is a *syllabus* on the place (`HubInfo.syllabus`, seven teaching routes) rather than rows, plus about eighty rows on a deliberately short list of capabilities (`content/hub*.ts`, `hubkit.ts`, `hub.ts`). The fifth, [`../locations/arcade.md`](../locations/arcade.md) (`content/halls.ts`, `content/hall*.ts`, `hallkit.ts`, `hall.ts`), has **state on every cabinet** (`Location.cabs`, only the deviations from the seed: a licence changed, a score, wrecked until, hidden until) and a **clock-driven visitor**, the compliance spider (`auditOnDay`, caught up when she next looks, like the pawn shop's restock). A place's core business can use `pace: 'deal'`, which gives it a
 key family of its own so a long menu of rows cannot crowd it out of the AI's choice.
 
 - **Where it goes:** a new `GenRole` and `Location.kind`, rolled on **its own random stream after everything else on the

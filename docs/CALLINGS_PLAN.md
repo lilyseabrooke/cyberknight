@@ -243,3 +243,15 @@ Departures from the sketch above:
 - **Kills are tallied in `kill()`** by tag and crew (`cal.cop`, `cal.corp`, `cal.f_<faction>`); the rest are tallied from the
   beat's events (`TALLY` in the table). Counters live in `w.counters` under `cal.*`.
 - **Goals she sets for a Calling are ordinary goals** marked `calling`, which `weakestOf` lets go last when she is overloaded.
+
+### Added later: the gaming Callings
+
+Four more, group `play`: **Number one** (`board`), **Gaming money** (`gamecash`), **Spiders** (`spiders`, a wound) and **The creator**
+(`creator`). They are in `content/callings.ts`; how they work is `docs/locations/arcade.md` section 15. What they add to the machinery:
+
+- **A second kind of wound.** `SparkCtx.gameLost` is a `game_lost` event (a spider destroyed a game she loved). It is a loss for
+  any Calling that sets `wound` and `woundWhy`; `origin.cause` is `'game'`.
+- **`bias` sees the third part of a candidate key** (`halldeal:play:cab_brawl` passes `cab_brawl`), so a Calling can care *which*
+  cabinet, not only which family.
+- **`sync(w, cal)`** keeps a target up to date as she finds things out (the creator Calling goes from a title, to a person).
+- **Tallies from event data.** `TALLY.gamecash` reads `earned` on any event, so a new place can feed a Calling without a hook.

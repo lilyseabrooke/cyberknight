@@ -169,7 +169,7 @@ describe('where hubs grow', () => {
         const kids = street.exits.map((e) => sc.w.locations[e.to]).filter((l) => l?.gen?.parent === street.id && l.gen.role !== 'street');
         for (const p of kids.filter((l) => l!.gen!.role === 'hub')) {
           hubs++;
-          for (const other of kids.filter((l) => l!.gen!.role !== 'hub')) expect(p!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
+          for (const other of kids.filter((l) => l!.gen!.role !== 'hub' && l!.gen!.role !== 'gamehall' && l!.gen!.role !== 'gamehallroom')) expect(p!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
         }
       }
     }

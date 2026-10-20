@@ -10,7 +10,13 @@
 
 ## People
 
-- **Generated people** use the person generator (`engine/src/people.ts`): rolled names, pronouns, loadouts.
+- **Generated people** use the person generator (`engine/src/people.ts`): rolled names, pronouns, loadouts. Names come from
+  `engine/src/content/names.ts`: names tagged by heritage (anglo, euro, slavic, latin, west/east African, MENA, South Asian,
+  Chinese, Japanese, Korean, Vietnamese), plus street handles (Nyx, Rook) and a "grand" register (Aurelio Grimsby-Vault).
+  Gender is rolled first and the name suits it. A `NameFlavor` shifts the odds without forbidding anything: wealth leans
+  toward the establishment-sounding names and pompous ones, jobs lean handles (DJs, hackers, gangers) or grandness (corpos,
+  heirs), and a street can be the heart of a quarter with a heritage (`gen.heritage`, inherited by everything off it) that
+  makes that heritage far likelier there. Add to the tables, don't special-case.
   Don't hand-name generic NPCs; define an archetype and let it roll.
 - **Hand-named cast** gets a *memorable human name plus a role or nickname*: Dutch Okonkwo, Prophet Ray, Doc Hexamer,
   Chef Bao, Madame Zero. Pattern: **title/nickname + short name**, or a plain name with a flavor surname.

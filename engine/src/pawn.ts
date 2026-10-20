@@ -7,7 +7,8 @@ import { MONEY, CRAFT } from './content/pawnafford';
 import { CRIME } from './content/pawncrime';
 import { SITUATIONAL, WILDS, VARIANT_ROWS } from './content/pawnevents';
 
-register('pawn', [...MONEY, ...CRAFT, ...CRIME, ...SITUATIONAL, ...WILDS, ...VARIANT_ROWS]);
+import { PAWN_GAMING } from './content/gamerows';
+register('pawn', [...MONEY, ...CRAFT, ...CRIME, ...SITUATIONAL, ...WILDS, ...VARIANT_ROWS, ...PAWN_GAMING]);
 
 /**
  * Pawn shops, as seen from the decision loop: if she is standing in one (or one of its rooms), every row of the pawn

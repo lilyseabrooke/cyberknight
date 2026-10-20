@@ -5,6 +5,7 @@ import { rating, variantOf } from '../weapons';
 import { rollPerson, type PersonSpec } from '../people';
 import { baseHp, basePower } from '../grade';
 import { CALLSIGNS, callsign } from './callsigns';
+import { archetypeFlavor, combineFlavors, placeFlavor, rollFullName, type Heritage, type NameFlavor } from './names';
 
 export interface ArchetypeDef {
   role: string;
@@ -482,6 +483,73 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['speed_gloves'], armors: ['boxing_wraps'], armorChance: 0.4, loot: ['champ_belt', 'credchip', 'gold_tooth'], lootChance: 0.35, cash: [30, 160],
     desc: ['a pit fighter with a shaved head, taped knuckles and a face that is mostly scar tissue', 'a pit fighter who smiles at her like an old friend and holds the smile like a guard', 'a fighter with a bandaged hand and a tattoo of the number of fights she has won'],
   },
+  // ---------------- Arcades (content/halls.ts) ----------------
+  hall_owner: {
+    role: 'arcade owner', level: [3, 5], tags: ['owner', 'staff'], faction: null,
+    names: 'person', weapons: ['judgment', 'switchblade'], loot: ['credchip', 'token_roll', 'gold_tooth'], lootChance: 0.6, cash: [70, 280],
+    desc: ['an arcade owner with a ring of keys, a roll of tokens and the high score of every machine in their head', 'an owner in a loud shirt and quiet shoes, who talks to the cabinets like staff', 'an owner who counts the till while watching the door and playing a pinball table with one hip', 'an owner with a laminated licence in one hand and a spanner in the other'],
+  },
+  hall_attendant: {
+    role: 'token attendant', level: [1, 3], tags: ['staff', 'clerk'], faction: null,
+    names: 'person', weapons: ['broken_bottle'], loot: ['token_roll', 'credchip'], lootChance: 0.5, cash: [10, 70],
+    desc: ['an attendant in a lanyard at the token booth, changing a note with the grace of a croupier', 'an attendant on a stool with a tray of tokens and the blank patience of a person who has heard every question', 'a booth attendant with a headset that is not connected to anything'],
+  },
+  hall_tech: {
+    role: 'cabinet tech', level: [2, 4], tags: ['staff', 'tinker'], faction: null,
+    names: 'person', weapons: ['cleaver'], loot: ['solder_kit', 'torque_wrench', 'cracked_board'], lootChance: 0.45, cash: [15, 80],
+    desc: ['a cabinet tech with a torch in their teeth and a board in each hand', 'a tech with a bundle of cables like a pet snake and a smile for any machine that is not working', 'a tech lying under a cabinet, from which one voice and one boot are visible'],
+  },
+  hall_guard: {
+    role: 'hall bouncer', level: [2, 4], tags: ['staff', 'strong', 'security', 'guard'], faction: null,
+    names: 'person', weapons: ['judgment', 'service_pistol'], armors: ['leather_jacket'], armorChance: 0.4, loot: ['credchip', 'switchblade'], lootChance: 0.3, cash: [10, 70],
+    desc: ['a bouncer on a stool by the door whose job is to remove people who are too good at things', 'a large bouncer with a gentle voice who has put out more fires than the building has had', 'a bouncer who watches the room in the screen\'s reflection'],
+  },
+  hall_regular: {
+    role: 'player', level: [1, 3], tags: ['regular', 'customer', 'gamer'], faction: null,
+    names: 'person', weapons: [], loot: ['token_roll', 'credchip', 'walkman', 'joy_tickets'], lootChance: 0.3, cash: [2, 50],
+    desc: ['a player leaning into a cabinet like it owes them money', 'someone mashing a stick with total conviction and a bad look', 'a player with a roll of tokens and a lot to prove', 'a person on a machine in a stance of enormous, quiet, visible competence'],
+  },
+  hall_champion: {
+    role: 'resident champion', level: [4, 7], tags: ['champion', 'strong'], faction: null,
+    names: 'person', weapons: ['judgment'], loot: ['highscore_trophy', 'arcade_stick'], lootChance: 0.4, cash: [30, 160],
+    desc: ['the resident champion, who plays with their eyes half-shut and never seems to be looking at the screen', 'a champion with a custom stick in a case of their own and a bag of gloves', 'the champion, on a stool in the corner, who has beaten every board in the building and wants a fresh one'],
+  },
+  hall_hustler: {
+    role: 'side-bet hustler', level: [2, 4], tags: ['hustler', 'streetwise'], faction: null,
+    names: 'person', weapons: ['switchblade'], loot: ['credchip', 'token_roll'], lootChance: 0.5, cash: [30, 160],
+    desc: ['a hustler with a clipboard, a roll of notes and the exact odds on your next game', 'a young hustler who is running three bets on one cabinet and has promised each of them a different winner', 'a hustler leaning on a pillar, taking a tiny, firm look at every challenger'],
+  },
+  hall_streamer: {
+    role: 'streamer', level: [1, 3], tags: ['streamer', 'fame', 'customer'], faction: null,
+    names: 'person', weapons: [], loot: ['data_slate', 'credchip'], lootChance: 0.5, cash: [10, 120],
+    desc: ['a streamer with a ring light on a stick, narrating a loss in a bright voice', 'a streamer who says "chat" in the way other people say "ladies and gentlemen"', 'a streamer in a headset, who is playing a cabinet at half attention and an audience at full'],
+  },
+  hall_bootlegger: {
+    role: 'bootlegger', level: [3, 5], tags: ['strong', 'fence', 'bootlegger'], faction: null,
+    names: 'person', weapons: ['switchblade', 'zip_pistol'], loot: ['cracked_board', 'bootleg_cart', 'credchip', 'debug_dongle'], lootChance: 0.6, cash: [50, 220],
+    desc: ['a bootlegger in an apron over a hoodie, holding a board like a loaf of bread', 'a bootlegger with a soldering iron behind each ear and the calm of a person who does not own a licence', 'a very friendly bootlegger who has never once been in a building with a Muse sticker and is proud of it'],
+  },
+  hall_host: {
+    role: 'Muse Joy Host', level: [1, 3], tags: ['staff', 'host', 'muse'], faction: null,
+    names: 'person', weapons: [], loot: ['joy_tickets', 'credchip'], lootChance: 0.5, cash: [5, 60],
+    desc: ['a Joy Host in a pink lanyard and a smile that has been calibrated', 'a Joy Host with a tablet that rates her enjoyment, aloud, in real time', 'a host in a Muse jacket with hearts on the cuffs, asking everyone how fun they are feeling, out of ten'],
+  },
+  muse_spider: {
+    role: 'Muse compliance spider', level: [6, 8], tags: ['robot', 'auditor', 'muse', 'spider'], faction: null,
+    names: 'robot', weapons: [], loot: ['spider_leg', 'drone_core', 'memory_shard'], lootChance: 0.9, cash: [0, 0], hp: 170, power: 22,
+    desc: ['a Muse compliance spider the size of a sofa, eight jointed legs clicking over the floor and a smiling face on a screen where a head should be', 'a Fun Compliance Unit: a spider of brushed pastel steel, a pair of pincers folded under a heart-shaped chin and a voice like a children\'s presenter', 'a hulking, cheerful spider on eight articulated legs, with a clipboard in one pincer and an angle grinder in another'],
+  },
+  // ---------------- The people who made the games (creators.ts) ----------------
+  game_designer: {
+    role: 'game designer', level: [3, 6], tags: ['creator', 'designer', 'muse'], faction: null,
+    names: 'person', weapons: ['judgment', 'switchblade'], armors: ['leather_jacket'], armorChance: 0.4, loot: ['highscore_trophy', 'data_slate', 'credchip', 'memory_shard'], lootChance: 0.7, cash: [120, 420],
+    desc: ['a Muse game designer with a lanyard, an unlimited coffee card and a spreadsheet of exactly how much fun she is allowed to feel', 'a designer in a hoodie with LUMINA on the sleeve, who has never once lost to their own game and would like that noted', 'a Muse Fun Designer, a pastel stylus behind each ear, who speaks entirely in "engagement" and "delight"', 'a game designer who plays their own cabinets at night, in the dark, to make sure they are not too hard'],
+  },
+  game_cracker: {
+    role: 'game cracker', level: [3, 6], tags: ['creator', 'cracker', 'strong'], faction: null,
+    names: 'person', weapons: ['switchblade', 'zip_pistol', 'cleaver'], loot: ['cracked_board', 'bootleg_cart', 'debug_dongle', 'data_slate'], lootChance: 0.7, cash: [60, 260],
+    desc: ['a cracker in a hoodie two sizes too big, with a soldering iron behind one ear and a logo on the shirt that is not a company', 'a cracker who made the game in a weekend out of spite, and has regretted nothing since', 'a bootleg author with a bruise-coloured thermos and a drawer of boards no licence has ever touched', 'a cracker who signs their work with a skull and a joke about the manual'],
+  },
   // ---------------- Pawn shops (content/pawns.ts) ----------------
   pawn_broker: {
     role: 'pawnbroker', level: [3, 5], tags: ['owner', 'staff', 'broker'], faction: null,
@@ -637,6 +705,12 @@ const PEOPLE: Record<string, PersonSpec> = {
   pawn_appraiser: { age: [30, 70] },
   pawn_fence: { age: [26, 60] },
   pawn_guard: { women: 0.3, age: [24, 56] },
+  hall_owner: { age: [28, 70] },
+  game_designer: { age: [24, 62] },
+  game_cracker: { age: [19, 58] },
+  hall_champion: { age: [19, 60] },
+  hall_bootlegger: { age: [22, 58] },
+  hall_guard: { women: 0.3, age: [24, 56] },
   chop_mechanic: { women: 0.5, age: [28, 66] },
   chop_guard: { women: 0.3, age: [24, 56] },
   hub_sysop: { women: 0.45, age: [24, 62] },
@@ -653,19 +727,11 @@ export const GANGS: Record<string, string> = {
   choir: 'Rust Choir',
 };
 
-const FIRST = [
-  'Nyx', 'Juno', 'Kestrel', 'Mox', 'Rook', 'Zed', 'Vesper', 'Jinx', 'Sable', 'Dex', 'Marlowe', 'Echo', 'Pike',
-  'Lux', 'Ono', 'Fennec', 'Cass', 'Tarn', 'Ripley', 'Nova', 'Bishop', 'Quill', 'Raze', 'Odalys', 'Hex',
-];
-const LAST = [
-  'Calloway', 'Okonkwo-Vance', 'Vantablack', 'Ibarra', 'Kowalczyk', 'Nakamura-Reyes', 'Dross', 'Maddox', 'Sterling-9',
-  'Voss', 'Larkspur', 'Quint', 'Ashgrove', 'Tanaka-Bell', 'Lovelace', 'Achebe', 'Mercer', 'Hollis',
-];
 const ROBOT = ['UNIT', 'MK', 'BOT', 'SENTRY', 'AUTO'];
 
 const KID = ['Pixel', 'Wire', "Lil' Static", 'Moth', 'Bytes', 'Glitch', 'Noodle', 'Zip', 'Tick', 'Dot', 'Rust', 'Mouse'];
 
-export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
+export function rollNpcName(rng: Rng, kind: ArchetypeDef['names'], gender?: Gender, flavor?: NameFlavor): string {
   if (kind === 'kid') return rng.pick(KID);
   if (kind === 'robot') return `${rng.pick(ROBOT)}-${rng.int(100, 999)}`;
   if (kind === 'monster') return 'CINDERJAW';
@@ -675,10 +741,10 @@ export function rollNpcName(rng: Rng, kind: ArchetypeDef['names']): string {
   if (kind === 'nextday') return callsign(rng, 'HERMES', 'express');
   if (kind === 'demeter') return callsign(rng, 'DEMETER', 'demeter');
   if (kind === 'ares') return callsign(rng, 'ARES', 'ares');
-  return `${rng.pick(FIRST)} ${rng.pick(LAST)}`;
+  return rollFullName(rng, gender, flavor);
 }
 
-export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string; gender?: Gender; age?: number; grade?: number } = {}): Npc {
+export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string; gender?: Gender; age?: number; grade?: number; place?: { district?: string; heritage?: Heritage } } = {}): Npc {
   const def = ARCHETYPES[archetype];
   if (!def) throw new Error(`unknown archetype ${archetype}`);
   const rolled = rng.int(def.level[0], def.level[1]);
@@ -702,9 +768,10 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
   // Fixed-stat things (dogs, turrets, bots) are scaled from the grade they were written for.
   const ref = Math.max(5, (def.level[0] + def.level[1]) / 2);
   const hp = opts.grade === undefined ? def.hp ?? 18 + level * 12 : def.hp ? Math.round(def.hp * Math.max(1, baseHp(level) / baseHp(ref))) : Math.round(baseHp(level));
-  const name = opts.name ?? rollNpcName(rng, def.names);
   const machine = def.names !== 'person' && def.names !== 'kid';
-  const person = rollPerson(id, name, { ...PEOPLE[archetype], machine }, { gender: opts.gender, age: opts.age });
+  // Gender and age come first (keyed on the id when there's no name yet), and the name is rolled to suit.
+  const person = rollPerson(id, opts.name ?? '', { ...PEOPLE[archetype], machine }, { gender: opts.gender, age: opts.age });
+  const name = opts.name ?? rollNpcName(rng, def.names, person.gender, combineFlavors(placeFlavor(opts.place), archetypeFlavor(archetype)));
   return {
     id,
     name,
