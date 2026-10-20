@@ -48,6 +48,8 @@ export function upgradeUniverse(u: Universe): Universe {
   l.upgrades ??= {};
   l.spent ??= 0;
   u.dungeons ??= {};
+  // Muse, the entertainment megacorp, came later.
+  if (!u.factions.muse) u.factions.muse = { id: 'muse', name: 'Muse', kind: 'corp', relations: { npd: 20, atlas: 30 } };
   // Streets know what sort of street they are.
   for (const loc of Object.values(u.locations)) if (loc.kind === 'street') loc.street ??= streetTypeOf(loc);
   for (const [kind, d] of Object.entries(DROPS)) {

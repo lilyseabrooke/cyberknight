@@ -1,6 +1,9 @@
-import type { Ctx, MuseFile, World } from './types';
+import type { Ctx, MuseFile, Npc, World } from './types';
 import type { GameEvent } from './events';
-import { addHeat } from './combat';
+import { addHeat, fight } from './combat';
+import { addNpc } from './population';
+import { spawnNpc } from './content/archetypes';
+import { dangerOf } from './grade';
 import { SKILLS, type SkillId } from './content/skills';
 import { audience } from './renown';
 import { INST_CLASSES, genInstrument } from './instruments';
@@ -18,8 +21,9 @@ import { INST_CLASSES, genInstrument } from './instruments';
  * - **trending**: the Muse A&R scout and a contract. She signs or she doesn't, by her nature. Muse isn't Atlas: signing
  *   is allowed, pays, and makes the officers go away. The contract survives her death.
  * - **she said no**: the legal route. Muse files, the NPD serves, at her gigs.
- *
- * Inspiration teams (the strike squads) are the next rung up and aren't built yet.
+ * - **too big to ignore** (said no, and still growing): Inspiration teams. Strike squads in pastel tactical armour with
+ *   heart decals on the guns, at her sets and her bookings, bigger and better the bigger she is. They play the jingle
+ *   before they breach. If they get her, Muse posts a heartfelt tribute and a link to the tribute single.
  */
 
 const PERFORMING = ['guitar', 'vocals', 'djing', 'beatbox'];
@@ -27,6 +31,8 @@ const PERFORMING = ['guitar', 'vocals', 'djing', 'beatbox'];
 export const MUSE_LETTER = 15;
 /** Renown at which Muse sends a scout. */
 export const MUSE_SCOUT = 60;
+/** Renown at which a Blackbird who said no is too big to ignore: Inspiration teams. */
+export const MUSE_STRIKE = 150;
 
 /** How much of a performer Neo thinks she is, across every performing skill. */
 export const museRenown = (w: World): number => PERFORMING.reduce((n, s) => n + (w.legacy.renown?.[s] ?? 0), 0);
@@ -34,10 +40,10 @@ export const museRenown = (w: World): number => PERFORMING.reduce((n, s) => n + 
 const file = (w: World): MuseFile => (w.legacy.muse ??= {});
 
 /** Muse's view of her, as a word. */
-export function museStanding(w: World): 'nobody' | 'local' | 'trending' | 'refused' | 'signed' {
+export function museStanding(w: World): 'nobody' | 'local' | 'trending' | 'refused' | 'hunted' | 'signed' {
   const m = w.legacy.muse;
   if (m?.signed) return 'signed';
-  if (m?.refused) return 'refused';
+  if (m?.refused) return museRenown(w) >= MUSE_STRIKE ? 'hunted' : 'refused';
   const r = museRenown(w);
   return r >= MUSE_SCOUT ? 'trending' : r >= MUSE_LETTER ? 'local' : 'nobody';
 }
@@ -64,6 +70,10 @@ export function museAfterSet(c: Ctx, act: string, skill: string, events: GameEve
     return;
   }
   if (m.refused) {
+    if (r >= MUSE_STRIKE && rng.chance(0.3)) {
+      inspirationStrike(c, 'set');
+      return;
+    }
     if (rng.chance(0.3)) {
       addHeat(w, 'npd', 2);
       c.emit('muse', 'bad', { variant: 'warrant', place: loc.name });
@@ -106,4 +116,47 @@ export function scout(c: Ctx, r: number = museRenown(c.w)): boolean {
   m.refused = (m.refused ?? 0) + 1;
   c.emit('muse', 'mixed', { variant: 'refused', amount: advance });
   return false;
+}
+
+// ===================================================================== Inspiration
+
+/** How good the team is: as dangerous as the street, and more so the bigger she has got. */
+export const strikeGrade = (w: World, here: number): number => Math.max(here, Math.min(70, 8 + (museRenown(w) - MUSE_STRIKE) / 15));
+
+/** An Inspiration team arrives, plays the jingle, and opens fire. `at` is what found her: a set she played, or a booking. */
+export function inspirationStrike(c: Ctx, at: 'set' | 'booking'): void {
+  const { w, rng } = c;
+  const loc = w.locations[w.hero.locationId]!;
+  const r = museRenown(w);
+  const grade = strikeGrade(w, dangerOf(loc));
+  const size = Math.min(5, 2 + Math.floor((r - MUSE_STRIKE) / 150));
+  const team: Npc[] = [];
+  for (let i = 0; i < size; i++) {
+    const kind = i === 0 && r >= MUSE_STRIKE * 2 ? 'inspiration_lead' : 'inspiration_trooper';
+    let id = `tmp_${w.beat}_${kind}_${i}`;
+    for (let k = 1; w.npcs[id]; k++) id = `tmp_${w.beat}_${kind}_${i}_${k}`;
+    const n = addNpc(w, spawnNpc(rng, id, kind, loc.id, { faction: 'muse', grade }));
+    n.hostile = true;
+    team.push(n);
+  }
+  c.emit('inspiration', 'bad', { variant: at, place: loc.name, count: team.length, npc: team[0]!.name, lead: team[0]!.archetype === 'inspiration_lead' });
+  fight(c, team, { cause: 'an Inspiration strike', joiners: false });
+}
+
+/** After a booked set: when she's too big to ignore, Muse read the poster too. */
+export function museAtBooking(c: Ctx): void {
+  const { w, rng } = c;
+  if (museStanding(w) === 'hunted' && rng.chance(0.3)) inspirationStrike(c, 'booking');
+}
+
+/** Once a night: if Inspiration got her last time, Muse has posted about it. */
+export function museTick(c: Ctx): void {
+  const { w } = c;
+  const m = w.legacy.muse;
+  if (!m || w.counters.muse_tribute_checked) return;
+  w.counters.muse_tribute_checked = 1;
+  const last = w.legacy.deaths[w.legacy.deaths.length - 1];
+  if (!last || !last.killers.includes('muse') || m.tributeFor === last.run) return;
+  m.tributeFor = last.run;
+  c.emit('muse', 'mixed', { variant: 'tribute' });
 }

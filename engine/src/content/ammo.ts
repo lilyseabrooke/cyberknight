@@ -28,6 +28,8 @@ export const WEAPON_AMMO: Record<string, { type: string; perRound: number }> = {
   riot_shotgun: { type: 'shells', perRound: 1 },
   rail_revolver: { type: 'rails', perRound: 1 },
   gauss_smg: { type: 'gauss', perRound: 4 },
+  heart_smg: { type: 'gauss', perRound: 4 },
+  sparkle_rifle: { type: 'rails', perRound: 1 },
   stunner_mk3: { type: 'cells', perRound: 2 },
   pulse_rifle: { type: 'cells', perRound: 3 },
   hiccup: { type: 'cells', perRound: 6 },

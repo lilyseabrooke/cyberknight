@@ -224,6 +224,19 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['corp_creds', 'helix_sample', 'memory_shard'], lootChance: 1, cash: [200, 500],
     desc: ['an Atlas commander with a cybernetic jaw, three service stripes and an expression like a closed ledger'],
   },
+  // ---------------- Muse's Inspiration teams (muse.ts) ----------------
+  inspiration_trooper: {
+    role: 'Muse Inspiration operative', level: [4, 5], tags: ['security', 'augmented', 'muse'], faction: 'muse',
+    names: 'person', weapons: ['heart_smg', 'heart_smg', 'service_pistol'], armors: ['inspiration_armour'], armorChance: 0.6,
+    loot: ['glitter_grenade', 'muse_lanyard', 'med_pack', 'patch_kit'], lootChance: 0.55, cash: [40, 120],
+    desc: ['a Muse Inspiration operative in pastel tactical armour, a heart decal on the visor and a very large gun', 'an Inspiration operative humming the Muse jingle under a mirrored visor, safety catch off'],
+  },
+  inspiration_lead: {
+    role: 'Muse Inspiration team lead', level: [6, 7], tags: ['security', 'augmented', 'muse', 'commander', 'strong'], faction: 'muse',
+    names: 'person', weapons: ['sparkle_rifle'], armors: ['inspiration_armour'], armorChance: 1,
+    loot: ['glitter_grenade', 'muse_lanyard', 'memory_shard'], lootChance: 1, cash: [150, 400],
+    desc: ['an Inspiration team lead with a glitter-finish rifle and the smile of somebody about to post a heartfelt tribute'],
+  },
   gang_runner: {
     role: 'gang runner', level: [1, 2], tags: ['rowdy', 'ganger'], faction: 'ganger',
     names: 'person', weapons: ['broken_bottle', 'pool_cue', 'switchblade', 'zip_pistol'], armors: ['leather_jacket'], armorChance: 0.3,

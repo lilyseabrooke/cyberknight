@@ -7,6 +7,7 @@ import { SKILLS, type SkillId } from './content/skills';
 import { expectation, streetOf } from './renown';
 import { fameFrom, prestige } from './stage';
 import { startBookingGoal } from './goals';
+import { museAtBooking } from './muse';
 
 /**
  * Bookings: a night somebody wants her to play somewhere.
@@ -168,6 +169,7 @@ export function playBooking(c: Ctx, b: Booking): void {
     if (host?.alive) host.affinity += 10;
     for (const n of here(w)) if (!n.hostile && n !== host) n.affinity += 3;
     c.emit(act, 'good', { ...data, variant: `${b.kind}_hit`, amount: b.pay });
+    museAtBooking(c);
   } else {
     // The deposit, and not a neodollar more.
     const paid = Math.round(b.pay * 0.25);
@@ -175,5 +177,6 @@ export function playBooking(c: Ctx, b: Booking): void {
     train(c, b.skill as SkillId, 1);
     if (host?.alive) host.affinity -= 10;
     c.emit(act, 'bad', { ...data, variant: `${b.kind}_flop`, amount: paid });
+    museAtBooking(c);
   }
 }

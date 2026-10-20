@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { beginRun, endRun, newUniverse } from './universe';
-import { MUSE_SCOUT, museAfterSet, museStanding, scout } from './muse';
+import { MUSE_SCOUT, MUSE_STRIKE, inspirationStrike, museAfterSet, museAtBooking, museStanding, museTick, scout, strikeGrade } from './muse';
 import { personalityFrom } from './personality';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
@@ -85,5 +85,60 @@ describe('the scout', () => {
     w1.over = true;
     const w2 = beginRun(endRun(w1));
     expect(museStanding(w2)).toBe('signed');
+  });
+});
+
+describe('Inspiration', () => {
+  const hunted = (seed: string, renown: number): World => {
+    const w = onStage(seed, renown);
+    w.hero.maxHp = w.hero.hp = 5000;
+    w.legacy.muse = { lettered: true, offered: w.legacy.runs, refused: 1 };
+    return w;
+  };
+
+  it('said no and kept growing: too big to ignore', () => {
+    expect(museStanding(hunted('small', MUSE_STRIKE - 1))).toBe('refused');
+    expect(museStanding(hunted('big', MUSE_STRIKE + 1))).toBe('hunted');
+  });
+
+  it('a team turns up after a set, plays the jingle, and opens fire', () => {
+    const w = hunted('strike', MUSE_STRIKE + 10);
+    const { c, events } = ctxOf(w, always());
+    museAfterSet(c, 'busk', 'guitar', busked);
+    const e = events.find((x) => x.type === 'inspiration')!;
+    expect(e.data.variant).toBe('set');
+    expect(hasTemplate(e)).toBe(true);
+    expect(events.some((x) => x.type === 'fight_start')).toBe(true);
+    const team = Object.values(w.npcs).filter((n) => n.faction === 'muse');
+    expect(team.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('the bigger she gets, the bigger and better the team', () => {
+    const w = hunted('grade', MUSE_STRIKE);
+    const low = strikeGrade(w, 0);
+    w.legacy.renown = { guitar: MUSE_STRIKE * 4 };
+    expect(strikeGrade(w, 0)).toBeGreaterThan(low);
+    const { c, events } = ctxOf(w, never());
+    inspirationStrike(c, 'set');
+    const e = events.find((x) => x.type === 'inspiration')!;
+    expect(Number(e.data.count)).toBeGreaterThan(2);
+    expect(e.data.lead).toBe(true);
+  });
+
+  it('Muse reads the poster: a booked set can bring a team', () => {
+    const w = hunted('booked', MUSE_STRIKE + 10);
+    const { c, events } = ctxOf(w, always());
+    museAtBooking(c);
+    expect(events.find((x) => x.type === 'inspiration')!.data.variant).toBe('booking');
+  });
+
+  it('if they got her, Muse posts a tribute: once', () => {
+    const w = hunted('tribute', MUSE_STRIKE + 10);
+    w.legacy.deaths.push({ run: w.legacy.runs - 1, clock: 0, locationId: 'street_main', killers: ['muse'], witnesses: [] });
+    const { c, events } = ctxOf(w);
+    museTick(c);
+    museTick(c);
+    expect(events.filter((x) => x.type === 'muse' && x.data.variant === 'tribute')).toHaveLength(1);
+    expect(hasTemplate(events[0]!)).toBe(true);
   });
 });

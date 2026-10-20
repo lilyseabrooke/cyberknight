@@ -956,6 +956,8 @@ export interface MuseFile {
   signed?: boolean;
   /** She said no, this many times. Muse takes the legal route after the first. */
   refused?: number;
+  /** The death (a `DeathRecord.run`) Muse has already posted a tribute for. */
+  tributeFor?: number;
 }
 
 /** A night she's been booked to play somewhere. */

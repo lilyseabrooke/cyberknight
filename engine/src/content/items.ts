@@ -86,6 +86,12 @@ export const ITEMS: Record<string, Def> = {
   ...Object.fromEntries(AMMO_IDS.map((t) => [`ammo_${t}`, c(`box of ${AMMO[t]!.label}`, 0, Math.round(AMMO[t]!.price / 2), ['ammo'])])),
   vintage_guitar: l('vintage guitar (previous owner: a band)', 400, ['instrument']),
   guitar_case: l('guitar case (it has seen things)', 35, ['case']),
+  // ---- Muse's Inspiration teams: the cuter the name, the bigger the gun ----
+  heart_smg: w('Muse "Lovebomb" SMG (pastel, heart decals)', 18, 480),
+  sparkle_rifle: w('Muse "Starstruck" rifle (glitter finish)', 24, 820),
+  glitter_grenade: c('glitter grenade (it is a grenade)', 22, 40, ['throwable', 'fire']),
+  inspiration_armour: a('pastel tactical armour, Inspiration issue', 5, 280),
+  muse_lanyard: l('Muse Inspiration lanyard ("Team Inspire 💖")', 15, ['corp']),
   // ---- gyms ----
   speed_gloves: w('speed gloves (weighted)', 6, 55, ['gloves']),
   boxing_wraps: a('hand wraps and a mouthguard', 1, 12),
@@ -140,7 +146,7 @@ export function isKind(i: Item, k: ItemKind): boolean {
 /** Weapon style tags drive the combat skills; throwables can be flung in fights. */
 const STYLE: Record<string, string[]> = {
   zip_pistol: ['gun'], service_pistol: ['gun'], stunner_mk3: ['gun'], riot_shotgun: ['gun'], rail_revolver: ['gun'],
-  gauss_smg: ['gun'], pulse_rifle: ['gun'], hiccup: ['gun'],
+  gauss_smg: ['gun'], pulse_rifle: ['gun'], hiccup: ['gun'], heart_smg: ['gun'], sparkle_rifle: ['gun'],
   excalibur: ['melee'], broken_bottle: ['melee', 'throwable'], pool_cue: ['melee', 'throwable', 'cue'], cleaver: ['melee', 'throwable'],
   judgment: ['melee'], switchblade: ['melee', 'throwable'], arc_gauntlet: ['melee'], monowhip: ['melee'], thermal_katana: ['melee'],
 };
