@@ -1,5 +1,6 @@
 import type { Ctx, Dungeon, Id, Location, World } from './types';
-import type { Candidate } from './candidate';
+import { spawnGroup, type Candidate } from './candidate';
+import { fight } from './combat';
 import { npcsAt } from './population';
 import { routeTo } from './plans';
 import { skillValue, train } from './skills';
@@ -183,8 +184,15 @@ export function march(c: Ctx, target: Location): void {
   w.counters.myth_march = 1;
   const d = ensureDungeon(w, target);
   if (!d || !rng.chance(mythOdds(w, 0.1))) {
+    // The gate holds, the rubber bullets fly, and the crowd decides whose fault it is.
     w.heat.atlas = Math.min(10, (w.heat.atlas ?? 0) + 3);
-    c.emit('march', 'bad', { place: target.name });
+    const here = w.locations[w.hero.locationId]!;
+    const fans = localFans(w, here.id);
+    for (const id of block(w, here)) { const s = w.locations[id]!; if (s.fans) s.fans *= 0.7; }
+    const mob = spawnGroup(c, 'turned_fan', Math.min(8, 3 + Math.floor(fans / 40)));
+    for (const n of mob) n.hostile = true;
+    c.emit('march', 'bad', { place: target.name, count: mob.length });
+    fight(c, mob, { cause: 'a march gone wrong', joiners: false });
     return;
   }
   const worth = encoreWorth(w, 'march');

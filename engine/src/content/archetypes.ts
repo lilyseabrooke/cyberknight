@@ -343,6 +343,11 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['credchip', 'forged_pass'], lootChance: 0.4, cash: [60, 220],
     desc: ['an agent in a cheap suit with an expensive smile, who can tell what you can afford from the way you stand', 'a property agent holding a tablet like a hymnal and a keyring like a rosary', 'an agent who has sold the same eleven square metres to four different people and sleeps fine'],
   },
+  turned_fan: {
+    role: 'fan turned mob', level: [2, 4], tags: ['rowdy'], faction: null,
+    names: 'person', weapons: ['broken_bottle', 'pool_cue', 'switchblade'], loot: ['credchip', 'neural_gum', 'bootleg_tapes'], lootChance: 0.3, cash: [0, 30],
+    desc: ['a fan with a bloody nose and her face on their T-shirt, who followed her to the gate and blames her for the rubber bullets', 'somebody who was singing along ten minutes ago and is now holding a bottle by the neck'],
+  },
   drifter: {
     role: 'passer-by', level: [1, 2], tags: [], faction: null,
     names: 'person', weapons: ['broken_bottle', 'switchblade'], loot: ['credchip', 'neural_gum'], lootChance: 0.3, cash: [0, 40],

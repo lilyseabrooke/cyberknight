@@ -148,11 +148,19 @@ describe('the march', () => {
     expect(events.find((e) => e.type === 'march')?.outcome).toBe('good');
   });
 
-  it('fails: Atlas takes names', () => {
+  it('fails: Atlas takes names, and the crowd turns on her', () => {
     const w = stage('routed', 100);
     const door = outpost(w);
-    march(ctxOf(w, never()).c, door);
-    expect(w.heat.atlas).toBe(3);
+    const { c, events } = ctxOf(w, never());
+    march(c, door);
+    expect(w.heat.atlas).toBeGreaterThanOrEqual(3);
+    expect(w.locations.street_main!.fans).toBeLessThan(100);
+    const bad = events.find((e) => e.type === 'march');
+    expect(bad).toMatchObject({ outcome: 'bad', data: { count: 5 } });
+    const mob = Object.values(w.npcs).filter((n) => n.archetype === 'turned_fan');
+    expect(mob).toHaveLength(5);
+    // And she has to fight her way out of it.
+    expect(events.find((e) => e.type === 'fight_start')?.data).toMatchObject({ cause: 'a march gone wrong', count: 5 });
   });
 });
 
