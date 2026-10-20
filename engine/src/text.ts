@@ -934,6 +934,26 @@ const T: Record<string, Entry> = {
   pawn: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
   // ---- chop shops and workbenches (chop.ts, bench.ts): same shape
   chop: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  // ---- Cyberfrogs (cyberfrogs.ts): same shape, and the goal lines that go with them
+  frog: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'goal_new:frog_sense': e((d) => [`${d.text} New objective: ${d.goal}.`], (d) => (d.thought ? [String(d.thought)] : [])),
+  'goal_new:frog_here': e(
+    (d) => [`There is a Cyberfrog right here at ${d.place}, and Blackbird has seen it. Everything else becomes background. New objective: ${d.goal}.`],
+    ['Whatever I was doing, I was not doing it very hard.', 'Hold still, little guy. I am coming.'],
+  ),
+  'goal_new:frog_back': e(
+    (d) => [`Blackbird has not forgotten the Cyberfrog by ${d.place}. It is still there. It is, if anything, more there. New objective: ${d.goal}.`],
+    ['I left a frog. What kind of person leaves a frog.', 'Fine. Back we go.'],
+  ),
+  'goal_resume:frog': e((d) => [`Blackbird's thoughts drift back to the Cyberfrog by ${d.place}. They had not left. They only looked like they had.`], ['A frog out there is going to be lonely.']),
+  'goal_done:collected': e(
+    (d) => [`${d.frog}: safe, shelved, and no longer something Neo can do anything to. Blackbird stands a moment with her hands still cupped around where it was, then puts them in her pockets and tries to look like a person.`, `That is ${d.frog} taken care of. Blackbird squares her shoulders and goes back to being a hero, or a very good impression of one.`],
+    ['Safe. Another one safe. That is the only job.', 'I would burn this whole city for that shelf.'],
+  ),
+  'goal_drop:frog_lost': e(
+    (d) => [`${d.frog} is gone, and that is that. Blackbird says nothing, which for Blackbird is a sort of scream.`],
+    ['Somebody is going to pay for this. Somebody always does.'],
+  ),
   // ---- hacker hubs (content/hub*.ts, hubkit.ts): same shape
   hub: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
   'intent:hub': e((d) => [String(d.text)]),

@@ -34,6 +34,7 @@ export { upgradeUniverse, UNIVERSE_VERSION, newUniverse, beginRun, endRun, split
 export { makeSave, serialize, deserialize, resume, MemoryStore, type Save, type SaveStore } from './store';
 export { TREE, NODES, NODE_IDS, describeFx, parseNeed, type UpgradeDef, type BranchDef, type LineDef, type Fx, type PerkId } from './content/tree';
 export { DROPS } from './content/drops';
+export { FROGS, LINES as FROG_LINES, EDITIONS as FROG_EDITIONS, FROG_COUNT, LINE_SIZE as FROG_LINE_SIZE, frogName, frogTitle } from './content/cyberfrogs';
 export { buy, priceOf, stateOf, missing, rankOf, perk, growthPct, dropCut, ownedNodes, treeSize, settleAccount, applyUpgrades, BASE_CUT, type NodeState, type BuyResult } from './lab';
 export { FLOAT, worthDepositing } from './bank';
 export { hungerOf, sleepOf, hungerTier, sleepTier, hungerRate, sleepRate, nightHours, penaltyFor, debtOf, type HungerTier, type SleepTier } from './needs';

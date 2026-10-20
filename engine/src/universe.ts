@@ -47,6 +47,7 @@ export function upgradeUniverse(u: Universe): Universe {
   l.account ??= 0;
   l.upgrades ??= {};
   l.spent ??= 0;
+  l.frogs ??= {};
   u.dungeons ??= {};
   // Streets know what sort of street they are.
   for (const loc of Object.values(u.locations)) if (loc.kind === 'street') loc.street ??= streetTypeOf(loc);

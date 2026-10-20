@@ -27,6 +27,7 @@ import { crewCandidates, crewPull } from './crew';
 import { benchUrge, chopCandidates } from './chop';
 import { hubCandidates, hubUrge } from './hub';
 import { partsUrge, scavengeCandidates } from './scavenge';
+import { frogCandidates, frogDare } from './cyberfrogs';
 import { vehicleCandidates } from './vehicles';
 import { getawayCandidates } from './getaway';
 import { goalCandidates } from './goals';
@@ -236,6 +237,7 @@ export function gather(w: World): Candidate[] {
   out.push(...chopCandidates(w));
   out.push(...hubCandidates(w));
   out.push(...scavengeCandidates(w));
+  out.push(...frogCandidates(w));
 
   // --------------------------------------------------------------- herself
   // Healing is not free: a med pack from her pockets, or a street doc. See supply.ts.
@@ -282,7 +284,7 @@ export function gather(w: World): Candidate[] {
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },
       bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + (dest.kind === 'lair' && dest.dungeon === dest.id ? 0.2 : 0) + urge.bonus + pull.bonus,
       smart: (toDragon && ready ? 2.4 : 0) + urge.smart + pull.smart,
-      risk: dragonRisk * 1.4 + lurking + (e.gate === 'guarded' && !canPass(w, e.gate) ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest) * coverEase(w, dest),
+      risk: dragonRisk * 1.4 + lurking + (e.gate === 'guarded' && !canPass(w, e.gate) ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest) * coverEase(w, dest) * (1 - frogDare(w, dest)),
       run: (c) => moveThrough(c, e),
     });
   }
@@ -299,7 +301,7 @@ export function gather(w: World): Candidate[] {
       drives: { curiosity: 0.35, bravery: e.via && e.via !== 'open' ? 0.25 : 0 },
       bonus: (dest.visits === 0 ? 0.3 : 0) + supplyUrge(w, e.to).bonus + needsUrge(w, e.to).bonus,
       smart: supplyUrge(w, e.to).smart + needsUrge(w, e.to).smart,
-      risk: hard + entranceRisk(w, dest),
+      risk: hard + entranceRisk(w, dest) * (1 - frogDare(w, dest)),
       run: (c) => moveThrough(c, e),
     });
   }

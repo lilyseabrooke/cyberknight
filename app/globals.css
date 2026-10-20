@@ -130,6 +130,19 @@ dd.bad { color: var(--bad); }
 .books dd .good, dd.good, .good { color: var(--good); }
 .books dd .bad, .bad { color: var(--bad); }
 
+/* the Cyberfrog shelf */
+.shelf { background: var(--panel); border: 1px solid var(--edge); border-radius: 8px; padding: 8px 14px; }
+.shelf summary { cursor: pointer; font-size: 14px; }
+.shelf summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.shelf p { font-size: 13px; margin: 8px 0; }
+.shelfline h4 { margin: 10px 0 4px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.shelfline h4 small { text-transform: none; letter-spacing: 0; margin-left: 6px; font-weight: 400; }
+.shelfline ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.shelfline li { border: 1px solid var(--edge); border-radius: 4px; padding: 2px 8px; font-size: 12px; }
+.shelfline li.got { border-color: var(--good); color: var(--text); }
+.shelfline li.got small { color: var(--muted); }
+.shelfline li.gap { color: var(--muted); opacity: 0.5; }
+
 .labgrid { display: grid; grid-template-columns: 1fr 290px; gap: 12px; align-items: start; }
 .tree { min-width: 0; background: #0d0818; border: 1px solid var(--edge); border-radius: 8px; padding: 10px 12px 16px; }
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }

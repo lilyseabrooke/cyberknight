@@ -37,7 +37,7 @@ export const ACTION_MINUTES: Record<string, number> = {
   pawn: 30, pawnfight: 15, pawnquick: 6, pawndeal: 20,
   hall: 30, hallfight: 15, hallquick: 6, halldeal: 20, records: 40,
   chopin: 8, bench: 45,
-  hub: 30, hubfight: 15, hubquick: 6, hubdeal: 25, benchcraft: 60, scavenge: 30,
+  hub: 30, hubfight: 15, hubquick: 6, hubdeal: 25, benchcraft: 60, scavenge: 30, frog: 4,
   realtybuy: 45, realtyview: 10,
   station_ally: 10, swap_ally: 15, recall_ally: 10, crew_collect: 5, crew_job: 5, drill_ally: 60,
 };

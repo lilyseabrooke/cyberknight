@@ -1071,6 +1071,18 @@ export interface Legacy {
   deeds?: Deed[];
   /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
   report?: RunReport;
+  /** The Cyberfrogs on the lab's shelf, by character number (index into FROGS, content/cyberfrogs.ts). Sent home the moment she gets them, so they outlive her. Absent before the first. */
+  frogs?: Record<string, FrogShelf>;
+}
+
+/** What the lab holds of one Cyberfrog character. */
+export interface FrogShelf {
+  /** How many of this character she has sent home, all editions together; more than one means duplicates. */
+  count: number;
+  /** Which editions she has (keys of EDITIONS). */
+  editions: string[];
+  /** The run she first got one. */
+  first: number;
 }
 
 /** A home she bought from a property office. It is on the map for good and hers through every death. See realty.ts. */
@@ -1112,6 +1124,8 @@ export interface RunReport {
   beats: number;
   /** What she was chasing when the night ended, for the lab's wall. Shown once; it does not carry into the next body. */
   calling?: { label: string; progress: number };
+  /** Cyberfrogs she sent home that night, and how many different ones the lab holds now. */
+  frogs?: { got: number; owned: number; dupes: number };
   /** Balance before and after. */
   before: number;
   after: number;
@@ -1205,6 +1219,8 @@ export interface World {
   /** Misc numeric counters (laser-tag wins, ads seen, etc.). */
   counters: Record<string, number>;
   damsel: Damsel | null;
+  /** Cyberfrogs lying about tonight, by the place that was rolled for one (null: rolled, nothing there). Made as she comes near; see cyberfrogs.ts. */
+  frogs?: Record<Id, Frog | null>;
   /** The dragon she is with, if any: whichever of `flights` shares her place. */
   flight: Flight | null;
   /** Every dragon in the world right now: the ones roaming a district, and any hanging over her. */
@@ -1230,7 +1246,49 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'game' | 'guise';
+/** How a Cyberfrog is lying there, which is how it is to get. See cyberfrogs.ts. */
+export type FrogKind =
+  /** In the open, waiting to be picked up. */
+  | 'street'
+  /** In the open, waiting to be picked up, and it is bait. */
+  | 'trap'
+  /** On a gang's turf, on show. */
+  | 'turf'
+  /** Somebody's property: taking it is theft. */
+  | 'theft'
+  /** Somewhere high or awkward. */
+  | 'climb'
+  /** At the back of a hideout or outpost, past everyone holding it. */
+  | 'vault';
+
+export interface Frog {
+  /** Which character (index into FROGS, content/cyberfrogs.ts). */
+  char: number;
+  /** Which edition (key of EDITIONS). */
+  edition: string;
+  kind: FrogKind;
+  /** Where it is lying. */
+  loc: Id;
+  /** The door she would sense it from, when that isn't where it is lying (a dungeon's entrance). */
+  door?: Id;
+  /** Trap: what is waiting. */
+  trap?: 'car' | 'ambush';
+  /** Climb: what it is on. */
+  perch?: string;
+  /** Theft: where it is kept. */
+  shelf?: string;
+  /** She has felt it nearby, and who she thought it was (a character number). */
+  sensed?: boolean;
+  guess?: number;
+  /** She has laid eyes on it. */
+  seen?: boolean;
+  /** Times she has tried for it and not got it. */
+  tries?: number;
+  /** She has it (and the lab has it now), or it is no more. */
+  state?: 'taken' | 'lost';
+}
+
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'game' | 'guise' | 'frog';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
