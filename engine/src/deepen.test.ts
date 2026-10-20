@@ -341,7 +341,7 @@ describe('scores to settle', () => {
     expect(w.mind.goals.some((g) => g.kind === 'kill' && g.npc === target.id)).toBe(true);
     expect(knowledgeCandidates(w).some((x) => x.key.startsWith('take_contract:'))).toBe(false);
     const cash = w.hero.cash;
-    target.downUntil = w.beat + 20;
+    target.downUntil = w.clock + 60;
     settleContracts(c, [target]);
     expect(w.hero.cash).toBe(cash + 140);
     expect(w.mind.contracts).toHaveLength(0);

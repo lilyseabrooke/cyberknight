@@ -706,7 +706,7 @@ describe('resources and consequences', () => {
     it('a closed shop sells nothing: the shopkeeper has to be there', () => {
       const w = at('gun_shop');
       w.hero.cash = 1000;
-      w.npcs.gunsmith!.downUntil = 999;
+      w.npcs.gunsmith!.downUntil = w.clock + 999;
       expect(keysOf(w).filter((k) => k.startsWith('buy_'))).toHaveLength(0);
     });
 

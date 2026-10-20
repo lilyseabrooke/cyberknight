@@ -1,3 +1,4 @@
+import { MIN_PER_DAY, START_MINUTE, minuteOfDay } from './clock';
 import { describe, expect, it } from 'vitest';
 import { scenario } from './testkit';
 import { fight } from './combat';
@@ -44,8 +45,8 @@ describe('taking people down', () => {
     mighty(s.w);
     const tiny = s.w.npcs.tiny!;
     layOut(s, tiny);
-    expect(tiny.alive || tiny.downUntil > s.w.beat).toBe(true);
-    if (tiny.alive) expect(tiny.downUntil - s.w.beat).toBeGreaterThan(60);
+    expect(tiny.alive || tiny.downUntil > s.w.clock).toBe(true);
+    if (tiny.alive) expect(tiny.downUntil - s.w.clock).toBeGreaterThan(60);
   });
 
   it('shuts the bar when its owner goes down: she is shown out, and nobody gets in until it reopens', () => {
@@ -61,7 +62,9 @@ describe('taking people down', () => {
     expect(gather(s.w).some((c) => c.key === 'go:halo_floor')).toBe(false);
     expect(routeTo(s.w, 'street_main', 'halo_restroom')).toBeNull();
     // later it opens again
-    s.w.beat = s.w.locations.halo_floor!.shutUntil! + 1;
+    // (at an hour the bar is open: the reopening is about the clock passing the lock, not the hours on the door)
+    const t = s.w.locations.halo_floor!.shutUntil! + 1;
+    s.w.clock = t + ((START_MINUTE - minuteOfDay(t) + MIN_PER_DAY) % MIN_PER_DAY);
     expect(isShut(s.w, 'halo_floor')).toBe(false);
     expect(routeTo(s.w, 'street_main', 'halo_restroom')).not.toBeNull();
   });

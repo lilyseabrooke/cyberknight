@@ -1022,6 +1022,10 @@ export interface World {
   heat: Record<string, number>;
   /** What the gunsmith has on the shelf tonight (and any other generated gear for sale), by item id. */
   arsenal?: Record<string, Item>;
+  /** The world-clock minute of the gunsmith's next shipment (see `tickShelf`). */
+  shelfAt?: number;
+  /** The world clock at the last upkeep, so things that wear off with time can tell how much of it went by. */
+  upkeepAt?: number;
   situation: Situation;
   flags: Record<string, boolean>;
   /** Misc numeric counters (laser-tag wins, ads seen, etc.). */
@@ -1116,7 +1120,7 @@ export interface Pursuit {
   verdict?: 'take' | 'lure' | 'wait' | 'prep';
   assessedAt?: number;
   lureBeats?: number;
-  /** People she has written off as too much for her right now, until this beat. */
+  /** People she has written off as too much for her right now, until this world-clock minute. */
   passed: Record<Id, number>;
   /** Rooms she has already looked in while searching. */
   searched: Id[];
@@ -1200,7 +1204,7 @@ export interface AskOption {
   spec?: GoalSpec;
   /** She takes this on as her Calling if it's the answer. See callings.ts. */
   calling?: Calling;
-  /** Things she puts off if it's the answer: cooldown key -> beats. */
+  /** Things she puts off if it's the answer: cooldown key -> world minutes. */
   cool?: Record<string, number>;
 }
 
@@ -1239,6 +1243,8 @@ export interface Mind {
   hops: Record<Id, number>;
   /** Goals that ended, by `kind:subject`, so she doesn't pick the same one straight back up. */
   cooldown: Record<string, number>;
+  /** Like `cooldown`, but world-clock minutes: things that stay put aside for as long as the world takes, not as many choices. */
+  coolUntil?: Record<string, number>;
   /** The leaf goal that has been steering her most lately (so she doesn't flip-flop). */
   focus: number | null;
   tally: { done: number; dropped: number; revised: number; delayed: number };

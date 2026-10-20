@@ -596,7 +596,7 @@ function hurt(c: Ctx, n: Npc, how: string): 'dying' | 'down' {
     startDying(w, n, rng.int(15, 100) / 100);
     return 'dying';
   }
-  n.downUntil = w.beat + 30;
+  n.downUntil = w.clock + 90;
   return 'down';
 }
 

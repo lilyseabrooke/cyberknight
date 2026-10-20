@@ -39,7 +39,7 @@ function spend(h: Hero): boolean {
 
 export const makeCan = giveCan;
 const stock = (w: World): number => w.counters.paint_stock ?? 0;
-const present = (n: Npc | undefined, w: World): n is Npc => !!n && n.alive && n.locationId === w.hero.locationId && n.downUntil <= w.beat;
+const present = (n: Npc | undefined, w: World): n is Npc => !!n && n.alive && n.locationId === w.hero.locationId && n.downUntil <= w.clock;
 
 /** Tagging, and everything that can go wrong with it; plus the paint shop and its many ways to get paint. */
 export function graffitiCandidates(w: World): Candidate[] {

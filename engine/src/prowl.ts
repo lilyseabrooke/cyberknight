@@ -846,7 +846,7 @@ export function takedown(c: Ctx, b: Board, t: PUnit, say: Sink): boolean {
     t.npc.hp = 0;
     w.stats.kills++;
   } else {
-    t.npc.downUntil = w.beat + downFor(t.npc, rng, false);
+    t.npc.downUntil = w.clock + downFor(t.npc, rng, false);
   }
   h.cash += t.npc.cash;
   t.npc.cash = 0;

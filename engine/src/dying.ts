@@ -24,17 +24,17 @@ export const isDying = (n: Npc): boolean => !!n.dying;
 export function startDying(w: World, n: Npc, severity: number): void {
   if (!n.alive || n.dying) return;
   n.dying = { dieAt: w.clock + timeToDie(severity), severity: clamp01(severity) };
-  n.downUntil = w.beat + 100000;
+  n.downUntil = w.clock + 100000;
   if (!w.dying.includes(n.id)) w.dying.push(n.id);
 }
 
 /** Take somebody off the clock. They are unconscious for a while and then they are up. Returns whether they were dying. */
-export function stabilize(w: World, n: Npc, unconsciousBeats = 60): boolean {
+export function stabilize(w: World, n: Npc, unconsciousMinutes = 180): boolean {
   if (!n.dying) return false;
   delete n.dying;
   w.dying = w.dying.filter((id) => id !== n.id);
   n.hp = Math.max(1, Math.round(n.maxHp * 0.1));
-  n.downUntil = w.beat + unconsciousBeats;
+  n.downUntil = w.clock + unconsciousMinutes;
   return true;
 }
 

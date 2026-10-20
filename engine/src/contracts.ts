@@ -12,7 +12,7 @@ export function settleContracts(c: Ctx, beaten: Npc[]): void {
   if (!open?.length) return;
   for (const k of [...open]) {
     const target = beaten.find((b) => b.id === k.target);
-    if (!target || (target.alive && target.downUntil <= w.beat)) continue;
+    if (!target || (target.alive && target.downUntil <= w.clock)) continue;
     open.splice(open.indexOf(k), 1);
     const client = w.npcs[k.client];
     if (!client || !client.alive) {

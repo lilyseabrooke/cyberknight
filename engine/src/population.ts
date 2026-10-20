@@ -149,7 +149,7 @@ export const everyoneAt = (w: Population, loc: Id): Npc[] => {
  * The people actually there to deal with: alive and on their feet. Somebody posted in a dungeon who hasn't noticed her
  * isn't one of them: they are part of the building until they come at her (see dungeons.ts).
  */
-export const npcsAt = (w: World, loc: Id): Npc[] => everyoneAt(w, loc).filter((n) => n.alive && n.downUntil <= w.beat && (!n.post || n.hostile));
+export const npcsAt = (w: World, loc: Id): Npc[] => everyoneAt(w, loc).filter((n) => n.alive && n.downUntil <= w.clock && (!n.post || n.hostile));
 
 /** Who turns up in a place from time to time (and isn't necessarily there now). */
 export const hauntersOf = (w: Population, loc: Id): Npc[] => {

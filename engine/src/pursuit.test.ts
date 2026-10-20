@@ -104,7 +104,7 @@ describe('cash: more than one way in', () => {
     expect(opts[0]!.plan).toBe('bounty');
     expect(opts.some((o) => o.plan === 'odd_jobs')).toBe(true);
     // Written off: only jobs left.
-    opts = cashOptions(w, g, { paper: w.beat + 50 });
+    opts = cashOptions(w, g, { paper: w.clock + 150 });
     expect(opts.some((o) => o.plan === 'bounty')).toBe(false);
     // A target far too tough for her isn't worth the paper.
     target.power = 90;

@@ -13,7 +13,7 @@ import { ambientDragons } from './dragons';
 import { tickDying } from './dying';
 import { ambientGraffiti } from './graffiti';
 import { hasImplantFlag, skillLevel } from './skills';
-import { expireBuffs, restockShelf } from './supply';
+import { expireBuffs, tickShelf } from './supply';
 import { discretion } from './discretion';
 import { building, closureTick, heavyFor, hiringTick, outside } from './shutdown';
 import { openAt } from './hours';
@@ -276,13 +276,16 @@ function upkeep(c: Ctx): void {
   // The Halo's grudge fades faster than the police's.
   if (w.beat % 5 === 0 && (w.heat.halo ?? 0) > 0) w.heat.halo!--;
   if (w.beat % 8 === 0 && h.drunk > 0) h.drunk--;
-  tickSatiety(h);
+  // How much world time has gone by since the last upkeep: a beat can be a few seconds or a night's sleep.
+  const minutes = w.upkeepAt === undefined ? BASE_MIN_PER_BEAT : Math.max(0, w.clock - w.upkeepAt);
+  w.upkeepAt = w.clock;
+  tickSatiety(h, minutes);
   tickNeeds(c);
   if (w.over) return;
   // Shipments arrive; tempers cool. No timers on her, just the world carrying on.
   if (w.beat % 30 === 0) w.counters.paint_stock = Math.min(10, (w.counters.paint_stock ?? 0) + 2);
-  if (w.beat % 90 === 0) restockShelf(c);
-  tickVenues(w);
+  tickShelf(c);
+  tickVenues(w, minutes);
   tickHustles(c);
   tickGyms(c);
   tickPawns(c);

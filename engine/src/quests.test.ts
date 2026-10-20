@@ -367,10 +367,10 @@ describe('doing it', () => {
     const target = w.npcs[q.target!]!;
     expect(target.tags).toContain('quest_target');
     // Knocked about enough to want to leave: anyone else in this state is routed out of the building for good.
-    target.downUntil = w.beat + 50;
+    target.downUntil = w.clock + 150;
     const bystander = w.npcs[d.garrison.find((id) => id !== target.id && !w.npcs[id]!.alive) ?? target.id]!;
     bystander.alive = true;
-    bystander.downUntil = w.beat + 50;
+    bystander.downUntil = w.clock + 150;
     bystander.post = d.id;
     sc.run((c) => routed(c, d));
     expect(bystander.post).toBeUndefined();

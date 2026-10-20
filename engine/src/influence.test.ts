@@ -251,7 +251,7 @@ describe('what they do once they have taken it on', () => {
     }
     expect(seen).toContain('errand');
     expect(n.locationId).toBe(target.locationId);
-    expect(target.downUntil).toBeGreaterThan(s.w.beat);
+    expect(target.downUntil).toBeGreaterThan(s.w.clock);
     expect(target.hp).toBeLessThan(target.maxHp);
     // As far as she's concerned, it's been done.
     expect(kill.struck).toBe(true);

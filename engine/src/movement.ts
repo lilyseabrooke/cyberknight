@@ -46,7 +46,7 @@ export function placeAt(w: World, n: Npc, now: number): Id {
 }
 
 const movable = (w: World, n: Npc): boolean =>
-  n.alive && !n.hostile && n.downUntil <= w.beat && (!n.locationId.startsWith('_') || n.locationId === AWAY);
+  n.alive && !n.hostile && n.downUntil <= w.clock && (!n.locationId.startsWith('_') || n.locationId === AWAY);
 
 /** Bring one person up to date. Returns true if they went somewhere. */
 export function settle(w: World, n: Npc, now: number): boolean {

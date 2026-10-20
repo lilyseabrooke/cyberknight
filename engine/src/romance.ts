@@ -6,6 +6,7 @@ import { moveNpc } from './population';
 import { bondEvent, lovedHere, romanceMod, scruples, ensureBond } from './bonds';
 import { isFairGame } from './people';
 import { learnHome } from './homes';
+import { BASE_MIN_PER_BEAT } from './clock';
 import { workingCameras } from './witness';
 
 /**
@@ -19,15 +20,16 @@ import { workingCameras } from './witness';
 export const satietyOf = (h: Hero): number => h.satiety ?? 0;
 const traits = (h: Hero) => h.personality.traits;
 
-/** How fast her appetite returns each beat. About 220 beats from full at an unremarkable 0.5 on everything. */
+/** How fast her appetite returns per world minute. A few hours from full at an unremarkable 0.5 on everything. */
 export function satietyDecay(h: Hero): number {
   const t = traits(h);
   const k = 1 + 1.4 * (t.impress - 0.5) + 0.8 * (t.thrill - 0.5) + 0.7 * (t.drink - 0.5) + 0.6 * (t.mischief - 0.5) - 1.0 * (t.romantic - 0.5);
-  return 0.0045 * clamp(k, 0.4, 2.6);
+  return (0.0045 / BASE_MIN_PER_BEAT) * clamp(k, 0.4, 2.6);
 }
 
-export function tickSatiety(h: Hero): void {
-  if (satietyOf(h) > 0) h.satiety = Math.max(0, satietyOf(h) - satietyDecay(h));
+/** `minutes` is the world time since the last tick; one ordinary beat if nobody says. */
+export function tickSatiety(h: Hero, minutes: number = BASE_MIN_PER_BEAT): void {
+  if (satietyOf(h) > 0) h.satiety = Math.max(0, satietyOf(h) - satietyDecay(h) * minutes);
 }
 
 /** Amorous company stirs her up: flirting, kissing and chatting up girls burn through satiety faster. */
@@ -120,7 +122,7 @@ export function homeFor(n: Npc): string {
   return 'home_stacks';
 }
 
-const present = (n: Npc | undefined, locId: string, w: World): n is Npc => !!n && n.alive && n.locationId === locId && n.downUntil <= w.beat;
+const present = (n: Npc | undefined, locId: string, w: World): n is Npc => !!n && n.alive && n.locationId === locId && n.downUntil <= w.clock;
 
 /** Who'd mind, here. */
 function catcherAt(c: Ctx, spot: Spot): { npc?: Npc; kind: 'staff' | 'band' | 'guard' | 'police' | 'robot' | 'drone'; faction: string | null } {
@@ -131,7 +133,7 @@ function catcherAt(c: Ctx, spot: Spot): { npc?: Npc; kind: 'staff' | 'band' | 'g
   if (id === 'halo_backroom') { const n = pick('madame', 'tiny', 'dutch'); if (n) return { npc: n, kind: 'staff', faction: n.faction }; }
   if (id === 'halo_floor' || id === 'halo_restroom') { const n = pick('dutch', 'tiny'); if (n) return { npc: n, kind: 'staff', faction: 'halo' }; }
   if (id === 'club_greenroom') { const n = Object.values(w.npcs).find((x) => x.tags.includes('band') && present(x, id, w)); if (n) return { npc: n, kind: 'band', faction: 'club' }; }
-  if (id === 'neon_pharaoh' || id === 'club_greenroom' || id === 'club_maintenance') { const g = Object.values(w.npcs).find((x) => x.tags.includes('security') && x.faction === 'club' && x.alive && x.downUntil <= w.beat); if (g) return { npc: g, kind: 'guard', faction: 'club' }; }
+  if (id === 'neon_pharaoh' || id === 'club_greenroom' || id === 'club_maintenance') { const g = Object.values(w.npcs).find((x) => x.tags.includes('security') && x.faction === 'club' && x.alive && x.downUntil <= w.clock); if (g) return { npc: g, kind: 'guard', faction: 'club' }; }
   if (id === 'club_maintenance') { const n = pick('scrapper'); if (n) return { npc: n, kind: 'robot', faction: null }; }
   if (w.locations[id]!.outdoors) return { npc: spawnGroup(c, 'npd_officer', 1)[0], kind: 'police', faction: 'npd' };
   return { kind: 'drone', faction: 'atlas' };

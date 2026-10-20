@@ -21,10 +21,10 @@ import { venueBlurb, venueName } from './mapgen';
  * People she beats down stay down for a good while too (`downFor`), rather than shaking it off and carrying on.
  */
 
-/** Beats a place stays shut for. */
-export const SHUT_FOR = { owner: 220, police: 260 };
+/** World minutes a place stays shut for. */
+export const SHUT_FOR = { owner: 660, police: 780 };
 
-/** A shut-up building counts down to a beat that never arrives, so it stays shut through the night; the next morning decides. */
+/** A shut-up building counts down to a moment that never arrives, so it stays shut through the night; the next morning decides. */
 const SEALED_BEAT = 1e9;
 /** Nights between the owner's death and the doors opening again. */
 const REOPEN_AFTER = [3, 5] as const;
@@ -33,11 +33,11 @@ const REBRAND = 0.65;
 /** The chance a member of staff has found something better by the time it reopens. */
 const QUITS = 0.25;
 
-export const isShut = (w: World, id: Id): boolean => (w.locations[id]?.shutUntil ?? 0) > w.beat;
+export const isShut = (w: World, id: Id): boolean => (w.locations[id]?.shutUntil ?? 0) > w.clock;
 
-/** How long somebody she has beaten (or scared off) stays out of the picture, in beats. */
+/** How long somebody she has beaten (or scared off) stays out of the picture, in world minutes. */
 export function downFor(f: Npc, rng: Rng, fled: boolean): number {
-  return fled ? 30 + rng.int(0, 30) : 60 + f.level * 8 + rng.int(0, 40);
+  return fled ? 90 + rng.int(0, 90) : 180 + f.level * 24 + rng.int(0, 120);
 }
 
 /** The people a bar can't open without: whoever owns it, whoever pours the drinks, whoever's on the decks. */
@@ -68,7 +68,7 @@ export function outside(w: World, from: Id, closed: Id[]): Id {
 function shut(c: Ctx, at: Id, by: 'owner' | 'police', who: Npc | undefined, extra = 0, why = '', sealing = false): void {
   const { w, rng } = c;
   const rooms = building(w, at);
-  const until = sealing ? SEALED_BEAT : w.beat + SHUT_FOR[by] + extra;
+  const until = sealing ? SEALED_BEAT : w.clock + SHUT_FOR[by] + extra;
   const place = w.locations[at]!;
   const everyone = rooms.flatMap((id) => everyoneAt(w, id));
   const staff = sealing ? everyone.filter((n) => n.alive && n !== who && !n.post && (n.tags.includes('staff') || n.tags.includes('security') || n.tags.includes('shopkeeper'))).map((n) => n.id) : [];
@@ -113,21 +113,21 @@ export function afterTakedown(c: Ctx, taken: Npc[]): void {
     if (ownerDead) {
       shut(c, wp.id, 'owner', f, 0, wp.kind === 'gym' ? 'gym_dead' : wp.kind === 'pawn' ? 'pawn_dead' : wp.kind === 'chop' ? 'chop_dead' : 'owner_dead', true);
     } else if (wp.kind === 'gym' && f.tags.includes('owner')) {
-      shut(c, wp.id, 'owner', f, f.alive ? 0 : 180, 'gym');
+      shut(c, wp.id, 'owner', f, f.alive ? 0 : 540, 'gym');
     } else if (wp.kind === 'pawn' && f.tags.includes('owner')) {
-      shut(c, wp.id, 'owner', f, f.alive ? 0 : 180, 'pawn');
+      shut(c, wp.id, 'owner', f, f.alive ? 0 : 540, 'pawn');
     } else if (wp.kind === 'chop' && f.tags.includes('owner')) {
-      shut(c, wp.id, 'owner', f, f.alive ? 0 : 180, 'chop');
+      shut(c, wp.id, 'owner', f, f.alive ? 0 : 540, 'chop');
     } else if ((wp.kind === 'bar' || wp.kind === 'club') && runsTheHouse(f)) {
       const able = building(w, wp.id)
         .flatMap((id) => everyoneAt(w, id))
-        .filter((n) => n !== f && n.alive && n.downUntil <= w.beat && runsTheHouse(n));
-      if (f.tags.includes('owner') || !able.length) shut(c, wp.id, 'owner', f, f.alive ? 0 : 180);
+        .filter((n) => n !== f && n.alive && n.downUntil <= w.clock && runsTheHouse(n));
+      if (f.tags.includes('owner') || !able.length) shut(c, wp.id, 'owner', f, f.alive ? 0 : 540);
     } else if ((wp.kind === 'bar' || wp.kind === 'club') && f.role === 'bouncer') {
       weighMuscle(c, wp.id, f);
     } else if (wp.kind === 'clinic' && f.tags.includes('doc')) {
-      const others = everyoneAt(w, wp.id).filter((n) => n !== f && n.tags.includes('doc') && n.alive && n.downUntil <= w.beat);
-      if (!others.length) shut(c, wp.id, 'owner', f, f.alive ? 0 : 180, 'clinic');
+      const others = everyoneAt(w, wp.id).filter((n) => n !== f && n.tags.includes('doc') && n.alive && n.downUntil <= w.clock);
+      if (!others.length) shut(c, wp.id, 'owner', f, f.alive ? 0 : 540, 'clinic');
     } else if (wp.kind === 'shop' && f.tags.includes('shopkeeper') && !wp.pendingShut) {
       // Somebody rings the police. They get there when they get there.
       wp.pendingShut = { due: w.beat + rng.int(6, 14), who: f.id };
@@ -163,10 +163,10 @@ function weighMuscle(c: Ctx, at: Id, f: Npc): void {
   const priors = Math.max(0, f.memories.filter((m) => m === 'was beaten by Blackbird').length - 1);
   const staffDown = rooms
     .flatMap((id) => everyoneAt(w, id))
-    .filter((n) => n !== f && (n.tags.includes('staff') || n.tags.includes('owner') || n.tags.includes('security')) && (!n.alive || n.downUntil > w.beat)).length;
+    .filter((n) => n !== f && (n.tags.includes('staff') || n.tags.includes('owner') || n.tags.includes('security')) && (!n.alive || n.downUntil > w.clock)).length;
   const trouble = heat + 1.5 * priors + 2 * staffDown + (f.alive ? 0 : 1.5) + (rng.next() - 0.5) * 2;
   if (trouble >= 6) {
-    shut(c, at, 'owner', f, f.alive ? 0 : 120, 'muscle');
+    shut(c, at, 'owner', f, f.alive ? 0 : 360, 'muscle');
     return;
   }
   place.pendingHire = { due: w.beat + rng.int(8, 16) };
@@ -184,7 +184,7 @@ export function hiringTick(c: Ctx): void {
     delete loc.pendingHire;
     if (isShut(w, loc.id) || !ARCHETYPES.bouncer) continue;
     // Somebody is already on the door (the hire was a rumour, or Tiny came back early): no second one.
-    if (building(w, loc.id).flatMap((id) => everyoneAt(w, id)).some((n) => n.alive && n.role === 'bouncer' && n.downUntil <= w.beat)) continue;
+    if (building(w, loc.id).flatMap((id) => everyoneAt(w, id)).some((n) => n.alive && n.role === 'bouncer' && n.downUntil <= w.clock)) continue;
     const id = `${HIRED}${loc.id}_${w.beat}`;
     const guy = spawnNpc(rng, id, 'bouncer', loc.id, { faction: loc.faction ?? 'halo' });
     guy.ephemeral = true; // a temp: gone by the next night
@@ -196,7 +196,7 @@ export function hiringTick(c: Ctx): void {
 
 /** Whoever the house sends when something needs smashing: a bouncer on his feet, else the owner. */
 export function heavyFor(w: World, at: Id): Npc | undefined {
-  const crowd = building(w, at).flatMap((id) => everyoneAt(w, id)).filter((n) => n.alive && !n.hostile && n.downUntil <= w.beat);
+  const crowd = building(w, at).flatMap((id) => everyoneAt(w, id)).filter((n) => n.alive && !n.hostile && n.downUntil <= w.clock);
   return crowd.find((n) => n.role === 'bouncer') ?? crowd.find((n) => n.tags.includes('owner'));
 }
 
