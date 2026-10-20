@@ -94,6 +94,21 @@ export interface Companion {
   /** The NPC this companion used to be, if any (they go home if they leave). */
   npcId?: Id;
   home?: Id;
+  /** Experience, from fights, drills and shifts at a home; absent means none. Level comes from it (see companions.ts). */
+  xp?: number;
+  /** Level 1..100, kept in step with `xp`; absent means 1. Scales hp, power and assist. */
+  level?: number;
+}
+
+/** A companion posted at a home she owns, working for her while she is out (see crew.ts). */
+export interface Stationed {
+  comp: Companion;
+  /** What they are doing there (see content/stations.ts). */
+  job: string;
+  /** World clock when their work was last counted. */
+  since: number;
+  /** What they have made and are holding for her: neodollars, and parts by id. */
+  stash: { cash: number; parts: Record<string, number> };
 }
 
 /** A car she is in. It goes with her along the streets and is parked where she walks into a building. See vehicles.ts and cars.ts. */
@@ -989,6 +1004,8 @@ export interface Deed {
   district: District;
   /** The run she bought it in. */
   run: number;
+  /** Companions posted here, as many as the home has berths for. They stay through her deaths. See crew.ts. */
+  crew?: Stationed[];
 }
 
 /** The books on one night, settled when it ends. */

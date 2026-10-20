@@ -92,6 +92,10 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   steal_puppy: { animal: 0.8, honesty: -0.8, mischief: 0.5 },
   pet_ally: { animal: 1.0, loyalty: 1.2 },
   repair_ally: { loyalty: 1.4, techy: 0.4, kindness: 0.4 },
+  drill_ally: { loyalty: 0.8, animal: 0.3, courage: 0.3 },
+  station_ally: { loyalty: 0.4, kindness: 0.3 },
+  recall_ally: { loyalty: 0.8 },
+  crew_collect: { greed: 0.3 },
   teach_trick: { animal: 0.6, loyalty: 0.6, kindness: 0.4 },
   recruit_juno: { loyalty: 0.4, techy: 0.6 },
   // thrills

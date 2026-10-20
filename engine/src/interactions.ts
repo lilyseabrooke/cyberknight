@@ -21,6 +21,7 @@ import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
 import { realtyCandidates, realtyPull } from './realty';
+import { crewCandidates } from './crew';
 import { benchUrge, chopCandidates } from './chop';
 import { hubCandidates, hubUrge } from './hub';
 import { partsUrge, scavengeCandidates } from './scavenge';
@@ -225,6 +226,7 @@ export function gather(w: World): Candidate[] {
   out.push(...getawayCandidates(w));
   out.push(...pawnCandidates(w));
   out.push(...realtyCandidates(w));
+  out.push(...crewCandidates(w));
   out.push(...chopCandidates(w));
   out.push(...hubCandidates(w));
   out.push(...scavengeCandidates(w));
