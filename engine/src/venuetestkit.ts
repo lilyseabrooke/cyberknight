@@ -75,6 +75,10 @@ export interface SuiteOpts {
   shaped?: [(typeof DISTRICTS)[number], string, (typeof DISTRICTS)[number]];
   /** Rolled with the map (false for a kind that appears by other means). */
   mapped?: boolean;
+  /** Situation tags to count the menu at (a place built around its hours is judged at one of them). */
+  menuTags?: string[];
+  /** A scenario standing in one, for a kind the map does not grow (`from` varies the seed). */
+  make?: (from: number) => Scenario;
 }
 
 export function venueSuite(t: VenueTables, o: SuiteOpts = {}): void {
@@ -179,7 +183,7 @@ export function venueSuite(t: VenueTables, o: SuiteOpts = {}): void {
     it('has a lot of rows, each complete, naming only real things', () => {
       expect(rows.length).toBeGreaterThanOrEqual(o.rows ?? 45);
       expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
-      const tags = new Set(Object.values(t.situations).flatMap((s) => s.tags));
+      const tags = new Set([...Object.values(t.situations).flatMap((s) => s.tags), ...(t.phaseTags ?? [])]);
       for (const r of rows) {
         expect(r.needs.length, r.id).toBeGreaterThan(0);
         expect(r.sees.length, r.id).toBeGreaterThan(10);
@@ -198,7 +202,7 @@ export function venueSuite(t: VenueTables, o: SuiteOpts = {}): void {
       expect([...needs].filter((n) => n.startsWith('drive:')).length).toBeGreaterThanOrEqual(5);
     });
     it('gives a typical one a broad menu', () => {
-      const ds = roll(200).map((g) => describeVenue(g.info).length);
+      const ds = roll(200).map((g) => describeVenue(g.info, o.menuTags ?? []).length);
       expect(ds.reduce((s, x) => s + x, 0) / ds.length).toBeGreaterThan(12);
     });
   });
@@ -209,7 +213,7 @@ export function venueSuite(t: VenueTables, o: SuiteOpts = {}): void {
       const problems: string[] = [];
       const told = new Set<string>();
       const make = () => {
-        const sc = inVenue(kind, { want: (l) => l.venue!.features.length >= 4 });
+        const sc = o.make ? o.make(0) : inVenue(kind, { want: (l) => l.venue!.features.length >= 4 });
         sc.w.hero.level = 30;
         return { sc, at: sc.w.hero.locationId };
       };
@@ -236,6 +240,7 @@ export function venueSuite(t: VenueTables, o: SuiteOpts = {}): void {
           o.prime?.(w);
           const v = venueAt(w, kind)!;
           if (sitId) v.sit = { id: sitId, def: t.situations[sitId]! };
+          else if (sitTag && t.phaseTags?.includes(sitTag)) v.sit = { id: sitTag, def: { label: sitTag, line: '', weight: 1, tags: [sitTag] } };
           if (wild) v.info = { ...v.info, wild };
           const c = sc.ctx(dice === 'always' ? always() : dice === 'never' ? never() : undefined);
           const evs: { type: string; outcome: 'good' | 'bad' | 'mixed'; data: Record<string, string | number | boolean>; beat: number }[] = [];
@@ -266,7 +271,7 @@ export function venueSuite(t: VenueTables, o: SuiteOpts = {}): void {
       for (const from of [0, 40, 80]) {
         let sc: Scenario;
         try {
-          sc = inVenue(kind, { from });
+          sc = o.make ? o.make(from) : inVenue(kind, { from });
         } catch {
           continue;
         }

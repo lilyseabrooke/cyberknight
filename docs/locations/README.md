@@ -14,6 +14,8 @@ Kinds of place that are rolled from many independent axes and offer something to
 | [`cutting.md`](cutting.md) | The cutting room: musical duels in rounds (`duel.ts`), the house title, guitars on the line, gangs that adopt her, implemented |
 | [`musehq.md`](musehq.md) | Muse buildings: a clearance ladder to climb, her file to burn or forge, confiscated guitars, LUMINA's bay, ALL CHANNELS, the Muse–Atlas wedge, implemented |
 | [`luthier.md`](luthier.md) | The luthier: the bench (tickets that wait through a death), grafts, commissions, her old guitars in the window; and provenance (guitars that remember what they did, and come back), implemented |
+| [`fanclub.md`](fanclub.md) | The fan club: a place her fans open, that outlives her; superfans' favours, her tribute band, the shrine of her deaths and her old guitars, implemented |
+| [`arena.md`](arena.md) | The arena: a show day run in clock-time phases (load-in to load-out), the bill, the encore, hiring it and headlining it, implemented |
 
 Code: `engine/src/affordances.ts` (the shared row schema, registry and coverage), `engine/src/placekit.ts` (the machinery every place shares: `Check`, `Result`, `runCheck`), `engine/src/content/gym*.ts`, `engine/src/gym*.ts`, `engine/src/content/pawn*.ts`, `engine/src/pawn*.ts`, `engine/src/content/chops.ts`, `content/parts.ts`, `bench.ts`, `chop.ts`, `engine/src/content/hub*.ts`, `engine/src/hub*.ts`.
 Tools: `npm run gyms`, `npm run pawns`, `npm run chops`, `npm run hubs`, `npm run venues -- <kind>`, `npm run coverage`.

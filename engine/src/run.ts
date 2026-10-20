@@ -53,6 +53,7 @@ import { positionFor, tickPlace } from './placeboard';
 import { anarchyAt, riotAt } from './myth';
 import { royaltiesTick } from './studio';
 import { provenanceTap } from './provenance';
+import { fanclubTick } from './fanclub';
 
 /** Only for headless loops and tests (runToEnd, sims). The game itself never caps a run: it ends when Blackbird does. */
 export const TEST_BEAT_CAP = 600;
@@ -313,6 +314,7 @@ function upkeep(c: Ctx): void {
   towersTick(c);
   songsTick(c);
   royaltiesTick(c);
+  fanclubTick(c);
   museShowTick(c);
   tickGyms(c);
   tickPawns(c);

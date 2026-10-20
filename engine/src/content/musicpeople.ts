@@ -175,6 +175,33 @@ export const MUSIC_ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['broken_bottle'], loot: ['credchip', 'walkman'], lootChance: 0.4, cash: [20, 120], startAffinity: 30,
     desc: ['the guitarist from her tribute band, in her old haircut, who plays her riffs better than she can right now and knows it', 'a tribute guitarist with a wig, a borrowed swagger and her exact hand position from three bodies ago'],
   },
+
+  // ---------------- Arenas (content/arenas.ts) ----------------
+  arena_manager: {
+    role: 'arena manager', level: [4, 7], tags: ['owner', 'staff', 'manager'], faction: null,
+    names: 'person', weapons: ['service_pistol', 'judgment'], armors: ['leather_jacket'], armorChance: 0.5, loot: ['credchip', 'corp_creds', 'walkman'], lootChance: 0.6, cash: [150, 500],
+    desc: ['an arena manager with three radios, two phones and one nerve left', 'an arena manager in a headset who has not sat down since load-in', 'an arena manager with a clipboard of disasters, most of them tonight'],
+  },
+  arena_roadie: {
+    role: 'roadie', level: [2, 5], tags: ['staff', 'strong', 'crew', 'roadie'], faction: null,
+    names: 'person', weapons: ['judgment', 'excalibur'], loot: ['credchip', 'solder_kit', 'walkman'], lootChance: 0.4, cash: [20, 90],
+    desc: ['a roadie with gaffer tape round each wrist and a flight case on each shoulder', 'a roadie who has carried every star\'s gear and dropped none of it, except once', 'a roadie in black, so tired she is asleep standing up, holding a cable'],
+  },
+  arena_steward: {
+    role: 'steward', level: [2, 4], tags: ['staff', 'security', 'guard', 'steward'], faction: null,
+    names: 'person', weapons: ['judgment', 'stunner_mk3'], armors: ['leather_jacket'], armorChance: 0.4, loot: ['credchip'], lootChance: 0.3, cash: [15, 70],
+    desc: ['a steward in a hi-vis tabard with his back to the stage, watching the crowd, which is the saddest job in music', 'a steward who has pulled four hundred people out of crushes and will pull four hundred more'],
+  },
+  arena_punter: {
+    role: 'punter', level: [1, 3], tags: ['regular', 'customer', 'crowd'], faction: null,
+    names: 'person', weapons: [], loot: ['credchip', 'walkman'], lootChance: 0.3, cash: [10, 90],
+    desc: ['a punter with a light-stick in each hand and a voice already gone', 'a punter in a T-shirt bought in the car park, slightly misspelt', 'a punter who has queued since dawn and is not going to let anybody forget it'],
+  },
+  tout: {
+    role: 'tout', level: [1, 3], tags: ['regular', 'hustler', 'tout'], faction: null,
+    names: 'person', weapons: ['switchblade'], loot: ['credchip', 'walkman'], lootChance: 0.5, cash: [40, 200],
+    desc: ['a tout in a good coat, whispering "tickets, tickets" like a prayer', 'a tout with a union badge and a fistful of tickets for shows that may not exist'],
+  },
 };
 
 /** Who these archetypes tend to be, beyond the job. */
@@ -206,4 +233,9 @@ export const MUSIC_PEOPLE: Record<string, PersonSpec> = {
   superfan: { women: 0.55, age: [20, 64] },
   club_member: { women: 0.55, age: [18, 70] },
   tribute_guitarist: { women: 0.6, age: [20, 50] },
+  arena_manager: { women: 0.45, age: [32, 64] },
+  arena_roadie: { women: 0.35, age: [22, 60] },
+  arena_steward: { women: 0.4, age: [20, 60] },
+  arena_punter: { women: 0.5, age: [18, 60] },
+  tout: { women: 0.3, age: [22, 66] },
 };

@@ -74,7 +74,8 @@ export function undergroundRooms(w: World): Location[] {
 }
 
 /** Bars and clubs she's been to. */
-const stages = (w: World): Location[] => Object.values(w.locations).filter((l) => (l.kind === 'bar' || l.kind === 'club') && l.visits > 0 && !l.sealed);
+// (An arena she has been to can book her too, and pays like one: see stage.ts `prestige`.)
+const stages = (w: World): Location[] => Object.values(w.locations).filter((l) => (l.kind === 'bar' || l.kind === 'club' || l.kind === 'arena') && l.visits > 0 && !l.sealed);
 
 const hostAt = (w: World, loc: Location): Npc | undefined => {
   const there = npcsAt(w, loc.id).filter((n) => n.alive && !n.hostile && !n.ephemeral);

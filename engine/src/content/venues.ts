@@ -125,6 +125,12 @@ export interface VenueTables {
   extra?(rng: Rng, info: VenueInfo): Record<string, number | string>;
   /** A last line for the blurb, from the finished info. */
   tail?(info: VenueInfo): string;
+  /** Tags the hour of the day adds to whatever is on (an arena's load-in, doors, encore). A pure function of the clock. */
+  phase?(clock: number): string[];
+  /** How likely each size is (closet .. sprawl), if not the usual. */
+  sizes?: [number, number, number, number, number];
+  /** Every tag `phase` can add, so rows can name them. */
+  phaseTags?: readonly string[];
 }
 
 export const SIZES = [
@@ -154,7 +160,7 @@ export function rollVenue(t: VenueTables, rng: Rng, district: District, depth: n
   const v = t.variants[variant]!;
   const shell = rng.weighted(Object.keys(t.shells), (k) => t.shells[k]!.weight ?? 1);
   const sh = t.shells[shell]!;
-  const size = rng.weighted([0, 1, 2, 3, 4], (i) => [1.2, 2.6, 3, 1.6, 0.5][i]!);
+  const size = rng.weighted([0, 1, 2, 3, 4], (i) => (t.sizes ?? [1.2, 2.6, 3, 1.6, 0.5])[i]!);
   const condition = rng.weighted([0, 1, 2, 3, 4], (i) => [1, 2.5, 3, 1.4, 0.6][i]! * (district === 'corporate' ? (i >= 3 ? 3 : 0.4) : district === 'slum' ? (i <= 1 ? 3 : 0.4) : 1));
   const tier = Math.max(1, Math.min(5, rng.int(1, 5) + (depth >= 6 ? 1 : 0) - (depth <= 1 ? 1 : 0)));
   const traitIds = Object.keys(t.traits).filter((id) => !t.traits[id]!.only || t.traits[id]!.only!.includes(variant));
@@ -205,7 +211,9 @@ export function venueSituation(t: VenueTables, w: Pick<World, 'worldSeed' | 'clo
   });
   if (!ids.length) return undefined;
   const id = rng.weighted(ids, (k) => t.situations[k]!.weight);
-  return { id, def: t.situations[id]! };
+  const def = t.situations[id]!;
+  const phase = t.phase?.(w.clock);
+  return { id, def: phase?.length ? { ...def, tags: [...def.tags, ...phase] } : def };
 }
 
 export const featuresOf = (t: VenueTables, info: VenueInfo): string[] => info.features.filter((f) => t.features[f]);

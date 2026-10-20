@@ -93,7 +93,7 @@ function nearestOutpost(w: World, within = 6): { loc: Location; dist: number } |
 
 // ===================================================================== candidates
 
-const high = (w: World, loc: Location): boolean => loc.outdoors && (loc.id === 'overpass' || /roof/i.test(loc.id + loc.name) || !!w.legacy.muse?.towers?.[loc.id]);
+const high = (w: World, loc: Location): boolean => (loc.outdoors && (loc.id === 'overpass' || /roof/i.test(loc.id + loc.name) || !!w.legacy.muse?.towers?.[loc.id])) || (loc.venue?.kind === 'arena' && loc.venue.features.includes('open_roof'));
 const atlasNear = (w: World, loc: Location): boolean => (w.heat.atlas ?? 0) >= 3 || !!nearestOutpost(w, 2);
 
 export function mythCandidates(w: World): Candidate[] {
