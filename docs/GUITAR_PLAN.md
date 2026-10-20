@@ -320,7 +320,3 @@ The opportunities need a little machinery underneath. Kept short on purpose; eac
 10. **LUMINA, the broadcast hijack, the wedge, and board hooks,** one at a time.
 11. **Myth tier**: the storm solo, the riot and the march (on the nearest outpost, standing in for Atlas HQ), it charts,
     and down with the police.
-
-## Open questions for the author
-
-- Muse Clearance, Muse Broadcast, Muse A&R and the Muse–Atlas partnership: keep, rename, or veto?
