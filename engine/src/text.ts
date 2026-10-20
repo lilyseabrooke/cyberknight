@@ -146,6 +146,26 @@ const CALLING_VOWS: Record<string, string> = {
   cook: 'Noodles. Real ones. The kind that make people cry in the good way.',
 };
 
+/** Every music venue speaks through one event of its own name, plus intents for its families and its systems' actions. */
+function venueText(): Record<string, Entry> {
+  const said = e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : []));
+  const intent = e((d) => [String(d.text)]);
+  const out: Record<string, Entry> = {};
+  for (const k of ['studio', 'cutting', 'luthier', 'musehq', 'arena', 'fanclub']) {
+    out[k] = said;
+    for (const f of ['', 'quick', 'fight', 'deal']) out[`intent:${k}${f}`] = intent;
+  }
+  for (const k of ['mime_guitar', 'mime_vocals', 'mime_djing', 'mime_beatbox']) {
+    out[k] = said;
+    out[`intent:${k}`] = intent;
+  }
+  for (const k of VENUE_INTENTS) out[`intent:${k}`] = intent;
+  return out;
+}
+
+/** The families of the venues' own actions (studio.ts and friends) that announce themselves with a line of their own. */
+const VENUE_INTENTS = ['record', 'ghost_take', 'dub', 'press', 'relisten', 'bury_song'];
+
 const T: Record<string, Entry> = {
   depart: e(
     (d) => [
@@ -960,6 +980,8 @@ const T: Record<string, Entry> = {
   'intent:hubquick': e((d) => [String(d.text)]),
   'intent:hubfight': e((d) => [String(d.text)]),
   'intent:hubdeal': e((d) => [String(d.text)]),
+  // ---- music venues (venuekit.ts and each kind's module): the line is in the event, like the hub's
+  ...venueText(),
   'intent:pawn': e((d) => [String(d.text)]),
   'intent:pawnquick': e((d) => [String(d.text)]),
   'intent:pawnfight': e((d) => [String(d.text)]),
@@ -2075,6 +2097,14 @@ const T: Record<string, Entry> = {
   'shut_down:hub': e(
     (d) => [d.inside ? `With ${d.npc} on the floor, nobody is left to run ${d.place}. Every screen goes dark at once, someone pulls the master switch and a very calm person shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The racks are off, the door is shut and the forum has started a thread about it.`],
     ['I closed a hacker hub. That is a lot of people with nowhere to type.', 'No more lessons. Terrible for the economy. Good for me, today.'],
+  ),
+  'shut_down:venue': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor, nobody is left to run ${d.place}. The lights go up, the music goes off and somebody large shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The doors are shut and a handwritten sign says BACK SOON, which nobody believes.`],
+    ['The music stops when I say so.', 'One less stage. Plenty more.'],
+  ),
+  'shut_down:venue_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. Somebody turns the music off, very gently, and a regular with a key shows Blackbird out.` : `${d.place} has shut for good. ${d.npc} will not be back, and somebody has left flowers and a cassette on the step.`],
+    ['That was somebody\'s whole sound.', 'I did not mean it to end like that. Probably.'],
   ),
   'shut_down:hub_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. The racks hum on for a minute, and then a regular reaches over and turns them off, one at a time. Someone with a key shows Blackbird to the pavement.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back and the forum is a memorial.`],

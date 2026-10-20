@@ -24,6 +24,7 @@ import { realtyCandidates, realtyPull } from './realty';
 import { crewCandidates, crewPull } from './crew';
 import { benchUrge, chopCandidates } from './chop';
 import { hubCandidates, hubUrge } from './hub';
+import { venueCandidates, venueUrge } from './venues';
 import { partsUrge, scavengeCandidates } from './scavenge';
 import { vehicleCandidates } from './vehicles';
 import { getawayCandidates } from './getaway';
@@ -251,6 +252,7 @@ export function gather(w: World): Candidate[] {
   out.push(...crewCandidates(w));
   out.push(...chopCandidates(w));
   out.push(...hubCandidates(w));
+  out.push(...venueCandidates(w));
   out.push(...scavengeCandidates(w));
 
   // --------------------------------------------------------------- herself
@@ -287,8 +289,9 @@ export function gather(w: World): Candidate[] {
     const need = needsUrge(w, e.to);
     const bench = benchUrge(w, e.to);
     const hub = hubUrge(w, e.to);
+    const venue = venueUrge(w, e.to);
     const scrap = partsUrge(w, e.to);
-    const urge = { bonus: supply.bonus + need.bonus + bench.bonus + hub.bonus + scrap.bonus, smart: supply.smart + need.smart + bench.smart + hub.smart + scrap.smart };
+    const urge = { bonus: supply.bonus + need.bonus + bench.bonus + hub.bonus + venue.bonus + scrap.bonus, smart: supply.smart + need.smart + bench.smart + hub.smart + venue.smart + scrap.smart };
     const bank = bankPull(w, e.to);
     const homes = realtyPull(w, e.to);
     const crew = crewPull(w, e.to);

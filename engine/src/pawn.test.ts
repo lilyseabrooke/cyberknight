@@ -167,7 +167,7 @@ describe('where pawn shops grow', () => {
         const kids = street.exits.map((e) => sc.w.locations[e.to]).filter((l) => l?.gen?.parent === street.id && l.gen.role !== 'street');
         for (const p of kids.filter((l) => l!.gen!.role === 'pawn')) {
           pawns++;
-          for (const other of kids.filter((l) => l!.gen!.role !== 'pawn' && l!.gen!.role !== 'pawnroom' && l!.gen!.role !== 'realty' && l!.gen!.role !== 'chop' && l!.gen!.role !== 'hub')) expect(p!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
+          for (const other of kids.filter((l) => l!.gen!.role !== 'pawn' && l!.gen!.role !== 'pawnroom' && l!.gen!.role !== 'realty' && l!.gen!.role !== 'chop' && l!.gen!.role !== 'hub' && !['studio', 'cutting', 'luthier', 'musehq', 'arena', 'fanclub'].includes(l!.gen!.role))) expect(p!.gen!.slot).toBeGreaterThan(other!.gen!.slot);
         }
       }
     }

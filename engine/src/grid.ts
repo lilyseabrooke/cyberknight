@@ -100,6 +100,12 @@ const SPECS: Record<Location['kind'], Spec> = {
   pawn: { w: [5, 6], h: [4, 5], cover: [3, 4], walls: [0, 1], hazards: [0, 0], exits: [1, 2] },
   chop: { w: [6, 7], h: [4, 5], cover: [3, 5], walls: [0, 1], hazards: [0, 1], exits: [1, 2] },
   hub: { w: [6, 7], h: [4, 5], cover: [3, 5], walls: [0, 1], hazards: [0, 1], exits: [1, 2] },
+  studio: { w: [5, 7], h: [4, 5], cover: [3, 5], walls: [1, 2], hazards: [0, 1], exits: [1, 2] },
+  cutting: { w: [6, 8], h: [5, 6], cover: [2, 4], walls: [0, 1], hazards: [0, 1], exits: [1, 2] },
+  luthier: { w: [5, 6], h: [4, 5], cover: [3, 4], walls: [0, 1], hazards: [0, 0], exits: [1, 2] },
+  musehq: { w: [7, 8], h: [6, 7], cover: [3, 5], walls: [1, 2], hazards: [0, 1], exits: [1, 2] },
+  arena: { w: [8, 9], h: [7, 8], cover: [3, 6], walls: [0, 2], hazards: [0, 2], exits: [2, 3] },
+  fanclub: { w: [5, 6], h: [4, 5], cover: [3, 4], walls: [0, 1], hazards: [0, 0], exits: [1, 2] },
   realty: { w: [4, 5], h: [4, 5], cover: [2, 3], walls: [0, 1], hazards: [0, 0], exits: [1, 1] },
 };
 

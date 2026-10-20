@@ -9,6 +9,7 @@ import { gymRoster } from './content/gyms';
 import { pawnRoster } from './content/pawns';
 import { chopRoster } from './content/chops';
 import { hubRoster } from './content/hubs';
+import { VENUES } from './content/venuetables';
 import type { Id, Location, Npc, World } from './types';
 
 /**
@@ -87,6 +88,8 @@ export const ROSTERS: Record<Location['kind'], SlotDef[]> = {
   pawn: [], // so do a pawn shop's; see pawnRoster in content/pawns.ts
   hub: [], // a hub's people depend on what it is; see hubRoster in content/hubs.ts
   chop: [], // and a chop shop's: the door depends on the shop; see chopRoster in content/chops.ts
+  // The music venues' depend on what each one is: see the `roster` of each kind's tables (content/venuetables.ts).
+  studio: [], cutting: [], luthier: [], musehq: [], arena: [], fanclub: [],
 };
 
 /** Chance a vacancy is filled by somebody who already exists, when there's a fit. */
@@ -130,7 +133,7 @@ export function populate(w: World, loc: Location): Npc[] {
   if (loc.road === 'highway') return []; // nobody lives on a highway
   const info = loc.gym ?? (loc.gymRoom ? w.locations[loc.gymRoom.main]?.gym : undefined);
   const pinfo = loc.pawn ?? (loc.pawnRoom ? w.locations[loc.pawnRoom.main]?.pawn : undefined);
-  const roster = loc.kind === 'gym' ? (info ? gymRoster(loc, info) : []) : loc.kind === 'pawn' ? (pinfo ? pawnRoster(loc, pinfo) : []) : loc.kind === 'chop' ? (loc.chop ? chopRoster(loc, loc.chop) : []) : loc.kind === 'hub' ? (loc.hub ? hubRoster(loc, loc.hub) : []) : ROSTERS[loc.kind] ?? [];
+  const roster = loc.kind === 'gym' ? (info ? gymRoster(loc, info) : []) : loc.kind === 'pawn' ? (pinfo ? pawnRoster(loc, pinfo) : []) : loc.kind === 'chop' ? (loc.chop ? chopRoster(loc, loc.chop) : []) : loc.kind === 'hub' ? (loc.hub ? hubRoster(loc, loc.hub) : []) : loc.venue ? (VENUES[loc.venue.kind]?.roster(loc, loc.venue) ?? []) : ROSTERS[loc.kind] ?? [];
   const here: Npc[] = [];
   roster.forEach((slot, si) => {
     if (slot.minSecurity !== undefined && loc.security < slot.minSecurity) return;

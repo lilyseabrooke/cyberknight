@@ -10,8 +10,10 @@ import { FEATURES as HUB_FEATURES } from '../engine/src/content/hubs';
 import '../engine/src/gym';
 import '../engine/src/hub';
 import '../engine/src/pawn';
+import '../engine/src/venues';
+import { VENUES } from '../engine/src/content/venuetables';
 
-const { rows, places: ps } = coverage({ gym: Object.keys(FEATURES), pawn: Object.keys(PAWN_FEATURES), hub: Object.keys(HUB_FEATURES) });
+const { rows, places: ps } = coverage({ gym: Object.keys(FEATURES), pawn: Object.keys(PAWN_FEATURES), hub: Object.keys(HUB_FEATURES), ...Object.fromEntries(Object.values(VENUES).map((t) => [t!.kind, Object.keys(t!.features)])) });
 const w = Math.max(...rows.map((r) => r.capability.length)) + 2;
 console.log(''.padEnd(w) + ps.map((p) => p.padStart(6)).join(''));
 for (const r of rows) console.log(r.capability.padEnd(w) + ps.map((p) => (r.counts[p] ? String(r.counts[p]) : '-').padStart(6)).join(''));
