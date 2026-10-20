@@ -5,7 +5,8 @@ import { addNpc, moveNpc, npcsAt } from './population';
 import { spawnNpc } from './content/archetypes';
 import { dangerOf } from './grade';
 import { SKILLS, type SkillId } from './content/skills';
-import { audience } from './renown';
+import { addRenown, audience } from './renown';
+import { odds, synergy, train } from './skills';
 import { INST_CLASSES, genInstrument } from './instruments';
 
 /**
@@ -177,27 +178,30 @@ export function museTick(c: Ctx): void {
 
 // ===================================================================== drones
 
+/** Her chance to knock one drone out of the air before it fires: a shot, a thrown bottle, a well-aimed guitar. */
+export function swatOdds(h: Ctx['w']['hero']): number {
+  const aim = Math.max(synergy(h, ['marksmanship', ['stat:reflex', 0.5]]), synergy(h, ['throwing', ['stat:reflex', 0.5]]), 0.7 * synergy(h, ['melee', ['stat:reflex', 0.5]]));
+  return Math.max(0.1, Math.min(0.85, 0.2 + 0.06 * aim + (h.weapon?.tags.includes('gun') ? 0.1 : 0)));
+}
+
+/** Her chance to pick the show back up afterwards, and make it the night people talk about. Harder through tear gas. */
+export const recoveryOdds = (h: Ctx['w']['hero'], skill: string, gassed: boolean): number =>
+  odds(0.15, 0.06, synergy(h, [skill as SkillId, ['music', 0.5], ['stat:charm', 0.4]])) - (gassed ? 0.15 : 0);
+
 /**
- * UNAUTHORIZED ENTERTAINMENT DETECTED. A drone or two gas the place: the crowd scatters (and won't be keen on that spot for a
- * while), Blackbird gets a lungful, and then the drones are hers to deal with.
+ * UNAUTHORIZED ENTERTAINMENT DETECTED. A drone or two come in over the crowd, and the scene plays in three beats:
+ *
+ * 1. She gets a shot at them before they fire (`swatOdds`, per drone).
+ * 2. Any still up gas the place: the crowd scatters (and won't be keen on that spot for a while), she gets a lungful, and
+ *    then the drones left are hers to deal with.
+ * 3. If she's still standing with the drones down, she can pick the show back up (`recoveryOdds`): the crowd comes back,
+ *    and the night she shot a Muse drone out of the sky mid-song is the one they remember: fame, renown and fans, more of
+ *    it the harder it was.
  */
 export function museDrones(c: Ctx, skill: string): void {
   const { w, rng } = c;
   const h = w.hero;
   const loc = w.locations[h.locationId]!;
-  const out = w.locations[loc.tossTo] ? loc.tossTo : loc.exits.find((e) => !e.gate && w.locations[e.to])?.to;
-  let scattered = 0;
-  if (out && out !== loc.id) {
-    for (const n of npcsAt(w, loc.id)) {
-      if (!n.alive || n.hostile || n.tags.includes('owner') || n.tags.includes('robot') || h.companions.some((a) => a.npcId === n.id)) continue;
-      moveNpc(w, n, out);
-      scattered++;
-    }
-  }
-  const f = (loc.fatigue ??= {});
-  f[skill] = (f[skill] ?? 0) + 0.5;
-  h.hp = Math.max(1, h.hp - 3);
-  h.buffs.push({ id: 'tear_gas', until: w.beat + 8, power: -2 });
   const count = museRenown(w) >= MUSE_LETTER && rng.chance(0.5) ? 2 : 1;
   const drones: Npc[] = [];
   for (let i = 0; i < count; i++) {
@@ -207,6 +211,52 @@ export function museDrones(c: Ctx, skill: string): void {
     d.hostile = true;
     drones.push(d);
   }
-  c.emit('muse', 'bad', { variant: 'drones', place: loc.name, count, scattered, to: out ? w.locations[out]!.name : '' });
-  fight(c, drones, { cause: 'a Muse noise-abatement drone', joiners: false });
+  c.emit('muse', 'bad', { variant: 'drones', place: loc.name, count });
+
+  // 1. A shot at them before they fire.
+  const p = swatOdds(h);
+  let downed = 0;
+  for (const d of drones) {
+    if (!rng.chance(p)) continue;
+    d.alive = false;
+    d.hp = 0;
+    downed++;
+  }
+  const left = drones.filter((d) => d.alive);
+  if (downed) c.emit('muse_drones', 'good', { variant: left.length ? 'one' : 'all', place: loc.name, count: downed, left: left.length });
+
+  // 2. Whatever is still up gasses the place, and then she has to deal with it.
+  const scattered: Npc[] = [];
+  if (left.length) {
+    const out = w.locations[loc.tossTo] ? loc.tossTo : loc.exits.find((e) => !e.gate && w.locations[e.to])?.to;
+    if (out && out !== loc.id) {
+      for (const n of npcsAt(w, loc.id)) {
+        if (!n.alive || n.hostile || n.tags.includes('owner') || n.tags.includes('robot') || h.companions.some((a) => a.npcId === n.id)) continue;
+        moveNpc(w, n, out);
+        scattered.push(n);
+      }
+    }
+    const f = (loc.fatigue ??= {});
+    f[skill] = (f[skill] ?? 0) + 0.5;
+    h.hp = Math.max(1, h.hp - 3);
+    h.buffs.push({ id: 'tear_gas', until: w.beat + 8, power: -2 });
+    c.emit('muse_drones', 'bad', { variant: 'gas', place: loc.name, count: left.length, scattered: scattered.length, to: out ? w.locations[out]!.name : '' });
+    const res = fight(c, left, { cause: 'a Muse noise-abatement drone', joiners: false });
+    if (res !== 'win' || w.over || h.locationId !== loc.id) return;
+  }
+
+  // 3. The recovery.
+  const gassed = left.length > 0;
+  if (rng.chance(recoveryOdds(h, skill, gassed))) {
+    for (const n of scattered) if (n.alive && !n.hostile) moveNpc(w, n, loc.id);
+    if (gassed && loc.fatigue?.[skill]) loc.fatigue[skill] = Math.max(0, loc.fatigue[skill]! - 0.5);
+    const gain = (gassed ? 3 : 2) + downed;
+    h.fame += gain;
+    addRenown(w, skill, gain);
+    loc.fans = (loc.fans ?? 0) + (gassed ? 6 : 4) + 2 * downed;
+    train(c, skill as SkillId, 2);
+    c.emit('muse_recovery', 'good', { variant: gassed ? 'gassed' : 'clean', place: loc.name, back: scattered.length, fame: gain, skill: SKILLS[skill as SkillId]?.label ?? skill });
+  } else {
+    c.emit('muse_recovery', 'mixed', { variant: 'lost', place: loc.name });
+  }
 }

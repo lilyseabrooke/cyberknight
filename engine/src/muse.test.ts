@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng, hasTemplate, type GameEvent, type World } from './index';
 import { createWorld } from './world';
 import { beginRun, endRun, newUniverse } from './universe';
-import { MUSE_DRONES, MUSE_LETTER, MUSE_SCOUT, MUSE_STRIKE, inspirationStrike, museAfterSet, museAtBooking, museStanding, museTick, scout, strikeGrade } from './muse';
+import { MUSE_DRONES, MUSE_LETTER, MUSE_SCOUT, MUSE_STRIKE, inspirationStrike, museAfterSet, museAtBooking, museDrones, museStanding, museTick, scout, strikeGrade, swatOdds } from './muse';
 import { personalityFrom } from './personality';
 import { spawnNpc } from './content/archetypes';
 import { addNpc } from './population';
@@ -45,21 +45,66 @@ describe('Muse notices', () => {
     for (const e of events) expect(hasTemplate(e), `${e.data.variant}`).toBe(true);
   });
 
-  it('before anything else, a drone or two: UNAUTHORIZED ENTERTAINMENT DETECTED, and tear gas for the crowd', () => {
+  it('before anything else, a drone or two: UNAUTHORIZED ENTERTAINMENT DETECTED', () => {
     const w = onStage('drones', MUSE_DRONES + 1);
     expect(MUSE_DRONES).toBeLessThan(MUSE_LETTER);
     w.hero.maxHp = w.hero.hp = 500;
-    const crowd = Object.values(w.npcs).filter((n) => n.locationId === 'street_main' && !n.hostile && n.alive).length;
-    expect(crowd).toBeGreaterThan(0);
     const { c, events } = ctxOf(w, always());
     museAfterSet(c, 'busk', 'guitar', busked);
     const e = events.find((x) => x.type === 'muse')!;
     expect(e.data.variant).toBe('drones');
-    expect(Number(e.data.scattered)).toBeGreaterThan(0);
     expect(hasTemplate(e)).toBe(true);
-    expect(w.hero.buffs.some((b) => b.id === 'tear_gas')).toBe(true);
-    expect(events.some((x) => x.type === 'fight_start')).toBe(true);
     expect(w.legacy.muse?.lettered).toBeFalsy();
+  });
+
+  it('a good shot downs them before they fire; a good player turns it into the show people remember', () => {
+    const w = onStage('swat', MUSE_DRONES + 1);
+    const crowd = Object.values(w.npcs).filter((n) => n.locationId === 'street_main' && n.alive && !n.hostile).length;
+    const fame = w.hero.fame;
+    const { c, events } = ctxOf(w, always());
+    museDrones(c, 'guitar');
+    expect(events.find((x) => x.type === 'muse_drones')!.data.variant).toBe('all');
+    expect(events.some((x) => x.data.variant === 'gas')).toBe(false);
+    expect(w.hero.buffs.some((b) => b.id === 'tear_gas')).toBe(false);
+    expect(Object.values(w.npcs).filter((n) => n.locationId === 'street_main' && n.alive && !n.hostile).length).toBe(crowd);
+    const rec = events.find((x) => x.type === 'muse_recovery')!;
+    expect(rec.data.variant).toBe('clean');
+    expect(w.hero.fame).toBeGreaterThan(fame);
+    expect(w.locations.street_main!.fans).toBeGreaterThan(0);
+    for (const x of events) if (['muse', 'muse_drones', 'muse_recovery'].includes(x.type)) expect(hasTemplate(x), String(x.data.variant)).toBe(true);
+  });
+
+  it('miss, and the gas goes off: the crowd scatters, she coughs, and then she fights them; a recovery brings them back', () => {
+    let gassed = 0;
+    let backAfterGas = 0;
+    for (let i = 0; i < 40; i++) {
+      const w = onStage(`gas${i}`, MUSE_DRONES + 1);
+      w.hero.maxHp = w.hero.hp = 500;
+      w.hero.skills.guitar = 3000;
+      w.hero.skills.music = 2000;
+      w.hero.charm = 10;
+      const { c, events } = ctxOf(w, new Rng(`g${i}`));
+      museDrones(c, 'guitar');
+      const gas = events.find((x) => x.type === 'muse_drones' && x.data.variant === 'gas');
+      if (!gas) continue;
+      gassed++;
+      expect(hasTemplate(gas)).toBe(true);
+      expect(events.some((x) => x.type === 'fight_start')).toBe(true);
+      const rec = events.find((x) => x.type === 'muse_recovery');
+      if (rec?.data.variant === 'gassed') {
+        backAfterGas++;
+        expect(hasTemplate(rec)).toBe(true);
+      }
+    }
+    expect(gassed).toBeGreaterThan(5);
+    expect(backAfterGas).toBeGreaterThan(0);
+  });
+
+  it('a better shot downs them more often', () => {
+    const w = onStage('aim', MUSE_DRONES + 1);
+    const before = swatOdds(w.hero);
+    w.hero.skills.marksmanship = 3000;
+    expect(swatOdds(w.hero)).toBeGreaterThan(before);
   });
 
   it('a nobody gets no drones; a signed Blackbird gets none either', () => {
