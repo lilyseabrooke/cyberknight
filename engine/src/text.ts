@@ -150,6 +150,28 @@ const CALLING_VOWS: Record<string, string> = {
   cook: 'Noodles. Real ones. The kind that make people cry in the good way.',
 };
 
+/** Every music venue speaks through one event of its own name, plus intents for its families and its systems' actions. */
+function venueText(): Record<string, Entry> {
+  const said = e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : []));
+  const intent = e((d) => [String(d.text)]);
+  const out: Record<string, Entry> = {};
+  for (const k of ['studio', 'cutting', 'luthier', 'musehq', 'arena', 'fanclub']) {
+    out[k] = said;
+    for (const f of ['', 'quick', 'fight', 'deal']) out[`intent:${k}${f}`] = intent;
+  }
+  for (const k of ['mime_guitar', 'mime_vocals', 'mime_djing', 'mime_beatbox', 'cut_guitar', 'cut_vocals', 'cut_djing', 'cut_beatbox']) {
+    out[k] = said;
+    out[`intent:${k}`] = intent;
+  }
+  for (const k of VENUE_INTENTS) out[`intent:${k}`] = intent;
+  // The band (band.ts) speaks the same way.
+  out.band = said;
+  return out;
+}
+
+/** The families of the venues' own actions (studio.ts and friends) that announce themselves with a line of their own. */
+const VENUE_INTENTS = ['record', 'ghost_take', 'dub', 'press', 'relisten', 'bury_song', 'luthbench', 'collect', 'buyback', 'graft', 'masterpiece', 'favour', 'tribute', 'shrine', 'join_band', 'band_jam'];
+
 const T: Record<string, Entry> = {
   depart: e(
     (d) => [
@@ -1047,6 +1069,8 @@ const T: Record<string, Entry> = {
   'intent:hallquick': e((d) => [String(d.text)]),
   'intent:hallfight': e((d) => [String(d.text)]),
   'intent:halldeal': e((d) => [String(d.text)]),
+  // ---- music venues (venuekit.ts and each kind's module): the line is in the event, like the hub's
+  ...venueText(),
   'intent:pawn': e((d) => [String(d.text)]),
   'intent:pawnquick': e((d) => [String(d.text)]),
   'intent:pawnfight': e((d) => [String(d.text)]),
@@ -2231,6 +2255,14 @@ const T: Record<string, Entry> = {
     (d) => [d.inside ? `With ${d.npc} on the floor, nobody is left to run ${d.place}. Every screen goes dark at once, someone pulls the master switch and a very calm person shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The racks are off, the door is shut and the forum has started a thread about it.`],
     ['I closed a hacker hub. That is a lot of people with nowhere to type.', 'No more lessons. Terrible for the economy. Good for me, today.'],
   ),
+  'shut_down:venue': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor, nobody is left to run ${d.place}. The lights go up, the music goes off and somebody large shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The doors are shut and a handwritten sign says BACK SOON, which nobody believes.`],
+    ['The music stops when I say so.', 'One less stage. Plenty more.'],
+  ),
+  'shut_down:venue_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. Somebody turns the music off, very gently, and a regular with a key shows Blackbird out.` : `${d.place} has shut for good. ${d.npc} will not be back, and somebody has left flowers and a cassette on the step.`],
+    ['That was somebody\'s whole sound.', 'I did not mean it to end like that. Probably.'],
+  ),
   'shut_down:hub_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. The racks hum on for a minute, and then a regular reaches over and turns them off, one at a time. Someone with a key shows Blackbird to the pavement.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back and the forum is a memorial.`],
     ['That was somebody\'s whole life, in a rack.', 'It was always going to come to this. Not me. Him. Probably.'],
@@ -2400,13 +2432,15 @@ const T: Record<string, Entry> = {
   ),
   // ---------------------------------------------------------------- property offices (realty.ts)
   realty_buy: e(
-    (d) => d.variant === 'townhouse'
+    (d) => d.variant === 'lockup'
+      ? [`${cap(String(d.npc))} at ${d.place} hands Blackbird a key on a plectrum-shaped fob and a list of rules she will not read. ${$(d.price)}nd, and ${d.home} is hers: a roller door, a socket and room for a band. Deeds owned: ${d.owned}.`]
+      : d.variant === 'townhouse'
       ? [`${cap(String(d.npc))} walks Blackbird through the paperwork at ${d.place} with the gentle pace of someone who has done this for people with more money. ${$(d.price)}nd, and ${d.home} on ${d.building} is hers: gate, stairs, the lot. Deeds owned: ${d.owned}.`, `Blackbird signs for ${d.home}. ${cap(String(d.npc))} says "welcome to the neighbourhood" in a voice that suggests the neighbourhood has not been consulted. ${$(d.price)}nd. It is hers.`]
       : [`${cap(String(d.npc))} slides a tablet across the desk at ${d.place}. Blackbird thumbs it. ${$(d.price)}nd, and ${d.home} is hers: a lock with her name on it, in ${d.building}. Deeds owned: ${d.owned}.`, `${$(d.price)}nd to ${d.place}, and ${d.home} goes on Blackbird's name. The key is a card the size of a stamp. She holds it like a medal.`],
-    (d) => (d.variant === 'townhouse' ? ['I own a lawn. I own a lawn.', 'The gate knows me now. The gate!'] : ['Mine. Three metres by two. Mine.', 'A door. With a lock. That only I can open. Probably.']),
+    (d) => (d.variant === 'lockup' ? ['A room where loud is the point. Mine.', 'Egg boxes on the walls. Home.'] : d.variant === 'townhouse' ? ['I own a lawn. I own a lawn.', 'The gate knows me now. The gate!'] : ['Mine. Three metres by two. Mine.', 'A door. With a lock. That only I can open. Probably.']),
   ),
   realty_view: e(
-    (d) => [`${cap(String(d.npc))} turns the screen at ${d.place} toward Blackbird: ${d.count} home${d.count === 1 ? '' : 's'} on the board, ${$(d.cheapest)}nd to ${$(d.dearest)}nd. ${d.pods ? `${d.pods} pod apartment${d.pods === 1 ? '' : 's'}` : ''}${d.pods && d.townhouses ? ' and ' : ''}${d.townhouses ? `${d.townhouses} townhouse${d.townhouses === 1 ? '' : 's'}` : ''}. "A very good time to buy," ${d.npc} says, as if it has ever not been.`],
+    (d) => [`${cap(String(d.npc))} turns the screen at ${d.place} toward Blackbird: ${d.count} home${d.count === 1 ? '' : 's'} on the board, ${$(d.cheapest)}nd to ${$(d.dearest)}nd. ${d.pods ? `${d.pods} pod apartment${d.pods === 1 ? '' : 's'}` : ''}${d.pods && d.townhouses ? ' and ' : ''}${d.townhouses ? `${d.townhouses} townhouse${d.townhouses === 1 ? '' : 's'}` : ''}${d.lockups ? `${d.pods || d.townhouses ? ', plus ' : ''}${d.lockups} rehearsal lockup${d.lockups === 1 ? '' : 's'}` : ''}. "A very good time to buy," ${d.npc} says, as if it has ever not been.`],
     ['Prices like a typo. In the wrong direction.', 'Somebody lives in each of these. Eventually.'],
   ),
   // ---------------------------------------------------------------- the bank

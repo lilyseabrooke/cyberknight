@@ -10,6 +10,8 @@ import { bondEvent, romanceMod } from './bonds';
 import { addRenown } from './renown';
 import { bestTrait, hasInstrument } from './instruments';
 import { BASE_MIN_PER_BEAT } from './clock';
+import { carry } from './band';
+import { VENUES } from './content/venuetables';
 
 /**
  * Performing. Two things keep her from singing in one spot forever, and one thing makes a good night run away with her.
@@ -30,6 +32,10 @@ export const ACT_SKILL: Record<string, string> = {
   graffiti: 'art', billboard_set: 'guitar', draw_out: 'guitar', cordon_teardown: 'guitar', serenade_song: 'guitar', dragon_song: 'guitar', chart_war: 'guitar', crash_show: 'guitar', broadcast_hijack: 'guitar', detonate_contract: 'guitar', storm_solo: 'guitar', riot: 'guitar', march: 'guitar', down_with_police: 'guitar', charts: 'guitar',
   booked_guitar: 'guitar', booked_vocals: 'vocals', booked_djing: 'djing', booked_beatbox: 'beatbox',
   stump_speech: 'speaking',
+  // A dubbed master over the PA (studio.ts): the crowd judges the tape.
+  mime_guitar: 'guitar', mime_vocals: 'vocals', mime_djing: 'djing', mime_beatbox: 'beatbox',
+  // A bout at a cutting room (cutting.ts).
+  cut_guitar: 'guitar', cut_vocals: 'vocals', cut_djing: 'djing', cut_beatbox: 'beatbox',
 };
 
 const FATIGUE_PER_ACT = 0.22;
@@ -39,7 +45,7 @@ const RECOVERY = 0.004 / BASE_MIN_PER_BEAT;
 const WARY_FADE = 0.003 / BASE_MIN_PER_BEAT;
 
 /** Bigger stages are worth more. */
-export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : loc.kind === 'pawn' ? 0.7 : loc.kind === 'chop' ? 0.5 : loc.kind === 'hub' ? 0.6 : loc.kind === 'gamehall' ? (loc.hallRoom?.room === 'stage' ? 1.3 : 0.8) : 0.8);
+export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : loc.kind === 'pawn' ? 0.7 : loc.kind === 'chop' ? 0.5 : loc.kind === 'hub' ? 0.6 : loc.kind === 'gamehall' ? (loc.hallRoom?.room === 'stage' ? 1.3 : 0.8) : loc.venue ? VENUES[loc.venue.kind]?.prestige ?? 0.8 : 0.8);
 
 /** 1 for a crowd that hasn't heard her yet, falling towards 0 as it wears out. */
 export function freshness(w: World, locId: string, skill: string): number {
@@ -95,6 +101,8 @@ export function fameFrom(c: Ctx, base: number, act: string): number {
   const gain = base * prestige(loc) * fresh * fire * loud;
   h.fame += gain;
   addRenown(w, skill, gain);
+  // And past the walls: the next streets hear it too (band.ts).
+  if (skill !== 'art' && skill !== 'speaking') carry(c, gain, bestTrait(h, skill, 'volume'), prestige(loc) >= 2);
   const f = (loc.fatigue ??= {});
   f[skill] = (f[skill] ?? 0) + FATIGUE_PER_ACT + 0.04 * base;
   if (fresh < 0.5 && w.beat - (w.counters.tired_msg ?? -99) >= 12 && rng.chance(0.7)) {

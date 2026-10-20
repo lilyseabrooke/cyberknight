@@ -10,6 +10,7 @@ import { startBookingGoal } from './goals';
 import { museAtBooking } from './muse';
 import { makeItem } from './content/items';
 import { startShow } from './musescene';
+import { afterBooking, bigNight, residencyNight } from './band';
 
 /**
  * Bookings: a night somebody wants her to play somewhere.
@@ -74,7 +75,8 @@ export function undergroundRooms(w: World): Location[] {
 }
 
 /** Bars and clubs she's been to. */
-const stages = (w: World): Location[] => Object.values(w.locations).filter((l) => (l.kind === 'bar' || l.kind === 'club') && l.visits > 0 && !l.sealed);
+// (An arena she has been to can book her too, and pays like one: see stage.ts `prestige`.)
+const stages = (w: World): Location[] => Object.values(w.locations).filter((l) => (l.kind === 'bar' || l.kind === 'club' || l.kind === 'arena') && l.visits > 0 && !l.sealed);
 
 const hostAt = (w: World, loc: Location): Npc | undefined => {
   const there = npcsAt(w, loc.id).filter((n) => n.alive && !n.hostile && !n.ephemeral);
@@ -132,6 +134,12 @@ export function tickBookings(c: Ctx): void {
         startBookingGoal(c, b, w.locations[b.loc]?.name ?? 'somewhere');
       }
     }
+  }
+  // A residency: tonight's slot, every night until it runs out (band.ts).
+  const res = residencyNight(w);
+  if (res) {
+    open(w).push(res);
+    c.emit('booking', 'mixed', { variant: 'tonight', place: w.locations[res.loc]?.name ?? 'somewhere', skill: SKILLS[res.skill as SkillId]?.label ?? res.skill, amount: res.pay, level: Math.round(expectation(w, res.skill)) });
   }
   // New offers, once she's somebody. Nothing is drawn for a nobody, so nights without renown play as they always did.
   const skill = bestKnown(w);
@@ -193,6 +201,8 @@ export function playBooking(c: Ctx, b: Booking): void {
     if (b.kind === 'duet' && w.legacy.muse?.lumina) w.legacy.muse.lumina.warmth++;
     c.emit(act, 'good', { ...data, variant: `${b.kind}_hit`, amount: b.pay });
     if (b.kind !== 'secret') museAtBooking(c);
+    afterBooking(c, b, true);
+    if (b.kind === 'private' || b.kind === 'duet' || prestige(loc) >= 2) bigNight(c, `the night at ${loc.name}`);
   } else {
     // The deposit, and not a neodollar more.
     const paid = Math.round(b.pay * 0.25);
@@ -201,5 +211,6 @@ export function playBooking(c: Ctx, b: Booking): void {
     if (host?.alive) host.affinity -= 10;
     c.emit(act, 'bad', { ...data, variant: `${b.kind}_flop`, amount: paid });
     if (b.kind !== 'secret') museAtBooking(c);
+    afterBooking(c, b, false);
   }
 }

@@ -308,6 +308,7 @@ export function madeLayout(loc: Location, role: string, seed: string, world?: { 
     case 'chop': return shopRoom(loc, rng, false);
     case 'hub': return shopRoom(loc, rng, false);
     case 'gamehall': return furnished(loc, rng, 'arcade');
+    case 'studio': case 'cutting': case 'luthier': case 'musehq': case 'arena': case 'fanclub': return shopRoom(loc, rng, false);
     case 'realty': return shopRoom(loc, rng, false);
     case 'clinic': return clinicRoom(loc, rng);
     case 'gym': return gymRoom(loc, rng);

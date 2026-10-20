@@ -55,7 +55,9 @@ describe('property offices', () => {
       return out;
     };
     const share = (xs: string[], k: string) => xs.filter((x) => x === k).length / xs.length;
-    expect(share(kinds('slum'), 'pod')).toBeGreaterThan(0.9);
+    const slum = kinds('slum');
+    expect(share(slum, 'pod') + share(slum, 'lockup')).toBeGreaterThan(0.9);
+    expect(share(slum, 'lockup')).toBeGreaterThan(0.05);
     expect(share(kinds('corporate'), 'townhouse')).toBeGreaterThan(0.6);
   });
 

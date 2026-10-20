@@ -6,6 +6,7 @@ import { rollPerson, type PersonSpec } from '../people';
 import { baseHp, basePower } from '../grade';
 import { CALLSIGNS, callsign } from './callsigns';
 import { archetypeFlavor, combineFlavors, placeFlavor, rollFullName, type Heritage, type NameFlavor } from './names';
+import { MUSIC_ARCHETYPES, MUSIC_PEOPLE } from './musicpeople';
 
 export interface ArchetypeDef {
   role: string;
@@ -719,6 +720,7 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     names: 'person', weapons: ['stunner_mk3'], armors: ['leather_jacket'], armorChance: 0.5, loot: ['data_slate', 'credchip', 'memory_shard'], lootChance: 0.5, cash: [30, 130],
     desc: ['a Titanware liaison in a polo shirt with a small, open eye on the chest and a tablet that has already read her', 'a liaison with a lanyard and a laugh a half-second after the joke', 'a liaison who looks at her pulse before her face'],
   },
+  ...MUSIC_ARCHETYPES,
 };
 
 /** Who these archetypes tend to be, beyond the job. Anything not listed is anyone between 22 and 55. */
@@ -780,6 +782,7 @@ const PEOPLE: Record<string, PersonSpec> = {
   hub_teacher: { women: 0.5, age: [26, 66] },
   hub_counsellor: { women: 0.55, age: [26, 58] },
   tw_liaison: { women: 0.5, age: [24, 52] },
+  ...MUSIC_PEOPLE,
 };
 
 export const GANGS: Record<string, string> = {

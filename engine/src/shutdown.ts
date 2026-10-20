@@ -108,10 +108,10 @@ export function afterTakedown(c: Ctx, taken: Npc[]): void {
     const wp = w.locations[f.authored && f.home ? f.home : f.locationId];
     if (!wp || wp.outdoors || wp.dungeon || wp.sealed) continue;
     // Dead, the owner takes the place with him; a place already shut for a beating is shut properly now.
-    const ownerDead = !f.alive && f.tags.includes('owner') && (wp.kind === 'bar' || wp.kind === 'club' || wp.kind === 'gym' || wp.kind === 'pawn' || wp.kind === 'chop' || wp.kind === 'hub' || wp.kind === 'gamehall');
+    const ownerDead = !f.alive && f.tags.includes('owner') && (wp.kind === 'bar' || wp.kind === 'club' || wp.kind === 'gym' || wp.kind === 'pawn' || wp.kind === 'chop' || wp.kind === 'hub' || wp.kind === 'gamehall' || !!wp.venue);
     if (isShut(w, wp.id) && !ownerDead) continue;
     if (ownerDead) {
-      shut(c, wp.id, 'owner', f, 0, wp.kind === 'gym' ? 'gym_dead' : wp.kind === 'pawn' ? 'pawn_dead' : wp.kind === 'chop' ? 'chop_dead' : wp.kind === 'hub' ? 'hub_dead' : wp.kind === 'gamehall' ? 'hall_dead' : 'owner_dead', true);
+      shut(c, wp.id, 'owner', f, 0, wp.kind === 'gym' ? 'gym_dead' : wp.kind === 'pawn' ? 'pawn_dead' : wp.kind === 'chop' ? 'chop_dead' : wp.kind === 'hub' ? 'hub_dead' : wp.kind === 'gamehall' ? 'hall_dead' : wp.venue ? 'venue_dead' : 'owner_dead', true);
     } else if (wp.kind === 'gym' && f.tags.includes('owner')) {
       shut(c, wp.id, 'owner', f, f.alive ? 0 : 540, 'gym');
     } else if (wp.kind === 'pawn' && f.tags.includes('owner')) {
@@ -122,6 +122,8 @@ export function afterTakedown(c: Ctx, taken: Npc[]): void {
       shut(c, wp.id, 'owner', f, f.alive ? 0 : 540, 'hub');
     } else if (wp.kind === 'gamehall' && f.tags.includes('owner')) {
       shut(c, wp.id, 'owner', f, f.alive ? 0 : 540, 'hall');
+    } else if (wp.venue && f.tags.includes('owner')) {
+      shut(c, wp.id, 'owner', f, f.alive ? 0 : 540, 'venue');
     } else if ((wp.kind === 'bar' || wp.kind === 'club') && runsTheHouse(f)) {
       const able = building(w, wp.id)
         .flatMap((id) => everyoneAt(w, id))

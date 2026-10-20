@@ -11,6 +11,13 @@ Kinds of place that are rolled from many independent axes and offer something to
 | [`chop.md`](chop.md) | The third, and the smallest: the Chop Shop (a workbench behind a door: salvage, ammo, craft, upgrade on Tinkering), implemented |
 | [`hub.md`](hub.md) | The hacker hub: where Hacks and Overrides are taught (seven routes), including the Titanware Training Academy, implemented |
 | [`arcade.md`](arcade.md) | The arcade (`gamehall`): every cabinet is a Muse-approved Entertainment Cabinet or an illegal bootleg, a compliance spider calls to stamp on the bootlegs, and the Gaming skill lives here |
+| [`studio.md`](studio.md) | The recording studio: takes that outlive her hands, royalties, the backing track, the ghost guitarist, the dragon broadcast; the first of the music venues (shared machinery in `content/venues.ts`, `venuekit.ts`), implemented |
+| [`cutting.md`](cutting.md) | The cutting room: musical duels in rounds (`duel.ts`), the house title, guitars on the line, gangs that adopt her, implemented |
+| [`musehq.md`](musehq.md) | Muse buildings: a clearance ladder to climb, her file to burn or forge, confiscated guitars, LUMINA's bay, ALL CHANNELS, the Muse–Atlas wedge, implemented |
+| [`luthier.md`](luthier.md) | The luthier: the bench (tickets that wait through a death), grafts, commissions, her old guitars in the window; and provenance (guitars that remember what they did, and come back), implemented |
+| [`fanclub.md`](fanclub.md) | The fan club: a place her fans open, that outlives her; superfans' favours, her tribute band, the shrine of her deaths and her old guitars, implemented |
+| [`arena.md`](arena.md) | The arena: a show day run in clock-time phases (load-in to load-out), the bill, the encore, hiring it and headlining it, implemented |
+| [`band.md`](band.md) | Not a place but what ties the music venues together: her band (musician companions), the rehearsal lockup, sound that carries, residencies and sponsors, implemented |
 
 Code: `engine/src/affordances.ts` (the shared row schema, registry and coverage), `engine/src/placekit.ts` (the machinery every place shares: `Check`, `Result`, `runCheck`), `engine/src/content/gym*.ts`, `engine/src/gym*.ts`, `engine/src/content/pawn*.ts`, `engine/src/pawn*.ts`, `engine/src/content/chops.ts`, `content/parts.ts`, `bench.ts`, `chop.ts`, `engine/src/content/hub*.ts`, `engine/src/hub*.ts`, `engine/src/content/halls.ts`, `engine/src/content/hall*.ts`, `engine/src/hallkit.ts`, `engine/src/hall.ts`.
-Tools: `npm run gyms`, `npm run pawns`, `npm run chops`, `npm run hubs`, `npm run halls`, `npm run coverage`.
+Tools: `npm run gyms`, `npm run pawns`, `npm run chops`, `npm run hubs`, `npm run halls`, `npm run venues -- <kind>`, `npm run coverage`.

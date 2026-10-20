@@ -65,6 +65,11 @@ export interface InstrumentFx {
   resonates?: 'robot' | 'dragon';
   /** A held note that can floor a person: stun when it's swung, or played at them. */
   feedback: number;
+  /** What it has done, a line each (provenance.ts): a storied guitar plays better and, at five and ten lines, carries her name. */
+  story?: string[];
+  /** Hers, from a previous life (provenance.ts): the night it was lost. */
+  hers?: boolean;
+  life?: number;
 }
 
 /** What a weapon does besides hit. Every number is a trade against the base damage in `Item.power`. */
@@ -592,7 +597,7 @@ export interface Location {
   /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
   street?: StreetType;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty' | 'chop' | 'hub' | 'gamehall';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty' | 'chop' | 'hub' | 'gamehall' | VenueKind;
   exits: Exit[];
   /** Where it stands on the hex grid (outdoor places only): every cell it covers, and the cell it is anchored on. See hexmap.ts. */
   hex?: { q: number; r: number; cells: [number, number][]; /** The way it runs, for streets: the direction it grew in. */ dir: number };
@@ -675,6 +680,8 @@ export interface Location {
   chop?: ChopInfo;
   /** A hacker hub's makeup: what it is, what it teaches and how. Rolled with the place. See content/hubs.ts. */
   hub?: HubInfo;
+  /** A music venue's makeup (a studio, a cutting room, a luthier, Muse Tower, an arena, a fan club). Rolled with the place. See content/venues.ts. */
+  venue?: VenueInfo;
   /** A pawn shop's shelf: what is on it, including whatever she hocked and may still buy back. Made the first time it is looked at. See pawnkit.ts. */
   shelf?: PawnLot[];
   /** An arcade's makeup: what it is, what building it's in, what it has. Rolled with the place. See content/halls.ts. */
@@ -845,7 +852,33 @@ export interface GymInfo {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop' | 'hub' | 'gamehall' | 'gamehallroom';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop' | 'hub' | 'gamehall' | 'gamehallroom' | VenueKind;
+
+/** The music venues: places rolled from the shared venue machinery (content/venues.ts, venuekit.ts). */
+export type VenueKind = 'studio' | 'cutting' | 'luthier' | 'musehq' | 'arena' | 'fanclub';
+
+/**
+ * What a music venue is. Every field is rolled independently from the place's own stream, so any combination can turn up.
+ * (Each kind's content file says what its ids mean; ids the tables no longer know are ignored, so the tables can grow.)
+ */
+export interface VenueInfo {
+  kind: VenueKind;
+  variant: string;
+  shell: string;
+  /** 0 (a closet) to 4 (a sprawl). */
+  size: number;
+  /** 0 (derelict) to 4 (immaculate). */
+  condition: number;
+  /** 1..5. Staff quality and prices. Independent of everything else. */
+  tier: number;
+  traits: string[];
+  /** Feature ids present on the floor. */
+  features: string[];
+  /** A one-in-a-dozen oddity that breaks the rules. */
+  wild?: string;
+  /** Things the place keeps between nights (a guitar on the bench, a shrine wall). Each kind says what its keys mean. */
+  keep?: Record<string, number | string>;
+}
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -1121,6 +1154,32 @@ export interface Legacy {
   upgrades: Record<string, number>;
   /** Neodollars spent in the lab, ever. */
   spent: number;
+  /** Takes she has recorded (or had recorded for her). The masters outlive her hands. See studio.ts. */
+  records?: Recording[];
+  /** The world clock when royalties were last paid in (see studio.ts `royaltiesTick`). */
+  royaltyAt?: number;
+  /** Her guitars from nights gone by, stories and all, waiting to turn up again somewhere (provenance.ts). */
+  lostGuitars?: Item[];
+  /** Instruments left on a luthier's bench: not on her, so they wait through a death (luthier.ts). */
+  tickets?: Ticket[];
+  /** What her band is called, once she has one (band.ts). Renamed after a big enough night. */
+  bandName?: string;
+  /** A residency: a nightly slot at one stage until the night `until` (band.ts). */
+  residency?: { loc: Id; skill: string; pay: number; until: number };
+  /** Good nights at each stage she was booked at, towards a residency. */
+  residencyHits?: Record<Id, number>;
+  /** An independent sponsor: gear once, a stipend every night, gone after three flops or a Muse contract (band.ts). */
+  sponsor?: { name: string; stipend: number; since: number; flops: number };
+  /** Gangs that have adopted her (a Rust Choir that liked her answer at the gate, and so on): their people start out warm. See cutting.ts. */
+  adopted?: string[];
+  /** Duels won at a gang's own venue, by gang, on the way to being adopted. */
+  gangWins?: Record<string, number>;
+  /** The wedge (musehq.ts): the night until which Atlas is busy fighting Muse and sends fewer retrieval teams. */
+  atlasBusyUntil?: number;
+  /** Artists she freed from Muse contracts (musehq.ts). */
+  freed?: number;
+  /** Her song is buried in the dragons' broadcast loop until this night (a `legacy.runs` number). See studio.ts. */
+  buriedUntil?: number;
   /** Deeds she owns (see content/deeds.ts): bought once, kept through every death. Absent before the first. */
   deeds?: Deed[];
   /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
@@ -1190,6 +1249,8 @@ export interface MuseFile {
   lumina?: { version: number; warmth: number; flame: number; free?: boolean };
   /** Muse is busy licking its wounds until this night (a `legacy.runs` number): it barely enforces anything. */
   quietUntil?: number;
+  /** The contract in her file is one she wrote herself, in Muse's records room (musehq.ts). Muse believes it. */
+  forged?: boolean;
   /** She broke the contract in public: Muse hunts her whatever her renown. */
   detonated?: boolean;
   /** Her song is on every dragon's loudspeaker, approved by accident, until this night (a `legacy.runs` number). See myth.ts. */
@@ -1239,6 +1300,39 @@ export interface Song {
   run: number;
 }
 
+/** A guitar on a luthier's bench, and what is being done to it (luthier.ts). It is not on her, so it outlives her. */
+export interface Ticket {
+  id: string;
+  /** The luthier's. */
+  loc: Id;
+  item: Item;
+  /** setup, loud, harden, jack, resonate, restore, store, commission. */
+  job: string;
+  /** World minute it is ready. */
+  ready: number;
+}
+
+/** A take on tape. It is the grade it was played at, for good: a new body with fresh hands can still put it on. */
+export interface Recording {
+  id: string;
+  title: string;
+  /** guitar, vocals, djing or beatbox. */
+  skill: string;
+  /** The grade on the tape (the skill scale, 0-100). */
+  grade: number;
+  /** The night it was made (a `legacy.runs` number). */
+  run: number;
+  /** The studio's name. */
+  studio: string;
+  /** 'indie', 'muse' (Muse owns it and keeps most of it), 'pirate' (contraband), 'jingle' (an advert), 'ghost' (somebody else played it). */
+  label: string;
+  /** Copies in the world. Royalties follow them. */
+  copies: number;
+  /** For a ghost take: who really played it, and whether the world knows yet. */
+  ghost?: string;
+  exposed?: boolean;
+}
+
 /** A night she's been booked to play somewhere. */
 export interface Booking {
   id: string;
@@ -1257,6 +1351,8 @@ export interface Booking {
   /** Who booked her, when somebody in particular did. */
   host?: Id;
   played?: boolean;
+  /** One night of a residency (band.ts). */
+  residency?: boolean;
 }
 
 /** A home she bought from a property office. It is on the map for good and hers through every death. See realty.ts. */

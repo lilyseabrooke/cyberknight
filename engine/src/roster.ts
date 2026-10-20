@@ -10,6 +10,7 @@ import { pawnRoster } from './content/pawns';
 import { chopRoster } from './content/chops';
 import { hubRoster } from './content/hubs';
 import { hallRoster } from './content/halls';
+import { VENUES } from './content/venuetables';
 import type { Id, Location, Npc, World } from './types';
 
 /**
@@ -89,6 +90,8 @@ export const ROSTERS: Record<Location['kind'], SlotDef[]> = {
   hub: [], // a hub's people depend on what it is; see hubRoster in content/hubs.ts
   gamehall: [], // an arcade's depend on what it is and which room this is; see hallRoster in content/halls.ts
   chop: [], // and a chop shop's: the door depends on the shop; see chopRoster in content/chops.ts
+  // The music venues' depend on what each one is: see the `roster` of each kind's tables (content/venuetables.ts).
+  studio: [], cutting: [], luthier: [], musehq: [], arena: [], fanclub: [],
 };
 
 /** Chance a vacancy is filled by somebody who already exists, when there's a fit. */
@@ -133,7 +136,7 @@ export function populate(w: World, loc: Location): Npc[] {
   const info = loc.gym ?? (loc.gymRoom ? w.locations[loc.gymRoom.main]?.gym : undefined);
   const pinfo = loc.pawn ?? (loc.pawnRoom ? w.locations[loc.pawnRoom.main]?.pawn : undefined);
   const hinfo = loc.gamehall ?? (loc.hallRoom ? w.locations[loc.hallRoom.main]?.gamehall : undefined);
-  const roster = loc.kind === 'gamehall' ? (hinfo ? hallRoster(loc, hinfo) : []) : loc.kind === 'gym' ? (info ? gymRoster(loc, info) : []) : loc.kind === 'pawn' ? (pinfo ? pawnRoster(loc, pinfo) : []) : loc.kind === 'chop' ? (loc.chop ? chopRoster(loc, loc.chop) : []) : loc.kind === 'hub' ? (loc.hub ? hubRoster(loc, loc.hub) : []) : ROSTERS[loc.kind] ?? [];
+  const roster = loc.kind === 'gamehall' ? (hinfo ? hallRoster(loc, hinfo) : []) : loc.kind === 'gym' ? (info ? gymRoster(loc, info) : []) : loc.kind === 'pawn' ? (pinfo ? pawnRoster(loc, pinfo) : []) : loc.kind === 'chop' ? (loc.chop ? chopRoster(loc, loc.chop) : []) : loc.kind === 'hub' ? (loc.hub ? hubRoster(loc, loc.hub) : []) : loc.venue ? (VENUES[loc.venue.kind]?.roster(loc, loc.venue) ?? []) : ROSTERS[loc.kind] ?? [];
   const here: Npc[] = [];
   roster.forEach((slot, si) => {
     if (slot.minSecurity !== undefined && loc.security < slot.minSecurity) return;
@@ -172,6 +175,8 @@ export function populate(w: World, loc: Location): Npc[] {
         npc.hp = npc.maxHp = bark.hp;
         npc.power = bark.power;
       }
+      // A gang that has adopted her (cutting.ts) is glad to see her.
+      if (npc.faction && w.legacy.adopted?.includes(npc.faction)) npc.affinity += 25;
       addNpc(w, npc);
       rehome(w, npc, loc, !!slot.resident);
       here.push(npc);

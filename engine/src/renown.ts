@@ -107,14 +107,17 @@ export function judgeSet(c: Ctx, act: string, skill: string, events: GameEvent[]
   if (SKILLS[skill as SkillId]?.group !== 'music') return;
   const mine = events.filter((e) => e.type === act);
   const good = mine.some((e) => e.outcome === 'good');
-  const bad = !good && mine.some((e) => e.outcome === 'bad');
+  // A scandal (caught miming, studio.ts) is its own punishment, not a flop on top.
+  const bad = !good && mine.some((e) => e.outcome === 'bad' && !e.data.scandal);
+  // Miming to a tape: the crowd judges the tape's grade, not her hands.
+  const mimed = mine.find((e) => typeof e.data.mimed === 'number')?.data.mimed as number | undefined;
   if (!good && !bad) return;
   const h = w.hero;
   const loc = w.locations[h.locationId]!;
   const crowd = audience(w, loc) + (audience(w, loc) ? 2 * bestTrait(h, skill, 'volume') : 0);
   if (!crowd) return;
   // A famous player's guitar buys her the benefit of the doubt.
-  const gap = shortfall(w, skill) - 3 * bestTrait(h, skill, 'signature');
+  const gap = (mimed !== undefined ? expectation(w, skill) - mimed : shortfall(w, skill)) - 3 * bestTrait(h, skill, 'signature');
   const slumps = (w.legacy.slump ??= {});
   const slump = (slumps[skill] ??= { sets: 0, lost: 0 });
   const label = SKILLS[skill as SkillId]?.label ?? skill;

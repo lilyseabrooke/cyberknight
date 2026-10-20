@@ -95,6 +95,16 @@ export const ITEMS: Record<string, Def> = {
   lumina_chip: l('LUMINA\'s voice chip (still humming the chorus)', 900, ['relic', 'collectible']),
   bootleg_tapes: l('box of bootleg tapes of her own secret show (contraband)', 60, ['contraband', 'record']),
   muse_lanyard: l('Muse Inspiration lanyard ("Team Inspire 💖")', 15, ['corp']),
+  // ---- recording studios (studio.ts) ----
+  master_tape: l('cassette dub of one of her own masters', 10, ['record', 'tape', 'keepsake']),
+  lumina_master: l('the original master tapes of LUMINA 1.0 (Muse thinks they were destroyed)', 1400, ['relic', 'collectible', 'contraband', 'record']),
+  vintage_mic: l('vintage ribbon microphone with a story', 260, ['collectible']),
+  gold_record: l('somebody else\'s gold record, in a frame', 180, ['trophy', 'collectible']),
+  muse_badge: l('forged Muse staff badge (secure floors, laminated, smiling)', 30, ['key', 'corp']),
+  muse_books: l('Muse\'s real books, on a data slate (what Muse is worth, honestly)', 600, ['corp', 'contraband']),
+  takeover_file: l('Gluttony\'s takeover file on Muse (Atlas M&A, eyes only)', 800, ['corp', 'contraband']),
+  golden_plectrum: l('the golden plectrum (has never played a wrong note)', 500, ['collectible', 'relic', 'keepsake']),
+  session_tapes: l('box of somebody\'s unreleased session tapes', 120, ['record', 'contraband']),
   // ---- gyms ----
   speed_gloves: w('speed gloves (weighted)', 6, 55, ['gloves']),
   boxing_wraps: a('hand wraps and a mouthguard', 1, 12),

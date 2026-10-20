@@ -22,6 +22,7 @@
     "chops": "tsx scripts/chops.ts",
     "hubs": "tsx scripts/hubs.ts",
     "halls": "tsx scripts/halls.ts",
+    "venues": "tsx scripts/venues.ts",
     "coverage": "tsx scripts/coverage.ts"
   },
   "devDependencies": {

@@ -54,6 +54,10 @@ import { gate, tickStealth } from './stealth';
 import { influenceTick } from './influence';
 import { positionFor, tickPlace } from './placeboard';
 import { anarchyAt, riotAt } from './myth';
+import { royaltiesTick } from './studio';
+import { provenanceTap } from './provenance';
+import { fanclubTick } from './fanclub';
+import { bandTick } from './band';
 
 /** Only for headless loops and tests (runToEnd, sims). The game itself never caps a run: it ends when Blackbird does. */
 export const TEST_BEAT_CAP = 600;
@@ -61,7 +65,7 @@ export const TEST_BEAT_CAP = 600;
 /** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
 const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
 
-const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight', 'hubfight', 'hallfight', 'records', 'hijack', 'pursue']);
+const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight', 'hubfight', 'hallfight', 'records', 'studiofight', 'cuttingfight', 'luthierfight', 'musehqfight', 'arenafight', 'fanclubfight', 'hijack', 'pursue']);
 
 export function score(w: World, cand: Candidate): number {
   const h = w.hero;
@@ -160,6 +164,7 @@ export function makeCtx(w: World, rng: Rng, events: GameEvent[]): Ctx {
       const parent = open[open.length - 1];
       events.push({ beat: w.beat, type, outcome, data, ...(parent ? { in: parent } : {}) });
       noteMoment(w, type, outcome, data);
+      provenanceTap(w, type, outcome, data);
     },
     nest(type: string, outcome: Outcome, data: EventData, fn: () => void) {
       c.emit(type, outcome, data);
@@ -314,6 +319,9 @@ function upkeep(c: Ctx): void {
   towersTick(c);
   songsTick(c);
   missionsTick(c);
+  royaltiesTick(c);
+  fanclubTick(c);
+  bandTick(c);
   museShowTick(c);
   tickGyms(c);
   tickPawns(c);
@@ -362,7 +370,9 @@ function ambient(c: Ctx): void {
   if (loc.road === 'highway') return;
   // Atlas retrieval team.
   const atlas = w.heat.atlas ?? 0;
-  if (loc.outdoors && atlas >= 5 && rng.chance(0.15)) {
+  // The wedge (musehq.ts): while Atlas is fighting Muse, it has fewer people to send after her.
+  const busy = (w.legacy.atlasBusyUntil ?? -1) >= w.legacy.runs;
+  if (loc.outdoors && atlas >= 5 && rng.chance(busy ? 0.04 : 0.15)) {
     if (scoutSaves(c)) return;
     const squad = spawnGroup(c, 'helix_guard', 2);
     c.emit('ambush', 'bad', { variant: 'atlas', count: squad.length, heat: atlas });

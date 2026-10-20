@@ -103,12 +103,15 @@ function sizeFor(rng: Rng, role: GenRole, loc: Location): number {
     case 'chop': return 1;
     case 'hub': return rng.chance(0.3) ? 2 : 1;
     case 'gamehall': return rng.chance(0.5) ? 2 : 1;
+    case 'arena': return 3;
+    case 'musehq': return 2;
+    case 'studio': case 'cutting': case 'luthier': case 'fanclub': return rng.chance(0.3) ? 2 : 1;
     default: return 1;
   }
 }
 
 /** Roles that stand on the street rather than inside something. */
-const FRONTAGE: GenRole[] = ['street', 'shop', 'bar', 'club', 'corp', 'flat', 'clinic', 'tunnel', 'outpost', 'hideout', 'spot', 'gym', 'pawn', 'realty', 'chop', 'hub', 'gamehall'];
+const FRONTAGE: GenRole[] = ['street', 'shop', 'bar', 'club', 'corp', 'flat', 'clinic', 'tunnel', 'outpost', 'hideout', 'spot', 'gym', 'pawn', 'realty', 'chop', 'hub', 'gamehall', 'studio', 'cutting', 'luthier', 'musehq', 'arena', 'fanclub'];
 
 // ===================================================================== placing
 

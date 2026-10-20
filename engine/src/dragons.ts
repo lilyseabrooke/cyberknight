@@ -323,7 +323,8 @@ function noticeChance(w: World, f: Flight): number {
   const k = f.temper ? 0.6 + 0.8 * f.temper.alertness : 1;
   // Something loud a moment ago carries a long way, and they are listening.
   // Her song is on its own loudspeaker: it's slower to pick her out.
-  const song = charting(w) ? 0.6 : 1;
+  // Her song on the radio, or buried in their own broadcast loop (studio.ts): they are humming it, not looking.
+  const song = charting(w) || (w.legacy.buriedUntil ?? -1) >= w.legacy.runs ? 0.6 : 1;
   return Math.min(0.95, (baseNotice(w, f) * k + noiseBoost(w) * k) * song);
 }
 

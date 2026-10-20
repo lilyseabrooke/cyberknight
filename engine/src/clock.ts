@@ -40,6 +40,15 @@ export const ACTION_MINUTES: Record<string, number> = {
   chopin: 8, bench: 45,
   hub: 30, hubfight: 15, hubquick: 6, hubdeal: 25, benchcraft: 60, scavenge: 30, frog: 4,
   realtybuy: 45, realtyview: 10,
+  // The music venues (venuekit.ts): a session, a glance, a scrap, the place's own business.
+  studio: 40, studioquick: 6, studiofight: 15, studiodeal: 30,
+  record: 120, ghost_take: 120, dub: 20, press: 45, relisten: 60, bury_song: 45,
+  arena: 40, arenaquick: 6, arenafight: 20, arenadeal: 30,
+  fanclub: 35, fanclubquick: 6, fanclubfight: 15, fanclubdeal: 30, favour: 20, tribute: 45, shrine: 20,
+  luthier: 35, luthierquick: 6, luthierfight: 15, luthierdeal: 30, luthbench: 20, collect: 10, buyback: 15, graft: 60, masterpiece: 45,
+  musehq: 35, musehqquick: 6, musehqfight: 15, musehqdeal: 30,
+  cutting: 35, cuttingquick: 6, cuttingfight: 15, cuttingdeal: 30, cut_guitar: 40, cut_vocals: 40, cut_djing: 50, cut_beatbox: 30,
+  mime_guitar: 60, mime_vocals: 60, mime_djing: 75, mime_beatbox: 45,
   station_ally: 10, swap_ally: 15, recall_ally: 10, crew_collect: 5, crew_job: 5, drill_ally: 60,
 };
 

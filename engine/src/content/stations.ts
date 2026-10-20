@@ -28,6 +28,8 @@ export const JOBS: Record<string, JobDef> = {
   skim: { label: 'skimming accounts', needs: ['hack'], cash: 5, parts: { circuits: 0.08 } },
   lift: { label: 'working the crowd', needs: ['pickpocket'], cash: 4 },
   busk: { label: 'working the doorway', needs: ['charm', 'distract'], cash: 3 },
+  // A bandmate at a lockup (or anywhere with a door that shuts): practice, and the odd paid night in a bar down the road.
+  rehearse: { label: 'rehearsing', needs: ['play'], cash: 3.5, xp: 1.2 },
 };
 
 /** Hours of work a home's stash holds before the rest goes to waste. */

@@ -149,7 +149,9 @@ describe('streets grow them', () => {
     const streets = others.filter((l) => l.gen!.role === 'street' && l.gen!.expanded);
     for (const s of streets) {
       const kids = s.exits.map((e) => sc.w.locations[e.to]!).filter((k) => k.gen?.parent === s.id);
-      const lastNonSpot = Math.max(...kids.filter((k) => k.gen!.role !== 'spot').map((k) => k.gen!.slot));
+      // (The places added after spots, each on a stream of its own, come later still.)
+      const later = ['gym', 'gymroom', 'pawn', 'pawnroom', 'realty', 'chop', 'hub', 'studio', 'cutting', 'luthier', 'musehq', 'arena', 'fanclub'];
+      const lastNonSpot = Math.max(...kids.filter((k) => k.gen!.role !== 'spot' && !later.includes(k.gen!.role)).map((k) => k.gen!.slot));
       for (const k of kids.filter((x) => x.gen!.role === 'spot')) expect(k.gen!.slot, k.id).toBeGreaterThan(lastNonSpot);
     }
   });
