@@ -5,7 +5,7 @@ import { rating, variantOf } from '../weapons';
 import { rollPerson, type PersonSpec } from '../people';
 import { baseHp, basePower } from '../grade';
 import { CALLSIGNS, callsign } from './callsigns';
-import { rollFullName } from './names';
+import { archetypeFlavor, combineFlavors, placeFlavor, rollFullName, type Heritage, type NameFlavor } from './names';
 
 export interface ArchetypeDef {
   role: string;
@@ -651,7 +651,7 @@ const ROBOT = ['UNIT', 'MK', 'BOT', 'SENTRY', 'AUTO'];
 
 const KID = ['Pixel', 'Wire', "Lil' Static", 'Moth', 'Bytes', 'Glitch', 'Noodle', 'Zip', 'Tick', 'Dot', 'Rust', 'Mouse'];
 
-export function rollNpcName(rng: Rng, kind: ArchetypeDef['names'], gender?: Gender): string {
+export function rollNpcName(rng: Rng, kind: ArchetypeDef['names'], gender?: Gender, flavor?: NameFlavor): string {
   if (kind === 'kid') return rng.pick(KID);
   if (kind === 'robot') return `${rng.pick(ROBOT)}-${rng.int(100, 999)}`;
   if (kind === 'monster') return 'CINDERJAW';
@@ -661,10 +661,10 @@ export function rollNpcName(rng: Rng, kind: ArchetypeDef['names'], gender?: Gend
   if (kind === 'nextday') return callsign(rng, 'HERMES', 'express');
   if (kind === 'demeter') return callsign(rng, 'DEMETER', 'demeter');
   if (kind === 'ares') return callsign(rng, 'ARES', 'ares');
-  return rollFullName(rng, gender);
+  return rollFullName(rng, gender, flavor);
 }
 
-export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string; gender?: Gender; age?: number; grade?: number } = {}): Npc {
+export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: string, opts: { name?: string; faction?: string; gender?: Gender; age?: number; grade?: number; place?: { district?: string; heritage?: Heritage } } = {}): Npc {
   const def = ARCHETYPES[archetype];
   if (!def) throw new Error(`unknown archetype ${archetype}`);
   const rolled = rng.int(def.level[0], def.level[1]);
@@ -691,7 +691,7 @@ export function spawnNpc(rng: Rng, id: string, archetype: string, locationId: st
   const machine = def.names !== 'person' && def.names !== 'kid';
   // Gender and age come first (keyed on the id when there's no name yet), and the name is rolled to suit.
   const person = rollPerson(id, opts.name ?? '', { ...PEOPLE[archetype], machine }, { gender: opts.gender, age: opts.age });
-  const name = opts.name ?? rollNpcName(rng, def.names, person.gender);
+  const name = opts.name ?? rollNpcName(rng, def.names, person.gender, combineFlavors(placeFlavor(opts.place), archetypeFlavor(archetype)));
   return {
     id,
     name,
