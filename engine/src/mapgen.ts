@@ -11,6 +11,7 @@ import { HALL_CHANCE, ROOMS as HALL_ROOMS, rollHall, roomTitle as hallRoomTitle 
 import { CHOP_CHANCE, rollChop } from './content/chops';
 import { HUB_CHANCE, rollHub } from './content/hubs';
 import { DISTRICT_DANGER, START_DEPTH, dangerOf, meanDanger, stepDanger } from './grade';
+import { HERITAGES, type Heritage } from './content/names';
 import type { District, Exit, GenRole, Id, Legacy, Location, World } from './types';
 
 /** What the map generator needs from a world. (`legacy` is optional so a bare test map works: no gate, so it is sealed.) */
@@ -161,6 +162,13 @@ const BLURB: Record<Exclude<GenRole, 'street'>, string[]> = {
 
 /** A child's id is its parent's plus the slot it was born in. Stable, and says where the place is. */
 export const childId = (parent: Id, slot: number): Id => (parent.includes('~') ? `${parent}.${slot}` : `${parent}~${slot}`);
+
+/** Chance that a new street is the heart of a quarter with a heritage of its own (about one street in eight). */
+const QUARTER_CHANCE = 0.12;
+function rollQuarter(w: Pick<World, 'worldSeed'>, id: Id): Heritage | undefined {
+  const rng = new Rng(`quarter:${w.worldSeed}:${id}`);
+  return rng.chance(QUARTER_CHANCE) ? rng.pick(HERITAGES.filter((h) => h !== 'anglo')) : undefined;
+}
 
 const stream = (w: Pick<World, 'worldSeed'>, id: Id): Rng => new Rng(`map:${w.worldSeed}:${id}`);
 
@@ -583,6 +591,8 @@ function sketch(
   } else if (role === 'backroom' || role === 'vip' || role === 'cellar' || role === 'chamber' || role === 'gymroom' || role === 'pawnroom' || role === 'gamehallroom') faction = parent.faction;
   const blurbs = o.highway ? HIGHWAY_BLURB : street ? [`${name}. ${pick(rng, MOOD[district])}`] : rolled ? [rolled.blurb] : rolledPawn ? [rolledPawn.blurb] : rolledChop ? [rolledChop.blurb] : rolledHub ? [rolledHub.blurb] : rolledHall ? [rolledHall.blurb] : spot ? spot.blurbs : entrance ? ENTRANCE_BLURB[role as 'outpost' | 'hideout'] : BLURB[role as Exclude<GenRole, 'street'>];
 
+  // A street is sometimes a quarter with a heritage of its own, on a stream of its own; everything off it shares that.
+  const heritage = parent.gen?.heritage ?? (street && !o.highway ? rollQuarter(w, id) : undefined);
   const toStreet = streetOf(w, parent);
   const loc: Location = {
     id,
@@ -601,7 +611,7 @@ function sketch(
     influence,
     populated: false,
     blurb: o.blurb ?? pick(rng, blurbs).replace('{name}', name.charAt(0).toUpperCase() + name.slice(1)),
-    gen: { role, parent: parent.id, slot, depth, district, danger, expanded: false, ...(o.rank !== undefined ? { rank: o.rank } : {}), ...(o.max !== undefined ? { max: o.max } : {}), ...(tier !== undefined ? { tier } : {}), ...(spot ? { spot: spot.key } : {}) },
+    gen: { role, parent: parent.id, slot, depth, district, danger, expanded: false, ...(heritage ? { heritage } : {}), ...(o.rank !== undefined ? { rank: o.rank } : {}), ...(o.max !== undefined ? { max: o.max } : {}), ...(tier !== undefined ? { tier } : {}), ...(spot ? { spot: spot.key } : {}) },
   };
   if (faction) loc.faction = faction;
   if (o.highway) loc.road = 'highway';

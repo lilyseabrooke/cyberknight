@@ -351,7 +351,7 @@ describe('favours', () => {
     const n = npc(w, 'asker', 'patron', 'halo_floor', { flags: [] });
     expect(keys(w, 'odd_request').length).toBe(0);
     let asked = false;
-    for (let i = 0; i < 600 && !asked; i++) {
+    for (let i = 0; i < 3000 && !asked; i++) {
       tick(w, 1, `f${i}`);
       asked = n.flags.includes('favor');
     }

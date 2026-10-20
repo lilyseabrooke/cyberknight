@@ -1,6 +1,6 @@
 import type { Companion, Ctx, Injury, Item, Location, Npc, ParkedVehicle, World } from './types';
 import type { EventData, Outcome } from './events';
-import { KINDS, allyPower } from './companions';
+import { KINDS, allyPower, assistOf } from './companions';
 import { foeArmor, fxOf, rating, vsMult } from './weapons';
 import { loaded, spendAmmo, wielded } from './arms';
 import { skillLevel, skillValue, train } from './skills';
@@ -342,7 +342,6 @@ export class Sim {
   }
 
   private allyUnit(a: Companion): Unit {
-    const k = KINDS[a.kind]!;
     const shape = ALLY_SHAPE[a.kind] ?? { reach: [1, 1] as [number, number], speed: 3 };
     return this.blank({
       id: a.id,
@@ -356,7 +355,7 @@ export class Sim {
       power: allyPower(this.w, a),
       hit: 0.75,
       reach: shape.reach,
-      assist: k.assist,
+      assist: assistOf(a),
       caution: 3,
       canFlee: false,
       alert: true,

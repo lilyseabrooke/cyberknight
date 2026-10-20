@@ -6,6 +6,7 @@ import type { StreetType } from './streettypes';
 import type { Trait } from './personality';
 import type { Faction } from './factions';
 import type { HomeKind } from './content/realty';
+import type { Heritage } from './content/names';
 
 /**
  * All world state is plain JSON (no classes, Sets or Maps) so a run can be saved to
@@ -94,6 +95,23 @@ export interface Companion {
   /** The NPC this companion used to be, if any (they go home if they leave). */
   npcId?: Id;
   home?: Id;
+  /** Experience, from fights, drills and shifts at a home; absent means none. Level comes from it (see companions.ts). */
+  xp?: number;
+  /** Level 1..100, kept in step with `xp`; absent means 1. Scales hp, power and assist. */
+  level?: number;
+}
+
+/** A companion posted at a home she owns, working for her while she is out (see crew.ts). */
+export interface Stationed {
+  comp: Companion;
+  /** What they are doing there (see content/stations.ts). */
+  job: string;
+  /** World clock when their work was last counted. */
+  since: number;
+  /** World clock when she posted them; absent means long ago. */
+  posted?: number;
+  /** What they have made and are holding for her: neodollars, and parts by id. */
+  stash: { cash: number; parts: Record<string, number> };
 }
 
 /** A car she is in. It goes with her along the streets and is parked where she walks into a building. See vehicles.ts and cars.ts. */
@@ -774,6 +792,8 @@ export interface GenInfo {
   /** Steps of street from the hand-built district. */
   depth: number;
   district: District;
+  /** The quarter's heritage, if it has one (a Chinatown, a Little Lagos): inherited down from its street, and it leans the names of the people who turn up there. See content/names.ts. */
+  heritage?: Heritage;
   /** How dangerous it is, on the grade scale (grade.ts). Streets walk it from their parent; everything on a street shares it. Absent on maps made before danger existed. */
   danger?: number;
   /** An outermost street of the starting district: nothing runs on past it until the gate is open (mapgen.ts `liftCordon`). */
@@ -1038,6 +1058,8 @@ export interface Deed {
   district: District;
   /** The run she bought it in. */
   run: number;
+  /** Companions posted here, as many as the home has berths for. They stay through her deaths. See crew.ts. */
+  crew?: Stationed[];
 }
 
 /** The books on one night, settled when it ends. */

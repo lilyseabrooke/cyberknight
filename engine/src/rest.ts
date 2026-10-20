@@ -109,7 +109,7 @@ interface Errand {
 }
 
 /** Every place she knows how to get to, with the cost of the way and the first step. Hidden doors and shut doors don't count. */
-function reachFrom(w: World, from: Id, maxCost: number): Map<Id, { dist: number; next: Id }> {
+export function reachFrom(w: World, from: Id, maxCost: number): Map<Id, { dist: number; next: Id }> {
   const out = new Map<Id, { dist: number; next: Id }>([[from, { dist: 0, next: from }]]);
   const open: Id[] = [from];
   const done = new Set<Id>();

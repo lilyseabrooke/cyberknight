@@ -4,7 +4,7 @@ import { traitOf } from './character';
 import { tiesFrom, makeStub } from './ties';
 import { rollNpcName } from './content/archetypes';
 import { everyoneAt } from './population';
-import type { Fact, FactKind, Id, Npc, Vis, World } from './types';
+import type { Fact, Gender, FactKind, Id, Npc, Vis, World } from './types';
 
 /**
  * What's true about a person that Blackbird doesn't know yet: where they've been, and what they
@@ -99,9 +99,10 @@ export function rollFacts(w: World, n: Npc): Fact[] {
       case 'lost_someone':
       case 'wants_to_find': {
         const rel = rng.pick(MISSING);
-        const first = rollNpcName(rng, 'person').split(' ')[0]!;
+        const gender: Gender = rng.chance(0.5) ? 'woman' : 'man';
+        const first = rollNpcName(rng, 'person', gender).split(' ')[0]!;
         const surname = n.name.split(' ').slice(1).join(' ');
-        const stub = makeStub(w, { name: `${first}${surname && rel !== 'old friend' && rel !== 'former partner' ? ' ' + surname : ''}`, gender: rng.chance(0.5) ? 'woman' : 'man', age: Math.max(18, n.age + rng.int(-10, 10)), archetype: 'drifter', faction: null }, `${kind}_${n.id}`);
+        const stub = makeStub(w, { name: `${first}${surname && rel !== 'old friend' && rel !== 'former partner' ? ' ' + surname : ''}`, gender, age: Math.max(18, n.age + rng.int(-10, 10)), archetype: 'drifter', faction: null }, `${kind}_${n.id}`);
         fact.about = stub.id;
         fact.data.rel = rel;
         break;

@@ -34,6 +34,7 @@ import { tickHustles } from './hustles';
 import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
 import { tickHalls } from './hall';
+import { tickCrews } from './crew';
 import { satietyBias, tickSatiety } from './romance';
 import { needsBias, tickNeeds } from './rest';
 import { BASE_MIN_PER_BEAT, FIGHT_MINUTES, actionMinutes, crossedDawn, dayOf, every } from './clock';
@@ -297,6 +298,7 @@ function upkeep(c: Ctx): void {
   tickGyms(c);
   tickPawns(c);
   tickHalls(c);
+  tickCrews(c);
   const mellowed = every(w, 'affinity', 36);
   if (mellowed > 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity = n.affinity > 0 ? Math.max(0, n.affinity - mellowed) : Math.min(0, n.affinity + mellowed);
   // No passive regeneration, bar the lab's Steady Regeneration: a few hit points now and then, never past half health. Real wounds still want a med pack or a street doc.

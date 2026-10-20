@@ -38,3 +38,7 @@ export { buy, priceOf, stateOf, missing, rankOf, perk, growthPct, dropCut, owned
 export { FLOAT, worthDepositing } from './bank';
 export { hungerOf, sleepOf, hungerTier, sleepTier, hungerRate, sleepRate, nightHours, penaltyFor, debtOf, type HungerTier, type SleepTier } from './needs';
 export { LODGING, FOOD } from './content/lodging';
+export { levelOf as companionLevel } from './companions';
+export { crewOf, berthsOf, allStationed } from './crew';
+export { JOBS as CREW_JOBS } from './content/stations';
+export { deedsOf } from './deeds';

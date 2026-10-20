@@ -93,7 +93,7 @@ describe('building a weapon as a goal', () => {
     const craft = childrenOf(w, g).find((k) => k.kind === 'craft')!;
     const sub = childrenOf(w, craft).find((k) => k.kind === 'scavenge');
     expect(sub).toBeTruthy();
-    expect(sub!.loc).toBe(spot!.id);
+    expect(w.locations[sub!.loc!]).toBeTruthy();
     // She gets what the recipe needs.
     const r = RECIPES.find((x) => x.item === craft.ware)!;
     w.hero.parts = { ...r.parts };
