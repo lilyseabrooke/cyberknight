@@ -1106,6 +1106,8 @@ export interface MuseFile {
   lumina?: { version: number; warmth: number; flame: number; free?: boolean };
   /** Muse is busy licking its wounds until this night (a `legacy.runs` number): it barely enforces anything. */
   quietUntil?: number;
+  /** The contract in her file is one she wrote herself, in Muse's records room (musehq.ts). Muse believes it. */
+  forged?: boolean;
   /** She broke the contract in public: Muse hunts her whatever her renown. */
   detonated?: boolean;
   /** Her song is on every dragon's loudspeaker, approved by accident, until this night (a `legacy.runs` number). See myth.ts. */

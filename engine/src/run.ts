@@ -357,7 +357,9 @@ function ambient(c: Ctx): void {
   if (loc.road === 'highway') return;
   // Atlas retrieval team.
   const atlas = w.heat.atlas ?? 0;
-  if (loc.outdoors && atlas >= 5 && rng.chance(0.15)) {
+  // The wedge (musehq.ts): while Atlas is fighting Muse, it has fewer people to send after her.
+  const busy = (w.legacy.atlasBusyUntil ?? -1) >= w.legacy.runs;
+  if (loc.outdoors && atlas >= 5 && rng.chance(busy ? 0.04 : 0.15)) {
     if (scoutSaves(c)) return;
     const squad = spawnGroup(c, 'helix_guard', 2);
     c.emit('ambush', 'bad', { variant: 'atlas', count: squad.length, heat: atlas });
