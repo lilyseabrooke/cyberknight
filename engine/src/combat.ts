@@ -1,6 +1,6 @@
 import type { Ctx, Hero, Injury, Item, Npc, World } from './types';
 import { IMPLANTS } from './content/implants';
-import { KINDS, allyPower, removeCompanion } from './companions';
+import { KINDS, allyPower, fightXp, gainCompanionXp, removeCompanion } from './companions';
 import { skillLevel, skillValue, train } from './skills';
 import { basePower, fightTraining, hpPerLevel, levelCost } from './grade';
 import { perk } from './lab';
@@ -506,7 +506,10 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
         removeCompanion(c, a, 'lost', foes.find((f) => f.alive) ?? foes[0]);
         continue;
       }
-      if (result === 'win') a.loyalty = Math.min(100, a.loyalty + 3);
+      if (result === 'win') {
+        a.loyalty = Math.min(100, a.loyalty + 3);
+        gainCompanionXp(c, a, fightXp(a, Math.max(...foes.map((f) => f.level), 1)));
+      }
       else a.loyalty -= 4;
     }
   }

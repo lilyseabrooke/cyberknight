@@ -10,7 +10,7 @@ import { foeProfile } from './tactics';
 import { bump, footChance, stumble } from './footfx';
 import { grabVehicle, vehicleHere } from './vehicles';
 import { accident, hopChance } from './drivefx';
-import { KINDS, removeCompanion } from './companions';
+import { assistOf, removeCompanion } from './companions';
 import { skillValue, train } from './skills';
 import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
@@ -473,7 +473,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       const nearest = () => live.reduce((a, f) => (f.gap < a.gap ? f : a));
       const lead = nearest();
       const band = bandOf(lead.gap);
-      const armedBack = h.weapon.tags.includes('gun') || (!!car && h.companions.some((a) => a.hp > 0 && KINDS[a.kind]?.assist.dmg && car.riders.includes(a.id)));
+      const armedBack = h.weapon.tags.includes('gun') || (!!car && h.companions.some((a) => a.hp > 0 && assistOf(a).dmg && car.riders.includes(a.id)));
       const hpRatio = h.hp / h.maxHp;
       const carRatio = car ? car.hp / car.maxHp : 1;
       const bike = car?.body === 'bike';
@@ -1192,7 +1192,7 @@ function getOut(c: Ctx, f: Chaser, at: string): void {
 /** What a rider with a gun adds to hers. */
 function riderShots(h: Ctx['w']['hero'], car: Vehicle): number {
   let d = 0;
-  for (const a of h.companions) if (a.hp > 0 && car.riders.includes(a.id)) d += (KINDS[a.kind]?.assist.dmg ?? 0) * 0.4;
+  for (const a of h.companions) if (a.hp > 0 && car.riders.includes(a.id)) d += (assistOf(a).dmg ?? 0) * 0.4;
   return d;
 }
 

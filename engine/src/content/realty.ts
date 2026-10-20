@@ -24,12 +24,14 @@ export interface HomeType {
   quality: [number, number];
   security: [number, number];
   cameras: number;
+  /** How many companions she can post here to work while she is out (see crew.ts). */
+  berths: number;
   blurbs: string[];
 }
 
 export const HOMES: Record<HomeKind, HomeType> = {
   pod: {
-    id: 'pod', noun: 'pod apartment', setting: 'megablock tower', price: [700, 2200], quality: [0.76, 0.9], security: [1, 2], cameras: 0,
+    id: 'pod', noun: 'pod apartment', setting: 'megablock tower', price: [700, 2200], quality: [0.76, 0.9], security: [1, 2], cameras: 0, berths: 1,
     blurbs: [
       '{name}: three metres by two, a real mattress, a hot plate and a window onto an air shaft. The lock beeps when it sees her. Nothing else in the city does.',
       '{name}: a drawer in a tower the size of a district. Hers, though. The key is on a string round her neck.',
@@ -37,7 +39,7 @@ export const HOMES: Record<HomeKind, HomeType> = {
     ],
   },
   townhouse: {
-    id: 'townhouse', noun: 'townhouse', setting: 'gated district', price: [6000, 20000], quality: [0.92, 1], security: [3, 5], cameras: 1,
+    id: 'townhouse', noun: 'townhouse', setting: 'gated district', price: [6000, 20000], quality: [0.92, 1], security: [3, 5], cameras: 1, berths: 3,
     blurbs: [
       '{name}: three floors behind a gate, pale stairs, a kitchen nobody has burnt anything in and a bedroom with blackout glass and a mattress that remembers her.',
       '{name}: quiet money. A lawn the size of a parking space, a door that logs everything that touches it, and nobody at all outside.',

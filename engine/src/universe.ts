@@ -16,6 +16,7 @@ import { remember } from './combat';
 import { tiesFrom } from './ties';
 import { DROPS } from './content/drops';
 import { applyUpgrades, settleAccount } from './lab';
+import { stationedNpcIds } from './crew';
 import type { DeathRecord, Flight, Id, Npc, World } from './types';
 
 /**
@@ -128,10 +129,12 @@ export function endRun(w: World): Universe {
   // The dragons that are kept sleep until the next night.
   w.legacy.dragons = w.flights.filter((f) => f.persist);
   const companions = new Map(w.hero.companions.filter((c) => c.npcId).map((c) => [c.npcId!, c.home]));
+  // Anyone she posted at a home is still there.
+  const posted = stationedNpcIds(w);
   for (const n of allNpcs(w)) {
     if (n.id.startsWith('tmp_') && !memorable(n)) {
       removeNpc(w, n.id);
-    } else if (n.locationId.startsWith('_') && n.locationId !== AWAY) {
+    } else if (n.locationId.startsWith('_') && n.locationId !== AWAY && !posted.has(n.id)) {
       // Travelling with her, or gone for the night: they go home, or if they never had one, are free to turn up somewhere new.
       const home = n.home ?? companions.get(n.id);
       moveNpc(w, n, home && w.locations[home] ? home : AWAY);

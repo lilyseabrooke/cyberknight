@@ -42,6 +42,10 @@ import {
   sleepTier,
   debtOf,
   carState,
+  companionLevel as levelOf,
+  crewOf,
+  deedsOf,
+  CREW_JOBS as JOBS,
 } from '../engine/src';
 import Lab from './Lab';
 
@@ -89,7 +93,9 @@ interface Snapshot {
   car: string;
   injuries: string[];
   inventory: string[];
-  companions: { name: string; kind: string; hp: number; maxHp: number; loyalty: number }[];
+  companions: { name: string; kind: string; hp: number; maxHp: number; loyalty: number; level: number }[];
+  /** Companions posted at her homes, working. */
+  posted: { name: string; kind: string; level: number; home: string; job: string }[];
   location: string;
   beat: number;
   time: string;
@@ -164,7 +170,8 @@ function snap(w: World): Snapshot {
     car: h.vehicle ? `${h.vehicle.name} (${carState(h.vehicle)}, ${h.vehicle.hp}/${h.vehicle.maxHp}${h.vehicle.riders?.length ? `, ${h.vehicle.riders.length} aboard` : ''})` : '',
     injuries: [...h.injuries],
     inventory: Object.entries(h.inventory.filter((i) => !i.tags.includes('med')).reduce<Record<string, number>>((m, i) => ((m[i.name] = (m[i.name] ?? 0) + 1), m), {})).map(([n, k]) => (k > 1 ? `${n} ×${k}` : n)),
-    companions: h.companions.map((a) => ({ name: a.name, kind: a.kind, hp: a.hp, maxHp: a.maxHp, loyalty: a.loyalty })),
+    companions: h.companions.map((a) => ({ name: a.name, kind: a.kind, hp: a.hp, maxHp: a.maxHp, loyalty: a.loyalty, level: levelOf(a) })),
+    posted: deedsOf(w).flatMap((d) => crewOf(d).map((s) => ({ name: s.comp.name, kind: s.comp.kind, level: levelOf(s.comp), home: d.name, job: JOBS[s.job]?.label ?? s.job }))),
     location: w.locations[h.locationId]?.name ?? '?',
     beat: w.beat,
     time: clockLabel(w.clock),
@@ -566,7 +573,19 @@ export default function NightViewer() {
                   <dd>
                     {status.companions.map((a) => (
                       <div key={a.name} className="ally">
-                        {a.name} <span className="muted">({a.kind}) {Math.max(0, a.hp)}/{a.maxHp} HP · loyalty {Math.max(0, Math.round(a.loyalty))}</span>
+                        {a.name} <span className="muted">({a.kind}, lv {a.level}) {Math.max(0, Math.round(a.hp))}/{a.maxHp} HP · loyalty {Math.max(0, Math.round(a.loyalty))}</span>
+                      </div>
+                    ))}
+                  </dd>
+                </>
+              )}
+              {status.posted.length > 0 && (
+                <>
+                  <dt>Posted</dt>
+                  <dd>
+                    {status.posted.map((a) => (
+                      <div key={a.name} className="ally">
+                        {a.name} <span className="muted">({a.kind}, lv {a.level}) {a.job} at {a.home}</span>
                       </div>
                     ))}
                   </dd>
