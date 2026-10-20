@@ -141,7 +141,7 @@ and worked example is [`../locations/gym.md`](../locations/gym.md); the code is 
 only state, is [`../locations/pawn.md`](../locations/pawn.md) (`content/pawns.ts`, `content/pawn*.ts`, `pawnkit.ts`,
 `pawn.ts`). Both are built on `placekit.ts`: write a `Kit` (who works there, what its events are called) and the rest
 of the machinery (`runCheck`, results, lines) is shared. The smallest, [`../locations/chop.md`](../locations/chop.md), skips the registry for a typed list of ways through a door
-and adds the workbench (`bench.ts`, `content/parts.ts`): components, salvage, ammo, crafting and mods. A place's core business can use `pace: 'deal'`, which gives it a
+and adds the workbench (`bench.ts`, `content/parts.ts`): components, salvage, ammo, crafting and mods. The fourth, [`../locations/hub.md`](../locations/hub.md), is where the Hacks and Overrides of `techniques.ts` are taught: its core business is a *syllabus* on the place (`HubInfo.syllabus`, seven teaching routes) rather than rows, plus about eighty rows on a deliberately short list of capabilities (`content/hub*.ts`, `hubkit.ts`, `hub.ts`). A place's core business can use `pace: 'deal'`, which gives it a
 key family of its own so a long menu of rows cannot crowd it out of the AI's choice.
 
 - **Where it goes:** a new `GenRole` and `Location.kind`, rolled on **its own random stream after everything else on the

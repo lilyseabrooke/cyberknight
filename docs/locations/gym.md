@@ -200,7 +200,6 @@ affordance:
 | **quest (drive)** | the situations | Take the tournament; solve the missing trainer; fix the feud |
 | **tolerance** | the supplement counter | Test a dubious supplement |
 | **implants (tag)** | the chrome gym's tune-up and the rigs | Tune-up; a glitch fix; a rig fit; a "catch" removed |
-| **kill goal (goal)** | a ladder fighter, the owner | Kill in the pit (costly, §8.3); murder the owner (shuts the gym) |
 | **items** | a championship belt, a stolen guitar, a forged pass | Use them as keys, bribes, gifts or bets |
 | *(your next capability goes here)* | | |
 

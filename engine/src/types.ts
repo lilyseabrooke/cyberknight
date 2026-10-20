@@ -519,7 +519,7 @@ export interface Location {
   /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
   street?: StreetType;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty' | 'chop';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty' | 'chop' | 'hub';
   exits: Exit[];
   /** Where it stands on the hex grid (outdoor places only): every cell it covers, and the cell it is anchored on. See hexmap.ts. */
   hex?: { q: number; r: number; cells: [number, number][]; /** The way it runs, for streets: the direction it grew in. */ dir: number };
@@ -591,8 +591,44 @@ export interface Location {
   pawnRoom?: { main: Id; room: string };
   /** A chop shop's makeup: what it is built in, how good the bench is, what the door costs. Rolled with the place. See content/chops.ts. */
   chop?: ChopInfo;
+  /** A hacker hub's makeup: what it is, what it teaches and how. Rolled with the place. See content/hubs.ts. */
+  hub?: HubInfo;
   /** A pawn shop's shelf: what is on it, including whatever she hocked and may still buy back. Made the first time it is looked at. See pawnkit.ts. */
   shelf?: PawnLot[];
+}
+
+/** One line of a hub's syllabus: a technique and the way it is taught. (content/hubs.ts says what each id means.) */
+export interface SyllabusEntry {
+  /** A `LearnableId` (techniques.ts). */
+  tech: string;
+  /** cash, lessons, barter, trial, steal, referral or enrol. */
+  route: string;
+  /** What it costs in nd (cash, trial, the weight of the barter), before the day's situation. */
+  price: number;
+  /** For lessons and enrolment: how many sessions it takes. */
+  steps: number;
+}
+
+/**
+ * What a hacker hub is. Every field is rolled independently from the hub's own stream, so any combination can turn up.
+ * (content/hubs.ts says what each id means; ids that are no longer known are ignored, so the tables can grow.)
+ */
+export interface HubInfo {
+  variant: string;
+  shell: string;
+  /** 0 (a closet) to 4 (a sprawl). */
+  size: number;
+  /** 0 (derelict) to 4 (immaculate). */
+  condition: number;
+  /** 1..5. Teacher quality and prices. Independent of everything else. */
+  tier: number;
+  traits: string[];
+  /** Feature ids present on the floor. */
+  features: string[];
+  /** What it teaches, and how. */
+  syllabus: SyllabusEntry[];
+  /** A one-in-a-dozen oddity that breaks the rules. */
+  wild?: string;
 }
 
 /** What a chop shop is. Small on purpose: a shell, a bench and a door. (content/chops.ts says what each id means.) */
@@ -678,7 +714,7 @@ export interface GymInfo {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop' | 'hub';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {

@@ -17,6 +17,7 @@ export const DEFAULT_HOURS: Partial<Record<Location['kind'], Hours>> = {
   shop: [11, 3],
   pawn: [11, 3],
   chop: [8, 2],
+  hub: [10, 4],
   realty: [9, 21],
   gym: [5, 1],
 };
