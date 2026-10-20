@@ -625,6 +625,9 @@ const T: Record<string, Entry> = {
   'odd_jobs:good': e((d) => [`Blackbird spends an hour on ${d.chore} for ${d.npc}, like a regular person with a regular job. ${d.amount} neodollars for her trouble.`], ['Honest work. Weird feeling.', 'This is what the other heroes do, right? Chores?']),
   'odd_jobs:bad': e((d) => [`The ${d.chore} fight back. ${d.npc} is unimpressed.`], ["That's a workplace injury. I'm suing somebody."]),
 
+  'pest_control:start': e((d) => [`${d.npc} points at the cellar door and the scratching behind it. ${Number(d.count) > 1 ? 'Cyber-rats, and plenty of them' : 'A cyber-rat'}, ${d.npc} says, is eating the wiring. Blackbird takes the job.`], ['Vermin. Finally, an enemy I can respect.', 'Small, chrome, and furious. We are going to get along.']),
+  'pest_control:cleared': e((d) => [`The cellar goes quiet. ${d.npc} counts out ${d.amount} neodollars and tries not to look at what is left of the wiring.`], ['First blood. It was a rat, but it counts.', 'Pest control. A real career.']),
+
   'security_shift:good': e((d) => [`Blackbird works the Neon Pharaoh's door for the night: mirrored shades, a bad attitude, and ${d.amount} neodollars by closing.`], ['Nobody gets past me. Nobody important, anyway.']),
   'security_shift:bad': e((d) => (d.npc ? [`${d.npc} tries to get past Blackbird the hard way. It does not go the way ${d.npc} planned.`] : ['The night shift is long, loud, and entirely uncompensated for the bruises.'])),
 

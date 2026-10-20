@@ -363,12 +363,33 @@ describe('favours', () => {
   });
 });
 
+describe('pest control: the fight a level 1 can count on', () => {
+  it('Halo staff have rats for her; a fresh level 1 clears them every time, and gets paid', () => {
+    let wins = 0;
+    for (let i = 0; i < 30; i++) {
+      const w = world(`pest${i}`);
+      empty(w, 'halo_floor', ['dutch']);
+      moveNpc(w, w.npcs.dutch!, 'halo_floor');
+      expect(w.hero.level).toBe(1);
+      expect(keys(w, 'pest_control:dutch').length).toBe(1);
+      const cash = w.hero.cash;
+      const ev = run(w, 'pest_control:dutch', `p${i}`);
+      if (ev.some((e) => e.type === 'pest_control' && e.data.variant === 'cleared')) {
+        wins++;
+        expect(w.hero.cash).toBeGreaterThan(cash);
+      }
+      expect(keys(w, 'pest_control:dutch').length).toBe(0); // used up, until the place breeds more
+    }
+    expect(wins).toBe(30);
+  });
+});
+
 describe('in the sim', () => {
   slow('every hustle still turns up, with text, and not as a standing buffet', () => {
     const seen = new Set<string>();
     let hustles = 0;
     let beats = 0;
-    const H = ['odd_jobs', 'courier_run', 'bodyguard_gig', 'burgle_home', 'protection_racket', 'scam_mark', 'sell_fake_goods', 'cold_read', 'odd_request'];
+    const H = ['odd_jobs', 'pest_control', 'courier_run', 'bodyguard_gig', 'burgle_home', 'protection_racket', 'scam_mark', 'sell_fake_goods', 'cold_read', 'odd_request'];
     for (let i = 0; i < 40; i++) {
       const { world: w, events } = runToEnd({ seed: `hs-${i}`, competence: i % 2 ? 0.8 : 0.2 });
       beats += w.beat;
