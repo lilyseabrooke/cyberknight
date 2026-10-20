@@ -6,6 +6,8 @@ import { ACT_SKILL } from '../stage';
 import { skillLevel } from '../skills';
 import { streetTypeOf } from '../streettypes';
 import { MAX_IMPLANTS } from './implants';
+import { auditNow } from './halls';
+import { boardsHeld, gameAtFeature, hatedGame, heldBy, hallHere, memoryOf } from '../games';
 
 /**
  * The Callings she can take up. See callings.ts for how they are caught, carried and finished, and docs/CALLINGS_PLAN.md
@@ -26,6 +28,8 @@ export interface SparkCtx {
   lost?: GameEvent;
   /** She came within a whisker of dying this beat. `data` names who did it (`by`, `by_id`, `by_faction`, `by_dragon`), if anyone. */
   near?: GameEvent;
+  /** A game she loved was destroyed in front of her this beat (or she found out). `data` has `title`, `game`, `by`. */
+  gameLost?: GameEvent;
 }
 
 /** Whatever it was that hurt her this beat: a loss or a close call. */
@@ -47,7 +51,7 @@ export interface CallingDef {
   id: string;
   /** What set it off, as a clause: how she'd put it to herself. */
   origin: string;
-  group: 'spotlight' | 'violence' | 'take' | 'heart' | 'body';
+  group: 'spotlight' | 'violence' | 'take' | 'heart' | 'body' | 'play';
   /** How she says it. */
   line(cal: Calling): string;
   /** How well it suits her: weight on (trait - 0.5), exponentiated. */
@@ -68,8 +72,10 @@ export interface CallingDef {
   key?: string;
   /** Progress, when it isn't just the counter. */
   measure?(w: World, cal: Calling): number;
-  /** Added to the score of what she's considering. Raw; scaled by fervor in callings.ts. */
-  bias?(w: World, cal: Calling, fam: string, id: string | undefined): number;
+  /** Added to the score of what she's considering. Raw; scaled by fervor in callings.ts. `sub` is the third part of the key (a cabinet's feature, say). */
+  bias?(w: World, cal: Calling, fam: string, id: string | undefined, sub?: string): number;
+  /** Once a beat while she carries it: keep its target up to date with what she has found out. */
+  sync?(w: World, cal: Calling): void;
   /** Places it pulls her towards. */
   pull?(w: World, cal: Calling): { loc: Id; value: number }[];
   /** Goals it makes her set for herself. */
@@ -83,6 +89,24 @@ const isCatch = (e: GameEvent): boolean =>
   (e.type === 'fish' && ['junk', 'trinket', 'haul', 'prize', 'legend', 'ammo'].includes(String(e.data.variant))) ||
   (['reel_in', 'reel_girl', 'rod_lift', 'rod_tug', 'rod_swing'].includes(e.type) && e.outcome === 'good') ||
   (e.type === 'rod_bait' && e.data.variant === 'landed');
+
+
+// ===================================================================== play helpers
+
+/** Rows that go after a leaderboard. */
+const BOARD_IDS = new Set(['challenge-champion', 'join-the-bracket', 'enter-the-bracket', 'chase-the-record', 'challenge-the-unbeaten', 'study-the-champion', 'winner-stays-on', 'last-man-standing', 'outplay-the-crew', 'race-the-ghost', 'rival-grudge-match', 'solve-the-impossible-board', 'rhythm-showpiece', 'leaderboard-dojo', 'ranked-ladder-thread', 'speedrun-the-course', 'tournament-thread', 'esports-bootcamp', 'read-the-bracket']);
+/** Rows that pay. */
+const CASH_IDS = new Set(['join-the-bracket', 'enter-the-bracket', 'make-a-book', 'shooting-gallery-bet', 'hoops-bet', 'milk-the-cash-cab', 'sell-a-tip-to-the-queue', 'argue-with-the-payout-counter', 'last-man-standing', 'exploit-the-glitch', 'exploit-the-patch', 'prize-counter-con', 'fish-the-claw', 'sell-a-place-in-the-queue', 'solve-the-impossible-board', 'high-score', 'arcade-run', 'pawn-the-console', 'sell-the-cartridge', 'bootleg-cartridge-flip', 'esports-bootcamp', 'stream-a-session', 'read-the-bracket', 'argue-the-board', 'trade-in-kiosk', 'demo-unit-challenge', 'save-file-scavenge', 'speedrun-the-course', 'ctf-cabinet', 'leaderboard-dojo', 'tournament-thread', 'cabinet-save-state']);
+/** Rows for hunting the spider, and rows for getting on with it. */
+const SPIDER_HUNT = new Set(['study-spider', 'spider-bait', 'jam-the-grinder', 'rope-trip', 'salvage-spider']);
+const SPIDER_PEACE = new Set(['calm-spider', 'demonstrate-fun', 'fool-spider', 'befriend-spider']);
+/** Rows that find out who made a game. */
+const INTEL_IDS = new Set(['ask-the-pros', 'dig-credits', 'override-cabinet']);
+
+/** Arcades she has been inside. */
+const knownHalls = (w: World): Id[] => Object.values(w.locations).filter((l) => l.gamehall && l.visits > 0).map((l) => l.id);
+/** Records offices she has seen: a property office, or a records floor in a tower. */
+const recordsOffices = (w: World): Id[] => Object.values(w.locations).filter((l) => l.visits > 0 && (l.kind === 'realty' || (l.gen?.role === 'corp' && l.gen.rank !== undefined && /records floor$/.test(l.name)))).map((l) => l.id);
 
 // ===================================================================== tallies
 
@@ -127,6 +151,8 @@ export const TALLY: Record<string, (e: GameEvent, w: World) => number> = {
   },
   outpost: (e) => (e.type === 'dungeon_cleared' && e.data.kind === 'outpost' ? 1 : 0),
   hideout: (e) => (e.type === 'dungeon_cleared' && e.data.kind === 'hideout' ? 1 : 0),
+  // Neodollars won by playing games, anywhere (the event carries `earned`; see placekit.ts and hallkit.ts).
+  gamecash: (e) => Number(e.data.earned ?? 0),
 };
 
 // ===================================================================== helpers
@@ -669,6 +695,135 @@ export const CALLINGS: CallingDef[] = [
     goal: (rng, u) => near(rng, 5, 50, u),
     bias: (_w, _cal, fam) => (['cook', 'serve_dish', 'eat_dish', 'eat_noodles', 'buy_noodles'].includes(fam) ? 2.4 : 0),
     sequels: [{ id: 'heartbreaker', p: 0.2 }],
+  },
+
+  // -------------------------------------------------------------- play
+  {
+    id: 'board', origin: 'her three letters were at the top of the board, and she had never seen anything so beautiful', group: 'play',
+    line: (c) => (c.goal <= 1 ? 'get number one on a leaderboard that matters, and make them put it on the wall' : `have her name at the top of ${c.goal} leaderboards at once`),
+    fit: { vanity: 1.4, fame: 1, thrill: 0.7, techy: 0.7, gamble: 0.4, impress: 0.3 },
+    whim: 0.9,
+    spark({ events }) {
+      if (events.some((e) => e.type === 'hall' && String(e.data.variant).endsWith('.record'))) return 0.9;
+      if (has(events, 'hall', 'good', 'enter-the-bracket.win') || has(events, 'hall', 'good', 'join-the-bracket.win')) return 0.6;
+      if (has(events, 'hall', 'good', 'high-score.win') || has(events, 'hub', 'good', 'high-score.win')) return 0.8;
+      return has(events, 'hall', 'good', 'challenge-champion.win') ? 0.55 : 0;
+    },
+    goal: (rng, u) => (u < 0.4 ? 1 : near(rng, 2, 14, u)),
+    // Held right now: a spider that stamps on her board takes it from her.
+    measure: (w) => boardsHeld(w),
+    bias(w, _cal, fam, id, sub) {
+      if (fam === 'halldeal' && id === 'play') return 1.8 + (heldBy(hallHere(w)?.cabs?.[`${w.locations[w.hero.locationId]?.hallRoom?.room ?? 'floor'}:${sub}`], w.clock) ? -2.6 : 0.6);
+      if ((fam === 'hall' || fam === 'hub' || fam === 'gym') && id && (BOARD_IDS.has(id) || id === 'high-score')) return 1.8;
+      return 0;
+    },
+    pull: (w) => knownHalls(w).map((loc) => ({ loc, value: 1 })),
+    want: () => [{ kind: 'explore', why: 'there are boards in this city she has not seen' }],
+    sequels: [{ id: 'gamecash', p: 0.3 }],
+  },
+  {
+    id: 'gamecash', origin: 'a machine paid her, and she did the sum for a whole year', group: 'play',
+    line: (c) => `make ${c.goal.toLocaleString('en-US')}nd from nothing but playing games`,
+    fit: { greed: 1.5, gamble: 0.9, vanity: 0.4, thrill: 0.3, honesty: -0.3, mischief: 0.3 },
+    whim: 0.8,
+    key: 'gamecash',
+    spark: ({ d }) => ((d.gamecash ?? 0) >= 15 ? Math.min(0.95, 0.3 + (d.gamecash ?? 0) / 200) : 0),
+    goal: (rng, u) => near(rng, 300, 30000, u, 50),
+    bias(_w, _cal, fam, id) {
+      if (fam === 'halldeal' && id === 'play') return 1.6;
+      if ((fam === 'hall' || fam === 'gym' || fam === 'pawn' || fam === 'hub') && id && CASH_IDS.has(id)) return 1.8;
+      return 0;
+    },
+    pull: (w) => knownHalls(w).map((loc) => ({ loc, value: 0.9 })),
+    want: () => [{ kind: 'explore', why: 'somewhere out there is a cabinet that pays' }],
+    sequels: [{ id: 'score', p: 0.4 }, { id: 'board', p: 0.2 }],
+  },
+  {
+    id: 'spiders', origin: 'a spider stamped on the one game she loved, and smiled about it', group: 'play', wound: true,
+    woundWhy: (s) => (s.gameLost
+      ? `${s.gameLost.data.by ?? 'a Muse compliance spider'} flattened ${s.gameLost.data.title}, a game Blackbird loved, and said that fun was guaranteed`
+      : 'a spider took something from her, with a smile and a clipboard'),
+    line: (c) => `put ${c.goal === 1 ? 'a Muse compliance spider' : `${c.goal} Muse compliance spiders`} in the ground`,
+    fit: { grudge: 1.2, courage: 0.8, temper: 0.8, thrill: 0.5, mischief: 0.4, kindness: -0.2 },
+    whim: 0.5,
+    spark({ events, gameLost }) {
+      if (gameLost) return 0.97;
+      if (has(events, 'hall', undefined, 'spider.dead')) return 0.8;
+      return has(events, 'hall', undefined, 'spider.smash') ? 0.45 : 0;
+    },
+    goal: (rng, u) => near(rng, 3, 60, u),
+    measure: (w, cal) => (w.counters.spiders_killed ?? 0) - cal.base,
+    bias(_w, _cal, fam, id) {
+      if (fam === 'hallfight' && id === 'fight-spider') return 3.4;
+      if (fam === 'hall' && id && SPIDER_HUNT.has(id)) return 1.4;
+      if (fam === 'hall' && id && SPIDER_PEACE.has(id)) return -2.2;
+      return 0;
+    },
+    pull(w) {
+      // Halls she knows, and more where the spider is calling right now.
+      return knownHalls(w).map((loc) => ({ loc, value: auditNow(w, w.locations[loc]!) ? 2.6 : 1 }));
+    },
+    want: () => [{ kind: 'kill', pick: (n) => n.archetype === 'muse_spider', why: 'every one that comes through the door' }],
+    sequels: [{ id: 'board', p: 0.2 }, { id: 'gamecash', p: 0.15 }],
+  },
+  {
+    id: 'creator', origin: 'it beat her again, and somebody out there made it do that on purpose', group: 'play',
+    line: (c) => (c.target?.npc ? `flatline ${c.target.text}` : `find out who made ${c.target?.text ?? 'it'}, and flatline them`),
+    fit: { grudge: 1.4, temper: 1.2, vanity: 0.6, mischief: 0.6, impulsive: 0.3, techy: 0.3, honesty: -0.2, kindness: -0.8 },
+    whim: 0.12,
+    spark: ({ events }) => {
+      const h = events.find((e) => e.type === 'game_feeling' && e.data.variant === 'hate');
+      return h ? Math.min(0.97, 0.7 + 0.04 * Number(h.data.streak ?? 0)) : 0;
+    },
+    aim(w, _rng, s) {
+      const ev = s?.events.find((e) => e.type === 'game_feeling' && e.data.variant === 'hate');
+      const gid = (ev?.data.game as string | undefined) ?? hatedGame(w, -0.3)?.id;
+      const g = gid ? memoryOf(w, gid) : undefined;
+      if (!gid || !g) return null;
+      return g.creator && w.npcs[g.creator]?.alive ? { game: gid, npc: g.creator, text: `${w.npcs[g.creator]!.name}, who made "${g.title}"` } : { game: gid, text: `"${g.title}"` };
+    },
+    goal: () => 1,
+    measure: (w, cal) => {
+      const g = cal.target?.game ? memoryOf(w, cal.target.game) : undefined;
+      const n = g?.creator ? w.npcs[g.creator] : undefined;
+      return n && !n.alive ? 1 : 0;
+    },
+    // As she finds out who and where, the Calling is about a person instead of a title.
+    sync(w, cal) {
+      const g = cal.target?.game ? memoryOf(w, cal.target.game) : undefined;
+      const n = g?.creator ? w.npcs[g.creator] : undefined;
+      if (g && n?.alive && cal.target && cal.target.npc !== n.id) {
+        cal.target.npc = n.id;
+        cal.target.text = `${n.name}, who made "${g.title}"`;
+      }
+    },
+    bias(w, cal, fam, id, sub) {
+      const gid = cal.target?.game;
+      const g = gid ? memoryOf(w, gid) : undefined;
+      if (!gid || !g) return 0;
+      const here = gameAtFeature(w, sub) === gid;
+      // Phase two: she knows who and where. It is a hunt.
+      if (g.creator && g.located) return id && id === g.creator && FIGHTING.has(fam) ? 4 : fam === 'lay_low' ? -1 : 0;
+      // Phase one: she needs a name, or an address.
+      if (fam === 'halldeal' && id === 'play') return here ? 2.4 : 0;
+      if (fam === 'hall' && id && INTEL_IDS.has(id)) return here ? 3.4 : 0.3;
+      return fam === 'records' ? 3 : 0;
+    },
+    pull(w, cal) {
+      const g = cal.target?.game ? memoryOf(w, cal.target.game) : undefined;
+      const n = g?.creator ? w.npcs[g.creator] : undefined;
+      if (n?.alive && g?.located) {
+        const loc = lastSeen(w, n) ?? n.locationId;
+        return loc && w.locations[loc] ? [{ loc, value: 2.2 }] : [];
+      }
+      // Without an address: wherever she played the game, and where records are kept.
+      return [...(g?.where ?? []).filter((loc) => w.locations[loc]).map((loc) => ({ loc, value: 1.8 })), ...recordsOffices(w).map((loc) => ({ loc, value: 0.8 }))];
+    },
+    want: (w, cal) => {
+      const g = cal.target?.game ? memoryOf(w, cal.target.game) : undefined;
+      return g?.creator && g.located ? [{ kind: 'kill', pick: (n) => n.id === g.creator, why: 'a name she will not let go', mode: 'kill' as const }] : [];
+    },
+    sequels: [{ id: 'board', p: 0.3 }, { id: 'gamecash', p: 0.1 }],
   },
 ];
 

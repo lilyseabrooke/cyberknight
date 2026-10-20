@@ -113,6 +113,10 @@ export const BLURBS: Record<string, string> = {
 
 /** What she says to herself about each Calling, in her own voice. */
 const CALLING_VOWS: Record<string, string> = {
+  board: 'Three letters. At the top. Every time. Where they belong.',
+  gamecash: 'They said it was a hobby. They can say it again to my bank.',
+  spiders: 'Fun is guaranteed. So is this.',
+  creator: 'Somebody wrote that. Somebody is at home. I am going to visit.',
   vocals: 'They will hear me from the other side of the Wall.',
   guitar: 'My hands know. They have always known.',
   djing: 'Every floor in Neo. One at a time. In order.',
@@ -936,6 +940,57 @@ const T: Record<string, Entry> = {
   'intent:hubquick': e((d) => [String(d.text)]),
   'intent:hubfight': e((d) => [String(d.text)]),
   'intent:hubdeal': e((d) => [String(d.text)]),
+  // ---- what she makes of the games she plays (games.ts), and who made them (creators.ts)
+  'game_feeling:love': e(
+    (d) => [`Somewhere around the ${Number(d.like) >= 0.8 ? 'tenth' : 'sixth'} go, Blackbird realises she loves "${d.title}". Not likes. Loves. She tells nobody and plays it again.`, `"${d.title}" has her. Blackbird can feel it: that small, stupid, enormous thing where a game stops being a machine and starts being a friend.`],
+    ['Okay. Okay, I love this one.', 'It gets me. It actually gets me.'],
+  ),
+  'game_feeling:hate': e(
+    (d) => [`Blackbird has now lost to "${d.title}" ${Number(d.streak) > 1 ? `${$(d.streak)} times in a row` : 'again'} and has stopped pretending it is a game. It is a person, somewhere, who did this on purpose. She hates it.`, `Somewhere in "${d.title}", a designer made a decision. Blackbird has been living inside it. She is, calmly, beginning to hate whoever it was.`],
+    ['It cheats. It is not even good at cheating.', 'Whoever made this knew exactly what they were doing.'],
+  ),
+  'game_lost:spider': e(
+    (d) => [`${cap(String(d.by))} cuts "${d.title}" in half, in front of her, humming. Blackbird has loved that game for weeks. She watches it go up in a fountain of sparks and does not move a muscle.`, `"${d.title}" goes through a pincer and out the other side, and the cheerful voice says fun is guaranteed. Blackbird's hands close, slowly, on nothing.`],
+    ['That was mine. That was mine.', 'It said it cared. It said it cared the whole time.'],
+  ),
+  'game_lost:found': e(
+    (d) => [`Where "${d.title}" used to stand there is a clean rectangle in the dust and a small pink sticker that says FUN VERIFIED. Blackbird stands there for a while. Someone has swept up the glass.`, `"${d.title}" is gone. The hall has been audited. There is a rectangle on the floor where it was, and a lanyard, and nobody who will look her in the eye.`],
+    ['They took it while I was out.', 'A spider did this. A sticker, and a spider.'],
+  ),
+  'creator_learned:record': e(
+    (d) => [`Blackbird's three letters come up first on "${d.title}", and then the credits roll, which they do for a number one and nobody else. DESIGNED BY ${String(d.name).toUpperCase()}${d.place ? `, ${d.place}` : ''}. She reads it three times.`, `Number one on "${d.title}" unlocks a screen nobody sees. It has a name on it: ${d.name}, ${d.job}${d.place ? `, last known at ${d.place}` : ''}.`],
+    ['A name. A real person.', 'I should send flowers. Or something.'],
+  ),
+  'creator_learned:override': e(
+    (d) => [`Blackbird opens the back of "${d.title}" with an Override and reads the build's own files. The last commit is signed ${d.name}, ${d.job}${d.place ? `, from ${d.place}` : ''}. She would like to meet them.`, `The Override takes "${d.title}" apart like a pocket watch. At the bottom of the source, a name: ${d.name}. ${d.place ? `A note says where they work: ${d.place}.` : ''}`],
+    ['Never trust a machine with its own source open.', 'There you are.'],
+  ),
+  'creator_learned:pros': e(
+    (d) => [`Blackbird asks the pros about "${d.title}" and the whole row of them goes quiet, then loud. ${d.name}, they say. ${d.job}. Nobody knows where. Everybody has a theory.`, `A champion with a custom stick tells her who made "${d.title}", unprompted, in the voice of someone who has said it in a lot of bad moods. ${d.name}.`],
+    ['A name. That is a start.', 'They all hate them too. It is nice to have company.'],
+  ),
+  'creator_learned:intel': e(
+    (d) => [`An evening of forums, credits, a stranger's cache of old patch notes and a lot of squinting, and Blackbird has it: "${d.title}" was made by ${d.name}, ${d.job}${d.place ? `, who works at ${d.place}` : ''}.`, `The thread about "${d.title}" is eleven years old and furious. Under it, in a reply nobody read, is ${d.name}'s handle and a place: ${d.place ?? 'somewhere'}.`],
+    ['Paper trails are the best trails.', 'Digging pays. Nobody ever tells you that.'],
+  ),
+  'creator_learned:records': e(
+    (d) => [`The registry has a file on "${d.title}", and the file has a name: ${d.name}, ${d.job}${d.place ? `, filed at ${d.place}` : ''}. Blackbird takes a copy and leaves the original, which is the polite thing to do.`, `Out of a drawer that should have been locked comes the licensing record for "${d.title}". ${d.name}. ${d.place ? `A home address, even: ${d.place}.` : ''}`],
+    ['There is always a drawer.', 'Paperwork. The most dangerous thing in Neo.'],
+  ),
+  'creator_located:record': e((d) => [`The credits of "${d.title}" list a studio address after all: ${d.place}. ${d.name} is, as of the last update, still there.`], ['An address. Even better.']),
+  'creator_located:override': e((d) => [`Deeper in the build of "${d.title}", a config file points at ${d.place}. ${d.name} works there.`], ['Developers never clean up after themselves.']),
+  'creator_located:pros': e((d) => [`Someone knows where ${d.name} is. It is ${d.place}.`], ['Somebody always knows.']),
+  'creator_located:intel': e((d) => [`It takes three days of other people's receipts, but Blackbird has ${d.name}'s address: ${d.place}.`], ['An address. Now it is personal.']),
+  'creator_located:records': e((d) => [`The registry has ${d.name}'s home and workplace on the same page. ${d.place}. Blackbird tears the page out, in case.`], ['A neat little page. I will put it to good use.']),
+  // ---- a file taken out of a records office (records.ts)
+  records: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:records': e((d) => [String(d.text)]),
+  // ---- arcades (content/hall*.ts, hallkit.ts): same shape
+  hall: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:hall': e((d) => [String(d.text)]),
+  'intent:hallquick': e((d) => [String(d.text)]),
+  'intent:hallfight': e((d) => [String(d.text)]),
+  'intent:halldeal': e((d) => [String(d.text)]),
   'intent:pawn': e((d) => [String(d.text)]),
   'intent:pawnquick': e((d) => [String(d.text)]),
   'intent:pawnfight': e((d) => [String(d.text)]),
@@ -1841,6 +1896,30 @@ const T: Record<string, Entry> = {
   'goal_note:blown': e((d) => [`Something goes wrong at ${d.place}: a camera, a sound, a heat signature. The quiet part of the plan is over. Blackbird presses on anyway.`], ['Plan B is just plan A, louder.', "Nobody saw anything. Nobody saw anything yet."]),
   'goal_note:bail': e((d) => [`Something goes wrong at ${d.place}. Blackbird, for once, looks at the situation and decides to leave while she can.`], ['Strategic withdrawal. A thing I invented just now.', 'I could stay, but I have a feeling about it. The feeling is "run".']),
   // ====================================================== exploring
+  // ====================================================== getting into a game
+  'goal_new:game_rank': e(
+    (d) => [`Blackbird looks at the board for "${d.title}" and the board looks back. ${cap(String(d.why))}. New objective: ${d.goal}.`, `One more go on "${d.title}" is not a plan, so she makes it one. ${cap(String(d.why))}. New objective: ${d.goal}.`],
+    ['Three letters. Mine. Soon.', 'It is not an obsession if it has a goal.'],
+  ),
+  'goal_new:game_beat': e(
+    (d) => [`The number is on the board at ${d.place}, and it is Blackbird's, and she can do better. ${cap(String(d.why))}. New objective: ${d.goal}.`, `Her own record on "${d.title}" is up there looking smug. ${cap(String(d.why))}. New objective: ${d.goal}.`],
+    ['I am my own toughest competition. It is lonely at the top.', 'The only person I need to beat is me. And the machine.'],
+  ),
+  'goal_new:game_try': e(
+    (d) => [`Blackbird has been through a lot of ${d.place}'s games, but not all of them. ${cap(String(d.why))}. New objective: ${d.goal}.`, `There is a cabinet at ${d.place} she has not touched, and now she cannot stop thinking about it. ${cap(String(d.why))}. New objective: ${d.goal}.`],
+    ['Just one more. They all say that.', 'Variety is the spice of a very expensive hobby.'],
+  ),
+  'goal_new:game_again': e(
+    (d) => (d.mode === 'try'
+      ? [`The record is hers, and the glow lasts about nine minutes. Then: what else is there at ${d.place}? New objective: ${d.goal}.`]
+      : d.mode === 'beat'
+        ? [`Now that her name is up there, Blackbird has to keep it up there, and then do better. ${cap(String(d.why))}. New objective: ${d.goal}.`]
+        : [`A new game, a new board, a new gap with her name's shape. ${cap(String(d.why))}. New objective: ${d.goal}.`]),
+    ['This is how it starts. It has started.', 'One more. I have said that eleven times. This is the twelfth.'],
+  ),
+  'goal_done:record': e((d) => [`BLK, at the top of "${d.title}". Blackbird stares at the three letters for slightly longer than is dignified.`, `The board for "${d.title}" has a new number, and the number is hers. A small crowd at ${d.place} pretends not to have watched.`], ['Told you.', 'That is the best three letters anyone has ever typed.']),
+  'goal_done:tried': e((d) => [`Blackbird has now played something at ${d.place} that she had never played before, and has opinions about it.`], ['New game. Same hands. Different problem.']),
+  'goal_drop:cabinet_gone': e((d) => [`The cabinet for "${d.title}" at ${d.place} is gone. Whatever the plan was, it was for something that no longer exists, and she drops it with a face like a closed lid.`], ['It was right there. It was right there.']),
   'goal_new:explore_idea': e(
     (d) => [d.bored ? `Blackbird has looked at the same four walls for long enough. Somewhere out there is ${d.place}, and she has never been. New objective: ${d.goal}.` : `There is a whole city out there and Blackbird has seen a corner of it. ${cap(String(d.place))} is next. New objective: ${d.goal}.`],
     ['I am not lost. I am sampling.', 'You cannot hit anything you have not found yet.'],
@@ -1917,6 +1996,14 @@ const T: Record<string, Entry> = {
   'shut_down:hub_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. The racks hum on for a minute, and then a regular reaches over and turns them off, one at a time. Someone with a key shows Blackbird to the pavement.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back and the forum is a memorial.`],
     ['That was somebody\'s whole life, in a rack.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
+  'shut_down:hall': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor, nobody is left to mind ${d.place}. Every cabinet goes to attract mode at once, which is worse. Someone pulls the master switch, and a very calm person with a lanyard shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The cabinets are off, the shutter is down and the high scores are, for now, a matter of record.`],
+    ['I closed an arcade. That is a lot of people with nowhere to lose.', 'No more tokens. Terrible for the economy. Good for me, today.'],
+  ),
+  'shut_down:hall_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. The attract screens play on for a minute, bleeping, and then a regular reaches over and switches them off, one at a time. Someone with a key shows Blackbird to the pavement.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, and every high score on the board is, from now on, final.`],
+    ['That is a lot of unfinished games.', 'It was always going to come to this. Not me. Him. Probably.'],
   ),
   'shut_down:clinic': e(
     (d) => [d.inside ? `With ${d.npc} out cold and nobody else qualified to hold a scalpel, ${d.place} locks up. The guards herd Blackbird to the door and the shutters come down on her heels.` : `${d.place} has shut. With ${d.npc} on the floor there is nobody left to hold the scalpel, and the guards have locked the door from the inside.`],

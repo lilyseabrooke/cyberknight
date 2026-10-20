@@ -218,7 +218,9 @@ export function runCheckAs<V extends PlaceView>(kit: Kit<V>, c: Ctx, v: V, id: s
     h.hp = Math.max(1, h.hp - 6);
     tok.trap = kit.trapText ?? 'Something was wired.';
   }
-  sayAs(kit.event, c, `${id}.${win ? 'win' : 'lose'}`, win ? 'good' : 'bad', r.text, r.thought, tok, { place: v.main.name, ...(who ? { npc: who.name } : {}) });
+  // Money won by playing games is tallied (a Calling counts it): any check that leans on Gaming, anywhere, that pays out.
+  const earned = win && k.parts.some((p) => (Array.isArray(p) ? p[0] : p) === 'gaming') && typeof tok.amount === 'number' ? tok.amount : 0;
+  sayAs(kit.event, c, `${id}.${win ? 'win' : 'lose'}`, win ? 'good' : 'bad', r.text, r.thought, tok, { place: v.main.name, ...(who ? { npc: who.name } : {}), ...(earned > 0 ? { earned } : {}) });
   if (r.fight && who) fight(c, [who], { cause: kit.cause, assault: true });
   else if (r.thugs) fight(c, spawnGroup(c, r.thugs[0], r.thugs[1]), { cause: kit.cause });
 }
@@ -227,7 +229,7 @@ export function runCheckAs<V extends PlaceView>(kit: Kit<V>, c: Ctx, v: V, id: s
 export const friendly = (n: Npc): boolean => n.alive && !n.hostile && n.affinity > -25;
 
 /** The room of a place with this id, if it grew one. `tag` names the child-room field ('gymRoom', 'pawnRoom'). */
-export function roomWhere(w: { locations: Record<Id, Location> }, main: Location, tag: 'gymRoom' | 'pawnRoom', room: string): Location | undefined {
+export function roomWhere(w: { locations: Record<Id, Location> }, main: Location, tag: 'gymRoom' | 'pawnRoom' | 'hallRoom', room: string): Location | undefined {
   for (const e of main.exits) {
     const l = w.locations[e.to];
     if (l?.[tag]?.room === room && l[tag]!.main === main.id) return l;

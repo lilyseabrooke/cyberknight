@@ -247,6 +247,7 @@ const FURNISHING: Record<string, { w: [number, number]; h: [number, number]; bas
   hangout: { w: [10, 11], h: [8, 8], base: 1, items: [['sofa', 'sofas', 'a couch', 2, 1, 3, false], ['table', 'table', 'a table', 2, 1, 1, false], ['machine', 'cabinet', 'an arcade cabinet', 1, 1, 1, true, true]] },
   bunks: { w: [9, 10], h: [7, 7], base: 0, items: [['bunk', 'bunks', 'a bunk', 2, 1, 5, false], ['locker', 'footlockers', 'a footlocker', 1, 1, 3, false, true]] },
   workshop: { w: [10, 11], h: [8, 8], base: 1, items: [['vehicle', 'chassis', 'a stripped chassis', 3, 2, 1, true], ['rack', 'benches', 'a tool wall', 3, 1, 2, true, true], ['crate', 'parts', 'a crate of parts', 1, 1, 3, false]] },
+  arcade: { w: [11, 13], h: [8, 8], base: 1, items: [['machine', 'cabinets', 'an arcade cabinet', 1, 1, 6, true, true], ['counter', 'booth', 'the token booth', 3, 1, 1, false, true], ['sofa', 'couch', 'a couch', 2, 1, 1, false]] },
   stash: { w: [7, 8], h: [6, 6], base: 0, items: [['crate', 'stacks', 'a stack of crates', 1, 2, 4, true], ['safe', 'safe', 'a safe', 1, 1, 1, true, true]] },
   den: { w: [9, 10], h: [7, 7], base: 2, items: [['desk', 'desk', 'a heavy desk', 3, 1, 1, false], ['sofa', 'sofa', 'a couch', 2, 1, 1, false], ['locker', 'trophies', 'a trophy case', 1, 2, 1, true, true]] },
   backroom: { w: [7, 8], h: [6, 6], base: 0, items: [['crate', 'kegs', 'a keg', 1, 1, 4, true], ['table', 'table', 'a card table', 2, 1, 1, false]] },
@@ -297,6 +298,7 @@ export function madeLayout(loc: Location, role: string, seed: string, world?: { 
   if (loc.dungeon) return furnished(loc, rng, role);
   if (loc.gymRoom) return gymSideRoom(loc, rng, loc.gymRoom.room) ?? null;
   if (loc.pawnRoom) return furnished(loc, rng, 'stash');
+  if (loc.hallRoom) return furnished(loc, rng, loc.hallRoom.room === 'lounge' ? 'hangout' : loc.hallRoom.room === 'backroom' ? 'arcade' : 'stash');
   const sub = furnished(loc, rng, loc.gen?.role ?? '');
   if (sub) return sub;
   switch (loc.kind) {
@@ -305,6 +307,7 @@ export function madeLayout(loc: Location, role: string, seed: string, world?: { 
     case 'pawn': return shopRoom(loc, rng, true);
     case 'chop': return shopRoom(loc, rng, false);
     case 'hub': return shopRoom(loc, rng, false);
+    case 'gamehall': return furnished(loc, rng, 'arcade');
     case 'realty': return shopRoom(loc, rng, false);
     case 'clinic': return clinicRoom(loc, rng);
     case 'gym': return gymRoom(loc, rng);

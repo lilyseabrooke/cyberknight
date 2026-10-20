@@ -34,7 +34,7 @@ export function depth(w: World, g: Goal): number {
 }
 
 export const hasGoal = (w: World, kind: Goal['kind'], subject?: string): boolean =>
-  w.mind.goals.some((g) => g.kind === kind && (subject === undefined || g.npc === subject || g.ware === subject || g.loc === subject));
+  w.mind.goals.some((g) => g.kind === kind && (subject === undefined || g.npc === subject || g.ware === subject || g.game === subject || g.loc === subject));
 
 /**
  * Cooldowns come in two kinds. `cool` counts beats, for pacing her own decisions ("don't ask again for 25 more choices").
@@ -56,7 +56,7 @@ export function isHeld(w: World, g: Goal): boolean {
 }
 
 /** The subject a goal is about, for deduping and cooldowns. */
-export const subjectOf = (g: Goal): string => g.npc ?? g.ware ?? g.loc ?? String(g.amount ?? '');
+export const subjectOf = (g: Goal): string => g.npc ?? g.ware ?? g.game ?? g.loc ?? String(g.amount ?? '');
 
 /** How much she wants it now, 0..1: her own desire, or her parent's if she's only doing this for them. Frustration saps it. */
 export function priority(w: World, g: Goal): number {

@@ -189,8 +189,10 @@ function laserTag(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   h.cash -= 15;
-  const p = clamp(0.3 + h.reflex * 0.03 + 0.06 * synergy(h, ['marksmanship', ['stat:reflex', 0.5]]) - h.drunk * 0.04, 0.1, 0.9);
+  // (Gaming helps a little, added on its own rather than as a factor, so nobody is shut out of the league for never having played.)
+  const p = clamp(0.3 + h.reflex * 0.03 + 0.06 * synergy(h, ['marksmanship', ['stat:reflex', 0.5]]) + 0.03 * synergy(h, ['gaming', ['stat:reflex', 0.5]]) - h.drunk * 0.04, 0.1, 0.9);
   train(c, 'marksmanship', 2);
+  train(c, 'gaming', 0.6);
   if (rng.chance(p)) {
     const prize = rng.int(15, 45);
     h.cash += prize;
@@ -199,9 +201,9 @@ function laserTag(c: Ctx): void {
     if (w.counters.league === 3) {
       h.fame += 3;
       acquire(c, makeItem('champ_vest'));
-      c.emit('laser_tag', 'good', { variant: 'champion', amount: prize });
+      c.emit('laser_tag', 'good', { variant: 'champion', amount: prize, earned: prize });
     } else {
-      c.emit('laser_tag', 'good', { variant: 'win', amount: prize, wins: w.counters.league });
+      c.emit('laser_tag', 'good', { variant: 'win', amount: prize, wins: w.counters.league, earned: prize });
     }
   } else if (rng.chance(0.25)) {
     c.emit('laser_tag', 'bad', { variant: 'cheat' });

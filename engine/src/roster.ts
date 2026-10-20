@@ -9,6 +9,7 @@ import { gymRoster } from './content/gyms';
 import { pawnRoster } from './content/pawns';
 import { chopRoster } from './content/chops';
 import { hubRoster } from './content/hubs';
+import { hallRoster } from './content/halls';
 import type { Id, Location, Npc, World } from './types';
 
 /**
@@ -86,6 +87,7 @@ export const ROSTERS: Record<Location['kind'], SlotDef[]> = {
   realty: [{ role: 'realtor', count: [1, 1], resident: true }],
   pawn: [], // so do a pawn shop's; see pawnRoster in content/pawns.ts
   hub: [], // a hub's people depend on what it is; see hubRoster in content/hubs.ts
+  gamehall: [], // an arcade's depend on what it is and which room this is; see hallRoster in content/halls.ts
   chop: [], // and a chop shop's: the door depends on the shop; see chopRoster in content/chops.ts
 };
 
@@ -130,7 +132,8 @@ export function populate(w: World, loc: Location): Npc[] {
   if (loc.road === 'highway') return []; // nobody lives on a highway
   const info = loc.gym ?? (loc.gymRoom ? w.locations[loc.gymRoom.main]?.gym : undefined);
   const pinfo = loc.pawn ?? (loc.pawnRoom ? w.locations[loc.pawnRoom.main]?.pawn : undefined);
-  const roster = loc.kind === 'gym' ? (info ? gymRoster(loc, info) : []) : loc.kind === 'pawn' ? (pinfo ? pawnRoster(loc, pinfo) : []) : loc.kind === 'chop' ? (loc.chop ? chopRoster(loc, loc.chop) : []) : loc.kind === 'hub' ? (loc.hub ? hubRoster(loc, loc.hub) : []) : ROSTERS[loc.kind] ?? [];
+  const hinfo = loc.gamehall ?? (loc.hallRoom ? w.locations[loc.hallRoom.main]?.gamehall : undefined);
+  const roster = loc.kind === 'gamehall' ? (hinfo ? hallRoster(loc, hinfo) : []) : loc.kind === 'gym' ? (info ? gymRoster(loc, info) : []) : loc.kind === 'pawn' ? (pinfo ? pawnRoster(loc, pinfo) : []) : loc.kind === 'chop' ? (loc.chop ? chopRoster(loc, loc.chop) : []) : loc.kind === 'hub' ? (loc.hub ? hubRoster(loc, loc.hub) : []) : ROSTERS[loc.kind] ?? [];
   const here: Npc[] = [];
   roster.forEach((slot, si) => {
     if (slot.minSecurity !== undefined && loc.security < slot.minSecurity) return;
