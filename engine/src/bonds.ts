@@ -154,7 +154,7 @@ export function leaveOdds(w: World, n: Npc): number {
   const h = heartOf(w, n);
   if (!h.partner) return 1;
   const hero = w.hero;
-  const p = 0.02 + 0.22 * (1 - h.loyal) + 0.18 * (1 - h.content) + 0.1 * h.spark + clamp(n.affinity, -40, 60) / 500 + hero.charm * 0.005 + 0.03 * synergy(hero, ['romance', 'stat:charm']) - Math.min(0.2, Math.max(0, ageGap(n) - 12) * 0.01);
+  const p = 0.029 + 0.22 * (1 - h.loyal) + 0.18 * (1 - h.content) + 0.1 * h.spark + clamp(n.affinity, -40, 60) / 500 + hero.charm * 0.005 + 0.03 * synergy(hero, ['romance', 'stat:charm']) - Math.min(0.2, Math.max(0, ageGap(n) - 12) * 0.01);
   return clamp(p, 0.02, 0.65);
 }
 

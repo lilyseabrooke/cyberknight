@@ -388,7 +388,7 @@ export function playOne(c: Ctx, v: HallView, feature: string, text: PlayTexts, o
   tok.pay = cab.price;
   const syn = cabSkill(w, cab);
   const rigged = v.info.wild === 'rigged';
-  const p = odds(0.34, 0.06, syn, 0.04, 0.9) + (o.bonus ?? 0) - (cab.legal === 'bootleg' ? 0.06 : 0) - (rigged ? 0.1 : 0) + (cab.price === 0 ? 0.04 : 0);
+  const p = odds(0.365, 0.06, syn, 0.04, 0.9) + (o.bonus ?? 0) - (cab.legal === 'bootleg' ? 0.06 : 0) - (rigged ? 0.1 : 0) + (cab.price === 0 ? 0.04 : 0);
   const good = rng.chance(Math.max(0.03, Math.min(0.95, p)));
   const pRecord = Math.max(0.01, Math.min(0.8, 0.1 + 0.05 * (syn - cab.top / 2)));
   const record = good && rng.chance(pRecord);
@@ -455,7 +455,7 @@ export function jailbreak(c: Ctx, v: HallView, feature: string, text: WinLose): 
   const cab = cabAt(w, v, feature);
   if (!playable(cab) || cab.legal !== 'muse') return;
   const dongle = h.inventory.some((i) => i.id === 'debug_dongle');
-  const p = odds(0.28, 0.06, synergy(h, ['tinkering', ['gaming', 0.7], ['stat:int', 0.5]]), 0.04, 0.9) + (dongle ? 0.2 : 0);
+  const p = odds(0.308, 0.06, synergy(h, ['tinkering', ['gaming', 0.7], ['stat:int', 0.5]]), 0.04, 0.9) + (dongle ? 0.2 : 0);
   const tok = { hall: v.main.name, ...tokOf(cab), owner: keeper(v)?.name ?? 'the owner' };
   if (rng.chance(p)) {
     stateOf(v.main, cab.key).legal = 'bootleg';
@@ -481,7 +481,7 @@ export function forge(c: Ctx, v: HallView, feature: string, text: WinLose): void
   const cab = cabAt(w, v, feature);
   if (!playable(cab) || cab.legal !== 'bootleg') return;
   const sticker = h.inventory.findIndex((i) => i.id === 'fun_sticker');
-  const q = Math.max(0.1, Math.min(0.95, odds(0.2, 0.05, synergy(h, ['art', ['sleight', 0.6], ['perception', 0.3]]), 0, 1) + (sticker >= 0 ? 0.3 : 0)));
+  const q = Math.max(0.1, Math.min(0.95, odds(0.23, 0.05, synergy(h, ['art', ['sleight', 0.6], ['perception', 0.3]]), 0, 1) + (sticker >= 0 ? 0.3 : 0)));
   const tok = { hall: v.main.name, ...tokOf(cab) };
   if (sticker >= 0) h.inventory.splice(sticker, 1);
   if (rng.chance(0.3 + q * 0.6)) {
@@ -500,7 +500,7 @@ export function hide(c: Ctx, v: HallView, feature: string, text: WinLose): void 
   const h = w.hero;
   const cab = cabAt(w, v, feature);
   if (!playable(cab) || cab.legal !== 'bootleg') return;
-  const p = odds(0.5, 0.05, synergy(h, [['sneak', 0.5], ['stat:muscle', 0.5], ['tinkering', 0.3]]), 0.1, 0.95);
+  const p = odds(0.518, 0.05, synergy(h, [['sneak', 0.5], ['stat:muscle', 0.5], ['tinkering', 0.3]]), 0.1, 0.95);
   const tok = { hall: v.main.name, ...tokOf(cab) };
   if (rng.chance(p)) {
     stateOf(v.main, cab.key).hidden = v.audit ? v.audit.end : w.clock + 4 * 60;
@@ -518,7 +518,7 @@ export function stripBoard(c: Ctx, v: HallView, feature: string, text: WinLose):
   const h = w.hero;
   const cab = cabAt(w, v, feature);
   if (!cab || !(cab.wrecked || v.room === 'cellar')) return;
-  const p = odds(0.45, 0.06, synergy(h, ['tinkering', ['scavenging', 0.6]]), 0.1, 0.92);
+  const p = odds(0.486, 0.06, synergy(h, ['tinkering', ['scavenging', 0.6]]), 0.1, 0.92);
   const tok = { hall: v.main.name, ...tokOf(cab) };
   if (rng.chance(p)) {
     acquire(c, makeItem('cracked_board'));

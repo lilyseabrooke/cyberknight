@@ -1,6 +1,6 @@
 import type { Ctx, World } from './types';
 import { clamp } from './candidate';
-import { skillLevel, train } from './skills';
+import { skillLevel, train, skillRoot } from './skills';
 import { workingCameras } from './witness';
 
 /**
@@ -10,7 +10,7 @@ import { workingCameras } from './witness';
  */
 export function overrideChance(w: World, base: number, perInt = 0.06, perTinker = 0.03): number {
   const h = w.hero;
-  return clamp(base + h.int * perInt + skillLevel(h, 'tinkering') * perTinker, 0.1, 0.9);
+  return clamp(base + h.int * perInt + skillRoot(h, 'tinkering') * perTinker, 0.1, 0.9);
 }
 
 /** Beats a downed camera stays down. */

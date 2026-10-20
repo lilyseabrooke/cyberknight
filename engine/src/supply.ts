@@ -13,7 +13,7 @@ import { focusFoe, routeTo } from './plans';
 import { everyoneAt } from './population';
 import { isShut } from './shutdown';
 import { addAmmo, ammoOf, gunsOwned, isArm, medPacks, medStock, shotsLeft, wielded } from './arms';
-import { skillLevel, train } from './skills';
+import { skillLevel, train, skillRoot } from './skills';
 import { healUrge } from './urges';
 import { isFairGame } from './people';
 
@@ -26,7 +26,7 @@ import { isFairGame } from './people';
 const present = (n: Npc | undefined, w: World): n is Npc => !!n && n.alive && !n.hostile && n.locationId === w.hero.locationId && n.downUntil <= w.clock;
 
 /** Haggling shaves up to 30% off. */
-export const price = (h: Hero, base: number): number => Math.max(1, Math.round(base * (1 - Math.min(0.3, skillLevel(h, 'haggling') * 0.03))));
+export const price = (h: Hero, base: number): number => Math.max(1, Math.round(base * (1 - Math.min(0.3, skillRoot(h, 'haggling') * 0.03))));
 
 const stimDef = (it: Item): StimDef | undefined => STIMS[it.id];
 const activeStims = (h: Hero, beat: number) => h.buffs.filter((b) => b.id.startsWith('stim:') && b.until > beat);

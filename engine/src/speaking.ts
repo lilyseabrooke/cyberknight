@@ -20,12 +20,12 @@ import { addGoal, goalOf, oddsWith, phrasing, wishes, type Wish } from './influe
  * - To the people who have come for her: talking them down, if she is good enough to dare.
  */
 const ODDS = {
-  stump: (h: Hero) => odds(0.2, 0.065, synergy(h, ['speaking', ['streetwise', 0.3], ['stat:charm', 0.6]])),
-  rally: (h: Hero) => odds(0.3, 0.07, synergy(h, ['speaking', ['stat:charm', 0.6], ['stat:int', 0.2]])),
+  stump: (h: Hero) => odds(0.227, 0.065, synergy(h, ['speaking', ['streetwise', 0.3], ['stat:charm', 0.6]])),
+  rally: (h: Hero) => odds(0.323, 0.07, synergy(h, ['speaking', ['stat:charm', 0.6], ['stat:int', 0.2]])),
 };
 
 /** Talking a crowd round, from a billboard, on a good day. */
-const billboardOdds = (h: Hero): number => odds(0.35, 0.07, synergy(h, ['speaking', ['streetwise', 0.3], ['stat:charm', 0.6]]));
+const billboardOdds = (h: Hero): number => odds(0.379, 0.07, synergy(h, ['speaking', ['streetwise', 0.3], ['stat:charm', 0.6]]));
 /** How good she has to be before she grabs the mic when she has hijacked a billboard. */
 export const BILLBOARD_SPEECH_LEVEL = 12;
 
@@ -185,7 +185,7 @@ export function talkDown(c: Ctx, foes: Npc[]): boolean {
   const lead = live[0]!;
   const law = live.some((f) => f.tags.some((t) => ['cop', 'security'].includes(t)));
   const outmatched = live.reduce((a, f) => a + f.level, 0) / live.length - h.level;
-  const p = clamp(odds(0.06, 0.05, synergy(h, ['speaking', ['stat:charm', 0.6], ['stat:int', 0.2]])) / (1 + 0.2 * (live.length - 1)) * (law ? 0.7 : 1) - 0.04 * Math.max(0, outmatched), 0.03, 0.65);
+  const p = clamp(odds(0.077, 0.05, synergy(h, ['speaking', ['stat:charm', 0.6], ['stat:int', 0.2]])) / (1 + 0.2 * (live.length - 1)) * (law ? 0.7 : 1) - 0.04 * Math.max(0, outmatched), 0.03, 0.65);
   const data = { npc: lead.name, count: live.length };
   if (rng.chance(p)) {
     const great = rng.chance(0.3);

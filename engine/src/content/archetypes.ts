@@ -323,6 +323,12 @@ export const ARCHETYPES: Record<string, ArchetypeDef> = {
     loot: ['credchip', 'med_pack'], lootChance: 0.4, cash: [30, 90],
     desc: ['a Neo Protective Division officer in full riot kit'],
   },
+  star_security: {
+    role: 'private security', level: [4, 5], tags: ['security', 'augmented'], faction: null,
+    names: 'person', weapons: ['riot_shotgun', 'service_pistol'], armors: ['riot_vest'], armorChance: 0.8,
+    loot: ['credchip'], lootChance: 0.4, cash: [30, 90],
+    desc: ['a very well-dressed private security officer, hired by someone with a lawyer, carrying a letter and a shotgun'],
+  },
   npd_sergeant: {
     role: 'NPD sergeant', level: [7, 7], tags: ['cop', 'security', 'augmented', 'strong'], faction: 'npd',
     names: 'person', weapons: ['gauss_smg'], armors: ['riot_vest'], armorChance: 1,
@@ -685,6 +691,7 @@ const PEOPLE: Record<string, PersonSpec> = {
   street_kid: { age: [18, 26] },
   damsel: { women: 1, age: [20, 36] },
   npd_officer: { age: [24, 56] },
+  star_security: { age: [24, 52] },
   npd_sergeant: { age: [38, 60] },
   shopkeeper: { age: [26, 68] },
   realtor: { age: [28, 60] },

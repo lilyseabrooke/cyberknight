@@ -4,7 +4,7 @@ import { acquire, addHeat, fight, here, relocate, remember } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
 import { makeItem } from './content/items';
 import { ODDS } from './hobbies';
-import { odds, skillLevel, synergy, train } from './skills';
+import { odds, skillLevel, synergy, train, skillRoot } from './skills';
 import { scoutSaves } from './extras';
 import { kindle } from './romance';
 
@@ -153,7 +153,7 @@ export function vandalCops(c: Ctx): void {
   if (scoutSaves(c)) return;
   const cops = spawnGroup(c, 'npd_officer', rng.int(1, 2));
   c.emit('vandal', 'bad', { variant: 'scene', count: cops.length });
-  const runOdds = odds(0.3, 0.05, synergy(h, ['athletics', ['stat:reflex', 0.5]])) + 0.02 * h.reflex;
+  const runOdds = odds(0.32, 0.05, synergy(h, ['athletics', ['stat:reflex', 0.5]])) + 0.02 * h.reflex;
   if (rng.chance(clamp(runOdds, 0.1, 0.85))) {
     for (const k of cops) k.alive = false;
     addHeat(w, 'npd', 1);
@@ -177,7 +177,7 @@ function buyPaint(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const clerk = w.npcs.clerk!;
-  const cost = Math.max(5, Math.round(rng.int(12, 20) * (1 - Math.min(0.3, skillLevel(h, 'haggling') * 0.03))));
+  const cost = Math.max(5, Math.round(rng.int(12, 20) * (1 - Math.min(0.3, skillRoot(h, 'haggling') * 0.03))));
   h.cash -= Math.min(h.cash, cost);
   w.counters.paint_stock = stock(w) - 1;
   giveCan(h, 5);
@@ -190,7 +190,7 @@ function seduceClerk(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const clerk = w.npcs.clerk!;
-  const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + clerk.affinity / 200, 0.05, 0.9);
+  const p = clamp(0.293 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + clerk.affinity / 200, 0.05, 0.9);
   train(c, 'romance', 1);
   kindle(h, 0.04);
   if (rng.chance(p)) {
@@ -211,7 +211,7 @@ function threatenClerk(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const clerk = w.npcs.clerk!;
-  const p = clamp(0.25 + h.muscle * 0.02 + 0.05 * synergy(h, ['intimidation', ['stat:muscle', 0.5]]) - clerk.level * 0.05, 0.08, 0.9);
+  const p = clamp(0.27 + h.muscle * 0.02 + 0.05 * synergy(h, ['intimidation', ['stat:muscle', 0.5]]) - clerk.level * 0.05, 0.08, 0.9);
   train(c, 'intimidation', 1);
   if (rng.chance(p)) {
     const n = Math.min(3, stock(w));
@@ -248,7 +248,7 @@ function shoplift(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
   const clerk = w.npcs.clerk!;
-  const p = clamp(0.3 + 0.05 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + h.reflex * 0.02, 0.08, 0.88);
+  const p = clamp(0.32 + 0.05 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + h.reflex * 0.02, 0.08, 0.88);
   train(c, 'sleight', 1);
   if (rng.chance(p)) {
     const n = rng.int(1, 2);

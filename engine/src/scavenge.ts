@@ -48,7 +48,7 @@ export function scavenge(c: Ctx, loc: Location, spot: string, tier: number): voi
   const { w, rng } = c;
   const h = w.hero;
   const def = spotParts(spot);
-  const win = rng.chance(odds(0.75, 0.04, synergy(h, ['scavenging', ['stat:int', 0.3]]), 0.4, 0.95));
+  const win = rng.chance(odds(0.768, 0.04, synergy(h, ['scavenging', ['stat:int', 0.3]]), 0.4, 0.95));
   const picks = win ? 2 + Math.round(def.rich) + rng.int(0, 1) : 1;
   const ids = Object.keys(def.weights);
   const got: Bill = {};

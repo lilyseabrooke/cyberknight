@@ -44,11 +44,11 @@ describe('layered skills', () => {
   it('related skill makes a new skill better than it would have been alone', () => {
     const alone = hero({ music: 0, guitar: 18 }); // guitar 3, no music
     const trained = hero({ music: 128, guitar: 18 }); // guitar 3, music 8
-    const aloneVal = skillValue(alone.hero, 'guitar');
+    const aloneVal = Math.sqrt(skillValue(alone.hero, 'guitar')); // (skills enter the blend as their square roots)
     const syn = synergy(trained.hero, ['guitar', 'music']);
     expect(synergy(alone.hero, ['guitar', 'music'])).toBe(0);
     expect(syn).toBeGreaterThan(aloneVal);
-    expect(syn).toBeCloseTo(Math.sqrt(3 * 8), 5);
+    expect(syn).toBeCloseTo(Math.sqrt(Math.sqrt(3) * Math.sqrt(8)), 5);
   });
 
   it('is monotonic in every factor and normalised to the 0..10 scale', () => {
@@ -65,7 +65,7 @@ describe('layered skills', () => {
     const w = hero({ guitar: 72 }, { charm: 0 });
     expect(synergy(w.hero, ['guitar', 'stat:charm'])).toBe(0);
     w.hero.charm = 6;
-    expect(synergy(w.hero, ['guitar', 'stat:charm'])).toBeCloseTo(6, 5);
+    expect(synergy(w.hero, ['guitar', 'stat:charm'])).toBeCloseTo(Math.sqrt(Math.sqrt(6) * 6), 5);
   });
 
   it('training spills into related skills (guitar nudges music; pool nudges throwing)', () => {

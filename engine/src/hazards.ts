@@ -3,7 +3,7 @@ import type { Ctx, Location, Npc, World } from './types';
 import { addHeat, fight, heroPower, maybeInjure } from './combat';
 import { clamp, spawnGroup } from './candidate';
 import { BARKS, TRAPS, barkOf, rollHazards } from './content/hazards';
-import { skillLevel, train } from './skills';
+import { skillLevel, train, skillRoot } from './skills';
 import { renameNpc } from './population';
 
 /**
@@ -30,7 +30,7 @@ function meetDogs(c: Ctx, home: Location, dogs: NonNullable<Location['hazards']>
   const rank = BARKS.indexOf(bark);
   const data = { place: home.name, model: `BARK-${bark.model}`, count: dogs.count };
   // They are machines that listen for a living; the better ones hear a great deal.
-  const heard = clamp(0.3 + 0.1 * rank - skillLevel(h, 'sneak') * 0.05, 0.1, 0.95);
+  const heard = clamp(0.33 + 0.1 * rank - skillRoot(h, 'sneak') * 0.05, 0.1, 0.95);
   if (!rng.chance(heard)) {
     c.emit('home_hazard', 'good', { variant: 'dogs_slip', ...data });
     dogs.cleared = true; // they never woke; they won't now
@@ -63,10 +63,10 @@ function meetTrap(c: Ctx, home: Location, trap: NonNullable<Location['hazards']>
   const h = w.hero;
   const def = TRAPS[trap.kind]!;
   const data = { place: home.name, trap: trap.kind };
-  const spot = clamp(0.3 + skillLevel(h, 'sneak') * 0.05 + h.int * 0.03 + h.competence * 0.1, 0.1, 0.9);
+  const spot = clamp(0.33 + skillRoot(h, 'sneak') * 0.05 + h.int * 0.03 + h.competence * 0.1, 0.1, 0.9);
   if (rng.chance(spot)) {
     // A turret is a computer: it is her hacking that talks it down, not her lockpicks.
-    const skill = trap.kind === 'sentry_turret' ? h.int * 0.08 : skillLevel(h, 'lockpicking') * 0.04 + h.int * 0.02;
+    const skill = trap.kind === 'sentry_turret' ? h.int * 0.08 : 0.025 + skillRoot(h, 'lockpicking') * 0.04 + h.int * 0.02;
     if (rng.chance(clamp(def.disarm + skill, 0.1, 0.9))) {
       c.emit('home_hazard', 'good', { variant: 'trap_disarmed', ...data });
       train(c, trap.kind === 'sentry_turret' ? 'tinkering' : 'lockpicking', 2);

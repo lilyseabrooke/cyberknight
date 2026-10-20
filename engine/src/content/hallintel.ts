@@ -66,7 +66,7 @@ export const INTEL: Affordance<HallView>[] = [
     run: (c, v, f) => {
       const w = c.w;
       w.hero.cash -= 6;
-      const p = odds(0.4, 0.06, synergy(w.hero, ['streetwise', ['stat:charm', 0.6], ['persuasion', 0.5]]), 0.05, 0.9);
+      const p = odds(0.426, 0.06, synergy(w.hero, ['streetwise', ['stat:charm', 0.6], ['persuasion', 0.5]]), 0.05, 0.9);
       train(c, 'streetwise', 1);
       ask(c, v, f!, 'pros', p,
         ['Blackbird buys {npc} a round of tokens and asks about "{title}". They tell her everything: the frame data, the one cheap trick, the name of the person who made it. They say the name like a curse.', 'At {hall}, a champion, a streamer and a man who has not been to the toilet since Tuesday explain who is to blame for "{title}". They agree on a name. It is the first thing they have agreed on all year.'],
@@ -85,7 +85,7 @@ export const INTEL: Affordance<HallView>[] = [
     ok: (w, v, f) => open(w, v) && !!f && !!target(w, v, f) && !knowsWhere(w, target(w, v, f)!.gid),
     run: (c, v, f) => {
       const w = c.w;
-      const p = odds(0.3, 0.06, synergy(w.hero, ['analyze', ['stat:int', 0.6], ['perception', 0.4], ['tracking', 0.3]]), 0.05, 0.9);
+      const p = odds(0.327, 0.06, synergy(w.hero, ['analyze', ['stat:int', 0.6], ['perception', 0.4], ['tracking', 0.3]]), 0.05, 0.9);
       train(c, 'analyze', 1);
       ask(c, v, f!, 'intel', p,
         ['An evening on the terminal at {hall}: the credits of "{title}", a forum thread from before the Fall and a stranger\'s cache of patch notes. By midnight she has it.', 'Blackbird pieces "{title}" together from three bad scans and a stranger\'s grudge. The last page of the manual has a name on it, a very small one.'],
