@@ -21,7 +21,7 @@ import { graffitiCandidates } from './graffiti';
 import { gymCandidates } from './gym';
 import { pawnCandidates } from './pawn';
 import { realtyCandidates, realtyPull } from './realty';
-import { crewCandidates } from './crew';
+import { crewCandidates, crewPull } from './crew';
 import { benchUrge, chopCandidates } from './chop';
 import { hubCandidates, hubUrge } from './hub';
 import { partsUrge, scavengeCandidates } from './scavenge';
@@ -269,7 +269,8 @@ export function gather(w: World): Candidate[] {
     const urge = { bonus: supply.bonus + need.bonus + bench.bonus + hub.bonus + scrap.bonus, smart: supply.smart + need.smart + bench.smart + hub.smart + scrap.smart };
     const bank = bankPull(w, e.to);
     const homes = realtyPull(w, e.to);
-    const pull = { bonus: bank.bonus + homes.bonus, smart: bank.smart + homes.smart };
+    const crew = crewPull(w, e.to);
+    const pull = { bonus: bank.bonus + homes.bonus + crew.bonus, smart: bank.smart + homes.smart + crew.smart };
     out.push({
       key: `go:${e.to}`,
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },

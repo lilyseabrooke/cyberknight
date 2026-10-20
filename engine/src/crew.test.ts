@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { scenario } from './testkit';
 import { MAX_COMPANIONS, addCompanion, assistOf, gainCompanionXp, levelOf, newCompanion, slotsFree } from './companions';
-import { berthsOf, crewOf, tickCrews } from './crew';
+import { berthsOf, crewOf, crewPull, tickCrews } from './crew';
 import { deedsOf } from './deeds';
 import { beginRun, endRun, newUniverse } from './universe';
 import type { Deed } from './types';
@@ -157,3 +157,62 @@ describe('stationing companions at a home', () => {
   });
 });
 
+
+describe('the draw back home', () => {
+  /** She stands one door from a home of hers; returns the way there. */
+  function nearHome(kind: 'pod' | 'townhouse' = 'pod') {
+    const { s, deed } = atHome(kind);
+    const there = deed.home;
+    const door = s.w.locations[there]!.exits.find((e) => !e.hidden && s.w.locations[e.to])!.to;
+    s.w.hero.locationId = door;
+    return { s, deed, there, door };
+  }
+
+  it('pulls her home for a stash worth the trip, not for pocket change', () => {
+    const { s, deed, there } = nearHome();
+    const a = newCompanion('drone', 'Buzz');
+    for (let i = 0; i < MAX_COMPANIONS; i++) s.w.hero.companions.push(newCompanion('kids', `Kid${i}`)); // no hand free to recall
+    deed.crew = [{ comp: a, job: 'skim', since: s.w.clock, stash: { cash: 5, parts: {} } }];
+    expect(crewPull(s.w, there).bonus).toBe(0);
+    deed.crew[0]!.stash.cash = 120;
+    expect(crewPull(s.w, there).bonus).toBeGreaterThan(0.3);
+  });
+
+  it('pulls her home to store somebody when the party is full, and only if there is a berth', () => {
+    const { s, deed, there } = nearHome();
+    for (let i = 0; i < MAX_COMPANIONS; i++) s.w.hero.companions.push(newCompanion('kids', `Kid${i}`));
+    expect(crewPull(s.w, there).bonus).toBeGreaterThan(0.3);
+    deed.crew = [{ comp: newCompanion('drone', 'Buzz'), job: 'skim', since: s.w.clock, stash: { cash: 0, parts: {} } }];
+    expect(crewPull(s.w, there).bonus).toBe(0);
+  });
+
+  it('pulls her home for her people when she is short-handed, once they have settled in', () => {
+    const { s, deed, there } = nearHome('townhouse');
+    const a = newCompanion('drone', 'Buzz');
+    deed.crew = [{ comp: a, job: 'skim', since: s.w.clock, posted: s.w.clock, stash: { cash: 0, parts: {} } }];
+    expect(crewPull(s.w, there).bonus).toBe(0); // she only just left them
+    s.w.clock += 5 * 60;
+    expect(crewPull(s.w, there).bonus).toBeGreaterThan(0.3);
+  });
+
+  it('does not pull her toward a home that is not on the way, or when she is already there', () => {
+    const { s, deed, door } = nearHome();
+    deed.crew = [{ comp: newCompanion('drone', 'Buzz'), job: 'skim', since: s.w.clock, stash: { cash: 500, parts: {} } }];
+    expect(crewPull(s.w, door).bonus).toBe(0);
+    s.w.hero.locationId = deed.home;
+    expect(crewPull(s.w, deed.home).bonus).toBe(0);
+  });
+
+  it('swaps a weak companion for a much better one posted at a full home', () => {
+    const { s, deed } = atHome('pod');
+    const weak = join(s, 'puppy', 'Rex');
+    for (let i = 0; i < 2; i++) join(s, 'kids', `Kid${i}`);
+    const star = newCompanion('drone', 'Buzz');
+    star.level = 20;
+    deed.crew = [{ comp: star, job: 'skim', since: s.w.clock, posted: 0, stash: { cash: 0, parts: {} } }];
+    s.do(`swap_ally:${weak.id}:${star.id}`);
+    expect(s.w.hero.companions).toContain(star);
+    expect(s.w.hero.companions).not.toContain(weak);
+    expect(crewOf(deed).map((x) => x.comp)).toEqual([weak]);
+  });
+});

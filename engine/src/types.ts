@@ -107,6 +107,8 @@ export interface Stationed {
   job: string;
   /** World clock when their work was last counted. */
   since: number;
+  /** World clock when she posted them; absent means long ago. */
+  posted?: number;
   /** What they have made and are holding for her: neodollars, and parts by id. */
   stash: { cash: number; parts: Record<string, number> };
 }
