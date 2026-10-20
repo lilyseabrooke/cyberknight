@@ -11,8 +11,9 @@ import { addNpc, moveNpc } from './population';
 import { hasTemplate } from './text';
 import { SKILLS } from './content/skills';
 import { skillLevel } from './skills';
-import { STARS, activeDisguise, canPass, coverEase, coverFor, crewTag, disguiseTick, entranceCrew, holdOdds, shownFame } from './disguise';
-import type { Disguise, Location, World } from './types';
+import { mindTick } from './goals';
+import { STARS, TIRED, activeDisguise, bestStar, bluffEase, buzz, blow, disguiseTick as tick0, canPass, coverEase, coverFor, crewTag, disguiseTick, entranceCrew, holdOdds, shownFame } from './disguise';
+import type { Disguise, Goal, Location, World } from './types';
 
 /** A dungeon of this kind and tier on a street near the Halo, with Blackbird standing outside its door. */
 function door(kind: 'outpost' | 'hideout', tier = 1, seed = `dis-${kind}-${tier}`): { sc: Scenario; w: World; entrance: Location; id: string } {
@@ -262,7 +263,7 @@ describe('passing for someone famous', () => {
     const ev = sc.do(`star_flirt:${other.id}`, rolls(0.9, 0));
     expect(ev.some((e) => e.type === 'disguise_blown' && e.data.variant === 'star')).toBe(true);
     expect(w.hero.disguise).toBeUndefined();
-    expect(girl.affinity).toBe(happy - 12);
+    expect(girl.affinity).toBe(happy - 14); // (12 for being lied to, 2 for being in the room when it came out)
     expect(girl.memories.some((m) => m.includes('lied to'))).toBe(true);
   });
 
@@ -292,5 +293,157 @@ describe('passing for someone famous', () => {
   it('is a skill she can get better at', () => {
     const { w } = crowd();
     expect(skillLevel(w.hero, 'acting')).toBe(0);
+  });
+});
+
+describe('what impersonating a star costs', () => {
+  function bar(seed = 'cost'): { sc: Scenario; w: World; girl: ReturnType<typeof spawnNpc> } {
+    const sc = scenario({ seed, at: 'halo_floor' });
+    const girl = spawnNpc(new Rng('g'), 'cost_girl', 'patron', sc.w.hero.locationId, { name: 'Cost Girl', gender: 'woman', age: 28 });
+    addNpc(sc.w, girl);
+    return { sc, w: sc.w, girl };
+  }
+
+  it('every wearing of a face is talked about, and she picks a different one next time', () => {
+    const { sc, w } = bar();
+    const first = bestStar(w).star;
+    expect(buzz(w, first.name)).toBe(0);
+    sc.do('don_star', always());
+    expect(w.hero.disguise!.label).toBe(first.name);
+    expect(buzz(w, first.name)).toBe(1);
+    // the talk dies down with the world clock
+    const fresh = buzz(w, first.name);
+    w.clock += 1440;
+    expect(buzz(w, first.name)).toBeCloseTo(fresh / 2, 5);
+    w.clock -= 1440;
+    expect(bestStar(w).star.name).not.toBe(first.name);
+  });
+
+  it('a face people have been talking about is harder to carry', () => {
+    const { w } = bar('hard');
+    const s = bestStar(w);
+    const polish0 = s.polish;
+    w.counters[`buzz_${s.star.name.toLowerCase().replace(/[^a-z]+/g, '_')}`] = 3;
+    w.counters[`buzz_at_${s.star.name.toLowerCase().replace(/[^a-z]+/g, '_')}`] = w.clock;
+    expect(bestStar(w).polish).toBeLessThanOrEqual(polish0);
+    expect(buzz(w, s.star.name)).toBe(3);
+  });
+
+  it('being found out as a star costs her face, and a repeat offender gets a bill', () => {
+    const { sc, w } = bar('bill');
+    w.hero.fame = 5;
+    w.hero.cash = 500;
+    sc.do('don_star', always());
+    const name = w.hero.disguise!.label;
+    const first = sc.run((c) => blow(c, 'recognized', { npc: 'Fan' }));
+    expect(first.some((e) => e.type === 'star_scandal' && e.data.variant === 'mocked')).toBe(true);
+    expect(w.hero.fame).toBe(4);
+    expect(w.hero.cash).toBe(500);
+    // the talk about that star is up now: next time the star's people are ready
+    expect(buzz(w, name)).toBeGreaterThanOrEqual(1.5);
+    w.hero.disguise = face({ kind: 'star', label: name, fame: 7 });
+    const second = sc.run((c) => blow(c, 'recognized', { npc: 'Fan' }), always());
+    expect(second.some((e) => e.type === 'star_scandal' && e.data.variant === 'lawyers')).toBe(true);
+    expect(w.hero.cash).toBeLessThan(500);
+    expect(w.heat.npd ?? 0).toBeGreaterThan(0);
+  });
+
+  it('a crowd gives a star face the odd look, and the face goes if somebody knows better', () => {
+    const { sc, w } = bar('crowd');
+    w.locations[w.hero.locationId]!.crowded = true;
+    w.hero.disguise = face({ kind: 'star', label: STARS[0]!.name, fame: 7 });
+    sc.run((c) => tick0(c), always());
+    w.clock += 31;
+    const ev = sc.run((c) => tick0(c), always());
+    expect(ev.some((e) => e.type === 'disguise_blown' && e.data.variant === 'recognized')).toBe(true);
+    expect(w.hero.disguise).toBeUndefined();
+  });
+
+  it('a face with nothing to do is one she takes off', () => {
+    const { sc, w, girl } = bar('shed');
+    sc.do('don_star', always());
+    expect(sc.offers()).not.toContain('shed_face'); // (too soon, and a girl to work)
+    w.clock += 40;
+    w.hero.disguise!.until = w.clock + 100;
+    for (const n of here(w)) moveNpc(w, n, '_gone');
+    w.locations[w.hero.locationId]!.exits.forEach((e) => (e.gate = null));
+    expect(girl.alive).toBe(true);
+    expect(sc.offers()).toContain('shed_face');
+    const ev = sc.do('shed_face');
+    expect(ev.some((e) => e.type === 'disguise_end' && e.data.variant === 'dropped')).toBe(true);
+    expect(w.hero.disguise).toBeUndefined();
+  });
+});
+
+describe('goals about faces', () => {
+  const goalOf = (w: World, kind: string): Goal | undefined => w.mind.goals.find((g) => g.kind === kind);
+  const crush = (w: World, girlId: string): Goal => {
+    w.mind.goals.push({ id: 7, kind: 'romance', parent: null, npc: girlId, why: 'test', desire: 0.7, frustration: 0, born: 0, lastProgress: 0, metric: 0, delayUntil: 0, setbacks: 0, revisions: 0, lastFocus: 0 });
+    w.mind.nextId = 8;
+    return w.mind.goals[w.mind.goals.length - 1]!;
+  };
+
+  it('a girl who is not taken with her own face is a reason to try a famous one', () => {
+    const sc = scenario({ seed: 'stargoal', at: 'halo_floor' });
+    const w = sc.w;
+    const girl = spawnNpc(new Rng('g2'), 'goal_girl', 'patron', w.hero.locationId, { name: 'Goal Girl', gender: 'woman', age: 28 });
+    addNpc(w, girl);
+    w.hero.personality.traits.vanity = 1;
+    w.hero.personality.traits.honesty = 0;
+    crush(w, girl.id);
+    sc.run((c) => mindTick(c), always());
+    const g = goalOf(w, 'guise');
+    expect(g).toMatchObject({ mode: 'star', npc: girl.id, parent: 7 });
+    // and it steers her: the face first, then the girl
+    expect(sc.offers()).toContain('don_star');
+    const ev = sc.do('don_star', always());
+    expect(w.hero.disguise?.kind).toBe('star');
+    expect(ev.length).toBeGreaterThan(0);
+    // won over: the goal is done
+    girl.affinity = 45;
+    const done = sc.run((c) => mindTick(c), always());
+    expect(done.some((e) => e.type === 'goal_done' && e.data.variant === 'won_over')).toBe(true);
+    expect(goalOf(w, 'guise')).toBeUndefined();
+  });
+
+  it('she does not bother when her mind is on her own honesty, or the faces are all worn out', () => {
+    const sc = scenario({ seed: 'honest', at: 'halo_floor' });
+    const w = sc.w;
+    const girl = spawnNpc(new Rng('g3'), 'honest_girl', 'patron', w.hero.locationId, { name: 'Honest Girl', gender: 'woman', age: 28 });
+    addNpc(w, girl);
+    crush(w, girl.id);
+    for (const s of STARS) w.counters[`buzz_${s.name.toLowerCase().replace(/[^a-z]+/g, '_')}`] = TIRED + 1, (w.counters[`buzz_at_${s.name.toLowerCase().replace(/[^a-z]+/g, '_')}`] = w.clock);
+    sc.run((c) => mindTick(c), always());
+    expect(goalOf(w, 'guise')).toBeUndefined();
+  });
+
+  it('a building too hard to fight but easy to walk into is a reason to dress for it, and she does', () => {
+    const { sc, w, id, entrance } = door('hideout', 1, 'coverplan');
+    const loc = w.locations[id]!;
+    // she is at the door and the job is a bit more than she would take on, with a face she thinks will hold
+    w.hero.skills.acting = 4000;
+    w.hero.charm = 9;
+    w.hero.int = 9;
+    expect(bluffEase(w, entrance)).toBeLessThan(0.6);
+    w.mind.goals.push({ id: 3, kind: 'raid', parent: null, loc: id, mode: 'approach', why: 'test', desire: 0.8, frustration: 0, born: 0, lastProgress: 0, metric: 0, delayUntil: 0, setbacks: 0, revisions: 0, lastFocus: 0, amount: 0 });
+    w.mind.nextId = 4;
+    expect(loc).toBeDefined();
+    sc.run((c) => mindTick(c), always());
+    const g = goalOf(w, 'guise');
+    expect(g).toMatchObject({ mode: 'cover', loc: id, parent: 3 });
+    expect(sc.offers()).toContain(`don_cover:${id}`);
+    sc.do(`don_cover:${id}`, always());
+    const done = sc.run((c) => mindTick(c), always());
+    expect(done.some((e) => e.type === 'goal_done' && e.data.variant === 'dressed')).toBe(true);
+  });
+
+  it('is written about', () => {
+    const lines: [string, Record<string, string | number | boolean>][] = [
+      ['intent', { variant: 'shed_face', label: 'x' }], ['disguise_end', { variant: 'dropped', label: 'x' }], ['disguise_blown', { variant: 'recognized', label: 'x', npc: 'y' }],
+      ['star_scandal', { variant: 'mocked', label: 'x' }], ['star_scandal', { variant: 'lawyers', label: 'x', amount: 5 }],
+      ['goal_new', { variant: 'cover_plan', place: 'x', goal: 'y' }], ['goal_new', { variant: 'star_plan', npc: 'x', goal: 'y' }],
+      ['goal_done', { variant: 'dressed', place: 'x' }], ['goal_done', { variant: 'won_over', npc: 'x' }], ['goal_drop', { variant: 'too_hot' }],
+    ];
+    for (const [type, data] of lines) expect(hasTemplate({ beat: 1, type, outcome: 'good', data }), `${type}:${data.variant}`).toBe(true);
   });
 });

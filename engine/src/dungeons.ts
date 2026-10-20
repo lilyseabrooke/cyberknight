@@ -23,7 +23,7 @@ import { skillLevel, train } from './skills';
 import { basePower, dangerOf } from './grade';
 import { startRaid } from './goals';
 import { nightfall, stockQuest } from './quests';
-import { EASE, coverFor, scrutinize } from './disguise';
+import { EASE, coverFor, planEase, scrutinize } from './disguise';
 
 /**
  * Dungeons: Atlas outposts and ganger hideouts. A building on a street with rooms behind the door, a garrison in the
@@ -707,7 +707,7 @@ export function knownDungeons(w: World): Lead[] {
     const p = d ? typicalPressure(w, d) : estimatePressure(w, kind, tier, dangerOf(loc));
     // Having cleaned it out before takes the shine off.
     const jaded = (kind === 'spot' ? 0.85 : 0.65) ** (d?.clears ?? 0);
-    out.push({ entrance: loc, d, kind, tier, appeal: (spoils / 200) * jaded * (p <= tolerance(w) ? 1 : 0) });
+    out.push({ entrance: loc, d, kind, tier, appeal: (spoils / 200) * jaded * (p * planEase(w, loc) <= tolerance(w) ? 1 : 0) });
   }
   return out.filter((l) => l.appeal > 0);
 }

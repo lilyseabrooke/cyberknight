@@ -36,6 +36,20 @@ Walking into a room of a dungeon whose people answer to the crew she is dressed 
 
 With a star face she can work the room (`star_flirt:<npc>`): a better chance than a plain flirt, +24 affinity (a plain flirt gives +16), sometimes a gift of cash or a number. Everyone fooled is remembered (`Disguise.fooled`); if the face is blown, each takes -12 affinity and remembers being lied to. A failed pass is a cold shoulder, and one time in three it blows the face outright.
 
+## Deciding to, and deciding not to
+
+Faces are planned, not worn on a whim (`guise` goals, `goals.ts`):
+
+- **Cover.** Approaching a raid door she'd lose a fight at, or a hard one, she reckons what a face could do for her (`bluffEase`: the full ease, scaled by how well she thinks she'll carry it and how good the place is) and, if that gets her in, adopts a child goal *walk into X as one of them*. It steers her to put the face on (`don_cover`), ends when she's dressed, and the raid carries on. Doors a bluff would make fightable now count as leads (`knownDungeons` uses `planEase`).
+- **Star.** A romance goal that isn't getting anywhere with her own face may, depending on her vanity, honesty and mischief and on how plain her own odds are, grow a child goal *win her over as somebody famous*. It makes her put on the best face she has (`don_star`), work that girl (`star_flirt`), and holds back the ordinary flirt. It ends when the girl is won, or goes cold, or every famous face has been talked about too much (`too_hot`). Without a goal, a star face is a rare whim: only in a crowd of unwon girls, only if she'd carry it, and not for six hours after the last.
+- **Shedding.** A face with nothing left to do (no girl to work, no door to go in by) is taken off (`shed_face`, a competent-hero urge), since leaving it on is a risk.
+
+## What impersonating a star costs
+
+- **Buzz** (`buzz`): every wearing of a star's face, and every girl who falls for it, adds talk about that star turning up where they shouldn't; it halves per day. Each point takes 0.07 off carrying the face and 0.06 off working a girl with it, and she picks the face with the least talk.
+- **Looks.** In a crowd, every half hour, someone may know better (more likely the more talk there's been): `disguise_blown:recognized`.
+- **Found out** as a star (a girl, a fan, a bad pass): she loses a point of fame, the people around her think less of her (-2), and the talk goes up. If it's a face she's already worn a lot (buzz of 1.5 or more) the star's people send a bill (30-90nd) and a copy to the NPD (heat 1).
+
 ## Left out / open
 
 - No costumes: a gang jacket or an Atlas vest in the inventory doesn't improve polish yet.

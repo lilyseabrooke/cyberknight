@@ -1,7 +1,8 @@
 import type { Ctx, Disguise, Dungeon, DungeonKind, Exit, Hero, Id, Location, Npc, World } from './types';
 import type { EventData } from './events';
 import { clamp, type Candidate } from './candidate';
-import { here, remember } from './combat';
+import { addHeat, here, remember } from './combat';
+import { every } from './clock';
 import { odds, skillLevel, synergy, train } from './skills';
 import { GANGS } from './content/archetypes';
 import { isFairGame } from './people';
@@ -27,6 +28,12 @@ import { dungeonLure } from './goals';
 
 /** Minutes of world time between one face and the next, when it isn't for a door she is already after. */
 const REST = 240;
+/** The same for a famous face she has no particular use for: it is a thing to be careful with. */
+const STAR_REST = 360;
+/** World minutes for the talk about a star turning up somewhere they are not to die down by half. */
+const BUZZ_HALF = 1440;
+/** How much talk about one star it takes before she lets that face alone. */
+export const TIRED = 2.5;
 
 /** How much a fitting disguise takes off what she thinks a building will cost her. */
 export const EASE = 0.4;
@@ -52,6 +59,59 @@ export const STARS: readonly Star[] = [
 const crewLabel = (crew: Id): string => (crew === 'atlas' ? 'an Atlas agent' : crew === 'npd' ? 'an NPD officer' : GANGS[crew] ? `one of the ${GANGS[crew]}` : 'a gang runner');
 const crewKind = (crew: Id): 'atlas' | 'npd' | 'gang' => (crew === 'atlas' || crew === 'npd' ? crew : 'gang');
 const isCrew = (f: Id | null | undefined): f is Id => !!f && (f === 'atlas' || f === 'npd' || f === 'ganger' || !!GANGS[f]);
+
+// ===================================================================== what impersonating a star costs
+
+const slug = (name: string): string => name.toLowerCase().replace(/[^a-z]+/g, '_');
+
+/**
+ * How much talk there has been about this star turning up where they shouldn't: every time she wears the face and every girl who
+ * falls for it adds to it, and it dies down by half in a day. It makes the face harder to carry, and makes being found out cost more.
+ */
+export function buzz(w: World, name: string): number {
+  const n = w.counters[`buzz_${slug(name)}`] ?? 0;
+  const at = w.counters[`buzz_at_${slug(name)}`] ?? w.clock;
+  return n * 0.5 ** (Math.max(0, w.clock - at) / BUZZ_HALF);
+}
+
+function addBuzz(w: World, name: string, amount: number): void {
+  w.counters[`buzz_${slug(name)}`] = buzz(w, name) + amount;
+  w.counters[`buzz_at_${slug(name)}`] = w.clock;
+}
+
+/** How well she would carry this star's face right now. */
+export const starPolish = (w: World, s: Star): number => bearing(w.hero) - 0.012 * s.fame - 0.07 * Math.min(4, buzz(w, s.name));
+
+/** The face she'd wear: the one she'd carry best, which is the one people have talked about least, then the less famous. */
+export function bestStar(w: World): { star: Star; polish: number } {
+  let best = { star: STARS[0]!, polish: -Infinity };
+  for (const star of STARS) {
+    const polish = starPolish(w, star);
+    if (polish > best.polish + 0.005) best = { star, polish };
+  }
+  return best;
+}
+
+/** Whether she has been long enough without a famous face to think about another. */
+export const starRested = (w: World): boolean => w.clock - (w.counters.face_at ?? -Infinity) >= STAR_REST;
+
+/** Found out as somebody famous: she is mocked for it, the people around hear, and if the star's people have heard of this before, they send a bill. */
+function scandal(c: Ctx, dis: Disguise): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  const talk = buzz(w, dis.label);
+  h.fame = Math.max(0, h.fame - 1);
+  for (const n of here(w)) if (n.alive && !n.hostile && n.archetype !== 'puppy') n.affinity -= 2;
+  if (talk >= 1.5) {
+    const fine = Math.min(h.cash, rng.int(30, 90));
+    h.cash -= fine;
+    addHeat(w, 'npd', 1);
+    c.emit('star_scandal', 'bad', { variant: 'lawyers', label: dis.label, amount: fine });
+  } else {
+    c.emit('star_scandal', 'bad', { variant: 'mocked', label: dis.label });
+  }
+  addBuzz(w, dis.label, 1);
+}
 
 // ===================================================================== what she has on
 
@@ -90,10 +150,17 @@ export const coverEase = (w: World, dest: Location): number => {
   return dis?.kind === 'crew' && crew && dis.crew === crew ? EASE : 1;
 };
 
+/** What she can count on a face doing for a building of some crew, before she has one on: the full ease, to the extent she thinks she can carry it. */
+export const bluffEase = (w: World, dest: Location): number =>
+  entranceCrew(dest) ? 1 - (1 - EASE) * clamp(bearing(w.hero) - 0.05 * ((dest.gen?.tier ?? 1) - 1) - 0.08, 0, 1) : 1; // (a better run place and a few more eyes than she'd like)
+
+/** How big a job she takes a building to be: with the face on, the ease it brings; without, the ease she reckons she could get. */
+export const planEase = (w: World, dest: Location): number => Math.min(coverEase(w, dest), bluffEase(w, dest));
+
 // ===================================================================== putting it on
 
 /** How well she carries a face when she puts it on. Nothing to go on is about two in five. */
-const bearing = (h: Hero): number => odds(0.4, 0.06, synergy(h, ['acting', ['stat:charm', 0.4], ['stat:int', 0.3]]), 0.15, 0.9);
+export const bearing = (h: Hero): number => odds(0.4, 0.06, synergy(h, ['acting', ['stat:charm', 0.4], ['stat:int', 0.3]]), 0.15, 0.9);
 
 /** Minutes of world time it holds. */
 const lasts = (h: Hero): number => clamp(90 + 15 * skillLevel(h, 'acting'), 90, 360);
@@ -121,9 +188,10 @@ function donStaff(c: Ctx, exit: Exit): void {
 }
 
 function donStar(c: Ctx): void {
-  const star = c.rng.pick([...STARS]);
-  // (The better known the face, the more people know exactly what it looks like.)
-  const dis = put(c, { kind: 'star', label: star.name, fame: star.fame }, bearing(c.w.hero) - 0.012 * star.fame);
+  // (The better known the face, the more people know exactly what it looks like; the more it has been seen lately, the more they do.)
+  const { star, polish } = bestStar(c.w);
+  const dis = put(c, { kind: 'star', label: star.name, fame: star.fame }, polish);
+  addBuzz(c.w, star.name, 1);
   train(c, 'acting', 1);
   c.emit('don', 'good', { variant: 'star', label: star.name, what: star.what, look: quality(dis.polish) });
 }
@@ -158,10 +226,11 @@ export function blow(c: Ctx, how: string, data: EventData = {}): void {
   if (!dis) return;
   c.emit('disguise_blown', 'bad', { variant: how, label: dis.label, kind: dis.kind, crew: dis.crew ? crewKind(dis.crew) : '', fooled: dis.fooled.length, ...data });
   strip(c, true);
+  if (dis.kind === 'star') scandal(c, dis);
 }
 
 /** She stops, or it runs out, or a fight starts. */
-export function endDisguise(c: Ctx, why: 'wore_off' | 'fight'): void {
+export function endDisguise(c: Ctx, why: 'wore_off' | 'fight' | 'dropped'): void {
   const dis = c.w.hero.disguise;
   if (!dis) return;
   c.emit('disguise_end', 'mixed', { variant: why, label: dis.label, kind: dis.kind });
@@ -169,8 +238,15 @@ export function endDisguise(c: Ctx, why: 'wore_off' | 'fight'): void {
 }
 
 export function disguiseTick(c: Ctx): void {
-  const dis = c.w.hero.disguise;
-  if (dis && c.w.clock >= dis.until) endDisguise(c, 'wore_off');
+  const { w, rng } = c;
+  const dis = w.hero.disguise;
+  if (!dis) return;
+  if (w.clock >= dis.until) return endDisguise(c, 'wore_off');
+  // A famous face in a crowd draws looks: every half hour somebody may know better.
+  if (dis.kind === 'star' && w.locations[w.hero.locationId]?.crowded && every(w, 'star_eye', 30) > 0 && rng.chance(0.06 + 0.1 * Math.min(3, buzz(w, dis.label)))) {
+    const who = here(w).filter((n) => n.alive && !n.hostile && n.archetype !== 'puppy');
+    if (who.length) blow(c, 'recognized', { npc: rng.pick(who).name });
+  }
 }
 
 // ===================================================================== being looked at
@@ -281,16 +357,26 @@ export function disguiseCandidates(w: World): Candidate[] {
   }
 
   // ---- somebody here worth being
-  if (!dis && rested) {
+  if (!dis) {
     // (Somebody not already won over.)
     const crowd = here(w).filter((n) => isFairGame(n) && !n.hostile && n.affinity < 40);
-    if (crowd.length || loc.exits.some((e) => e.gate === 'bouncer')) {
-      out.push({ key: 'don_star', drives: { pride: 0.6, lust: 0.6, curiosity: 0.2 }, bonus: 0.1 + 0.02 * lvl + (crowd.length ? 0.15 : 0), intent: {}, run: donStar });
+    // She has her eye on one of them: that's what the face is for. Otherwise it's a whim, and she knows what the face costs.
+    const aimed = w.mind.goals.some((g) => g.kind === 'guise' && g.mode === 'star' && crowd.some((n) => n.id === g.npc));
+    const best = bestStar(w);
+    if (aimed) {
+      out.push({ key: 'don_star', drives: { pride: 0.6, lust: 0.6 }, bonus: 0.3, intent: {}, run: donStar });
+    } else if (starRested(w) && crowd.length && best.polish >= 0.3 && buzz(w, best.star.name) < 1.5) {
+      out.push({ key: 'don_star', drives: { pride: 0.4, lust: 0.4, curiosity: 0.2 }, bonus: 0.04 + 0.02 * lvl, smart: 0.1, intent: {}, run: donStar });
     }
     // (Studying a person is for a crew she means to walk in on.)
     for (const n of here(w).filter((x) => x.alive && !x.hostile && isCrew(x.faction) && raidCrews.has(x.faction)).slice(0, 2)) {
       out.push({ key: `mimic:${n.id}`, drives: { curiosity: 0.5, pride: 0.3 }, bonus: 0.05 + 0.02 * lvl, intent: { npc: n.name }, run: (c) => mimic(c, n) });
     }
+  }
+
+  // ---- taking it off when it's no use to her: a face worn for nothing is a face somebody will see through
+  if (dis && w.clock - (w.counters.face_at ?? -Infinity) >= 30 && idleFace(w, dis)) {
+    out.push({ key: 'shed_face', drives: {}, bonus: 0.1, smart: 0.9, intent: { label: dis.label }, run: (c) => endDisguise(c, 'dropped') });
   }
 
   // ---- working the room
@@ -303,14 +389,28 @@ export function disguiseCandidates(w: World): Candidate[] {
   return out;
 }
 
+/** Is there anything left for this face to do where she is and where she is going? */
+function idleFace(w: World, dis: Disguise): boolean {
+  const loc = w.locations[w.hero.locationId]!;
+  const goals = w.mind.goals;
+  if (dis.kind === 'star') {
+    return !loc.exits.some((e) => e.gate === 'bouncer') && !goals.some((g) => g.kind === 'guise' && g.mode === 'star') && !here(w).some((n) => isFairGame(n) && !n.hostile && n.affinity < 40 && !dis.fooled.includes(n.id));
+  }
+  if (dis.kind === 'role') return !loc.exits.some((e) => e.gate === 'guarded' || e.gate === 'bouncer');
+  const d = w.dungeons[loc.dungeon ?? ''];
+  if (d && crewTag(d) === dis.crew) return false;
+  return !goals.some((g) => g.kind === 'raid' || g.kind === 'guise') && !loc.exits.some((e) => !e.hidden && !!w.locations[e.to] && entranceCrew(w.locations[e.to]!) === dis.crew);
+}
+
 /** Walk up to someone as a name they know. */
 function starFlirt(c: Ctx, n: Npc, dis: Disguise): void {
   const { w, rng } = c;
   const h = w.hero;
   const star = STARS.find((s) => s.name === dis.label);
-  const p = clamp(0.5 + 0.3 * dis.polish + 0.04 * skillLevel(h, 'acting') + n.affinity / 300 + romanceMod(w, n), 0.12, 0.93);
+  const p = clamp(0.5 + 0.3 * dis.polish + 0.04 * skillLevel(h, 'acting') + n.affinity / 300 + romanceMod(w, n) - 0.06 * Math.min(4, buzz(w, dis.label)), 0.12, 0.93);
   kindle(h, 0.05);
   if (rng.chance(p)) {
+    addBuzz(w, dis.label, 0.5); // she tells her friends
     n.affinity += 24;
     remember(n, 'was charmed by Blackbird');
     dis.fooled.push(n.id);

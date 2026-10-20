@@ -1,4 +1,5 @@
 import { enterStealth, exitStealth } from './stealth';
+import { GANGS } from './content/archetypes';
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
 import type { AskOption, Calling, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Location, Npc, Ware, World, GameEvent } from './types';
@@ -26,7 +27,7 @@ import { getImplant } from './extras';
 import { possessive } from './mapgen';
 import { dangerOf } from './grade';
 import { estimatePressure, garrisonAlive, isEntrance, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
-import { coverEase } from './disguise';
+import { STARS, TIRED, activeDisguise, bestStar, bluffEase, buzz, coverEase, entranceCrew, starRested } from './disguise';
 import { appraise, giverPlace, livePending, objectiveRoom, questReady } from './quests';
 import { MAX_IMPLANTS } from './content/implants';
 import { maybeAsk, waiting, type Proposal } from './advice';
@@ -79,6 +80,7 @@ interface Kind {
 // ===================================================================== helpers
 
 const traits = (w: World) => w.hero.personality.traits;
+const crewName = (crew: Id): string => (crew === 'atlas' ? 'Atlas' : crew === 'npd' ? 'the NPD' : GANGS[crew] ?? 'the gang');
 const npcName = (w: World, id: string | undefined): string => (id && w.npcs[id]?.name) || 'someone';
 const wareOf = (w: World, g: Goal) => (g.ware ? w.mind.wares[g.ware] : undefined);
 const distTo = (w: World, to: Id): number => routeTo(w, w.hero.locationId, to)?.dist ?? 12;
@@ -122,7 +124,7 @@ const goalData = (w: World, g: Goal, extra: EventData = {}): EventData => ({
   ...(g.npc ? { npc: npcName(w, g.npc) } : {}),
   ...(g.ware && w.mind.wares[g.ware] ? { item: w.mind.wares[g.ware]!.name } : {}),
   ...(g.loc && siteAt(g.loc) ? { place: siteAt(g.loc)!.label } : {}),
-  ...((g.kind === 'raid' || g.kind === 'explore' || g.kind === 'scavenge') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
+  ...((g.kind === 'raid' || g.kind === 'explore' || g.kind === 'scavenge' || g.kind === 'guise') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
   ...(g.kind === 'quest' ? questData(w, g) : {}),
   ...extra,
 });
@@ -477,7 +479,19 @@ const KINDS: Record<GoalKind, Kind> = {
       if (flame && flame.id !== n.id && traits(w).romantic > 0.65) return { drop: 'devoted' };
       return null;
     },
-    plan() {},
+    plan(c, g) {
+      // A face that isn't hers might do what hers hasn't. She weighs it: how she'd carry it, what it has cost her lately, how much she minds lying.
+      const { w, rng } = c;
+      const h = w.hero;
+      const n = g.npc ? w.npcs[g.npc] : undefined;
+      if (!n || !isLeaf(w, g) || n.hostile || n.affinity >= 30 || activeDisguise(w) || !starRested(w) || !here(w).some((x) => x.id === n.id)) return;
+      const best = bestStar(w);
+      if (best.polish < 0.3 || buzz(w, best.star.name) >= 1.5) return;
+      const t = traits(w);
+      const plain = 0.28 + h.charm * 0.025; // what her own face gets her
+      const nerve = clamp(0.03 + 0.08 * (t.vanity - 0.5) - 0.08 * (t.honesty - 0.5) + 0.06 * (t.mischief - 0.5), 0.005, 0.15) * clamp(1.4 - plain, 0.3, 1);
+      if (rng.chance(nerve)) adopt(c, { kind: 'guise', parent: g.id, npc: n.id, mode: 'star', why: 'a famous face might do what hers has not', desire: clamp(g.desire, 0.3, 0.9), variant: 'star_plan', extra: { npc: n.name } });
+    },
     metric(w, g) {
       const n = g.npc ? w.npcs[g.npc] : undefined;
       const loc = n && w.mind.lastSeen[n.id];
@@ -615,8 +629,15 @@ const KINDS: Record<GoalKind, Kind> = {
         if (hpFrac(w) < 0.5) return delay(c, g, 40, 'hurt');
         // A look at the place from the street, and a sharper head thinks twice.
         if (distTo(w, g.loc!) <= 2) {
-          const p = (d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1, dangerOf(entrance))) * coverEase(w, entrance);
-          if (p > tolerance(w) * 1.15) end(c, g, 'drop', 'outmatched', { inside: false });
+          const raw = d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1, dangerOf(entrance));
+          const limit = tolerance(w) * 1.15;
+          // Too much to take, or hard enough to be worth a trick, and the crew's own colors might get her in: dress for it first.
+          const eased = raw * coverEase(w, entrance);
+          if (!isLeaf(w, g)) return;
+          if (eased === raw && eased > tolerance(w) * 0.7 && raw * bluffEase(w, entrance) <= limit) {
+            const crew = entranceCrew(entrance);
+            adopt(c, { kind: 'guise', parent: g.id, loc: entrance.id, mode: 'cover', why: 'they know their own and will not look twice', desire: g.desire, variant: 'cover_plan', extra: { place: entrance.name, gang: crew ? crewName(crew) : '' } });
+          } else if (eased > limit) end(c, g, 'drop', 'outmatched', { inside: false });
         }
         return;
       }
@@ -674,6 +695,54 @@ const KINDS: Record<GoalKind, Kind> = {
       return 0;
     },
   },
+  // ------------------------------------------------------------------ guise
+  // Being somebody else, on purpose (disguise.ts). It is always in service of another goal: the way into a building she'd lose a fight
+  // in (a raid), or a girl who hasn't fallen for her own face (a romance). It ends when she has the face on and the thing is going, or
+  // when the face isn't worth it any more: everyone is talking about the star, the girl has gone cold.
+  guise: {
+    decay: 0.004, stick: ['mischief', 'vanity'], patience: 40,
+    label: (w, g) => (g.mode === 'star' ? `win ${npcName(w, g.npc)} over as somebody famous` : `walk into ${w.locations[g.loc!]?.name ?? 'the place'} as one of them`),
+    check(w, g) {
+      if (g.mode === 'star') {
+        const n = g.npc ? w.npcs[g.npc] : undefined;
+        if (!n || !n.alive) return { drop: 'gone' };
+        if (w.flags[`kissed:${n.id}`] || n.affinity >= 40) return { done: 'won_over' };
+        if (n.affinity <= -25) return { drop: 'cold' };
+        if (!activeDisguise(w) && STARS.every((s) => buzz(w, s.name) >= TIRED)) return { drop: 'too_hot' };
+        return null;
+      }
+      const entrance = w.locations[g.loc!];
+      if (!entrance) return { drop: 'gone' };
+      const d = w.dungeons[g.loc!];
+      if ((d && d.clearedRun !== null) || w.locations[w.hero.locationId]?.dungeon === g.loc) return { drop: 'moot' };
+      return coverEase(w, entrance) < 1 ? { done: 'dressed' } : null;
+    },
+    plan() {},
+    metric(w, g) {
+      if (g.mode === 'star') {
+        const n = g.npc ? w.npcs[g.npc] : undefined;
+        return (n?.affinity ?? 0) + (activeDisguise(w)?.kind === 'star' ? 10 : 0);
+      }
+      return (g.loc && w.locations[g.loc] && coverEase(w, w.locations[g.loc]!) < 1 ? 20 : 0) - distTo(w, g.loc!);
+    },
+    targets(w, g) {
+      if (g.mode === 'star') {
+        const loc = g.npc && w.mind.lastSeen[g.npc];
+        return loc ? [{ loc, value: 2.2 }] : [];
+      }
+      const entrance = g.loc ? w.locations[g.loc] : undefined;
+      return entrance ? [{ loc: entrance.gen?.parent ?? entrance.id, value: 3.4 }] : [];
+    },
+    bias(w, g, fam, id) {
+      if (g.mode === 'cover') return fam === 'don_cover' && id === g.loc ? 5 : 0;
+      if (!here(w).some((n) => n.id === g.npc)) return 0;
+      if (fam === 'don_star') return 4;
+      if (id === g.npc && (fam === 'star_flirt' || fam === 'kiss' || fam === 'make_move')) return 3.6;
+      if (id === g.npc && fam === 'flirt') return activeDisguise(w)?.kind === 'star' ? -1 : 0.5; // (she is saving it for the face)
+      return 0;
+    },
+  },
+
   // ------------------------------------------------------------------ explore
   // Somewhere she has never set foot. The trip is ordinary travel (the goal just wants her at the door); it ends the
   // moment she is through it. Mostly a step on the way to something else: new streets turn up doors worth kicking in,
