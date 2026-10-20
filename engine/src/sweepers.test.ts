@@ -35,6 +35,7 @@ describe('street sweepers: the fight a level 1 can count on, on the street', () 
     }
     expect(picked).toBeGreaterThan(5);
     const w = createWorld({ seed: 'in', competence: 0.5, personality: personalityFrom({}) });
+    w.hero.locationId = 'halo_floor';
     const r = ctxOf(w, 'in');
     spawnGroup(r.c as any, 'sweeper', 1);
     for (let i = 0; i < 200; i++) expect(sweeperRoll(r.c as any)).toBe(false); // the Halo's floor

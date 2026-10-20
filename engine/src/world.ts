@@ -25,7 +25,7 @@ const CAMERAS: Record<Id, number> = {
 const LOCATIONS: Record<Id, LocDef> = {
   // Where every night starts: a small alley behind the lab. Two ways out: Strand Street, and a generated street (see ANCHORS in mapgen.ts).
   lab_lot: {
-    name: 'Lab back lot', kind: 'street', street: 'alley', security: 1, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'street_main',
+    name: 'Lab back lot', kind: 'street', street: 'lane', security: 1, crowded: false, outdoors: true, tossTo: 'street_main', fleeTo: 'street_main',
     blurb: 'Lab back lot: a service alley behind a roll-up door that never opens. A drain, a stack of dead monitors, and a hatch in the wall that takes deposits and asks nothing in return.',
     exits: [ex('street_main', 'the mouth of the alley, onto Strand Street')],
   },

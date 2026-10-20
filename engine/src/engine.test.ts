@@ -86,6 +86,7 @@ describe('simulation', () => {
 
   it('is dense: the opening scene offers dozens of different things to do', () => {
     const { world } = createRun({ seed: 'density' });
+    world.hero.locationId = 'halo_floor'; // (the night opens in the quiet lab lot; the bar is where there is the most to do)
     const cands = gather(world);
     const families = new Set(cands.map((c) => c.key.split(':')[0]));
     expect(cands.length).toBeGreaterThan(40);
