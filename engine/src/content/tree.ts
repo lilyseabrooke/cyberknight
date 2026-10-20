@@ -423,7 +423,7 @@ const skillBranch = (id: string, label: string, blurb: string, groups: SkillGrou
 
 const stage = skillBranch('stagecraft', 'Stagecraft', 'Music, performance, and the fine art of being heard through a wall. Mostly a luxury.', ['music']);
 const brawl = skillBranch('brawl', 'Brawl', 'Aim and body: the things that decide the fights.', ['aim', 'body']);
-const ghost = skillBranch('ghost', 'Ghost', 'Stealth and tech. Nobody saw anything.', ['stealth'], ['tinkering']);
+const ghost = skillBranch('ghost', 'Ghost', 'Stealth and tech. Nobody saw anything.', ['stealth', 'tech'], ['tinkering']);
 const charm = skillBranch('charm', 'Charm', 'Everything that works on people.', ['social']);
 const hustle = skillBranch('hustle', 'Hustle', 'Craft, care and the gig economy.', ['craft'], [], ['tinkering']);
 
@@ -531,7 +531,7 @@ export function parseNeed(n: Need): { id: string; rank: number } {
   return { id: id!, rank: r ? Number(r) : 1 };
 }
 
-const GROUP_LABELS: Record<string, string> = { music: 'music', aim: 'aim', body: 'body', stealth: 'stealth', social: 'social', craft: 'craft', all: 'every skill' };
+const GROUP_LABELS: Record<string, string> = { music: 'music', aim: 'aim', body: 'body', stealth: 'stealth', social: 'social', craft: 'craft', tech: 'tech', all: 'every skill' };
 
 /** One line per effect, in plain language, for the lab's price tag. */
 export function describeFx(fx: Fx, itemName: (id: string) => string, implantName: (id: string) => string): string {

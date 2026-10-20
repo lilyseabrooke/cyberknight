@@ -100,6 +100,7 @@ const SPECS: Record<Location['kind'], Spec> = {
   pawn: { w: [5, 6], h: [4, 5], cover: [3, 4], walls: [0, 1], hazards: [0, 0], exits: [1, 2] },
   chop: { w: [6, 7], h: [4, 5], cover: [3, 5], walls: [0, 1], hazards: [0, 1], exits: [1, 2] },
   hub: { w: [6, 7], h: [4, 5], cover: [3, 5], walls: [0, 1], hazards: [0, 1], exits: [1, 2] },
+  gamehall: { w: [6, 7], h: [5, 6], cover: [4, 6], walls: [0, 1], hazards: [0, 0], exits: [1, 2] },
   realty: { w: [4, 5], h: [4, 5], cover: [2, 3], walls: [0, 1], hazards: [0, 0], exits: [1, 1] },
 };
 

@@ -5,7 +5,7 @@
  */
 export interface SkillDef {
   label: string;
-  group: 'music' | 'aim' | 'stealth' | 'social' | 'craft' | 'body';
+  group: 'music' | 'aim' | 'stealth' | 'social' | 'craft' | 'body' | 'tech';
   /** Related skills that also gain XP when this one is trained: skill -> fraction of the XP. */
   spill?: Record<string, number>;
   /** What she can be described as at levels 1, 3, 5 and 8. */
@@ -36,6 +36,8 @@ export const SKILLS = {
   perception: { label: 'perception', group: 'stealth', spill: { sneak: 0.1 }, titles: ['notices the obvious, eventually', 'spots the camera before the camera spots her', 'sees the guard behind the guard', 'nothing hides in a room she is in'] },
   tracking: { label: 'tracking', group: 'stealth', spill: { perception: 0.15, streetwise: 0.1 }, titles: ['can follow a trail of dropped fries', 'reads scuffs and wet footprints', 'knows which way the bag-snatcher went', 'could track a rumour through the rain'] },
   hijack: { label: 'hijacking', group: 'stealth', spill: { driving: 0.3, lockpicking: 0.15, tinkering: 0.1 }, titles: ['has locked her keys in a car, from the outside', 'knows which wire is the red one', 'cars start for her, eventually', 'a parking lot is a buffet'] },
+  // ---- tech
+  gaming: { label: 'gaming', group: 'tech', spill: { calculate: 0.15, perception: 0.1, tinkering: 0.05, throwing: 0.05 }, titles: ['knows which button is jump', 'has a personal best on a machine that no longer exists', 'reads a boss\'s pattern in one death', 'the cabinet blinks first'] },
   // ---- social
   romance: { label: 'flirting', group: 'social', spill: { streetwise: 0.1 }, titles: ['has a decent opening line', 'knows the three-second look', 'a legend in three bars', 'could talk a dragon into dinner'] },
   dancing: { label: 'dancing', group: 'social', spill: { romance: 0.2, athletics: 0.1 }, titles: ['sways, with intent', 'finds the downbeat', 'owns a small corner of the floor', 'a neon blur with great hair'] },

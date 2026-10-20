@@ -21,6 +21,7 @@ npm run gyms -- demo 6          # roll random gyms (variant x shell x traits x r
 npm run pawns -- demo 6         # roll random pawn shops (variant x shell x traits x rooms): <seed> <count> [variant] [district]
 npm run chops -- demo 6         # roll random chop shops: <seed> <count> [district]
 npm run hubs -- demo 6          # roll random hacker hubs (variant x shell x traits x syllabus): <seed> <count> [variant] [district]
+npm run halls -- demo 6         # roll random arcades (variant x shell x traits x Muse/bootleg cabinets): <seed> <count> [variant] [district]
 npm run coverage                # which skills/stats/drives each kind of place has something for (affordance registry)
 npm run analyze               # play lots of nights and report; --vs main compares with another version (docs/ANALYSIS.md)
 ```

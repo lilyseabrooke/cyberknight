@@ -7,7 +7,8 @@ import { BENCH, CROWD, GOSSIP } from './content/hubafford';
 import { CRIME } from './content/hubcrime';
 import { SITUATIONAL, WILDS, VARIANT_ROWS } from './content/hubevents';
 
-register('hub', [...BENCH, ...CROWD, ...GOSSIP, ...CRIME, ...SITUATIONAL, ...WILDS, ...VARIANT_ROWS]);
+import { HUB_GAMING } from './content/gamerows';
+register('hub', [...BENCH, ...CROWD, ...GOSSIP, ...CRIME, ...SITUATIONAL, ...WILDS, ...VARIANT_ROWS, ...HUB_GAMING]);
 
 /**
  * Hacker hubs, as seen from the decision loop. If she is standing in one, two kinds of candidate come out of it:
