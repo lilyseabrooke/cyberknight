@@ -3,7 +3,7 @@ import { policeChase } from './chase';
 import type { Ctx, Id, Npc, World } from './types';
 import { addHeat, fight, here, remember } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
-import { skillLevel, train } from './skills';
+import { skillLevel, train, skillRoot } from './skills';
 import { isBadGuy } from './traits';
 import { routeTo } from './plans';
 import { scoutSaves } from './extras';
@@ -143,7 +143,7 @@ export function laylowCandidates(w: World): Candidate[] {
       key: 'lay_low:here', drives: {}, bonus: 0.5 * u, smart: 0.5 * u,
       run: (c) => {
         const { rng } = c;
-        const p = clamp(0.4 + skillLevel(h, 'sneak') * 0.04 + (w.flags.blackout ? 0.2 : 0), 0.3, 0.85);
+        const p = clamp(0.424 + skillRoot(h, 'sneak') * 0.04 + (w.flags.blackout ? 0.2 : 0), 0.3, 0.85);
         let dropped = '';
         // Heat cools with the time she spends out of sight: a chance per hour of the world clock the lying low takes.
         const hours = Math.max(1, Math.round(actionMinutes('lay_low') / 60));
@@ -218,7 +218,7 @@ function bribeCop(c: Ctx, cost: number): void {
   const { w, rng } = c;
   const h = w.hero;
   const npd = w.heat.npd ?? 0;
-  const p = clamp(0.4 + h.charm * 0.012 + skillLevel(h, 'grifting') * 0.04 + skillLevel(h, 'streetwise') * 0.03 + skillLevel(h, 'haggling') * 0.02 - h.drunk * 0.02, 0.15, 0.88);
+  const p = clamp(0.454 + h.charm * 0.012 + skillRoot(h, 'grifting') * 0.04 + skillRoot(h, 'streetwise') * 0.03 + skillRoot(h, 'haggling') * 0.02 - h.drunk * 0.02, 0.15, 0.88);
   if (rng.chance(p)) {
     h.cash -= cost;
     w.counters.bribes = bribesMade(w) + 1;
@@ -245,7 +245,7 @@ function frame(c: Ctx, n: Npc, bad: boolean): void {
   const { w, rng } = c;
   const h = w.hero;
   const framed = w.counters.frames ?? 0;
-  const p = clamp(0.22 + skillLevel(h, 'grifting') * 0.05 + skillLevel(h, 'sleight') * 0.03 + h.int * 0.012 - framed * 0.08 - h.drunk * 0.03, 0.1, 0.85);
+  const p = clamp(0.268 + skillRoot(h, 'grifting') * 0.05 + skillRoot(h, 'sleight') * 0.03 + h.int * 0.012 - framed * 0.08 - h.drunk * 0.03, 0.1, 0.85);
   remember(n, 'was fingered by Blackbird for something they did not do');
   if (rng.chance(p)) {
     w.counters.frames = framed + 1;

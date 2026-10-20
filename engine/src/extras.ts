@@ -6,9 +6,10 @@ import { billboardSpeech } from './speaking';
 import { makeItem } from './content/items';
 import { IMPLANTS, IMPLANT_IDS, MAX_IMPLANTS } from './content/implants';
 import { addCompanion, alliesWith, hasAlly, hasKind, newCompanion, removeCompanion, slotsFree } from './companions';
-import { hasImplantFlag, skillLevel, synergy, train } from './skills';
+import { hasImplantFlag, skillLevel, synergy, train, root, skillRoot } from './skills';
 import { spawnNpc } from './content/archetypes';
 import { fameFrom, tipScale } from './stage';
+import { shownFame } from './disguise';
 import { addNpc, moveNpc } from './population';
 import { isFairGame } from './people';
 import { feed } from './rest';
@@ -40,7 +41,7 @@ export function scoutSaves(c: Ctx): boolean {
 /** Everything that makes sneaking easier or harder. */
 export function sneakBonus(w: World): number {
   const h = w.hero;
-  let b = skillLevel(h, 'sneak') * 0.02;
+  let b = skillRoot(h, 'sneak') * 0.02;
   if (hasAlly(w, 'distract')) b += 0.08;
   if (w.situation.weather === 'neon_fog') b += 0.1;
   if (w.flags.blackout) b += 0.2;
@@ -53,11 +54,11 @@ export function tryTalkDown(c: Ctx, guards: Npc[]): boolean {
   const { w, rng } = c;
   const h = w.hero;
   const lvl = skillLevel(h, 'beatbox');
-  const wants = clamp(0.12 + (h.personality.weights.pride - 0.5) * 0.5 + lvl * 0.05, 0, 0.6);
+  const wants = clamp(0.15 + (h.personality.weights.pride - 0.5) * 0.5 + root(lvl) * 0.05, 0, 0.6);
   if (!guards.length || !rng.chance(wants)) return false;
   const g = guards[0]!;
   train(c, 'beatbox', 1);
-  if (rng.chance(clamp(0.02 + 0.04 * synergy(h, ['beatbox', ['music', 0.5], ['stat:charm', 0.5]]), 0.02, 0.45))) {
+  if (rng.chance(clamp(0.038 + 0.04 * synergy(h, ['beatbox', ['music', 0.5], ['stat:charm', 0.5]]), 0.02, 0.45))) {
     for (const x of guards) x.affinity += 10;
     addHeat(w, 'club', -2);
     h.fame += 1;
@@ -82,7 +83,7 @@ export function extraCandidates(w: World): Candidate[] {
   if (feat('dj_booth')) {
     // She doesn't know he's still mad. A cautious hero might.
     const sore = w.npcs.kilobyte && w.npcs.kilobyte.affinity < -5 ? 0.7 : 0;
-    out.push({ key: 'dj_set', drives: { pride: 0.9, curiosity: 0.5, lust: 0.15 }, bonus: music * 0.04, risk: 0.3 + sore, run: djSet });
+    out.push({ key: 'dj_set', drives: { pride: 0.9, curiosity: 0.5, lust: 0.15 }, bonus: root(music) * 0.04, risk: 0.3 + sore, run: djSet });
   }
 
   // ---- street kids
@@ -215,7 +216,7 @@ function djSet(c: Ctx): void {
     return;
   }
   const b2b = alive(kilo) && kilo.locationId === h.locationId && kilo.affinity >= 15;
-  const p = clamp(0.15 + 0.07 * synergy(h, ['djing', ['music', 0.7], ['tinkering', 0.2]]) + h.charm * 0.015 + (b2b ? 0.12 : 0) - h.drunk * 0.02, 0.05, 0.92);
+  const p = clamp(0.192 + 0.07 * synergy(h, ['djing', ['music', 0.7], ['tinkering', 0.2]]) + h.charm * 0.015 + (b2b ? 0.12 : 0) - h.drunk * 0.02, 0.05, 0.92);
   const roll = rng.next();
   if (roll < p) {
     const tips = Math.round(rng.int(40, 120) * tipScale(w, 'dj_set'));
@@ -241,7 +242,7 @@ function beatbox(c: Ctx, kid: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   const lvl = skillLevel(h, 'beatbox');
-  if (rng.chance(clamp(0.08 + 0.07 * synergy(h, ['beatbox', ['music', 0.5], ['stat:charm', 0.3]]) + h.charm * 0.01, 0.05, 0.9))) {
+  if (rng.chance(clamp(0.115 + 0.07 * synergy(h, ['beatbox', ['music', 0.5], ['stat:charm', 0.3]]) + h.charm * 0.01, 0.05, 0.9))) {
     kid.affinity += 30;
     for (const k of here(w)) if (k.archetype === 'street_kid') k.affinity += 10;
     fameFrom(c, 1, 'beatbox');
@@ -268,7 +269,7 @@ function jack(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   n.flags.push('jacked');
-  const p = clamp(0.25 + h.int * 0.06 + skillLevel(h, 'tinkering') * 0.05 + (hasAlly(w, 'hack') ? 0.08 : 0) - statsOf(n).int * 0.04, 0.08, 0.85);
+  const p = clamp(0.28 + h.int * 0.06 + skillRoot(h, 'tinkering') * 0.05 + (hasAlly(w, 'hack') ? 0.08 : 0) - statsOf(n).int * 0.04, 0.08, 0.85);
   if (rng.chance(p)) {
     const kind = n.archetype === 'scrapper' ? 'scrapper' : 'drone';
     moveNpc(w, n, '_companion');
@@ -359,7 +360,7 @@ export function getImplant(c: Ctx, doc: Npc, choice?: string): void {
   const h = w.hero;
   const id = choice ?? rng.pick(IMPLANT_IDS.filter((i) => !h.implants.includes(i) && !w.flags[`sold:${i}`]));
   const def = IMPLANTS[id]!;
-  const price = Math.round(def.cost * (1 - Math.min(0.3, skillLevel(h, 'haggling') * 0.03)));
+  const price = Math.round(def.cost * (1 - Math.min(0.3, skillRoot(h, 'haggling') * 0.03)));
   train(c, 'haggling', 1);
   if (h.cash < price) {
     c.emit('implant', 'mixed', { variant: 'poor', npc: doc.name, implant: def.name, cost: def.cost });
@@ -422,7 +423,7 @@ function buyIntel(c: Ctx, madame: Npc): void {
 function hackTerminal(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.25 + h.int * 0.07 + skillLevel(h, 'tinkering') * 0.03 + (hasAlly(w, 'hack') ? 0.1 : 0), 0.1, 0.85);
+  const p = clamp(0.268 + h.int * 0.07 + skillRoot(h, 'tinkering') * 0.03 + (hasAlly(w, 'hack') ? 0.1 : 0), 0.1, 0.85);
   if (rng.chance(p)) {
     w.flags.dragon_weak = true;
     w.flags.dragon_known = true;
@@ -441,7 +442,7 @@ function poker(c: Ctx): void {
   const h = w.hero;
   const madame = w.npcs.madame;
   const cheat = h.int >= 3 && rng.chance(0.45);
-  const p = clamp(0.3 + h.charm * 0.012 + 0.05 * synergy(h, ['cards', ['stat:charm', 0.5]]) + (cheat ? 0.05 + 0.04 * synergy(h, ['cards', 'sleight']) : 0) - h.drunk * 0.02, 0.1, 0.88);
+  const p = clamp(0.344 + h.charm * 0.012 + 0.05 * synergy(h, ['cards', ['stat:charm', 0.5]]) + (cheat ? 0.05 + 0.04 * synergy(h, ['cards', 'sleight']) : 0) - h.drunk * 0.02, 0.1, 0.88);
   train(c, 'cards', 2);
   if (cheat) train(c, 'sleight', 1);
   if (cheat && rng.chance(0.18) && alive(madame) && madame.locationId === h.locationId) {
@@ -539,7 +540,7 @@ export function ambientExtras(c: Ctx): void {
   }
 
   // --- fans
-  if (h.fame >= 3 && loc.crowded && rng.chance(0.04)) {
+  if (shownFame(w) >= 3 && loc.crowded && rng.chance(0.04)) {
     const amt = rng.int(10, 40);
     h.cash += amt;
     c.emit('fan', 'good', { variant: String(rng.int(1, 4)), amount: amt, fame: h.fame });

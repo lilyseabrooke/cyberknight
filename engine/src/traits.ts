@@ -78,6 +78,12 @@ const LOADINGS: Record<string, Partial<Record<Trait, number>>> = {
   keep_speaking: { fame: 0.5, sociable: 0.6, artistry: 0.2 },
   wrap_up: { sociable: 0.2 },
   rally_allies: { sociable: 0.6, kindness: 0.4 },
+  // faces
+  don_cover: { honesty: -0.8, mischief: 0.6, artistry: 0.3, thrill: 0.4 },
+  don_staff: { honesty: -0.6, mischief: 0.5, artistry: 0.2 },
+  don_star: { fame: 1.0, vanity: 1.4, honesty: -0.6, mischief: 0.5, artistry: 0.4 },
+  mimic: { honesty: -0.4, mischief: 0.4, artistry: 0.5, curiosity: 0.3 },
+  star_flirt: { impress: 1.2, romantic: 0.4, vanity: 0.8, honesty: -0.8, mischief: 0.5 },
   recruit_kids: { fame: 0.6, kindness: 0.5 },
   // tinkering
   hack: { techy: 1.4 },

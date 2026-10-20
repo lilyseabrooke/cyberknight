@@ -10,7 +10,7 @@ import { bankPull, dropCandidates } from './bank';
 import { extraCandidates } from './extras';
 import { dragonCandidates } from './dragons';
 import { hasAlly } from './companions';
-import { odds, skillLevel, synergy, train } from './skills';
+import { odds, skillLevel, synergy, train, skillRoot } from './skills';
 import { hobbyCandidates } from './hobbies';
 import { rodCandidates } from './rodwork';
 import { buyStim, supplyCandidates, supplyUrge } from './supply';
@@ -38,6 +38,7 @@ import { healUrge } from './urges';
 import { laylowCandidates } from './laylow';
 import { stageCandidates } from './stage';
 import { speakingCandidates } from './speaking';
+import { activeDisguise, canPass, coverEase, disguiseCandidates, shownFame } from './disguise';
 import { jealousy, kindle, kissBonus, kissesWith, romanceCandidates } from './romance';
 import { bondCandidates, bondEvent, romanceMod, scruples } from './bonds';
 import { knowledgeCandidates, shareFact } from './knowledge';
@@ -218,6 +219,7 @@ export function gather(w: World): Candidate[] {
   out.push(...laylowCandidates(w));
   out.push(...stageCandidates(w));
   out.push(...speakingCandidates(w));
+  out.push(...disguiseCandidates(w));
   out.push(...goalCandidates(w));
   out.push(...dungeonCandidates(w));
   out.push(...discretionCandidates(w));
@@ -280,7 +282,7 @@ export function gather(w: World): Candidate[] {
       drives: { curiosity: 0.45, ...(toDragon ? { quest: 1.2 } : {}) },
       bonus: (dest.visits === 0 ? 0.35 : 0) + (dest.kind === 'corp' ? 0.1 : 0) + (dest.kind === 'lair' && dest.dungeon === dest.id ? 0.2 : 0) + urge.bonus + pull.bonus,
       smart: (toDragon && ready ? 2.4 : 0) + urge.smart + pull.smart,
-      risk: dragonRisk * 1.4 + lurking + (e.gate === 'guarded' ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest),
+      risk: dragonRisk * 1.4 + lurking + (e.gate === 'guarded' && !canPass(w, e.gate) ? 0.9 : 0) + (e.gate === 'jump' ? 0.8 : 0) + entranceRisk(w, dest) * coverEase(w, dest),
       run: (c) => moveThrough(c, e),
     });
   }
@@ -331,7 +333,7 @@ function chat(c: Ctx, n: Npc): void {
   if (n.affinity < -10 || rng.chance(0.12)) {
     n.affinity -= 3;
     c.emit('chat', 'bad', { variant: 'snub', npc: n.name });
-  } else if (options.length && rng.chance((talky ? 0.8 : 0.3) + 0.03 * skillLevel(w.hero, 'streetwise'))) {
+  } else if (options.length && rng.chance((talky ? 0.8 : 0.3) + 0.03 * skillRoot(w.hero, 'streetwise'))) {
     const what = rng.pick(options);
     n.affinity += 3;
     if (what === 'bounty') {
@@ -355,7 +357,7 @@ function chat(c: Ctx, n: Npc): void {
 function flirt(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.28 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08 + romanceMod(w, n) - 0.1 * (ratio(n, 'charm') - 1), 0.03, 0.9);
+  const p = clamp(0.293 + h.charm * 0.025 + 0.045 * synergy(h, ['romance', 'stat:charm']) + (hasAlly(w, 'charm') ? 0.08 : 0) + n.affinity / 200 + Math.min(h.drunk, 2) * 0.03 - Math.max(0, h.drunk - 3) * 0.08 + romanceMod(w, n) - 0.1 * (ratio(n, 'charm') - 1), 0.03, 0.9);
   train(c, 'romance', 1);
   kindle(h, 0.05);
   if (rng.chance(p)) {
@@ -404,7 +406,7 @@ function pickpocket(c: Ctx, n: Npc): void {
     return;
   }
   const wary = bucketOf(w, n) === 'suspicious';
-  const p = clamp(0.3 + h.reflex * 0.02 + 0.045 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + (n.flags.includes('marked') ? 0.15 : 0) - n.level * 0.02 - 0.035 * npcPerception(n) - (wary ? 0.15 : 0) - h.drunk * 0.02, 0.08, 0.88);
+  const p = clamp(0.318 + h.reflex * 0.02 + 0.045 * synergy(h, ['sleight', ['stat:reflex', 0.5]]) + (n.flags.includes('marked') ? 0.15 : 0) - n.level * 0.02 - 0.035 * npcPerception(n) - (wary ? 0.15 : 0) - h.drunk * 0.02, 0.08, 0.88);
   train(c, 'sleight', 1);
   if (!rng.chance(p)) {
     awareness(w, n).v = 1;
@@ -438,7 +440,7 @@ function threaten(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   const st = statsOf(n);
-  const p = clamp(0.22 + h.muscle * 0.02 + 0.05 * synergy(h, ['intimidation', ['stat:muscle', 0.5]]) + h.level * 0.03 - n.level * 0.03 - 0.03 * (st.muscle + st.int / 2), 0.05, 0.88);
+  const p = clamp(0.24 + h.muscle * 0.02 + 0.05 * synergy(h, ['intimidation', ['stat:muscle', 0.5]]) + h.level * 0.03 - n.level * 0.03 - 0.03 * (st.muscle + st.int / 2), 0.05, 0.88);
   train(c, 'intimidation', 1);
   if (rng.chance(p)) {
     const take = Math.round(n.cash * 0.8);
@@ -476,7 +478,7 @@ function hackNpc(c: Ctx, n: Npc): void {
   const { w, rng } = c;
   const h = w.hero;
   n.flags.push('hacked');
-  const p = clamp(0.3 + h.int * 0.06 + (hasAlly(w, 'hack') ? 0.08 : 0) + skillLevel(h, 'tinkering') * 0.02 - statsOf(n).int * 0.05, 0.05, 0.85);
+  const p = clamp(0.312 + h.int * 0.06 + (hasAlly(w, 'hack') ? 0.08 : 0) + skillRoot(h, 'tinkering') * 0.02 - statsOf(n).int * 0.05, 0.05, 0.85);
   const corp = n.tags.includes('monitored') || n.tags.includes('corp');
   if (!rng.chance(p)) {
     h.hp -= 8;
@@ -524,7 +526,7 @@ function fence(c: Ctx, n: Npc): void {
   // Keep the best melee weapon: a gun with no rounds in it still needs a backup.
   const backup = h.inventory.filter((i) => i.kind === 'weapon' && i.tags.includes('melee')).sort((a, b) => b.power - a.power)[0];
   const loot = h.inventory.filter((i) => sellable(i) && i !== backup);
-  const cut = 1 + skillLevel(h, 'haggling') * 0.04;
+  const cut = 1.024 + skillRoot(h, 'haggling') * 0.04;
   const total = Math.round(loot.reduce((a, i) => a + i.value * (i.kind === 'loot' ? 0.7 : 0.4) * cut, 0));
   h.inventory = h.inventory.filter((i) => !sellable(i) || i === backup);
   train(c, 'haggling', 2);
@@ -593,7 +595,8 @@ function orderDrink(c: Ctx, bartender: Npc): void {
   const h = w.hero;
   const drink = rng.pick(DRINKS);
   const price = rng.int(8, 22);
-  const free = (bartender.affinity >= 15 && rng.chance(0.5)) || (h.fame >= 4 && rng.chance(0.35));
+  const star = activeDisguise(w)?.kind === 'star' ? activeDisguise(w) : undefined;
+  const free = (bartender.affinity >= 15 && rng.chance(0.5)) || (shownFame(w) >= 4 && rng.chance(0.35));
   const onTab = !free && h.cash < price;
   const cost = free ? 0 : onTab ? 0 : price;
   h.cash -= cost;
@@ -601,7 +604,7 @@ function orderDrink(c: Ctx, bartender: Npc): void {
   h.drunk += 1;
   bartender.affinity += 2;
   train(c, 'tolerance', 1);
-  c.emit('order_drink', 'mixed', { variant: free ? (h.fame >= 4 ? 'fame' : 'free') : onTab ? 'tab' : 'paid', drink, cost: onTab ? price : cost, npc: bartender.name, drunk: h.drunk, tab: h.tab });
+  c.emit('order_drink', 'mixed', { variant: free ? (star ? 'star' : h.fame >= 4 ? 'fame' : 'free') : onTab ? 'tab' : 'paid', drink, cost: onTab ? price : cost, npc: bartender.name, label: star?.label ?? '', drunk: h.drunk, tab: h.tab });
 }
 
 function buyRound(c: Ctx): void {

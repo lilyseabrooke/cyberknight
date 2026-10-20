@@ -144,10 +144,40 @@ export interface ParkedVehicle extends Vehicle {
   until: number;
 }
 
+/** A face she is wearing: who she is passing for, and how well it is holding. See disguise.ts. */
+export interface Disguise {
+  /** A crew (a gang, Atlas, the NPD), a kind of person with a lanyard and somewhere to be, or someone famous. */
+  kind: 'crew' | 'role' | 'star';
+  /** Who she is passing for, as a phrase: "one of the Chrome Vipers", "Tarn Okoye". */
+  label: string;
+  /** The crew whose people take her for one of their own: a gang's faction id, 'atlas' or 'npd' (kind 'crew'). */
+  crew?: Id;
+  /** The real person she is copying, if she is copying one (kind 'crew'). */
+  as?: Id;
+  /** How much fame comes with the face (kind 'star'). */
+  fame?: number;
+  /** The world minute it wears off. */
+  until: number;
+  /** 0..1: how well she is carrying it. Slips lower it. */
+  polish: number;
+  /** Rooms of a building where it has already been accepted. */
+  passed: Id[];
+  /** People who bought it, and will mind if it comes apart. */
+  fooled: Id[];
+  /** A star's face: her own police heat, set aside while the star's is what the law sees (`w.heat.npd` is the star's until the face comes off). */
+  parked?: number;
+  /** A star's face: the star's heat when she put it on, to tell what she has added. */
+  heat0?: number;
+  /** Any other face: heat she has picked up while wearing it, which dropping the face might lose. */
+  heat?: Record<string, number>;
+}
+
 export interface Hero {
   name: string;
   /** Sneaking: only then is anyone's awareness of her tracked. Out of stealth everyone in the room knows exactly where she is. See stealth.ts. */
   stealth?: boolean;
+  /** The face she is wearing, if she is passing for somebody else. Wears off at `until`; see disguise.ts. */
+  disguise?: Disguise;
   /** Hack and Override techniques she has picked up beyond the ones she starts with (see `LEARNABLE` in techniques.ts). */
   techniques?: string[];
   /** Randomly generated, astonishingly uncool. */
@@ -1200,7 +1230,7 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'game';
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'game' | 'guise';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better

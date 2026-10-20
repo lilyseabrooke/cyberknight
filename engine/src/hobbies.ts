@@ -5,7 +5,7 @@ import { makeAmmoBox, makeItem } from './content/items';
 import { AMMO_IDS } from './content/ammo';
 import { tierFor } from './content/fishing';
 import { streetTypeOf } from './streettypes';
-import { odds, skillLevel, synergy, train } from './skills';
+import { odds, skillLevel, synergy, train, skillRoot } from './skills';
 import { hasKind } from './companions';
 import { kindle } from './romance';
 import { bondEvent } from './bonds';
@@ -21,22 +21,22 @@ import { FOOD } from './content/lodging';
  * geometric mean of the skills and stats involved (zero in any factor and the skill part is zero).
  */
 export const ODDS = {
-  pool: (h: Hero) => odds(0.28, 0.065, synergy(h, ['pool', ['stat:reflex', 0.5]])),
-  poolDate: (h: Hero, n: Npc) => odds(0.2, 0.06, synergy(h, ['pool', 'romance', ['stat:charm', 0.5]])) + n.affinity / 300,
-  darts: (h: Hero) => odds(0.3, 0.065, synergy(h, ['throwing', ['stat:reflex', 0.5]])),
-  jam: (h: Hero) => odds(0.15, 0.07, synergy(h, ['guitar', ['music', 0.6], ['stat:charm', 0.3]])),
-  gig: (h: Hero) => odds(0.2, 0.065, synergy(h, ['guitar', ['music', 0.6], ['vocals', 0.3], ['stat:charm', 0.4]])),
-  stealGuitar: (h: Hero) => odds(0.25, 0.06, synergy(h, ['sleight', ['stat:reflex', 0.5]])),
-  busk: (h: Hero) => odds(0.22, 0.065, synergy(h, ['guitar', ['vocals', 0.3], ['stat:charm', 0.5]])),
-  cook: (h: Hero) => odds(0.3, 0.065, synergy(h, ['cooking', ['tinkering', 0.4]])),
-  serve: (h: Hero) => odds(0.3, 0.06, synergy(h, ['cooking', 'romance'])),
-  tend: (h: Hero) => odds(0.3, 0.06, synergy(h, ['mixology', ['tolerance', 0.5]])),
-  molotov: (h: Hero) => odds(0.3, 0.06, synergy(h, ['mixology', ['tinkering', 0.7]])),
-  art: (h: Hero) => odds(0.42, 0.06, synergy(h, ['art', ['stat:reflex', 0.5]])),
-  ask: (h: Hero) => odds(0.3, 0.065, synergy(h, ['streetwise', ['stat:charm', 0.5]])),
-  trick: (h: Hero) => odds(0.3, 0.06, synergy(h, ['rapport', ['tinkering', 0.4]])),
-  fish: (h: Hero) => odds(0.45, 0.012, synergy(h, ['fishing', ['stat:int', 0.3]])),
-  parkour: (h: Hero) => odds(0.35, 0.055, synergy(h, ['athletics', ['stat:reflex', 0.5]])),
+  pool: (h: Hero) => odds(0.306, 0.065, synergy(h, ['pool', ['stat:reflex', 0.5]])),
+  poolDate: (h: Hero, n: Npc) => odds(0.229, 0.06, synergy(h, ['pool', 'romance', ['stat:charm', 0.5]])) + n.affinity / 300,
+  darts: (h: Hero) => odds(0.326, 0.065, synergy(h, ['throwing', ['stat:reflex', 0.5]])),
+  jam: (h: Hero) => odds(0.185, 0.07, synergy(h, ['guitar', ['music', 0.6], ['stat:charm', 0.3]])),
+  gig: (h: Hero) => odds(0.232, 0.065, synergy(h, ['guitar', ['music', 0.6], ['vocals', 0.3], ['stat:charm', 0.4]])),
+  stealGuitar: (h: Hero) => odds(0.274, 0.06, synergy(h, ['sleight', ['stat:reflex', 0.5]])),
+  busk: (h: Hero) => odds(0.248, 0.065, synergy(h, ['guitar', ['vocals', 0.3], ['stat:charm', 0.5]])),
+  cook: (h: Hero) => odds(0.339, 0.065, synergy(h, ['cooking', ['tinkering', 0.4]])),
+  serve: (h: Hero) => odds(0.336, 0.06, synergy(h, ['cooking', 'romance'])),
+  tend: (h: Hero) => odds(0.336, 0.06, synergy(h, ['mixology', ['tolerance', 0.5]])),
+  molotov: (h: Hero) => odds(0.336, 0.06, synergy(h, ['mixology', ['tinkering', 0.7]])),
+  art: (h: Hero) => odds(0.444, 0.06, synergy(h, ['art', ['stat:reflex', 0.5]])),
+  ask: (h: Hero) => odds(0.326, 0.065, synergy(h, ['streetwise', ['stat:charm', 0.5]])),
+  trick: (h: Hero) => odds(0.336, 0.06, synergy(h, ['rapport', ['tinkering', 0.4]])),
+  fish: (h: Hero) => odds(0.45, 0.06, synergy(h, ['fishing', ['stat:int', 0.3]])),
+  parkour: (h: Hero) => odds(0.372, 0.055, synergy(h, ['athletics', ['stat:reflex', 0.5]])),
 };
 
 const alive = (n: Npc | undefined): n is Npc => !!n && n.alive;
@@ -72,7 +72,7 @@ export function hobbyCandidates(w: World): Candidate[] {
   // ---- the green room: guitar
   if (feat('guitar')) {
     const band = crowd.filter((n) => n.tags.includes('band'));
-    out.push({ key: 'jam', drives: { pride: 0.8, curiosity: 0.5, lust: 0.15 }, bonus: skillLevel(h, 'guitar') * 0.03, risk: band.length ? 0.4 : 0, run: jam });
+    out.push({ key: 'jam', drives: { pride: 0.8, curiosity: 0.5, lust: 0.15 }, bonus: skillRoot(h, 'guitar') * 0.03, risk: band.length ? 0.4 : 0, run: jam });
     if (!owns('instrument')) {
       out.push({ key: 'steal_guitar', drives: { greed: 0.9, curiosity: 0.4, pride: 0.3 }, risk: band.length ? 1.0 : 0.2, run: stealGuitar });
     }
@@ -86,7 +86,7 @@ export function hobbyCandidates(w: World): Candidate[] {
   }
   // ---- fishing, anywhere there is water, if she has found something to fish with
   if (owns('rod') && waterHere(w)) {
-    out.push({ key: 'fish', drives: { curiosity: 0.5, greed: 0.3, thirst: 0.1 }, bonus: 0.1 + skillLevel(h, 'fishing') * 0.03, risk: 0.1, intent: {}, run: fish });
+    out.push({ key: 'fish', drives: { curiosity: 0.5, greed: 0.3, thirst: 0.1 }, bonus: 0.118 + skillRoot(h, 'fishing') * 0.03, risk: 0.1, intent: {}, run: fish });
   }
   // ---- the kitchen
   if (feat('stove')) {
@@ -174,7 +174,7 @@ function grabCue(c: Ctx): void {
 function darts(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
-  const bet = Math.min(h.cash, rng.int(10, 30) + Math.floor(skillLevel(h, 'throwing') * 3));
+  const bet = Math.min(h.cash, rng.int(10, 30) + Math.floor(skillRoot(h, 'throwing') * 3));
   if (rng.chance(ODDS.darts(h))) {
     h.cash += bet;
     train(c, 'throwing', 2);

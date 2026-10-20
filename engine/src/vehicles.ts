@@ -10,7 +10,7 @@ import { supplyUrge } from './supply';
 import { condition, keyTo, normalize } from './cars';
 import { KINDS, assistOf, removeCompanion } from './companions';
 import { policeChase } from './chase';
-import { skillValue, synergy, train } from './skills';
+import { skillValue, synergy, train, skillRoot } from './skills';
 import { workingCameras } from './witness';
 import type { Companion, Ctx, Id, Location, ParkedVehicle, Vehicle, World } from './types';
 
@@ -28,7 +28,7 @@ import type { Companion, Ctx, Id, Location, ParkedVehicle, Vehicle, World } from
 export const ownedHere = (w: World, loc: Location): ParkedVehicle | undefined => w.hero.parked?.find((p) => p.at === loc.id && p.until > w.clock);
 
 /** How many streets one drive covers. Skill and the car both stretch it. */
-export const reachOf = (w: World, v: Vehicle): number => clamp(Math.round((3 + skillValue(w.hero, 'driving') / 2) * v.speed * (0.6 + 0.4 * condition(v))), 3, 12);
+export const reachOf = (w: World, v: Vehicle): number => clamp(Math.round((3 + skillRoot(w.hero, 'driving') / 2) * v.speed * (0.6 + 0.4 * condition(v))), 3, 12);
 
 export { roadsFrom, driveMinutes, parkedVehicle };
 
@@ -124,7 +124,7 @@ export function hijack(c: Ctx, loc: Location, car: Vehicle, inChase = false): vo
   const { w, rng } = c;
   const h = w.hero;
   const hard = (car.kind === 'civilian' ? 0 : 0.1) - (car.body === 'bike' ? 0.1 : 0); // no door to beat on a bike
-  const p = clamp(0.3 + h.reflex * 0.015 + 0.05 * synergy(h, ['hijack', ['stat:reflex', 0.5], ['lockpicking', 0.3]]) - hard - h.drunk * 0.03, 0.08, 0.9);
+  const p = clamp(0.322 + h.reflex * 0.015 + 0.05 * synergy(h, ['hijack', ['stat:reflex', 0.5], ['lockpicking', 0.3]]) - hard - h.drunk * 0.03, 0.08, 0.9);
   train(c, 'hijack', 2);
   const ok = rng.chance(p);
 
