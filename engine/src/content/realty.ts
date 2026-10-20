@@ -9,9 +9,11 @@ import type { District } from '../types';
  * Two kinds of home, and the district decides which an office has and what they cost:
  *  - a **pod apartment** in a megablock tower: small, cheap, a lock of her own.
  *  - a **townhouse** in a gated district: a great deal of money for a great deal of quiet.
+ *  - a **rehearsal lockup** under the arches: cheap, cold and loud, with a bed of sorts and room for a whole band to be
+ *    posted there rehearsing (crew.ts, the `rehearse` job; band.ts).
  */
 
-export type HomeKind = 'pod' | 'townhouse';
+export type HomeKind = 'pod' | 'townhouse' | 'lockup';
 
 export interface HomeType {
   id: HomeKind;
@@ -46,16 +48,24 @@ export const HOMES: Record<HomeKind, HomeType> = {
       '{name}: a stair, a landing, a bed designed by someone who has never once been tired in a bad way.',
     ],
   },
+  lockup: {
+    id: 'lockup', noun: 'rehearsal lockup', setting: 'railway arch', price: [400, 1400], quality: [0.6, 0.74], security: [1, 3], cameras: 0, berths: 4,
+    blurbs: [
+      '{name}: a roller door, egg boxes on the walls, a drum riser made of pallets and a sofa that has seen several bands come and go. The trains go over every eleven minutes, in E.',
+      '{name}: a concrete box under the arches with a socket, a kettle and a mattress behind the PA stack. Nobody can hear you scream. Nobody can hear you solo either, which is the point.',
+      '{name}: carpet on the floor, carpet on the walls, carpet on the ceiling. It smells of cables and ambition. The landlord said "no noise after midnight" and then laughed for a long time.',
+    ],
+  },
 };
 
 /** What the offices in a district have to sell, as odds. */
 export const HOME_ODDS: Record<District, Record<HomeKind, number>> = {
-  tenement: { pod: 9, townhouse: 0.3 },
-  slum: { pod: 9, townhouse: 0.1 },
-  industrial: { pod: 9, townhouse: 0.2 },
-  market: { pod: 6, townhouse: 3 },
-  nightlife: { pod: 5, townhouse: 4 },
-  corporate: { pod: 2, townhouse: 8 },
+  tenement: { pod: 9, townhouse: 0.3, lockup: 2 },
+  slum: { pod: 9, townhouse: 0.1, lockup: 3 },
+  industrial: { pod: 9, townhouse: 0.2, lockup: 5 },
+  market: { pod: 6, townhouse: 3, lockup: 1.5 },
+  nightlife: { pod: 5, townhouse: 4, lockup: 3 },
+  corporate: { pod: 2, townhouse: 8, lockup: 0.2 },
 };
 
 /** What the district does to the price (x) and to how good the bed is (added). */
@@ -77,6 +87,7 @@ export const OFFICE_BLURBS = [
 const TOWER = ['Kestrel', 'Marigold', 'Paragon', 'Sparrow', 'Lotus', 'Cobalt', 'Tangerine', 'Harmony', 'Sunrise', 'Pinwheel'];
 const TOWER_TAIL = ['Megablock', 'Tower', 'Hab-Stack', 'Spire', 'Block 9'];
 const GATED = ['Halcyon', 'Linden', 'Quillon', 'Meadowbank', 'Ashgrove', 'Tessellate', 'Larkspur', 'Wren'];
+const ARCHES = ['Coldharbour', 'Viaduct Row', 'Signal Box', 'Gasworks', 'Junction 9', 'Old Line'];
 const GATED_TAIL = ['Row', 'Close', 'Gardens', 'Terrace', 'Mews', 'Gate'];
 
 export interface Listing {
@@ -100,17 +111,17 @@ export function rollListings(rng: Rng, officeId: string, district: District, dep
   const odds = HOME_ODDS[district];
   const out: Listing[] = [];
   for (let i = 0; i < count; i++) {
-    const kind = rng.weighted(['pod', 'townhouse'] as HomeKind[], (k) => odds[k]);
+    const kind = rng.weighted(['pod', 'townhouse', 'lockup'] as HomeKind[], (k) => odds[k]);
     const t = HOMES[kind];
     const skew = rng.next();
     const price = Math.round(((t.price[0] + (t.price[1] - t.price[0]) * skew * skew) * DISTRICT_PRICE[district] * (1 + 0.04 * Math.min(depth, 8))) / 10) * 10;
     // A dearer one is the better one, more often than not.
     const quality = clamp(t.quality[0] + (t.quality[1] - t.quality[0]) * (0.6 * skew + 0.4 * rng.next()) + DISTRICT_QUALITY[district], 0.55, 1);
-    const building = kind === 'pod' ? `the ${rng.pick(TOWER)} ${rng.pick(TOWER_TAIL)}` : `${rng.pick(GATED)} ${rng.pick(GATED_TAIL)}`;
-    const unit = kind === 'pod' ? `pod ${rng.int(2, 60)}${'ABCDEF'[rng.int(0, 5)]}` : `no. ${rng.int(1, 40)}`;
+    const building = kind === 'pod' ? `the ${rng.pick(TOWER)} ${rng.pick(TOWER_TAIL)}` : kind === 'lockup' ? `the ${rng.pick(ARCHES)} Arches` : `${rng.pick(GATED)} ${rng.pick(GATED_TAIL)}`;
+    const unit = kind === 'pod' ? `pod ${rng.int(2, 60)}${'ABCDEF'[rng.int(0, 5)]}` : kind === 'lockup' ? `unit ${rng.int(1, 30)}` : `no. ${rng.int(1, 40)}`;
     out.push({
       id: `${officeId}#${i}`, kind, building,
-      name: kind === 'pod' ? `${unit}, ${building.replace(/^the /, '')}` : `${unit} ${building}`,
+      name: kind !== 'townhouse' ? `${unit}, ${building.replace(/^the /, '')}` : `${unit} ${building}`,
       price: Math.max(50, price), quality: Math.round(quality * 100) / 100, security: rng.int(t.security[0], t.security[1]),
     });
   }

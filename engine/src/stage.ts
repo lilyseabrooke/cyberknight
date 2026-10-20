@@ -10,6 +10,7 @@ import { bondEvent, romanceMod } from './bonds';
 import { addRenown } from './renown';
 import { bestTrait, hasInstrument } from './instruments';
 import { BASE_MIN_PER_BEAT } from './clock';
+import { carry } from './band';
 import { VENUES } from './content/venuetables';
 
 /**
@@ -100,6 +101,8 @@ export function fameFrom(c: Ctx, base: number, act: string): number {
   const gain = base * prestige(loc) * fresh * fire * loud;
   h.fame += gain;
   addRenown(w, skill, gain);
+  // And past the walls: the next streets hear it too (band.ts).
+  if (skill !== 'art' && skill !== 'speaking') carry(c, gain, bestTrait(h, skill, 'volume'), prestige(loc) >= 2);
   const f = (loc.fatigue ??= {});
   f[skill] = (f[skill] ?? 0) + FATIGUE_PER_ACT + 0.04 * base;
   if (fresh < 0.5 && w.beat - (w.counters.tired_msg ?? -99) >= 12 && rng.chance(0.7)) {

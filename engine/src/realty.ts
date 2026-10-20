@@ -43,7 +43,7 @@ export function buyHome(c: Ctx, office: Location, agent: Npc, l: Listing): void 
   if (isSold(w, l.id) || h.cash < cost) return;
   const t = HOMES[l.kind];
   const street = w.locations[streetOf(w, office)]!;
-  const label = l.kind === 'pod' ? `her pod apartment (${l.name})` : `her townhouse (${l.name})`;
+  const label = `her ${t.noun} (${l.name})`;
   const home = addHome(w, street, l.id, {
     name: `her ${t.noun}, ${l.name}`, label, security: l.security, cameras: t.cameras, blurb: blurbFor(l, new Rng(`homeblurb:${w.worldSeed}:${l.id}`)),
   });
@@ -57,7 +57,7 @@ function look(c: Ctx, office: Location, agent: Npc): void {
   const rows = forSale(c.w, office);
   const cheapest = rows.reduce((a, l) => Math.min(a, askingPrice(c.w, l)), Infinity);
   const dearest = rows.reduce((a, l) => Math.max(a, askingPrice(c.w, l)), 0);
-  c.emit('realty_view', 'mixed', { place: office.name, npc: agent.name, role: agent.role, count: rows.length, pods: rows.filter((l) => l.kind === 'pod').length, townhouses: rows.filter((l) => l.kind === 'townhouse').length, cheapest, dearest, district: office.gen!.district });
+  c.emit('realty_view', 'mixed', { place: office.name, npc: agent.name, role: agent.role, count: rows.length, pods: rows.filter((l) => l.kind === 'pod').length, townhouses: rows.filter((l) => l.kind === 'townhouse').length, lockups: rows.filter((l) => l.kind === 'lockup').length, cheapest, dearest, district: office.gen!.district });
 }
 
 /** What she can do in a property office: have a look at the board, and buy something off it. */

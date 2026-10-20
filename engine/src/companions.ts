@@ -1,4 +1,4 @@
-import type { Companion, Ctx, Npc, World } from './types';
+import type { Companion, Ctx, Hero, Npc, World } from './types';
 import { moveNpc } from './population';
 import { fightTraining, levelOfXp, skillXp } from './grade';
 
@@ -25,7 +25,19 @@ export const KINDS: Record<string, KindDef> = {
   scrapper: { label: 'scrapper-bot', maxHp: 60, power: 5, abilities: ['tank', 'lockpick'], assist: { absorb: 11 }, seats: 2, learns: { 12: 'hack', 28: 'scout' } },
   hacker: { label: 'hacker', maxHp: 54, power: 5, abilities: ['hack', 'scout'], assist: { disable: true }, learns: { 10: 'distract', 25: 'zap' } },
   courier: { label: 'courier', maxHp: 30, power: 3, abilities: ['scout', 'charm'], assist: { dmg: 5 }, learns: { 10: 'distract', 25: 'hack' } },
+  // Her band (band.ts): they play, and a fight is a bassist swinging a bass.
+  musician: { label: 'bandmate', maxHp: 34, power: 3, abilities: ['play', 'charm'], assist: { dmg: 6 }, learns: { 10: 'distract', 25: 'scout' } },
 };
+
+const BAND_SKILLS = new Set(['guitar', 'vocals', 'djing', 'beatbox']);
+
+/** What her band adds to a music skill: a level and a bit for each bandmate with her, more as they get better; four at most. */
+export function bandBonus(h: Pick<Hero, 'companions'>, skill: string): number {
+  if (!BAND_SKILLS.has(skill)) return 0;
+  let n = 0;
+  for (const a of h.companions) if (a.kind === 'musician' && a.hp > 0) n += 1 + levelOf(a) / 25;
+  return Math.min(4, n);
+}
 
 /** How many can be with her at once. Others wait at a home she owns (see crew.ts), and don't count. */
 export const MAX_COMPANIONS = 3;

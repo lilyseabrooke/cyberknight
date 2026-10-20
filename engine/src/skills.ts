@@ -4,6 +4,7 @@ import { growthPct } from './lab';
 import { GENERIC_TITLES, LEVEL_MILESTONES, SKILLS, SKILL_IDS, type SkillId, type StatId } from './content/skills';
 import { levelOfXp } from './grade';
 import { instrumentBonus } from './instruments';
+import { bandBonus } from './companions';
 
 export type { SkillId, StatId };
 export { SKILL_IDS };
@@ -18,7 +19,7 @@ export function skillValue(h: Hero, id: SkillId): number {
   const base = levelOfXp(h.skills[id] ?? 0);
   const bonus = h.implants.reduce((a, i) => a + (IMPLANTS[i]?.skills?.[id] ?? 0), 0);
   const held = h.weapon?.fx?.skill?.id === id ? h.weapon.fx.skill.bonus : 0;
-  return Math.max(0, base + bonus + held + instrumentBonus(h, id));
+  return Math.max(0, base + bonus + held + instrumentBonus(h, id) + bandBonus(h, id));
 }
 
 export const skillLevel = (h: Hero, id: SkillId): number => Math.floor(skillValue(h, id));

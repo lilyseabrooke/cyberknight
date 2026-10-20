@@ -1080,6 +1080,14 @@ export interface Legacy {
   lostGuitars?: Item[];
   /** Instruments left on a luthier's bench: not on her, so they wait through a death (luthier.ts). */
   tickets?: Ticket[];
+  /** What her band is called, once she has one (band.ts). Renamed after a big enough night. */
+  bandName?: string;
+  /** A residency: a nightly slot at one stage until the night `until` (band.ts). */
+  residency?: { loc: Id; skill: string; pay: number; until: number };
+  /** Good nights at each stage she was booked at, towards a residency. */
+  residencyHits?: Record<Id, number>;
+  /** An independent sponsor: gear once, a stipend every night, gone after three flops or a Muse contract (band.ts). */
+  sponsor?: { name: string; stipend: number; since: number; flops: number };
   /** Gangs that have adopted her (a Rust Choir that liked her answer at the gate, and so on): their people start out warm. See cutting.ts. */
   adopted?: string[];
   /** Duels won at a gang's own venue, by gang, on the way to being adopted. */
@@ -1217,6 +1225,8 @@ export interface Booking {
   /** Who booked her, when somebody in particular did. */
   host?: Id;
   played?: boolean;
+  /** One night of a residency (band.ts). */
+  residency?: boolean;
 }
 
 /** A home she bought from a property office. It is on the map for good and hers through every death. See realty.ts. */
