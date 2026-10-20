@@ -8,7 +8,7 @@ import { ACT_SKILL } from './stage';
 import { SPOTLIGHT_LINE, type Want } from './content/callings';
 import { callingAfter, callingTargets, callingTick, spotlightFervor } from './callings';
 import { SKILL_LABELS, skillLevel } from './skills';
-import { dayOf } from './clock';
+import { BASE_MIN_PER_BEAT, dayOf } from './clock';
 import { PLENTY_PARTS, knownBenches, lowOnParts, partsLeads } from './scavenge';
 import { frogRecord, frogWatch, type Sensed } from './cyberfrogs';
 import { frogShort } from './content/cyberfrogs';
@@ -878,7 +878,15 @@ const KINDS: Record<GoalKind, Kind> = {
       if (!isClosed(w, f.loc) && !routeTo(w, w.hero.locationId, f.loc)) return { drop: 'moot' };
       return null;
     },
-    plan() {},
+    plan(c, g) {
+      // Shut for the night, there is no way in and nothing to pull her there: she lets it be until the doors open (no fuss, no frustration meanwhile).
+      const { w } = c;
+      if (!isClosed(w, g.loc!)) return;
+      let mins = 0;
+      while (mins < 720 && isClosed({ ...w, clock: w.clock + mins }, g.loc!)) mins += 15;
+      g.delayUntil = w.beat + Math.max(3, Math.ceil(Math.min(mins, 720) / BASE_MIN_PER_BEAT));
+      g.delayWhy = 'closed';
+    },
     metric: (w, g) => -distTo(w, g.loc!),
     // Badly hurt, even this waits until she has been patched up (quietly: she is not going to announce it for each one).
     targets: (w, g) => (hpFrac(w) < 0.3 ? [] : [{ loc: g.loc!, value: 4.5 }]),
