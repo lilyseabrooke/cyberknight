@@ -114,7 +114,7 @@ describe('sneaking leaves the board as it finds it', () => {
       expect(p.board.bodies.length).toBeGreaterThan(0);
       for (const b of p.board.bodies) {
         const n = w.npcs[b.npcId]!;
-        expect(!n.alive || n.downUntil > w.beat).toBe(true);
+        expect(!n.alive || n.downUntil > w.clock).toBe(true);
         expect(p.board.ents[b.npcId]).toBeUndefined();
       }
       // They are there if she comes back, and still not on their feet.
@@ -187,7 +187,7 @@ describe('a fight starts from, and leaves, the same board', () => {
     fight(r.c, foes, { cause: 'test', assault: true, joiners: false });
     const q = placeOf(w, loc)!;
     expect(q.board).toBe(p.board);
-    const fallen = foes.filter((f) => !f.alive || f.downUntil > w.beat);
+    const fallen = foes.filter((f) => !f.alive || f.downUntil > w.clock);
     if (w.hero.locationId === loc.id) for (const f of fallen) expect(q.board.bodies.some((b) => b.npcId === f.id), f.name).toBe(true);
   });
 

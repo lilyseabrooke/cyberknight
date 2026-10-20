@@ -297,7 +297,7 @@ describe('a whole room', () => {
       out = prowlBoard(r.c, again.b, (t, o, d) => r.c.emit(t, o, d));
       if (out === 'cleared') {
         expect(again.b.bodies).toHaveLength(1);
-        expect(again.g.alive === false || again.g.downUntil > again.w.beat).toBe(true);
+        expect(again.g.alive === false || again.g.downUntil > again.w.clock).toBe(true);
         expect(r.events.some((e) => e.type === 'prowl_takedown' && (e.data.variant === 'ko' || e.data.variant === 'kill'))).toBe(true);
         expect(r.events.some((e) => e.type === 'call_for_help')).toBe(false);
       }

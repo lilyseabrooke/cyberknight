@@ -38,6 +38,8 @@ Fantasy-to-cyberpunk mapping is intentional and should be played straight and li
 - Consequences for the architecture:
   - The sim runs on a **beat clock** (each beat is a discrete decision/action). The UI plays beats at a configurable speed. Pause, 1x and fast-forward controls exist; an "skip to next interesting thing" control is also wanted.
   - **Offline catch-up:** a run that is in progress while the page is closed continues "in absentia". On return the client fast-forwards the deterministic sim from the last saved state to the current wall-clock time, then shows a digest of what happened (full log still browsable). Because the sim is deterministic and seeded, this needs no server compute.
+  - **Clock time vs beat time.** There are two ways to measure time. **Clock time** is the in-game time (`clock.ts`, world minutes). **Beat time** counts actions (beats). **There is no conversion between them**, and none should be attempted: a beat is whatever one action is. "Sleep eight hours" is one beat; "wink at a girl" is one beat. Default to **clock time** for anything that takes place over time (decay and recovery, stock turnover, how long a heat, grudge, absence or deadline lasts), and write it as a world-clock duration, never as "N beats". Beats are right for **counting actions** (tries, rounds, steps) and for **combat, stealth and chase scenes**, where a beat is reliably a few seconds, so "the alert lasts 12 beats" or "a 3-beat window to react" means something. Outside those scenes, don't estimate what a beat is worth in minutes.
+  - **Where the code stands.** On the world clock: `Npc.downUntil` (people beaten, fled, framed or knocked out), shops' `shutUntil` and the `pendingShut`/`pendingHire` delays, the pursuit write-offs (`passed`), world-facing cooldowns (`coolFor`, `mind.coolUntil`: dropped goals, doors, jobs, `quest_ask`, `analyze`, influence), crowd fatigue and wariness (`tickVenues`), satiety (`tickSatiety`), the gunsmith's shipments (`tickShelf`), heat lost while lying low, and the periodic upkeep in `run.ts` and `extras.ts` (heat decay, hangover, paint stock, affinity drift, regeneration, companion loyalty, weather), which uses `every(w, key, minutes)` from `clock.ts` instead of `w.beat % N`. Still counted in beats on purpose: decision pacing (`cool`: when she next thinks about a quest, asks the lab, explores, scavenges or has a whim), goal desire and frustration, pursuit step counts, `Buff.until`, sneak training in stealth scenes, and the combat, stealth and chase effects.
   - Beat pace per run is tuned so the real-time length of a run scales with progression (early = short routes, late = long expeditions).
   - Mid-run Cipher assists are timestamped player inputs in the run's input log, so catch-up replays them correctly.
 
@@ -194,7 +196,7 @@ Kissing used to be a runaway loop (the desire to kiss grew without limit as affi
 
 - **Kiss fatigue.** The desire to kiss someone *again* is capped by affection and drops with every kiss she's already had with them. Kisses lead to **making a move**.
 - **Making a move** (`engine/src/romance.ts`). Available after a kiss (or when she is drunk and keen). It can be declined (sometimes with a slap). If accepted, the venue is decided by **wildness** (thrill, mischief, impulsive, reckless, plus drink): wild and drunk heroes do it **in public** (the bar's owner tosses them out, the police hear about it outdoors, a hero who likes an audience gets famous for it); otherwise it's **somewhere private**, a spot chosen from where she is (a stall, the fridge, the backroom couch, the green room, a VIP booth, the alley). Private spots are **tolerated** (low risk) or **forbidden** (the kitchen, backroom, green room, crawlspace: high risk), with cameras and outdoors adding risk. If she's **caught**, whoever owns the place reacts (staff, the band, club security, an NPD officer, a maintenance bot, or a drone) and the evening is cut short. Sometimes the other person takes her **back to their place** (a corporate penthouse, a capsule hab, a walk-up): it **moves her there**, and the walk can get her **jumped** on the way. After the evening: a warm morning, a phone number, a wallet that's lighter, or an interruption.
-- **Satiety** (`Hero.satiety`, 0..1). A move that lands leaves her sated; it suppresses flirting, kissing and moves (and crush goals) and **decays slowly** (about 220 beats at neutral), faster for showboats, thrill-seekers and drinkers, slower for hopeless romantics. **Amorous company speeds the decay**: flirting, kissing, chatting up girls, pool dates, serving dinner and dancing all burn through it.
+- **Satiety** (`Hero.satiety`, 0..1). A move that lands leaves her sated; it suppresses flirting, kissing and moves (and crush goals) and **decays slowly** (on the world clock, not per beat; a night's sleep should wear it off, a wink shouldn't), faster for showboats, thrill-seekers and drinkers, slower for hopeless romantics. **Amorous company speeds the decay**: flirting, kissing, chatting up girls, pool dates, serving dinner and dancing all burn through it.
 - **Healing is a steep urge** (`engine/src/urges.ts`). How badly she wants healing rises sharply as HP falls (about 0.6 at 70% HP, 1.8 at 50%, 5 at 20%) and is **flattened by drink**: a wasted Blackbird thinks she's fine. It drives buying med packs, the doc, using packs and heading to the chem-mart, so money goals no longer outcompete a hurt hero at the pharmacy counter. A route hop from a goal also no longer drags her out of a shop in the middle of a pressing errand.
 
 ### The dragon family
@@ -273,11 +275,11 @@ Police response now scales with NPD heat instead of jumping straight to riot gea
 
 Heat sets a **heat urge** (`heatUrge`): about 0.6 at heat 1, 2.4 at 3, 5 at 5, 10 at 8. Recklessness, thrill-seeking and drunkenness shrink it, because she thinks she's fine.
 
-- **Lay low** (`lay_low:here`): offered in a hideout (restroom, basement arcade, maintenance crawlspace, any home). Each beat there has a good chance to shave a point off NPD and Atlas heat. This is the safe default.
+- **Lay low** (`lay_low:here`): offered in a hideout (restroom, basement arcade, maintenance crawlspace, any home). Time spent there on the world clock shaves points off NPD and Atlas heat (an hour of lying low is worth more than a minute of it). This is the safe default.
 - **Head for cover** (`heatBias`): `go:` candidates are pulled towards the nearest hideout and away from leaving one, and crime and noisy families are pushed down while hot.
 - **Bribe a cop** (`bribe_cop:street`): street only, heat 2+. Cost rises with heat and with every bribe she has already made (cops learn her rate); she balks at spending most of her cash. A wrong cop makes it worse, and sometimes a fight.
 - **Fix the record** (`fix_record:madame`): Madame Zero, expensive, reliable, knocks 3-5 off.
-- **Frame someone** (`frame:<id>`): pins it on a bystander, who is pulled off the board for 70 beats. Prefers bad guys and avoids friends. Gets harder with every frame-up and botches into a fight.
+- **Frame someone** (`frame:<id>`): pins it on a bystander, who is pulled off the board for a stretch of world-clock time. Prefers bad guys and avoids friends. Gets harder with every frame-up and botches into a fight.
 
 No cooldowns: price inflation, finite cash and a finite supply of fall guys do the limiting.
 
@@ -293,7 +295,7 @@ Goals used to steer her by place: "this room looks valuable", then work out some
    - `take`: go ahead.
    - `lure`: too many eyes; try to get him somewhere quiet (`lure` and `tail` now also serve bounty hunts).
    - `wait`: she's hurt.
-   - `prep`: too much for her. Kill goals go and get a better weapon; a bounty is written off for ~90 beats and she picks another.
+   - `prep`: too much for her. Kill goals go and get a better weapon; a bounty is written off for a stretch of world-clock time and she picks another.
 4. **Bias.** The verdict decides which actions on the target are boosted. While a particular score is in mind, the generic scramble-for-money pull is cut to about a third.
 
 Related changes: goals count the room she's already in (so she doesn't leave one that holds what she wants for one that holds a bit more); goal pulls fade while she's hot; an idle, broke hero decides to do something about it sooner; NPD drones can't kill her on the street.
@@ -319,7 +321,7 @@ Weight is recorded for when encumbrance exists. The named classics (`ITEMS`) sti
 
 `rating(item, foe?)` puts a weapon on one scale (base damage plus what its traits are worth; against a particular foe the relevant traits count in full). Everything that used to compare `weapon.power` now compares ratings: equipping, shopping, the "better weapon" goal, prep for a fight, win odds.
 
-**The shelf.** The gunsmith has a generated shelf per night (`world.arsenal`), turning over every 90 beats (some stock "sold to somebody else", which she notices if she had her eye on it). Each restock includes a step up on whatever she is holding, a sidegrade at about the same tier with a trait she lacks (aimed at her current quarry's kind, when she has one) and some random stock. So there is always something better in some regard, and upgrades are incremental.
+**The shelf.** The gunsmith has a generated shelf per night (`world.arsenal`), turning over on the world clock (some stock "sold to somebody else", which she notices if she had her eye on it). Each restock includes a step up on whatever she is holding, a sidegrade at about the same tier with a trait she lacks (aimed at her current quarry's kind, when she has one) and some random stock. So there is always something better in some regard, and upgrades are incremental.
 
 **In a fight** she picks, from what she is carrying and has ammo for, the weapon that suits the enemy in front of her (her usual one gets the benefit of the doubt), and the log says so when she swaps or when a crit, stun or burn lands.
 
@@ -334,7 +336,7 @@ She is meant to be about **exploring, fighting, collecting loot, earning money a
 
 ## Crowds, callings, and more to do with a voice (tenth pass)
 
-**Crowd fatigue** (`engine/src/stage.ts`). Every performing act wears out the crowd *for that skill* at that place (a bit less for her other skills there), and it recovers slowly with time (about 250 beats from fully worn out). Fame from an act is scaled by the stage (clubs 1.5, bars 1, the street 0.8) and by how fresh the crowd is; tips shrink too; and a worn-out crowd puts her off doing it again right there (a sharper head notices sooner). The way out is a different venue, a different act, or a bigger stage. No cooldowns: it's the audience that is finite. Billboard hijacks and graffiti keep their own saturation.
+**Crowd fatigue** (`engine/src/stage.ts`). Every performing act wears out the crowd *for that skill* at that place (a bit less for her other skills there), and it recovers slowly with time (a span of world-clock time from fully worn out). Fame from an act is scaled by the stage (clubs 1.5, bars 1, the street 0.8) and by how fresh the crowd is; tips shrink too; and a worn-out crowd puts her off doing it again right there (a sharper head notices sooner). The way out is a different venue, a different act, or a bigger stage. No cooldowns: it's the audience that is finite. Billboard hijacks and graffiti keep their own saturation.
 
 **Callings.** A real showing (a big win from someone with at least some skill in it, or a level in the skill) can light her up. Her chance depends on artistry, fame, impulsiveness and how good she already is. While it lasts (`mind.passion`: a skill and a level, cooling with time, fed by good showings and starved by flops):
 
@@ -358,7 +360,7 @@ Known thin spots: guitar and DJ branches are gated (she has to find a guitar, ki
 
 ## Hustles without cooldowns (eleventh pass)
 
-The ten hustles used to be throttled by timers (18 to 140 beats since she last did it to that person). Each is now limited by something that is true about the world (`engine/src/hustles.ts`, `tickHustles` once a beat):
+The ten hustles used to be throttled by timers (a fixed count of beats since she last did it to that person). Each is now limited by something that is true about the world (`engine/src/hustles.ts`, `tickHustles` once a beat):
 
 | hustle | what limits it |
 |---|---|
@@ -389,7 +391,7 @@ Every fight is now played out on a small grid. The player never sees the board: 
 
 **Fluid fights.**
 - **Retreat is physical.** When she is hurt enough she commits to running (same threshold and roll as before) and walks to the nearest free exit tile; stepping off is the `flee` result. Someone standing on the exit blocks it, and enemies can cut her off; if she can't reach any exit she keeps fighting. A broken leg slows her by one tile instead of forbidding it.
-- **Enemies flee too.** A foe who can (not robots, dragons, bosses, cops or security) below about a quarter health, more likely the more of their friends have fallen, or one that was intimidated, runs for an exit. They are counted as having got away: no loot, half the XP, they stay off the board for 15 to 30 beats and remember (`fled from Blackbird`). A shove can also throw them out the door. Fight reports say how many got away.
+- **Enemies flee too.** A foe who can (not robots, dragons, bosses, cops or security) below about a quarter health, more likely the more of their friends have fallen, or one that was intimidated, runs for an exit. They are counted as having got away: no loot, half the XP, they stay off the board for a stretch of world-clock time and remember (`fled from Blackbird`). A shove can also throw them out the door. Fight reports say how many got away.
 - **People turn up late.** Bystanders who join in and anyone who intervenes against a fight she started (police, security, the victim's kin) are no longer added at the start: they come through an exit on round 2 to 5 (the report says so). Same-faction friends of the other side who are in the room may also wade in from round 3 on, once their side is losing (at most two). If the fight is over before they arrive, they never got involved.
 - **Allies are people on the board.** Their own HP, their own targeting. Foes are after Blackbird first (a hit on an ally is judged against her health, not theirs, and counts half), and a downed ally comes round at 1 HP except in a deadly fight, where it's a 40% chance they're lost for good. This replaced the old flat assists and the post-fight random injuries; their power is no longer folded into hers (`heroPower(w, weapon, false)`).
 
@@ -612,7 +614,7 @@ The first thing the player can do mid-night besides watch. At a fork in the road
 - `door`: a hideout or outpost she's seen the door of, in front of her or on her mind. *Should I clear it out?* (clear it out / leave it)
 - `idle`: nothing on her mind. *What should I do with myself?* (the same ideas she'd pick from: fame, money, a dragon, a raid)
 
-**What the answer does.** Options are plain data (`AskOption`): a goal to take on (`spec`, the same thing `adopt` takes) and/or things to put off (`cool`, cooldown keys). Taking advice makes the goal a little stronger (+0.1 desire). *Leave it* cools the door for 120 beats, so she stops being drawn to it. *Odd jobs* sets the `bigscore` cooldown (150 beats): no raids or heists, and no lure from doors, while it lasts. A question about a goal that has gone away by the time it's answered is answered and forgotten.
+**What the answer does.** Options are plain data (`AskOption`): a goal to take on (`spec`, the same thing `adopt` takes) and/or things to put off (`cool`, cooldown keys). Taking advice makes the goal a little stronger (+0.1 desire). *Leave it* cools the door for a stretch of world-clock time, so she stops being drawn to it. *Odd jobs* sets the `bigscore` cooldown (world-clock time): no raids or heists, and no lure from doors, while it lasts. A question about a goal that has gone away by the time it's answered is answered and forgotten.
 
 **If nobody answers**, she goes with `lean`: what she'd have done had she not asked (`want` always leans to saving up: she asks, but has usually decided). So the headless sim, offline catch-up and a player who isn't looking all play the same game as before, just a few beats later.
 

@@ -87,7 +87,7 @@ export function scuffle(c: Ctx, a: Npc, b: Npc, edge = 1): { winner: Npc; loser:
   const pb = b.power * (0.7 + 0.6 * rng.next());
   const [winner, loser] = pa >= pb ? [a, b] : [b, a];
   loser.hp = Math.max(1, loser.hp - Math.round(loser.maxHp * (0.3 + 0.3 * rng.next())));
-  loser.downUntil = w.beat + rng.int(25, 60);
+  loser.downUntil = w.clock + rng.int(75, 180);
   winner.hp = Math.max(1, winner.hp - Math.round(winner.maxHp * 0.15 * rng.next()));
   return { winner, loser };
 }
@@ -394,7 +394,7 @@ function errandBeat(c: Ctx, n: Npc, g: NpcGoal, align: number): void {
   }
   g.tries = (g.tries ?? 0) + 1;
   g.wait = w.beat + rng.int(2, 4);
-  if (g.tries >= 3 || n.hp < n.maxHp * 0.4 || n.downUntil > w.beat) {
+  if (g.tries >= 3 || n.hp < n.maxHp * 0.4 || n.downUntil > w.clock) {
     c.emit('errand_giveup', 'bad', { ...deed, place, seen, variant: g.kind });
     finish(c, n, g, 'lapsed');
   }

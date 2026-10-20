@@ -86,7 +86,7 @@ export const siteAt = (loc: Id): Site | undefined => SITES.find((s) => s.loc ===
 
 // ===================================================================== for sale
 
-const present = (w: World, n: Npc | undefined): n is Npc => !!n && n.alive && !n.hostile && n.locationId === w.hero.locationId && n.downUntil <= w.beat;
+const present = (w: World, n: Npc | undefined): n is Npc => !!n && n.alive && !n.hostile && n.locationId === w.hero.locationId && n.downUntil <= w.clock;
 
 export const isSold = (w: World, id: string): boolean => !!w.flags[`sold:${id}`];
 

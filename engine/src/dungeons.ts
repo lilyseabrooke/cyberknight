@@ -73,7 +73,7 @@ export const isEntrance = (loc: Location): boolean => !!loc.dungeon && loc.dunge
 export const garrisonAlive = (w: Pick<World, 'npcs'>, d: Dungeon): Npc[] => d.garrison.map((id) => w.npcs[id]).filter((n): n is Npc => !!n && n.alive && n.post === d.id);
 
 /** Posted people standing in this room who could take part in a fight right now. */
-export const standing = (w: World, d: Dungeon, room: Id): Npc[] => everyoneAt(w, room).filter((n) => n.alive && n.post === d.id && n.downUntil <= w.beat);
+export const standing = (w: World, d: Dungeon, room: Id): Npc[] => everyoneAt(w, room).filter((n) => n.alive && n.post === d.id && n.downUntil <= w.clock);
 
 /** The rooms next door, inside the same building. */
 const neighbours = (w: Pick<World, 'locations'>, d: Dungeon, room: Id): Id[] => (w.locations[room]?.exits ?? []).map((e) => e.to).filter((id) => !!roomOf(d, id));
@@ -430,7 +430,7 @@ export function fightRoom(c: Ctx, d: Dungeon, loc: Location, ambush: boolean): F
 export function routed(c: Ctx, d: Dungeon): void {
   const { w } = c;
   for (const n of garrisonAlive(w, d)) {
-    if (n.downUntil <= w.beat || n.tags.includes('quest_target')) continue; // (somebody a job is about doesn't leave)
+    if (n.downUntil <= w.clock || n.tags.includes('quest_target')) continue; // (somebody a job is about doesn't leave)
     delete n.post;
     sendAway(w, n);
   }

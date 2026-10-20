@@ -1,3 +1,4 @@
+import { MIN_PER_DAY, START_MINUTE, minuteOfDay } from './clock';
 import { describe, expect, it } from 'vitest';
 import { scenario } from './testkit';
 import { fight } from './combat';
@@ -44,8 +45,8 @@ describe('taking people down', () => {
     mighty(s.w);
     const tiny = s.w.npcs.tiny!;
     layOut(s, tiny);
-    expect(tiny.alive || tiny.downUntil > s.w.beat).toBe(true);
-    if (tiny.alive) expect(tiny.downUntil - s.w.beat).toBeGreaterThan(60);
+    expect(tiny.alive || tiny.downUntil > s.w.clock).toBe(true);
+    if (tiny.alive) expect(tiny.downUntil - s.w.clock).toBeGreaterThan(60);
   });
 
   it('shuts the bar when its owner goes down: she is shown out, and nobody gets in until it reopens', () => {
@@ -61,7 +62,9 @@ describe('taking people down', () => {
     expect(gather(s.w).some((c) => c.key === 'go:halo_floor')).toBe(false);
     expect(routeTo(s.w, 'street_main', 'halo_restroom')).toBeNull();
     // later it opens again
-    s.w.beat = s.w.locations.halo_floor!.shutUntil! + 1;
+    // (at an hour the bar is open: the reopening is about the clock passing the lock, not the hours on the door)
+    const t = s.w.locations.halo_floor!.shutUntil! + 1;
+    s.w.clock = t + ((START_MINUTE - minuteOfDay(t) + MIN_PER_DAY) % MIN_PER_DAY);
     expect(isShut(s.w, 'halo_floor')).toBe(false);
     expect(routeTo(s.w, 'street_main', 'halo_restroom')).not.toBeNull();
   });
@@ -81,10 +84,10 @@ describe('taking people down', () => {
     const mart = s.w.locations.chem_mart!;
     expect(mart.pendingShut).toBeDefined();
     expect(isShut(s.w, 'chem_mart')).toBe(false);
-    s.w.beat = mart.pendingShut!.due - 1;
+    s.w.clock = mart.pendingShut!.due - 1;
     s.run(closureTick);
     expect(isShut(s.w, 'chem_mart')).toBe(false);
-    s.w.beat = mart.pendingShut!.due;
+    s.w.clock = mart.pendingShut!.due;
     s.run(closureTick);
     expect(isShut(s.w, 'chem_mart')).toBe(true);
     expect(mart.shutBy).toBe('police');
@@ -105,7 +108,7 @@ describe('when the muscle goes down', () => {
     expect(isShut(s.w, 'halo_floor')).toBe(false);
     expect(floor.pendingHire).toBeDefined();
     expect(s.events.some((e) => e.type === 'house_decides' && e.data.variant === 'hire')).toBe(true);
-    s.w.beat = floor.pendingHire!.due;
+    s.w.clock = floor.pendingHire!.due;
     s.run(hiringTick);
     const door = npcsAt(s.w, 'halo_floor').find((n) => n.role === 'bouncer' && n !== tiny);
     expect(door).toBeDefined();

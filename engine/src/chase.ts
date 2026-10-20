@@ -910,7 +910,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
                 if (!rng.chance(0.6)) continue;
                 f.off = true;
                 f.gap = ESCAPE_GAP + 1;
-                for (const n of f.crew) n.downUntil = Math.max(n.downUntil, w.beat + 20);
+                for (const n of f.crew) n.downUntil = Math.max(n.downUntil, w.clock + 20);
               }
               sendAway(c, a.officers);
             } else if (a.side === 'all') {
@@ -1133,7 +1133,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
   });
   // Anybody left looking for her on the street she is hiding on: that is a scene of its own.
   if (!w.over && !o.noSearch && result === 'escaped' && hid && h.hp > 0 && searching.size && h.locationId === searchStreet) {
-    const crew = [...searching].filter((n) => n.alive && n.locationId === h.locationId && n.downUntil <= w.beat);
+    const crew = [...searching].filter((n) => n.alive && n.locationId === h.locationId && n.downUntil <= w.clock);
     if (crew.length) streetHunt(c, crew, o.cause, { keepSpot: true });
   }
   // Anybody she knocked into on the way, who has had enough.

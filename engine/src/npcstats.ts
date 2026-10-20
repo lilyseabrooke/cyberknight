@@ -1,7 +1,7 @@
 import type { Ctx, Npc, World } from './types';
 import { Rng } from './rng';
 import { clamp } from './candidate';
-import { cool } from './mind';
+import { coolFor } from './mind';
 import { synergy, train } from './skills';
 import type { SkillId } from './skills';
 
@@ -130,7 +130,7 @@ export function analyze(c: Ctx, n: Npc): void {
   const total = STAT_KEYS.reduce((a, k) => a + truth[k], 0);
   const q = clamp(0.1 + 0.07 * synergy(h, ['analyze', ['stat:int', 0.7]]) + 0.55 * lopsided(truth) - 0.01 * Math.max(0, n.level - h.level), 0, 0.95);
   train(c, 'analyze', 1);
-  cool(w, `analyze:${n.id}`, 40);
+  coolFor(w, `analyze:${n.id}`, 120);
   if (q < 0.2) {
     c.emit('analyze', 'mixed', { variant: 'blank', npc: n.name });
     return;

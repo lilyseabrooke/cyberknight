@@ -13,6 +13,10 @@ the header of the file you're editing first.
 - [ ] **Pronouns** via tokens, never hard-coded for generic NPCs.
 - [ ] **No artificial cooldowns.** Limits come from the world: finite stock, saturation, heat, grudges
       (design rule in `../DESIGN.md`).
+- [ ] **Clock time, not beats, for anything that lasts.** Durations, deadlines, restocks and decay are in world minutes
+      (`clock.ts`). A beat can be seconds or hours and there is no conversion, so "lasts N beats" has no real length. Count
+      beats only for the number of actions, or inside combat, stealth and chase scenes (a few seconds a beat); see
+      `../DESIGN.md` §3.
 - [ ] **Plain JSON state, deterministic.** Use the passed `rng`; never `Math.random()` or `Date.now()`.
 - [ ] **Tests pass:** `npm run typecheck && npm test`; slow whole-game claims go under `npm run test:full`.
 - [ ] **Docs updated** if you added a *kind* of thing (not just an instance).

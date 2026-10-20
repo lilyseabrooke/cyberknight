@@ -86,6 +86,20 @@ export function nextEvening(clock: number, minGap = 6 * 60): number {
   return t + ((START_MINUTE - minuteOfDay(t) + MIN_PER_DAY) % MIN_PER_DAY);
 }
 
+/**
+ * How many whole `period`-minute spans of world clock have gone by since this was last asked about `key`
+ * (0 on the first ask). The span boundaries are kept, so nothing is lost or counted twice, whether a beat was
+ * a few seconds or a night's sleep. This is what a "every so often" tick should use instead of `w.beat % N`.
+ */
+export function every(w: World, key: string, period: number): number {
+  const marks = (w.every ??= {});
+  let last = marks[key];
+  if (last === undefined || last > w.clock) last = marks[key] = w.clock;
+  const n = Math.floor((w.clock - last) / period);
+  if (n > 0) marks[key] = last + n * period;
+  return n;
+}
+
 /** Let world time pass: a fight, an odd job, a long sleep. Minutes are never negative. */
 export function elapse(w: World, minutes: number): void {
   w.clock += Math.max(0, minutes);

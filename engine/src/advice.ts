@@ -1,7 +1,7 @@
 import type { Ask, AskKind, AskOption, Ctx, GoalSpec, World } from './types';
 import type { EventData } from './events';
 import { clamp } from './candidate';
-import { cool, cooling, goalById } from './mind';
+import { cool, coolFor, cooling, goalById } from './mind';
 import { adoptSpec } from './goals';
 import { adoptCalling } from './callings';
 
@@ -80,7 +80,7 @@ export function resolveAsk(c: Ctx, pick: string, by: 'lab' | 'self'): boolean {
   else adv.lapsed++;
   c.emit(by === 'lab' ? 'advice_taken' : 'advice_lapsed', by === 'lab' ? 'good' : 'mixed', { ...ask.data, variant: ask.kind, pick: opt.id, label: opt.label });
   if (ask.about !== undefined && !goalById(w, ask.about)) return true;
-  for (const [key, beats] of Object.entries(opt.cool ?? {})) cool(w, key, beats);
+  for (const [key, minutes] of Object.entries(opt.cool ?? {})) coolFor(w, key, minutes);
   if (opt.spec) adoptSpec(c, withBackup(opt.spec, by === 'lab'));
   if (opt.calling) adoptCalling(c, opt.calling, by);
   return true;

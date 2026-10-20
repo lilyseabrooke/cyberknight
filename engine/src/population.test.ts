@@ -62,7 +62,7 @@ describe('the population store', () => {
   it('answers who is where the way a scan of everybody would, in the same order', () => {
     const w = fresh();
     for (const loc of Object.keys(w.locations)) {
-      const scan = allNpcs(w).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.beat);
+      const scan = allNpcs(w).filter((n) => n.alive && n.locationId === loc && n.downUntil <= w.clock);
       expect(npcsAt(w, loc).map((n) => n.id)).toEqual(scan.map((n) => n.id));
     }
     expect(verifyIndex(w)).toEqual([]);
@@ -91,7 +91,7 @@ describe('the population store', () => {
     const w = fresh();
     const [a, b] = npcsAt(w, 'halo_floor');
     a!.alive = false;
-    b!.downUntil = w.beat + 10;
+    b!.downUntil = w.clock + 30;
     expect(npcsAt(w, 'halo_floor')).not.toContain(a);
     expect(npcsAt(w, 'halo_floor')).not.toContain(b);
     expect(everyoneAt(w, 'halo_floor')).toContain(a);

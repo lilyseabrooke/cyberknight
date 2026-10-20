@@ -79,8 +79,8 @@ Departures from the sketch, and why:
 
 ## 1. One grade scale
 
-Skill level, enemy threat, location danger and gear tier all use one unit, the **grade**, 0 to unbounded (soft ceiling at
-100). "Melee 30 versus a grade-30 enemy" means something.
+Skill level, enemy threat, location danger and gear tier all use one unit, the **grade**. Skills and hero level run **0 to 100**; 80 is very high even for an endgame run.
+Enemy threat and other grades can overshoot 100 only as outliers. "Melee 30 versus a grade-30 enemy" means something.
 
 Anchors:
 
@@ -93,7 +93,7 @@ Anchors:
 | 60 | Hera Mk. V |
 | 70 | ordinary endgame mooks |
 | 80 | the Atlas CEO, the final boss and the top-difficulty benchmark; roughly where the game is "cleared" |
-| 100 | skill ceiling in practice; enemies only get here through stacked outliers |
+| 100 | skill and level ceiling; enemies only get here through stacked outliers |
 
 The CEO (see `docs/setting/board.md`) is not in the game yet, but the curves are anchored on her: grade 80 is "as hard as
 she is". Hera at 60 is a late-mid threat, not the wall she is today. A 70-grade mook out-grades her, but she is a boss,

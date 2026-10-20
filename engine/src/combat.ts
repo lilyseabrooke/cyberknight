@@ -337,7 +337,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
   for (const f of foes) {
     if (!res.fled.has(f.id)) continue;
     f.hostile = false;
-    f.downUntil = w.beat + downFor(f, rng, true);
+    f.downUntil = w.clock + downFor(f, rng, true);
     f.affinity -= 20;
     remember(f, 'fled from Blackbird');
   }
@@ -391,7 +391,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
         // non-lethal: knocked out, not dead. They'll remember.
         f.hp = Math.max(1, Math.round(f.maxHp * 0.5));
         f.hostile = false;
-        f.downUntil = w.beat + downFor(f, rng, false);
+        f.downUntil = w.clock + downFor(f, rng, false);
         f.affinity -= 40;
         remember(f, 'was beaten by Blackbird');
         // Beaten is beaten: she goes through the pockets of anyone who can't stop her.
@@ -409,13 +409,13 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
       }
     }
     h.cash += cash;
-    afterTakedown(c, foes.filter((f) => !gone(f) && (!f.alive || f.downUntil > w.beat)));
+    afterTakedown(c, foes.filter((f) => !gone(f) && (!f.alive || f.downUntil > w.clock)));
     collectBounties(c, foes.filter((f) => !gone(f)));
     // The people who care about them hear; and whoever hired her pays.
     for (const f of foes) {
       if (gone(f)) continue;
       if (!f.alive) spreadDeed(c, f, 'killed');
-      else if (f.downUntil > w.beat) spreadDeed(c, f, 'hurt');
+      else if (f.downUntil > w.clock) spreadDeed(c, f, 'hurt');
     }
     settleContracts(c, foes.filter((f) => !gone(f)));
     h.hp = Math.max(h.hp, 1);
