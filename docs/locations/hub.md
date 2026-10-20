@@ -224,8 +224,7 @@ Differences from the draft:
 - **Routes:** the seven in 8.1. The "duel the teacher" idea became the `trial`.
 - **Right Thinking** is a counter on the world (`counters.think`, at most 8) and a small, reversible nudge to five personality traits
   (`THINK_STEP` in `hubkit.ts`); the weights are recomputed. `deprogram` takes steps back out. Not built: Titanware heat (OPEN, as in 13).
-- **Not built:** a hustle (a shift at the desk); a per-beat tick (there is no shelf or stock to turn over); a "kill goal" row (killing the
-  sysop works through the ordinary fight and shuts the hub).
+- **Not built:** a hustle (a shift at the desk); a per-beat tick (there is no shelf or stock to turn over); killing the sysop works through the ordinary fight and shuts the hub.
 - **Wild cards built:** all eight (the Master, the cursed course, the honeypot, the ghost instructor, all-you-can-learn, every terminal trapped,
   three for one, Branch Zero).
 
