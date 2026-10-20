@@ -113,6 +113,10 @@ export const BLURBS: Record<string, string> = {
 
 /** What she says to herself about each Calling, in her own voice. */
 const CALLING_VOWS: Record<string, string> = {
+  board: 'Three letters. At the top. Every time. Where they belong.',
+  gamecash: 'They said it was a hobby. They can say it again to my bank.',
+  spiders: 'Fun is guaranteed. So is this.',
+  creator: 'Somebody wrote that. Somebody is at home. I am going to visit.',
   vocals: 'They will hear me from the other side of the Wall.',
   guitar: 'My hands know. They have always known.',
   djing: 'Every floor in Neo. One at a time. In order.',
@@ -954,12 +958,83 @@ const T: Record<string, Entry> = {
   pawn: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
   // ---- chop shops and workbenches (chop.ts, bench.ts): same shape
   chop: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  // ---- Cyberfrogs (cyberfrogs.ts): same shape, and the goal lines that go with them
+  frog: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'goal_new:frog_sense': e((d) => [`${d.text} New objective: ${d.goal}.`], (d) => (d.thought ? [String(d.thought)] : [])),
+  'goal_new:frog_here': e(
+    (d) => [`There is a Cyberfrog right here at ${d.place}, and Blackbird has seen it. Everything else becomes background. New objective: ${d.goal}.`],
+    ['Whatever I was doing, I was not doing it very hard.', 'Hold still, little guy. I am coming.'],
+  ),
+  'goal_new:frog_back': e(
+    (d) => [`Blackbird has not forgotten the Cyberfrog by ${d.place}. It is still there. It is, if anything, more there. New objective: ${d.goal}.`],
+    ['I left a frog. What kind of person leaves a frog.', 'Fine. Back we go.'],
+  ),
+  'goal_resume:frog': e((d) => [`Blackbird's thoughts drift back to the Cyberfrog by ${d.place}. They had not left. They only looked like they had.`], ['A frog out there is going to be lonely.']),
+  'goal_done:collected': e(
+    (d) => [`${d.frog}: safe, shelved, and no longer something Neo can do anything to. Blackbird stands a moment with her hands still cupped around where it was, then puts them in her pockets and tries to look like a person.`, `That is ${d.frog} taken care of. Blackbird squares her shoulders and goes back to being a hero, or a very good impression of one.`],
+    ['Safe. Another one safe. That is the only job.', 'I would burn this whole city for that shelf.'],
+  ),
+  'goal_drop:frog_lost': e(
+    (d) => [`${d.frog} is gone, and that is that. Blackbird says nothing, which for Blackbird is a sort of scream.`],
+    ['Somebody is going to pay for this. Somebody always does.'],
+  ),
   // ---- hacker hubs (content/hub*.ts, hubkit.ts): same shape
   hub: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
   'intent:hub': e((d) => [String(d.text)]),
   'intent:hubquick': e((d) => [String(d.text)]),
   'intent:hubfight': e((d) => [String(d.text)]),
   'intent:hubdeal': e((d) => [String(d.text)]),
+  // ---- what she makes of the games she plays (games.ts), and who made them (creators.ts)
+  'game_feeling:love': e(
+    (d) => [`Somewhere around the ${Number(d.like) >= 0.8 ? 'tenth' : 'sixth'} go, Blackbird realises she loves "${d.title}". Not likes. Loves. She tells nobody and plays it again.`, `"${d.title}" has her. Blackbird can feel it: that small, stupid, enormous thing where a game stops being a machine and starts being a friend.`],
+    ['Okay. Okay, I love this one.', 'It gets me. It actually gets me.'],
+  ),
+  'game_feeling:hate': e(
+    (d) => [`Blackbird has now lost to "${d.title}" ${Number(d.streak) > 1 ? `${$(d.streak)} times in a row` : 'again'} and has stopped pretending it is a game. It is a person, somewhere, who did this on purpose. She hates it.`, `Somewhere in "${d.title}", a designer made a decision. Blackbird has been living inside it. She is, calmly, beginning to hate whoever it was.`],
+    ['It cheats. It is not even good at cheating.', 'Whoever made this knew exactly what they were doing.'],
+  ),
+  'game_lost:spider': e(
+    (d) => [`${cap(String(d.by))} cuts "${d.title}" in half, in front of her, humming. Blackbird has loved that game for weeks. She watches it go up in a fountain of sparks and does not move a muscle.`, `"${d.title}" goes through a pincer and out the other side, and the cheerful voice says fun is guaranteed. Blackbird's hands close, slowly, on nothing.`],
+    ['That was mine. That was mine.', 'It said it cared. It said it cared the whole time.'],
+  ),
+  'game_lost:found': e(
+    (d) => [`Where "${d.title}" used to stand there is a clean rectangle in the dust and a small pink sticker that says FUN VERIFIED. Blackbird stands there for a while. Someone has swept up the glass.`, `"${d.title}" is gone. The hall has been audited. There is a rectangle on the floor where it was, and a lanyard, and nobody who will look her in the eye.`],
+    ['They took it while I was out.', 'A spider did this. A sticker, and a spider.'],
+  ),
+  'creator_learned:record': e(
+    (d) => [`Blackbird's three letters come up first on "${d.title}", and then the credits roll, which they do for a number one and nobody else. DESIGNED BY ${String(d.name).toUpperCase()}${d.place ? `, ${d.place}` : ''}. She reads it three times.`, `Number one on "${d.title}" unlocks a screen nobody sees. It has a name on it: ${d.name}, ${d.job}${d.place ? `, last known at ${d.place}` : ''}.`],
+    ['A name. A real person.', 'I should send flowers. Or something.'],
+  ),
+  'creator_learned:override': e(
+    (d) => [`Blackbird opens the back of "${d.title}" with an Override and reads the build's own files. The last commit is signed ${d.name}, ${d.job}${d.place ? `, from ${d.place}` : ''}. She would like to meet them.`, `The Override takes "${d.title}" apart like a pocket watch. At the bottom of the source, a name: ${d.name}. ${d.place ? `A note says where they work: ${d.place}.` : ''}`],
+    ['Never trust a machine with its own source open.', 'There you are.'],
+  ),
+  'creator_learned:pros': e(
+    (d) => [`Blackbird asks the pros about "${d.title}" and the whole row of them goes quiet, then loud. ${d.name}, they say. ${d.job}. Nobody knows where. Everybody has a theory.`, `A champion with a custom stick tells her who made "${d.title}", unprompted, in the voice of someone who has said it in a lot of bad moods. ${d.name}.`],
+    ['A name. That is a start.', 'They all hate them too. It is nice to have company.'],
+  ),
+  'creator_learned:intel': e(
+    (d) => [`An evening of forums, credits, a stranger's cache of old patch notes and a lot of squinting, and Blackbird has it: "${d.title}" was made by ${d.name}, ${d.job}${d.place ? `, who works at ${d.place}` : ''}.`, `The thread about "${d.title}" is eleven years old and furious. Under it, in a reply nobody read, is ${d.name}'s handle and a place: ${d.place ?? 'somewhere'}.`],
+    ['Paper trails are the best trails.', 'Digging pays. Nobody ever tells you that.'],
+  ),
+  'creator_learned:records': e(
+    (d) => [`The registry has a file on "${d.title}", and the file has a name: ${d.name}, ${d.job}${d.place ? `, filed at ${d.place}` : ''}. Blackbird takes a copy and leaves the original, which is the polite thing to do.`, `Out of a drawer that should have been locked comes the licensing record for "${d.title}". ${d.name}. ${d.place ? `A home address, even: ${d.place}.` : ''}`],
+    ['There is always a drawer.', 'Paperwork. The most dangerous thing in Neo.'],
+  ),
+  'creator_located:record': e((d) => [`The credits of "${d.title}" list a studio address after all: ${d.place}. ${d.name} is, as of the last update, still there.`], ['An address. Even better.']),
+  'creator_located:override': e((d) => [`Deeper in the build of "${d.title}", a config file points at ${d.place}. ${d.name} works there.`], ['Developers never clean up after themselves.']),
+  'creator_located:pros': e((d) => [`Someone knows where ${d.name} is. It is ${d.place}.`], ['Somebody always knows.']),
+  'creator_located:intel': e((d) => [`It takes three days of other people's receipts, but Blackbird has ${d.name}'s address: ${d.place}.`], ['An address. Now it is personal.']),
+  'creator_located:records': e((d) => [`The registry has ${d.name}'s home and workplace on the same page. ${d.place}. Blackbird tears the page out, in case.`], ['A neat little page. I will put it to good use.']),
+  // ---- a file taken out of a records office (records.ts)
+  records: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:records': e((d) => [String(d.text)]),
+  // ---- arcades (content/hall*.ts, hallkit.ts): same shape
+  hall: e((d) => [String(d.text)], (d) => (d.thought ? [String(d.thought)] : [])),
+  'intent:hall': e((d) => [String(d.text)]),
+  'intent:hallquick': e((d) => [String(d.text)]),
+  'intent:hallfight': e((d) => [String(d.text)]),
+  'intent:halldeal': e((d) => [String(d.text)]),
   'intent:pawn': e((d) => [String(d.text)]),
   'intent:pawnquick': e((d) => [String(d.text)]),
   'intent:pawnfight': e((d) => [String(d.text)]),
@@ -1485,6 +1560,47 @@ const T: Record<string, Entry> = {
   'order_drink:tab': e((d) => [`Blackbird orders ${d.drink}. She is a little short, so ${d.npc} puts it on her tab, now at ${d.tab} neodollars.`], ["It's fine. I'm good for it. Future me is rich."]),
   'order_drink:fame': e((d) => [`${d.npc} slides Blackbird ${d.drink} without being asked. "On the house, hero." Word gets around.`], ['That is what fame tastes like.']),
   'go:recognized': e((d) => [`The bouncer takes one look at Blackbird and lifts the rope without a word. People whisper as she walks in. She hears her name, mostly spelled right.`], ['Fame. This is what it is for.']),
+  // ---- acting: being somebody else (disguise.ts)
+  'intent:don_cover': e((d) => (d.crew === 'atlas' ? [`Blackbird looks at ${d.place}, then at her own jacket, and decides she is a person who works for Atlas.`, `Blackbird straightens an imaginary lanyard outside ${d.place}. Atlas cares. She will be caring for the next little while.`] : d.crew === 'npd' ? [`Blackbird squares her shoulders outside ${d.place} and practices a bored, official face.`] : [`Blackbird works out how a ${d.gang || 'gang'} person stands, spits and does not look at the door of ${d.place}.`, `Blackbird turns her collar up, her chin down and her attitude to "I belong here", outside ${d.place}.`])),
+  'intent:don_staff': e((d) => [`Blackbird picks up a clipboard from nowhere, and a purposeful walk from somewhere, and heads for ${d.place}.`, `Blackbird adopts the posture of a person who has been told to go through the door at ${d.place}.`]),
+  'intent:don_star': e(() => ['Blackbird tilts her head, lowers her sunglasses an inch and prepares to be somebody people have heard of.', 'Blackbird clears her throat and becomes, for the evening, a household name.']),
+  'intent:mimic': e((d) => [`Blackbird watches ${d.npc} for a while: the walk, the laugh, the way ${d.npc} holds a door. Then she tries them on.`, `Blackbird studies ${d.npc} with the intensity of a person about to commit a crime in somebody else's shoes.`]),
+  'intent:star_flirt': e((d) => [`Blackbird drifts up to ${d.npc} and lets ${d.npc} work out who she appears to be.`, `Blackbird turns the full wattage of ${d.star} on ${d.npc}.`]),
+  'don:crew': e((d) => [d.crew === 'atlas' ? `Blackbird buttons the jacket, finds the walk, and is, to any reasonable eye, ${d.label}. It is ${d.look}. Atlas would be proud, if Atlas had a way of being proud of people.` : d.crew === 'npd' ? `A hat, a badge-shaped object, a stance learned from bored cops: Blackbird is now ${d.label}. It is ${d.look}.` : `Colors, a swagger, the right swear words: Blackbird is now ${d.label}. It is ${d.look}.`], ['Whoever I was, I am not that any more.', 'Look at me. Nobody is looking at me. That is the point.']),
+  'don:role': e((d) => [`Blackbird is now ${d.label}. It is ${d.look}. Nobody has ever asked someone like that for ID.`], ['Never underestimate a clipboard.']),
+  'don:star': e((d) => [`Blackbird is ${d.label} now: ${d.what}. It is ${d.look}. She practices the autograph on her own wrist.`], ['I have always felt famous. Now it is a matter of record.', 'It is a lot to live up to. I am up to it.']),
+  'don:person': e((d) => [`Blackbird has ${d.npc} down: the walk, the voice, the one tic. For anyone who only knows ${d.npc}${d.gang ? ` from the ${d.gang}` : ''} by reputation she is ${d.npc}. It is ${d.look}.`], ["I'm a quick study. It's a gift and a curse. Mostly the first one."]),
+  'disguise_pass:entering': e((d) => [d.crew === 'atlas' ? `${cap(String(d.place))}: ${d.foes} look up, see the uniform-shaped confidence, and look back down. "Evening." Blackbird goes through the room like she was issued to it.` : d.crew === 'npd' ? `${cap(String(d.place))}: ${d.foes} take in the posture and the attitude and conclude she is police. Everybody is suddenly very interested in their own shoes.` : `${cap(String(d.place))}: ${d.foes} give her a long look. She gives it back, with interest. They nod. She is one of theirs, apparently, and they have things to do.`], ['That is a room that has decided I am supposed to be here.', 'Nobody has asked me a single question. This is the best crime ever.']),
+  'disguise_pass:lingering': e((d) => [`${d.foe} watches Blackbird a beat too long. She lifts an eyebrow, bored, unimpressed, one of them. ${d.foe} looks away first.`, `"New?" says ${d.foe}. "Transferred," says Blackbird, in a voice that has seen better crews. That's the end of that.`], ['Hold the face. Hold the face.', 'I am a rock. A rock in a good jacket.']),
+  'disguise_pass:working': e((d) => [`A lock fights back and ${d.foe} glances over. Blackbird sighs like a person who has asked maintenance twice already. ${d.foe} goes back to what ${d.foe} was doing.`], ['Entitlement is a lockpick. Mostly.']),
+  'disguise_blown:garrison': e((d) => [`${d.foe} gives Blackbird the long look, and then the longer one. "I don't know you." The room has a small, quiet change of mind about her.`, `Something in the walk is wrong. ${d.foe} puts a hand on something heavy. "Who sent you?" It is a short question with a long answer, and she does not have it.`], ['Right. Well. That was the better of the two plans.', 'They always know. Next time: a bigger hat.']),
+  'disguise_blown:lingering': e((d) => [`${d.foe} has been looking at Blackbird for too long, and now has the look of a person doing sums. They come out wrong for her.`], ['I held it for as long as I could. Which was a while.']),
+  'disguise_blown:working': e((d) => [`Blackbird fumbles the thing in front of ${d.foe}, and nobody who works here would need to. ${d.foe} looks at her hands, and then at her face.`], ['The hands gave me away. The hands did it.']),
+  'disguise_blown:real': e((d) => [`The real ${d.real} is right there. There are now two of them in the room. One looks puzzled, the other very much less so.`], ['Everyone has a twin. Mine happens to be armed.']),
+  'disguise_blown:gate': e((d) => [`At the door to ${d.place}, the guard gives Blackbird a look as if she were a wrong answer. The look is correct.`], ['They always check the shoes. Nobody warns you about the shoes.']),
+  'disguise_blown:star': e((d) => [`"You're not ${d.label}," says ${d.npc}, the flat way a person says a true thing. "I've met ${d.label}. ${d.label} is taller." The nearest people hear. The night changes tone.`], ["Okay, so my commitment was strong, but my chin was wrong."]),
+  'disguise_end:wore_off': e((d) => [`The voice slips, and then the posture. By the time anybody could say it, Blackbird is just Blackbird again. ${cap(String(d.label))} is somebody else's problem.`], ['Back to being me. I was never so tired.']),
+  'disguise_end:fight': e((d) => [`Blackbird drops ${d.label} the second the first punch is thrown. There is only so much acting a fist will take.`], ['Method acting has limits.']),
+  'star_flirt:smitten': e((d) => [`${d.npc} knows exactly who ${d.label} is, and Blackbird, as ${d.label}, knows exactly what to do with that. ${d.npc} has stopped hearing the rest of the room.`, `"Wait, you're ${d.label}?" Blackbird is. ${d.npc}'s whole face goes up, like a kite.`], ['It is not lying if they want it so badly.', 'I could get used to this. I probably will.']),
+  'star_flirt:number': e((d) => [`${d.npc} is writing a number on Blackbird's arm before the introduction is over. "For ${d.label}. Not for, like, anyone else." A heart is involved.`], ['A number. A real one. For a fake me. I will take it.']),
+  'star_flirt:gift': e((d) => [`${d.npc} insists on paying for the night, and everything in it: ${d.amount} neodollars, pressed into Blackbird's hand with a trembling fan's firm grip.`], ['I did not ask. I would not have refused.']),
+  'star_flirt:cold': e((d) => [`${d.npc} looks at Blackbird, and then at the face of ${d.label} in memory. "You look different in person." This is not a compliment.`], ["I was too tired to give it my best. That's the reading."]),
+  'go:disguised': e((d) => [d.kind === 'star' ? `The rope lifts before Blackbird gets to it. Someone says "${d.label}!" and means it. She sweeps in to ${d.place} with a wave she has been saving.` : d.kind === 'role' ? `Blackbird nods at the guard, holds up her chin in place of a pass, and goes through to ${d.place}. Nobody asks. Nobody ever asks the clipboard.` : `The guard sees ${d.label}, says "Evening", and waves her through to ${d.place} without checking a thing.`], ['A face is a key. Mine happens to be somebody else\'s.', 'Another door that thinks it is my friend.']),
+  'intent:shed_face': e((d) => [`Blackbird stops being ${d.label}, mid-stride, the way a person takes off a coat.`, `Nobody is looking and the face has no further use. Blackbird lets ${d.label} go.`]),
+  'disguise_end:dropped': e((d) => [`Blackbird sets ${d.label} down. It is a lot of work, being somebody else. Being herself is cheaper.`], ['A good actor knows when to leave the stage.', 'Faces wear out if you keep them on for nothing.']),
+  'disguise_blown:recognized': e((d) => [`"That's not ${d.label}," ${d.npc} says, loudly, to nobody, and then to everybody. A phone comes out. Several do.`, `${d.npc} has seen ${d.label} in person, once, and will not shut up about it. The wrong tall person is being discussed.`], ['A fan. Of course. The one person in Neo who was paying attention.', 'It is the paying-attention ones that get you.']),
+  'star_scandal:mocked': e((d) => [`By morning the clip of "${d.label}" is going round with a caption about the real one's evening, and a second clip about the fake. Blackbird is in the second.`], ['I am a meme now. The wrong kind.', 'They laughed at the chin.']),
+  'star_scandal:lawyers': e((d) => [`The people who look after ${d.label} have been watching, and not kindly. A letter arrives, fast: ${$(d.amount)} neodollars in "reputational costs", and a copy to the NPD. This is not the first time it has happened.`], ['It is called a cease and desist. I am ceasing. I am desisting.', 'Fraud is a strong word for a really good evening.']),
+  'goal_new:cover_plan': e((d) => [`Blackbird watches ${d.place} from the street, thinks about how many of them there are, and decides to be one. New objective: ${d.goal}.`, `${cap(String(d.place))} would be a hard door to kick. Blackbird has a gentler idea. New objective: ${d.goal}.`], ['Why fight a building when you can be on its staff.', 'If they know their own, I will be their own.']),
+  'goal_new:star_plan': e((d) => [`${d.npc} is not impressed by Blackbird. Blackbird has not tried being somebody else yet. New objective: ${d.goal}.`, `Her own face has had its chance with ${d.npc}. Blackbird thinks about a better one. New objective: ${d.goal}.`], ['Nobody turns down a celebrity. Everybody turns down me. Plan.', 'It is not lying. It is a performance with a very specific audience.']),
+  'goal_done:dressed': e((d) => [`The face is on, and it is a good one. ${cap(String(d.place))} is just a building with some people in it who will think she belongs.`], ['Dressed for the part. Now the part.', 'Look at me. I am nobody, and they love it.']),
+  'goal_done:won_over': e((d) => [`${d.npc} is, against all odds and the evidence, in love with somebody who does not exist. Blackbird accepts the credit on the character's behalf.`], ['It worked. It worked on someone who does not exist, and therefore on me.', 'A triumph. A triumph for a person I am not. I will take it.']),
+  'goal_drop:too_hot': e(() => [`Everybody in Neo seems to have heard of the famous people Blackbird has been pretending to be. The plan to use another face quietly leaves her head.`], ['Even I cannot be a famous person if they all know my act.', 'Time to be nobody for a while.']),
+  'intent:shake_heat': e((d) => [`Blackbird lets ${d.label} go, quietly, and starts being nobody in particular, very quickly.`, `The attention is on ${d.label}. Blackbird decides ${d.label} has somewhere else to be, and goes there as someone else.`]),
+  'heat_shed:ok': e((d) => [`Blackbird steps out of ${d.label} in a doorway, turns a corner as a different shape, and the people who were looking for ${d.label} look for ${d.label} somewhere else. The heat goes with the face.`], ['Never let them see the second face. Never.', 'The trick is to be a different person very suddenly.']),
+  'heat_shed:caught': e((d) => [`Blackbird drops ${d.label} and tries to be nobody. Somebody noticed which way ${d.label} went, and who came out of the doorway after. The heat stays.`], ['Nobody falls for a costume change in a doorway. Nobody.', 'I was so close to being nobody.']),
+  'ambush:star_security': e((d) => [`A black car stops hard. Out come ${d.count} very well-dressed private security people with a letter, shotguns, and a lawyer on speaker. "${cap(String(d.label))}'s people would like a word. Cease and desist." They would not like a word.`, `Neat suits, no badges, a letter. "On behalf of ${d.label}," says the first one, and the shotgun is a second signature on the letter.`], ["I did not even do anything to them. I did a little to them.", 'It is a civil dispute, with shotguns.']),
+  'order_drink:star': e((d) => [`${d.npc} slides Blackbird ${d.drink} without being asked. "On the house, ${d.label}. Please don't tell anyone I'm a fan." Word gets around.`], ['It is not my fame. It is on loan. I will still drink it.']),
   fan: e(
     (d) => [
       [`A fan stops Blackbird and asks for a selfie. She poses. The fan hands her ${d.amount} neodollars "for the legend".`],
@@ -1989,6 +2105,7 @@ const T: Record<string, Entry> = {
   'goal_resume:romance': e((d) => [`Blackbird thinks of ${d.npc} and tidies her hair for no reason.`], ['Where was I. Right. Impressing someone.']),
   'goal_resume:weapon': e(() => ['Blackbird looks down at her weapon, sighs, and remembers she was going to do something about that.'], ['A better weapon. I was getting to it.']),
   'goal_resume:scavenge': e((d) => [`Blackbird remembers the parts she was after, and glances toward ${d.place ?? 'the dumps'}. There is a bag with her name on it somewhere.`], ['Scrap. Right. Somebody has to carry it.']),
+  'goal_resume:guise': e((d) => [d.npc ? `Blackbird remembers she was going to be somebody else for ${d.npc}'s benefit, and starts practicing the chin again.` : `Blackbird remembers the plan to walk into ${d.place ?? 'that place'} as one of their own, and reaches for the right sort of jacket.`], ['The face. I was working on the face.']),
   'goal_resume:craft': e(() => ['Blackbird remembers the thing she was going to build. The workbench is, presumably, where she left it.'], ['The build. I was in the middle of the build.']),
   'goal_resume:fame': e(() => ['Blackbird catches her reflection in a window and remembers she is meant to be famous. She stands up straighter.'], ['Right. The adoring public. They are waiting.']),
   'goal_resume:dragon': e(() => ['Blackbird glances at the sky and remembers the dragons. They have not forgotten her. They do not know her. But they have not forgotten her.'], ['Back to the hunt.']),
@@ -2003,6 +2120,30 @@ const T: Record<string, Entry> = {
   'goal_note:blown': e((d) => [`Something goes wrong at ${d.place}: a camera, a sound, a heat signature. The quiet part of the plan is over. Blackbird presses on anyway.`], ['Plan B is just plan A, louder.', "Nobody saw anything. Nobody saw anything yet."]),
   'goal_note:bail': e((d) => [`Something goes wrong at ${d.place}. Blackbird, for once, looks at the situation and decides to leave while she can.`], ['Strategic withdrawal. A thing I invented just now.', 'I could stay, but I have a feeling about it. The feeling is "run".']),
   // ====================================================== exploring
+  // ====================================================== getting into a game
+  'goal_new:game_rank': e(
+    (d) => [`Blackbird looks at the board for "${d.title}" and the board looks back. ${cap(String(d.why))}. New objective: ${d.goal}.`, `One more go on "${d.title}" is not a plan, so she makes it one. ${cap(String(d.why))}. New objective: ${d.goal}.`],
+    ['Three letters. Mine. Soon.', 'It is not an obsession if it has a goal.'],
+  ),
+  'goal_new:game_beat': e(
+    (d) => [`The number is on the board at ${d.place}, and it is Blackbird's, and she can do better. ${cap(String(d.why))}. New objective: ${d.goal}.`, `Her own record on "${d.title}" is up there looking smug. ${cap(String(d.why))}. New objective: ${d.goal}.`],
+    ['I am my own toughest competition. It is lonely at the top.', 'The only person I need to beat is me. And the machine.'],
+  ),
+  'goal_new:game_try': e(
+    (d) => [`Blackbird has been through a lot of ${d.place}'s games, but not all of them. ${cap(String(d.why))}. New objective: ${d.goal}.`, `There is a cabinet at ${d.place} she has not touched, and now she cannot stop thinking about it. ${cap(String(d.why))}. New objective: ${d.goal}.`],
+    ['Just one more. They all say that.', 'Variety is the spice of a very expensive hobby.'],
+  ),
+  'goal_new:game_again': e(
+    (d) => (d.mode === 'try'
+      ? [`The record is hers, and the glow lasts about nine minutes. Then: what else is there at ${d.place}? New objective: ${d.goal}.`]
+      : d.mode === 'beat'
+        ? [`Now that her name is up there, Blackbird has to keep it up there, and then do better. ${cap(String(d.why))}. New objective: ${d.goal}.`]
+        : [`A new game, a new board, a new gap with her name's shape. ${cap(String(d.why))}. New objective: ${d.goal}.`]),
+    ['This is how it starts. It has started.', 'One more. I have said that eleven times. This is the twelfth.'],
+  ),
+  'goal_done:record': e((d) => [`BLK, at the top of "${d.title}". Blackbird stares at the three letters for slightly longer than is dignified.`, `The board for "${d.title}" has a new number, and the number is hers. A small crowd at ${d.place} pretends not to have watched.`], ['Told you.', 'That is the best three letters anyone has ever typed.']),
+  'goal_done:tried': e((d) => [`Blackbird has now played something at ${d.place} that she had never played before, and has opinions about it.`], ['New game. Same hands. Different problem.']),
+  'goal_drop:cabinet_gone': e((d) => [`The cabinet for "${d.title}" at ${d.place} is gone. Whatever the plan was, it was for something that no longer exists, and she drops it with a face like a closed lid.`], ['It was right there. It was right there.']),
   'goal_new:explore_idea': e(
     (d) => [d.bored ? `Blackbird has looked at the same four walls for long enough. Somewhere out there is ${d.place}, and she has never been. New objective: ${d.goal}.` : `There is a whole city out there and Blackbird has seen a corner of it. ${cap(String(d.place))} is next. New objective: ${d.goal}.`],
     ['I am not lost. I am sampling.', 'You cannot hit anything you have not found yet.'],
@@ -2079,6 +2220,14 @@ const T: Record<string, Entry> = {
   'shut_down:hub_dead': e(
     (d) => [d.inside ? `${d.npc} is not getting up. The racks hum on for a minute, and then a regular reaches over and turns them off, one at a time. Someone with a key shows Blackbird to the pavement.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back and the forum is a memorial.`],
     ['That was somebody\'s whole life, in a rack.', 'It was always going to come to this. Not me. Him. Probably.'],
+  ),
+  'shut_down:hall': e(
+    (d) => [d.inside ? `With ${d.npc} on the floor, nobody is left to mind ${d.place}. Every cabinet goes to attract mode at once, which is worse. Someone pulls the master switch, and a very calm person with a lanyard shows Blackbird to the pavement.` : `Word gets round that ${d.npc} has been put down at ${d.place}. The cabinets are off, the shutter is down and the high scores are, for now, a matter of record.`],
+    ['I closed an arcade. That is a lot of people with nowhere to lose.', 'No more tokens. Terrible for the economy. Good for me, today.'],
+  ),
+  'shut_down:hall_dead': e(
+    (d) => [d.inside ? `${d.npc} is not getting up. The attract screens play on for a minute, bleeping, and then a regular reaches over and switches them off, one at a time. Someone with a key shows Blackbird to the pavement.` : `${d.place} has shut, for good, in the sense that matters. ${d.npc} will not be back, and every high score on the board is, from now on, final.`],
+    ['That is a lot of unfinished games.', 'It was always going to come to this. Not me. Him. Probably.'],
   ),
   'shut_down:clinic': e(
     (d) => [d.inside ? `With ${d.npc} out cold and nobody else qualified to hold a scalpel, ${d.place} locks up. The guards herd Blackbird to the door and the shutters come down on her heels.` : `${d.place} has shut. With ${d.npc} on the floor there is nobody left to hold the scalpel, and the guards have locked the door from the inside.`],

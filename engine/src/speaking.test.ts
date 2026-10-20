@@ -89,7 +89,7 @@ describe('speaking', () => {
     let fameGain = 0;
     for (let i = 0; i < 40; i++) {
       const w = world(`speak-rally-${i}`);
-      w.hero.skills.speaking = 100;
+      w.hero.skills.speaking = 300; // (level 11: a good speaker)
       w.hero.charm = 8;
       w.hero.companions.push(newCompanion('scrapper', 'Rivet'));
       const a = w.hero.companions[0]!;

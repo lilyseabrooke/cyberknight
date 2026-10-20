@@ -31,6 +31,7 @@ import { loseContact } from './stealth';
 import { backersPower, backupJoins } from './influence';
 import { enterPlace, placeOf, syncPlace, describeSpot, keepPositions, layBodies } from './placeboard';
 import { cloneGrid } from './layout';
+import { activeDisguise, endDisguise } from './disguise';
 
 export { npcsAt };
 
@@ -81,6 +82,10 @@ export function addHeat(w: World, faction: string | null, n: number): void {
   if (!faction) return;
   // Anarchy: there are no police here to want her.
   if (faction === 'npd' && anarchyAt(w, w.hero.locationId)) return;
+  const dis = activeDisguise(w);
+  // Dressed as somebody famous, what she does is on their account (`w.heat.npd` is theirs for as long as she wears the face).
+  if (dis?.kind === 'star') faction = 'npd';
+  else if (dis && n > 0) (dis.heat ??= {})[faction] = (dis.heat[faction] ?? 0) + n;
   w.heat[faction] = Math.min(10, (w.heat[faction] ?? 0) + n);
 }
 
@@ -162,7 +167,7 @@ export function isLethal(foes: Npc[], w: World): boolean {
   if (foes.some((f) => marked(w, f))) return true;
   if (foes.some((f) => f.tags.some((t) => ['robot', 'cop', 'corp', 'boss'].includes(t)) && !f.tags.includes('nonlethal'))) return true;
   const kind = w.locations[w.hero.locationId]?.kind;
-  return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home' || kind === 'gym' || kind === 'pawn' || kind === 'realty');
+  return !(kind === 'bar' || kind === 'club' || kind === 'shop' || kind === 'home' || kind === 'gym' || kind === 'pawn' || kind === 'realty' || kind === 'gamehall');
 }
 
 export function maybeInjure(c: Ctx, hit: number, chance = 0.4): void {
@@ -241,6 +246,8 @@ export function fight(c: Ctx, foesIn: Npc[], oIn: FightOpts): FightResult {
     o = { ...o, ambush: true };
     c.emit('guitar_case', 'good', { place: w.locations[h.locationId]!.name, foe: foes[0]!.name });
   }
+  // Nobody stays in character through a brawl. (A star's face goes once the witnesses have seen it, so the star takes the heat.)
+  if (activeDisguise(w)?.kind !== 'star') endDisguise(c, 'fight');
   // The fight is one story: it opens with the squaring-up, and everything after (who saw, how each round went, the end) is told inside it.
   let result: FightResult = 'win';
   nested(
@@ -302,6 +309,7 @@ function playFight(c: Ctx, foes: Npc[], o: FightOpts): FightResult {
     warranted = wit.warranted;
     for (const j of wit.joiners) arrivals.push({ npc: j, round: rng.int(2, 5), why: j.tags.includes('cop') || j.tags.includes('security') ? 'law' : 'joiner' });
   }
+  endDisguise(c, 'fight');
   // A clinic's automation takes a dim view of violence on the premises.
   if (loc.kind === 'clinic' && foes.some((f) => !f.tags.includes('guard'))) {
     for (const g of npcsAt(w, loc.id)) {

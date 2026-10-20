@@ -352,7 +352,7 @@ export function createWorld(opts: RunOptions): World {
   const world: World = {
     seed: opts.seed,
     worldSeed: opts.worldSeed ?? opts.seed,
-    legacy: { runs: 1, deaths: [], personality, realName, account: 0, upgrades: {}, spent: 0 },
+    legacy: { runs: 1, deaths: [], personality, realName, account: 0, upgrades: {}, spent: 0, frogs: {} },
     beat: 0,
     clock: START_MINUTE,
     rngPosition: new Rng(`run:${opts.seed}`).position,

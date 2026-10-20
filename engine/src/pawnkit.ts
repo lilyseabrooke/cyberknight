@@ -189,7 +189,7 @@ export function haggle(c: Ctx, v: PawnView, extra = 0): boolean {
   const { w, rng } = c;
   const info = v.info;
   if (info.wild === 'savant') return false;
-  let p = odds(0.45, 0.06, synergy(w.hero, ['haggling', ['stat:charm', 0.5], ['streetwise', 0.3]]), 0.05, 0.9) + extra;
+  let p = odds(0.476, 0.06, synergy(w.hero, ['haggling', ['stat:charm', 0.5], ['streetwise', 0.3]]), 0.05, 0.9) + extra;
   if (info.traits.includes('no_haggle')) p -= 0.25;
   if (info.traits.includes('haggle_welcome')) p += 0.15;
   const a = find(v, 'appraiser');

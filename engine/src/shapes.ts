@@ -117,6 +117,7 @@ const ODDS: Record<string, [Shape, number][]> = {
   clinic: [['hall', 0.2], ['L', 0.1]],
   pawn: [['L', 0.15], ['inner', 0.15]],
   gym: [['L', 0.15], ['U', 0.1]],
+  gamehall: [['L', 0.2], ['inner', 0.15]],
   corp: [['hall', 0.25], ['inner', 0.2], ['L', 0.15]],
   lair: [['L', 0.2], ['U', 0.15], ['inner', 0.1]],
   boss: [['inner', 0.3]],

@@ -21,6 +21,7 @@
     "pawns": "tsx scripts/pawns.ts",
     "chops": "tsx scripts/chops.ts",
     "hubs": "tsx scripts/hubs.ts",
+    "halls": "tsx scripts/halls.ts",
     "coverage": "tsx scripts/coverage.ts"
   },
   "devDependencies": {

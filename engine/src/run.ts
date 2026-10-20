@@ -40,12 +40,14 @@ import { noteMoment, songsTick } from './songs';
 import { museShowTick } from './musescene';
 import { tickGyms } from './gym';
 import { tickPawns } from './pawn';
+import { tickHalls } from './hall';
 import { tickCrews } from './crew';
 import { satietyBias, tickSatiety } from './romance';
 import { needsBias, tickNeeds } from './rest';
 import { BASE_MIN_PER_BEAT, FIGHT_MINUTES, actionMinutes, crossedDawn, dayOf, every } from './clock';
 import { npcNamed } from './population';
 import { dungeonAmbient } from './dungeons';
+import { disguiseTick, starSecurity } from './disguise';
 import { art } from './lab';
 import { gate, tickStealth } from './stealth';
 import { influenceTick } from './influence';
@@ -58,7 +60,7 @@ export const TEST_BEAT_CAP = 600;
 /** Event data fields that hold a person's name. Their gender rides along as `<key>_g` so the text can use the right pronouns. */
 const PEOPLE_KEYS = ['npc', 'npc2', 'victim', 'foe', 'target', 'owner'] as const;
 
-const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight', 'hubfight', 'hijack', 'pursue']);
+const AGGRESSIVE = new Set(['challenge', 'sweep', 'threaten', 'pickpocket', 'join_brawl', 'challenge_dragon', 'steal_puppy', 'till', 'safe', 'vault', 'crates', 'raid_ambush', 'gymfight', 'pawnfight', 'hubfight', 'hallfight', 'records', 'hijack', 'pursue']);
 
 export function score(w: World, cand: Candidate): number {
   const h = w.hero;
@@ -201,6 +203,7 @@ export function step(w: World): GameEvent[] {
   if (!w.over) noticeTick(c);
   if (!w.over) avengerTick(c);
   if (!w.over) partnerArrives(c);
+  if (!w.over) disguiseTick(c);
   if (!w.over) dungeonAmbient(c);
   if (!w.over && w.locations[w.hero.locationId]?.road !== 'highway') ambientExtras(c);
   if (!w.over) ambientDragons(c);
@@ -312,6 +315,7 @@ function upkeep(c: Ctx): void {
   museShowTick(c);
   tickGyms(c);
   tickPawns(c);
+  tickHalls(c);
   tickCrews(c);
   const mellowed = every(w, 'affinity', 36);
   if (mellowed > 0) for (const n of Object.values(w.npcs)) if (n.alive && n.affinity !== 0) n.affinity = n.affinity > 0 ? Math.max(0, n.affinity - mellowed) : Math.min(0, n.affinity + mellowed);
@@ -349,6 +353,7 @@ function ambient(c: Ctx): void {
   }
 
   // Police response: drones at low heat, officers at high. Lying low indoors keeps her out of reach.
+  if (starSecurity(c)) return;
   if (npdResponse(c)) return;
   if (driveByRoll(c)) return;
   // On a highway nothing else turns up: no muggers, no raids, no neighbours.

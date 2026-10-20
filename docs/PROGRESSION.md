@@ -68,6 +68,7 @@ Departures from the sketch, and why:
 |---|---|---|
 | Skill level | `sqrt(xp/2)`, capped at 10 (implants and held weapon add up to a ceiling of 12) | `skills.ts` `skillValue` |
 | Skill combination | weighted geometric mean of skills and stats on a 0-10 scale; any zero factor gives zero | `skills.ts` `synergy` |
+| Skill to chance | skills run 0-100 and enter every chance as their **square root** (0-10 over the whole range): `synergy` blends the roots with the stats, `skillRoot(h, id)` is one skill on its own. A chance is `base + per * root-blend`; where the formulas had been written for a raw 0-10 level, `base` was raised by 0.6 x `per` (x the share of the blend that is skill) so a level-2 character gets what she did, and level 100 gets where level 10 used to. Terms already written per level of a 0-100 skill (fishing rods, speaking's caps, weapon skill in a fight) are raw. | `skills.ts` `root`, `skillRoot`, `synergy`, `odds` |
 | Odds | `odds(base, perPoint, synergy)` is about `base + 0.06 x synergy`, clamped to 0.03-0.93; older code uses inline `clamp(...)` | `hobbies.ts`, `stage.ts`, `placekit.ts` |
 | Combat power | `level x 2 + muscle + weapon + weaponSkill x 0.6`; skill adds at most 6 | `combat.ts` `heroPower` |
 | Enemy stats | `hp = 18 + 12 x level`, `power = 2 x level + weapon`; bosses hand-set | `content/archetypes.ts` `spawnNpc` |

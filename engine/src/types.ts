@@ -6,6 +6,7 @@ import type { StreetType } from './streettypes';
 import type { Trait } from './personality';
 import type { Faction } from './factions';
 import type { HomeKind } from './content/realty';
+import type { Heritage } from './content/names';
 
 /**
  * All world state is plain JSON (no classes, Sets or Maps) so a run can be saved to
@@ -168,10 +169,40 @@ export interface ParkedVehicle extends Vehicle {
   until: number;
 }
 
+/** A face she is wearing: who she is passing for, and how well it is holding. See disguise.ts. */
+export interface Disguise {
+  /** A crew (a gang, Atlas, the NPD), a kind of person with a lanyard and somewhere to be, or someone famous. */
+  kind: 'crew' | 'role' | 'star';
+  /** Who she is passing for, as a phrase: "one of the Chrome Vipers", "Tarn Okoye". */
+  label: string;
+  /** The crew whose people take her for one of their own: a gang's faction id, 'atlas' or 'npd' (kind 'crew'). */
+  crew?: Id;
+  /** The real person she is copying, if she is copying one (kind 'crew'). */
+  as?: Id;
+  /** How much fame comes with the face (kind 'star'). */
+  fame?: number;
+  /** The world minute it wears off. */
+  until: number;
+  /** 0..1: how well she is carrying it. Slips lower it. */
+  polish: number;
+  /** Rooms of a building where it has already been accepted. */
+  passed: Id[];
+  /** People who bought it, and will mind if it comes apart. */
+  fooled: Id[];
+  /** A star's face: her own police heat, set aside while the star's is what the law sees (`w.heat.npd` is the star's until the face comes off). */
+  parked?: number;
+  /** A star's face: the star's heat when she put it on, to tell what she has added. */
+  heat0?: number;
+  /** Any other face: heat she has picked up while wearing it, which dropping the face might lose. */
+  heat?: Record<string, number>;
+}
+
 export interface Hero {
   name: string;
   /** Sneaking: only then is anyone's awareness of her tracked. Out of stealth everyone in the room knows exactly where she is. See stealth.ts. */
   stealth?: boolean;
+  /** The face she is wearing, if she is passing for somebody else. Wears off at `until`; see disguise.ts. */
+  disguise?: Disguise;
   /** Hack and Override techniques she has picked up beyond the ones she starts with (see `LEARNABLE` in techniques.ts). */
   techniques?: string[];
   /** Randomly generated, astonishingly uncool. */
@@ -561,7 +592,7 @@ export interface Location {
   /** What sort of street this is, for streets: how a car takes it (`roadClass`, roads.ts) and what its board looks like (streets.ts). Set when it is made. */
   street?: StreetType;
   name: string;
-  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty' | 'chop' | 'hub';
+  kind: 'bar' | 'street' | 'club' | 'corp' | 'tunnel' | 'boss' | 'shop' | 'home' | 'lair' | 'clinic' | 'gym' | 'pawn' | 'realty' | 'chop' | 'hub' | 'gamehall';
   exits: Exit[];
   /** Where it stands on the hex grid (outdoor places only): every cell it covers, and the cell it is anchored on. See hexmap.ts. */
   hex?: { q: number; r: number; cells: [number, number][]; /** The way it runs, for streets: the direction it grew in. */ dir: number };
@@ -646,6 +677,55 @@ export interface Location {
   hub?: HubInfo;
   /** A pawn shop's shelf: what is on it, including whatever she hocked and may still buy back. Made the first time it is looked at. See pawnkit.ts. */
   shelf?: PawnLot[];
+  /** An arcade's makeup: what it is, what building it's in, what it has. Rolled with the place. See content/halls.ts. */
+  gamehall?: HallInfo;
+  /** A room of an arcade (back room, workshop, stage...): which arcade, and which room. */
+  hallRoom?: { main: Id; room: string };
+  /** An arcade's cabinets, by `room:feature`: only what has been done to each one. Made the first time the hall is looked at. See hallkit.ts. */
+  cabs?: Record<string, CabState>;
+}
+
+/**
+ * What an arcade is. Every field is rolled independently from the hall's own stream, so any combination can turn up.
+ * (content/halls.ts says what each id means; ids that are no longer known are ignored, so the tables can grow.)
+ */
+export interface HallInfo {
+  variant: string;
+  shell: string;
+  /** 0 (a closet) to 4 (a sprawl). */
+  size: number;
+  /** 0 (derelict) to 4 (immaculate). */
+  condition: number;
+  /** 1..5. How good the machines, the prizes and the champion are. Independent of everything else. */
+  tier: number;
+  traits: string[];
+  /** Feature ids present anywhere in the building, as "room:feature". */
+  features: string[];
+  /** Room ids it has (the rooms themselves are places off the main floor). */
+  rooms: string[];
+  /** A one-in-a-dozen oddity that breaks the rules. */
+  wild?: string;
+}
+
+/**
+ * What has been done to one cabinet. Its genre, title and licence come from the hall's seed; only the deviations are stored,
+ * so an old save simply has none. Whether it is wrecked or hidden today is a function of the clock (`wrecked` and `hidden`
+ * are the minute the state ends).
+ */
+export interface CabState {
+  /** Muse-approved or bootleg, when something she did has changed what the seed said. */
+  legal?: 'muse' | 'bootleg';
+  /** A forged licence, 0..1 for how good: it reads as Muse to anyone who does not look hard. */
+  forged?: number;
+  /** The score to beat, and whose it is. Absent: the seed's champion. */
+  top?: number;
+  topBy?: string;
+  /** Scrapped by the spider (or by her); the owner has not replaced it until this clock minute. */
+  wrecked?: number;
+  /** Covered, unplugged or wheeled out of sight until this clock minute. */
+  hidden?: number;
+  /** The replacement's number: a rebuilt cabinet is a new game with a blank board. */
+  gen?: number;
 }
 
 /** One line of a hub's syllabus: a technique and the way it is taught. (content/hubs.ts says what each id means.) */
@@ -765,7 +845,7 @@ export interface GymInfo {
 export type District = 'market' | 'nightlife' | 'tenement' | 'industrial' | 'corporate' | 'slum';
 
 /** What kind of generated place this is; decides what grows off it. */
-export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop' | 'hub';
+export type GenRole = 'street' | 'clinic' | 'shop' | 'bar' | 'club' | 'corp' | 'flat' | 'unit' | 'tunnel' | 'backroom' | 'cellar' | 'vip' | 'outpost' | 'hideout' | 'spot' | 'chamber' | 'gym' | 'gymroom' | 'pawn' | 'pawnroom' | 'realty' | 'chop' | 'hub' | 'gamehall' | 'gamehallroom';
 
 /** Where a generated place came from, enough to grow the next ring of the map and nothing else. */
 export interface GenInfo {
@@ -776,6 +856,8 @@ export interface GenInfo {
   /** Steps of street from the hand-built district. */
   depth: number;
   district: District;
+  /** The quarter's heritage, if it has one (a Chinatown, a Little Lagos): inherited down from its street, and it leans the names of the people who turn up there. See content/names.ts. */
+  heritage?: Heritage;
   /** How dangerous it is, on the grade scale (grade.ts). Streets walk it from their parent; everything on a street shares it. Absent on maps made before danger existed. */
   danger?: number;
   /** An outermost street of the starting district: nothing runs on past it until the gate is open (mapgen.ts `liftCordon`). */
@@ -1043,6 +1125,18 @@ export interface Legacy {
   deeds?: Deed[];
   /** How the last night went, money-wise; the lab shows it when she's rebuilt. Absent before the first death. */
   report?: RunReport;
+  /** The Cyberfrogs on the lab's shelf, by character number (index into FROGS, content/cyberfrogs.ts). Sent home the moment she gets them, so they outlive her. Absent before the first. */
+  frogs?: Record<string, FrogShelf>;
+}
+
+/** What the lab holds of one Cyberfrog character. */
+export interface FrogShelf {
+  /** How many of this character she has sent home, all editions together; more than one means duplicates. */
+  count: number;
+  /** Which editions she has (keys of EDITIONS). */
+  editions: string[];
+  /** The run she first got one. */
+  first: number;
 }
 
 /** Muse's file on her. Like her fame, it outlives her: a new body is the same Blackbird to Muse. */
@@ -1172,6 +1266,8 @@ export interface RunReport {
   beats: number;
   /** What she was chasing when the night ended, for the lab's wall. Shown once; it does not carry into the next body. */
   calling?: { label: string; progress: number };
+  /** Cyberfrogs she sent home that night, and how many different ones the lab holds now. */
+  frogs?: { got: number; owned: number; dupes: number };
   /** Balance before and after. */
   before: number;
   after: number;
@@ -1265,6 +1361,8 @@ export interface World {
   /** Misc numeric counters (laser-tag wins, ads seen, etc.). */
   counters: Record<string, number>;
   damsel: Damsel | null;
+  /** Cyberfrogs lying about tonight, by the place that was rolled for one (null: rolled, nothing there). Made as she comes near; see cyberfrogs.ts. */
+  frogs?: Record<Id, Frog | null>;
   /** The dragon she is with, if any: whichever of `flights` shares her place. */
   flight: Flight | null;
   /** Every dragon in the world right now: the ones roaming a district, and any hanging over her. */
@@ -1290,7 +1388,49 @@ export interface World {
   ending: null | 'dead' | 'victory' | 'dawn';
 }
 
-export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'booking';
+/** How a Cyberfrog is lying there, which is how it is to get. See cyberfrogs.ts. */
+export type FrogKind =
+  /** In the open, waiting to be picked up. */
+  | 'street'
+  /** In the open, waiting to be picked up, and it is bait. */
+  | 'trap'
+  /** On a gang's turf, on show. */
+  | 'turf'
+  /** Somebody's property: taking it is theft. */
+  | 'theft'
+  /** Somewhere high or awkward. */
+  | 'climb'
+  /** At the back of a hideout or outpost, past everyone holding it. */
+  | 'vault';
+
+export interface Frog {
+  /** Which character (index into FROGS, content/cyberfrogs.ts). */
+  char: number;
+  /** Which edition (key of EDITIONS). */
+  edition: string;
+  kind: FrogKind;
+  /** Where it is lying. */
+  loc: Id;
+  /** The door she would sense it from, when that isn't where it is lying (a dungeon's entrance). */
+  door?: Id;
+  /** Trap: what is waiting. */
+  trap?: 'car' | 'ambush';
+  /** Climb: what it is on. */
+  perch?: string;
+  /** Theft: where it is kept. */
+  shelf?: string;
+  /** She has felt it nearby, and who she thought it was (a character number). */
+  sensed?: boolean;
+  guess?: number;
+  /** She has laid eyes on it. */
+  seen?: boolean;
+  /** Times she has tried for it and not got it. */
+  tries?: number;
+  /** She has it (and the lab has it now), or it is no more. */
+  state?: 'taken' | 'lost';
+}
+
+export type GoalKind = 'cash' | 'buy' | 'weapon' | 'kill' | 'romance' | 'burgle' | 'heist' | 'fame' | 'dragon' | 'raid' | 'explore' | 'quest' | 'scavenge' | 'craft' | 'game' | 'guise' | 'frog' | 'booking';
 
 /**
  * Something Blackbird has decided she wants. Goals nest (`parent`): a grudge needs a better
@@ -1305,8 +1445,10 @@ export interface Goal {
   npc?: Id;
   /** The thing (buy): a key into `Mind.wares`. */
   ware?: string;
-  /** The place (heist, raid, explore, quest). */
+  /** The place (heist, raid, explore, quest). For a game goal, the arcade. */
   loc?: Id;
+  /** game: the game she is after, by id (games.ts). Absent for 'try something new'. */
+  game?: string;
   /** cash: the money she wants on hand. weapon: the power she wants to be swinging. */
   amount?: number;
   /** kill: 'kill' | 'beat_up'. heist: 'approach' | 'loot' | 'escape'. raid: 'approach' | 'raid' | 'out' (it's done) | 'retreat' (it's too much).
@@ -1398,8 +1540,8 @@ export interface Calling {
   /** Where the counter stood when she took it up, for callings that count from there. */
   base: number;
   /** Who or what it is about. `text` is how she names it ("the Chrome Vipers", "Pip"). */
-  target?: { npc?: Id; faction?: Id; skill?: string; text?: string };
-  origin: { kind: 'spark' | 'wound' | 'whim'; text: string; beat: number; /** A wound is a loss (someone died) or a brush (she nearly did). */ cause?: 'loss' | 'brush' };
+  target?: { npc?: Id; faction?: Id; skill?: string; text?: string; /** A game she is about, by id (see games.ts). */ game?: string };
+  origin: { kind: 'spark' | 'wound' | 'whim'; text: string; beat: number; /** A wound is a loss (someone died), a brush (she nearly did) or a game (one she loved was destroyed). */ cause?: 'loss' | 'brush' | 'game' };
   /** The last beat it moved, to tell a calling that's merely quiet from one she has forgotten. */
   lastProgress: number;
   /** Progress at the last look, to notice when it moves. */
@@ -1416,6 +1558,7 @@ export interface GoalSpec {
   npc?: Id;
   ware?: string;
   loc?: Id;
+  game?: string;
   amount?: number;
   mode?: string;
   why: string;
@@ -1504,10 +1647,45 @@ export interface Mind {
   bonds?: Record<Id, Feelings>;
   /** Bounties she knows about, by NPC id, and how she found out. Nobody's bounty is visible until she's seen it. */
   bounties?: Record<Id, 'scan' | 'scanner' | 'tip'>;
+  /** The games she has tried, by id: how it went, how much she likes it, what she has found out about who made it. Her side only; this resets with her body. See games.ts. */
+  games?: Record<string, GameMemory>;
+  /** Games of hers that were destroyed while she was away, to be mourned when she is next in the hall. */
+  mourn?: string[];
+  /** The game she has just played and how it went, for the part of her that decides what to want next. See goals.ts `formGameGoals`. */
+  lastPlay?: { game: string; hall: Id; went: 'record' | 'good' | 'bad'; beat: number };
+  /** A game goal she has just finished leads somewhere: another of the same sort of thing. */
+  gameNext?: { mode: 'rank' | 'beat' | 'try'; game?: string; hall: Id; beat: number };
   /** What she is waiting to hear from the lab about. See advice.ts. */
   ask?: Ask;
   /** How the lab's advice has gone this night. */
   advice?: { asked: number; taken: number; lapsed: number; nextId: number };
+}
+
+/** What she has made of one game (a title, whatever cabinet it is on). Her side only. */
+export interface GameMemory {
+  title: string;
+  genre: string;
+  /** What licence the cabinets of it she has seen carried: bootleg or Muse. */
+  legal: 'muse' | 'bootleg';
+  plays: number;
+  wins: number;
+  records: number;
+  /** Losses in a row, right now. */
+  streak: number;
+  /** How much she likes it, -1 (hates it) to 1 (loves it). */
+  like: number;
+  /** Where she has made up her mind: set once the number crosses a line, and cleared when it comes back. */
+  felt?: 'love' | 'hate';
+  /** Cabinets of it she has watched die. */
+  lost?: number;
+  /** The arcades she has played it in (their main floors), newest last: where to go back to. */
+  where?: Id[];
+  /** The beat she last played it. */
+  last?: number;
+  /** The id of the NPC who made it, once she knows. */
+  creator?: Id;
+  /** She knows where they are, not only who. */
+  located?: boolean;
 }
 
 export interface Ctx {

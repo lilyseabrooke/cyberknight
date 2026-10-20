@@ -7,6 +7,7 @@ import { moveNpc } from './population';
 import { cross } from './shortcut';
 import { bookedTonight } from './bookings';
 import { famed } from './renown';
+import { shownFame, tryGate } from './disguise';
 
 /** Resolve walking through an exit, including bouncers, locks, guards and jumps. */
 export function moveThrough(c: Ctx, exit: Exit): void {
@@ -34,6 +35,13 @@ export function moveThrough(c: Ctx, exit: Exit): void {
     return;
   }
 
+  // Passing for somebody the door lets through.
+  const face = exit.gate ? tryGate(c, exit) : null;
+  if (face) {
+    arrive(c, to, 'disguised', { label: face.label, kind: face.kind, gate: exit.gate!, place: dest.name });
+    return;
+  }
+
   switch (exit.gate) {
     case null:
       arrive(c, to, 'walk');
@@ -41,7 +49,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
 
     case 'bouncer': {
       const guards = npcsAt(w, 'neon_pharaoh').filter((n) => n.tags.includes('security'));
-      if (h.fame >= 25 && rng.chance(0.85 * famed(h.fame, 25, 120))) {
+      if (shownFame(w) >= 25 && rng.chance(0.85 * famed(shownFame(w), 25, 120))) {
         arrive(c, to, 'recognized');
       } else if (h.cash >= 40 && rng.chance(0.5)) {
         h.cash -= 40;
@@ -63,7 +71,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
         arrive(c, to, 'invited', { npc: madame.name });
         return;
       }
-      const pick = 0.1 + h.int * 0.03 + h.reflex * 0.02 + 0.055 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]);
+      const pick = 0.125 + h.int * 0.03 + h.reflex * 0.02 + 0.055 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]);
       train(c, 'lockpicking', 1);
       if (rng.chance(pick)) {
         arrive(c, to, 'picked');
@@ -102,7 +110,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
     }
 
     case 'jump': {
-      const p = clamp(0.35 + h.reflex * 0.03 + 0.04 * synergy(h, ['athletics', ['stat:reflex', 0.5]]) + (hasImplantFlag(h, 'springs') ? 0.2 : 0) - h.drunk * 0.05, 0.1, 0.92);
+      const p = clamp(0.366 + h.reflex * 0.03 + 0.04 * synergy(h, ['athletics', ['stat:reflex', 0.5]]) + (hasImplantFlag(h, 'springs') ? 0.2 : 0) - h.drunk * 0.05, 0.1, 0.92);
       train(c, 'athletics', 1);
       if (rng.chance(p)) {
         arrive(c, to, 'stuck_landing');

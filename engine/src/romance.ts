@@ -42,7 +42,7 @@ export function gainSatiety(h: Hero, amount: number): void {
   h.satiety = Math.min(1, satietyOf(h) + amount);
 }
 
-const SATIETY_WEIGHT: Record<string, number> = { poach: 1.2, reconcile: 1, flirt: 1, kiss: 1.25, make_move: 1.6, pool_date: 0.9, serve_dish: 0.7, seduce_clerk: 0.9, dance: 0.4 };
+const SATIETY_WEIGHT: Record<string, number> = { poach: 1.2, reconcile: 1, flirt: 1, kiss: 1.25, make_move: 1.6, pool_date: 0.9, serve_dish: 0.7, seduce_clerk: 0.9, dance: 0.4, star_flirt: 1.1, don_star: 0.6 };
 
 /** A sated Blackbird doesn't want to chase anyone, with anyone. */
 export function satietyBias(w: World, cand: { key: string }): number {
@@ -183,7 +183,7 @@ function makeMove(c: Ctx, n: Npc): void {
 
   const kisses = kissesWith(w, n.id);
   const prior = movesWith(w, n.id);
-  const p = clamp(0.22 + n.affinity / 150 + h.charm * 0.03 + 0.045 * synergy(h, ['romance', 'stat:charm']) + 0.04 * Math.min(h.drunk, 3) + (kisses >= 2 ? 0.1 : 0) - (prior ? 0.3 : 0) + romanceMod(w, n), 0.02, 0.9);
+  const p = clamp(0.233 + n.affinity / 150 + h.charm * 0.03 + 0.045 * synergy(h, ['romance', 'stat:charm']) + 0.04 * Math.min(h.drunk, 3) + (kisses >= 2 ? 0.1 : 0) - (prior ? 0.3 : 0) + romanceMod(w, n), 0.02, 0.9);
   if (!rng.chance(p)) {
     n.affinity -= 8;
     if (rng.chance(0.25)) {

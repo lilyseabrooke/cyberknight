@@ -6,7 +6,7 @@ import { everyoneAt, npcsAt } from './population';
 import { hasAlly } from './companions';
 import { nerve } from './character';
 import { skillOf, statsOf } from './npcstats';
-import { hasImplantFlag, skillLevel, skillValue, train } from './skills';
+import { hasImplantFlag, skillLevel, skillValue, train, skillRoot } from './skills';
 import { knowsTechnique } from './techniques';
 import { workingCameras } from './witness';
 import { covering } from './influence';
@@ -106,7 +106,7 @@ export function coverAt(w: World, locId: Id): number {
 /** How noticeable she is right now: 1 is a plain person with no skill and nothing to hide behind. */
 export function profile(w: World): number {
   const h = w.hero;
-  let p = 1 - 0.05 * Math.min(10, skillLevel(h, 'sneak'));
+  let p = 1 - 0.05 * Math.min(10, skillRoot(h, 'sneak'));
   p *= 1 - 0.55 * coverAt(w, h.locationId);
   if (hasImplantFlag(h, 'glow')) p *= 1.3;
   if (h.vehicle) p *= 1.3;
@@ -434,7 +434,7 @@ export function hush(w: World, n: Npc, deep: boolean): void {
 /** Hush as she uses it out of a fight: on someone who might call. */
 export function hushChance(w: World, n: Npc): number {
   const h = w.hero;
-  return clamp(0.35 + h.int * 0.07 + skillValue(h, 'tinkering') * 0.03 - 0.05 * statsOf(n).int, 0.1, 0.9);
+  return clamp(0.368 + h.int * 0.07 + skillRoot(h, 'tinkering') * 0.03 - 0.05 * statsOf(n).int, 0.1, 0.9);
 }
 
 function doHush(c: Ctx, n: Npc): void {

@@ -1,7 +1,7 @@
 import type { Ctx, Hero, Location, Npc, World } from './types';
 import { gainXp, here, relocate, addHeat } from './combat';
 import { clamp, type Candidate } from './candidate';
-import { odds, skillLevel, synergy, train } from './skills';
+import { odds, skillLevel, synergy, train, root, skillRoot } from './skills';
 import { kindle } from './romance';
 import { fireOf } from './callings';
 import { SKILLS } from './content/skills';
@@ -39,7 +39,7 @@ const RECOVERY = 0.004 / BASE_MIN_PER_BEAT;
 const WARY_FADE = 0.003 / BASE_MIN_PER_BEAT;
 
 /** Bigger stages are worth more. */
-export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : loc.kind === 'pawn' ? 0.7 : loc.kind === 'chop' ? 0.5 : loc.kind === 'hub' ? 0.6 : 0.8);
+export const prestige = (loc: Location): number => (loc.kind === 'club' ? 1.5 : loc.kind === 'bar' ? 1.0 : loc.kind === 'gym' ? (loc.gymRoom?.room === 'pit' ? 1.3 : 0.9) : loc.kind === 'pawn' ? 0.7 : loc.kind === 'chop' ? 0.5 : loc.kind === 'hub' ? 0.6 : loc.kind === 'gamehall' ? (loc.hallRoom?.room === 'stage' ? 1.3 : 0.8) : 0.8);
 
 /** 1 for a crowd that hasn't heard her yet, falling towards 0 as it wears out. */
 export function freshness(w: World, locId: string, skill: string): number {
@@ -119,12 +119,12 @@ export function passionBias(w: World, cand: { key: string }): number {
 // ===================================================================== things to do with a voice, a guitar, a deck
 
 const ODDS = {
-  singBusk: (h: Hero) => odds(0.2, 0.065, synergy(h, ['vocals', ['music', 0.4], ['stat:charm', 0.5]])),
-  crash: (h: Hero) => odds(0.1, 0.06, synergy(h, ['vocals', ['music', 0.5], ['stat:charm', 0.6]])),
-  serenadeGirl: (h: Hero) => odds(0.2, 0.06, synergy(h, ['vocals', 'romance', ['stat:charm', 0.5]])),
-  duel: (h: Hero) => odds(0.12, 0.07, synergy(h, ['guitar', ['music', 0.6], ['stat:reflex', 0.3]])),
-  backlot: (h: Hero) => odds(0.28, 0.06, synergy(h, ['djing', ['music', 0.5], ['tinkering', 0.3]])),
-  battle: (h: Hero) => odds(0.12, 0.065, synergy(h, ['beatbox', ['vocals', 0.3], ['stat:charm', 0.4]])),
+  singBusk: (h: Hero) => odds(0.229, 0.065, synergy(h, ['vocals', ['music', 0.4], ['stat:charm', 0.5]])),
+  crash: (h: Hero) => odds(0.126, 0.06, synergy(h, ['vocals', ['music', 0.5], ['stat:charm', 0.6]])),
+  serenadeGirl: (h: Hero) => odds(0.229, 0.06, synergy(h, ['vocals', 'romance', ['stat:charm', 0.5]])),
+  duel: (h: Hero) => odds(0.155, 0.07, synergy(h, ['guitar', ['music', 0.6], ['stat:reflex', 0.3]])),
+  backlot: (h: Hero) => odds(0.316, 0.06, synergy(h, ['djing', ['music', 0.5], ['tinkering', 0.3]])),
+  battle: (h: Hero) => odds(0.15, 0.065, synergy(h, ['beatbox', ['vocals', 0.3], ['stat:charm', 0.4]])),
 };
 
 const talkable = (n: Npc): boolean => n.alive && !n.hostile;
@@ -138,7 +138,7 @@ export function stageCandidates(w: World): Candidate[] {
 
   // ---- a voice in the street, no instrument needed
   if (loc.outdoors && !['overpass', 'halo_roof'].includes(loc.id)) {
-    out.push({ key: 'sing_busk', drives: { pride: 0.6, greed: 0.4, curiosity: 0.3 }, bonus: vocals * 0.03, risk: 0.15, intent: {}, run: singBusk });
+    out.push({ key: 'sing_busk', drives: { pride: 0.6, greed: 0.4, curiosity: 0.3 }, bonus: root(vocals) * 0.03, risk: 0.15, intent: {}, run: singBusk });
   }
 
   // ---- get up with whoever is playing
@@ -156,18 +156,18 @@ export function stageCandidates(w: World): Candidate[] {
   const hasAxe = hasInstrument(h) || w.features.guitar?.locationId === h.locationId;
   if (hasAxe) {
     for (const n of crowd.filter((x) => x.tags.includes('band') && x.affinity > -10 && x.affinity < 40)) {
-      out.push({ key: `guitar_duel:${n.id}`, drives: { pride: 1.0, bravery: 0.4, curiosity: 0.3 }, bonus: skillLevel(h, 'guitar') * 0.03, risk: 0.4, run: (c) => guitarDuel(c, n) });
+      out.push({ key: `guitar_duel:${n.id}`, drives: { pride: 1.0, bravery: 0.4, curiosity: 0.3 }, bonus: skillRoot(h, 'guitar') * 0.03, risk: 0.4, run: (c) => guitarDuel(c, n) });
     }
   }
 
   // ---- play the lot behind the club for the kids
   if (loc.id === 'club_backlot' && crowd.some((n) => n.archetype === 'street_kid')) {
-    out.push({ key: 'backlot_set', drives: { pride: 0.7, curiosity: 0.4 }, bonus: skillLevel(h, 'djing') * 0.03, risk: 0.2, run: backlotSet });
+    out.push({ key: 'backlot_set', drives: { pride: 0.7, curiosity: 0.4 }, bonus: skillRoot(h, 'djing') * 0.03, risk: 0.2, run: backlotSet });
   }
 
   // ---- beat battle
   for (const n of crowd.filter((x) => x.tags.includes('rowdy') && x.affinity > -20 && x.affinity < 22)) {
-    out.push({ key: `beat_battle:${n.id}`, drives: { pride: 0.8, bravery: 0.3, curiosity: 0.3 }, bonus: skillLevel(h, 'beatbox') * 0.03, risk: 0.3, intent: { npc: n.name }, run: (c) => beatBattle(c, n) });
+    out.push({ key: `beat_battle:${n.id}`, drives: { pride: 0.8, bravery: 0.3, curiosity: 0.3 }, bonus: skillRoot(h, 'beatbox') * 0.03, risk: 0.3, intent: { npc: n.name }, run: (c) => beatBattle(c, n) });
   }
   return out;
 }

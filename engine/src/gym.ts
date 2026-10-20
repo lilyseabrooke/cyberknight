@@ -7,6 +7,7 @@ import { FEATURES, featuresIn } from './content/gyms';
 import './content/gymafford';
 import './content/gymcrime';
 import './content/gymevents';
+import './content/gamerows';
 
 /**
  * Gyms, as seen from the decision loop: if she is standing in one (or one of its rooms), every row of the gym's

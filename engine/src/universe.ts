@@ -48,6 +48,7 @@ export function upgradeUniverse(u: Universe): Universe {
   l.account ??= 0;
   l.upgrades ??= {};
   l.spent ??= 0;
+  l.frogs ??= {};
   u.dungeons ??= {};
   // Muse, the entertainment megacorp, came later.
   if (!u.factions.muse) u.factions.muse = { id: 'muse', name: 'Muse', kind: 'corp', relations: { npd: 20, atlas: 30 } };

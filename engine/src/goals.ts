@@ -1,4 +1,5 @@
 import { enterStealth, exitStealth } from './stealth';
+import { GANGS } from './content/archetypes';
 import type { Candidate } from './candidate';
 import { clamp } from './candidate';
 import type { AskOption, Calling, Ctx, DungeonKind, Goal, GoalKind, GoalSpec, Id, Location, Npc, Ware, World, GameEvent } from './types';
@@ -14,6 +15,8 @@ import type { Booking } from './types';
 import { SKILL_LABELS, skillLevel } from './skills';
 import { dayOf } from './clock';
 import { PLENTY_PARTS, knownBenches, lowOnParts, partsLeads } from './scavenge';
+import { frogRecord, frogWatch, type Sensed } from './cyberfrogs';
+import { frogShort } from './content/cyberfrogs';
 import { RECIPES, billText, canAfford, totalParts, type Bill, type Recipe } from './content/parts';
 import { ITEMS, makeItem } from './content/items';
 import { tinkerLevel } from './bench';
@@ -26,11 +29,14 @@ import { isFairGame } from './people';
 import { buyGear, supplyUrge } from './supply';
 import { heatUrge } from './laylow';
 import { isClosed } from './hours';
+import { isShut } from './shutdown';
+import { cabsWithGame, gameAtFeature, gamesPlayed, hallHere, latestGame, memoryOf, remember, unplayedHere, firstCabOf } from './games';
 import { dragonReadiness, pursuing, pursuitBias, pursuitTargets, pursuitTick } from './pursuit';
 import { getImplant } from './extras';
 import { possessive } from './mapgen';
 import { dangerOf } from './grade';
 import { estimatePressure, garrisonAlive, isEntrance, knownDungeons, pressure, raidPlan, tolerance, typicalPressure, type Lead } from './dungeons';
+import { STARS, TIRED, activeDisguise, bestStar, bluffEase, buzz, coverEase, entranceCrew, starRested } from './disguise';
 import { appraise, giverPlace, livePending, objectiveRoom, questReady } from './quests';
 import { MAX_IMPLANTS } from './content/implants';
 import { maybeAsk, waiting, type Proposal } from './advice';
@@ -77,12 +83,13 @@ interface Kind {
   /** Places this goal wants her to be, and how badly. */
   targets(w: World, g: Goal): { loc: Id; value: number }[];
   /** How much this goal wants `family` (aimed at `id`) right now. Raw strength; scaled by how hard the goal is steering. */
-  bias(w: World, g: Goal, family: string, id: string | undefined): number;
+  bias(w: World, g: Goal, family: string, id: string | undefined, sub?: string): number;
 }
 
 // ===================================================================== helpers
 
 const traits = (w: World) => w.hero.personality.traits;
+const crewName = (crew: Id): string => (crew === 'atlas' ? 'Atlas' : crew === 'npd' ? 'the NPD' : GANGS[crew] ?? 'the gang');
 const npcName = (w: World, id: string | undefined): string => (id && w.npcs[id]?.name) || 'someone';
 const wareOf = (w: World, g: Goal) => (g.ware ? w.mind.wares[g.ware] : undefined);
 const distTo = (w: World, to: Id): number => routeTo(w, w.hero.locationId, to)?.dist ?? 12;
@@ -126,11 +133,19 @@ const goalData = (w: World, g: Goal, extra: EventData = {}): EventData => ({
   ...(g.npc ? { npc: npcName(w, g.npc) } : {}),
   ...(g.ware && w.mind.wares[g.ware] ? { item: w.mind.wares[g.ware]!.name } : {}),
   ...(g.loc && siteAt(g.loc) ? { place: siteAt(g.loc)!.label } : {}),
-  ...((g.kind === 'raid' || g.kind === 'explore' || g.kind === 'scavenge') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
+  ...((g.kind === 'raid' || g.kind === 'explore' || g.kind === 'scavenge' || g.kind === 'guise') && g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}),
   ...(g.kind === 'quest' ? questData(w, g) : {}),
+  ...(g.kind === 'frog' ? frogData(w, g) : {}),
+  ...(g.kind === 'game' ? gameData(w, g) : {}),
   ...extra,
 });
 
+
+/** Which Cyberfrog, and where, for the log: she only knows its name once she has seen it. */
+function frogData(w: World, g: Goal): EventData {
+  const f = frogRecord(w, g.loc);
+  return { place: (g.loc && w.locations[f?.door ?? g.loc]?.name) || 'somewhere', ...(f ? { frog: f.seen ? frogShort(f.char) : 'the Cyberfrog she can feel' } : {}) };
+}
 
 /** What the log needs to tell a job: who wants it, what it is, where, and the pay. */
 function questData(w: World, g: Goal): EventData {
@@ -234,7 +249,7 @@ const KINDS: Record<GoalKind, Kind> = {
       const ware = wareOf(w, g);
       if (!ware) return 0;
       const short = wareCost(w, ware) - w.hero.cash;
-      return short > 0 ? -short - 12 : -distTo(w, ware.loc);
+      return short > 0 ? -short - 12 : 0 - distTo(w, ware.loc);
     },
     targets(w, g) {
       const ware = wareOf(w, g);
@@ -495,7 +510,19 @@ const KINDS: Record<GoalKind, Kind> = {
       if (flame && flame.id !== n.id && traits(w).romantic > 0.65) return { drop: 'devoted' };
       return null;
     },
-    plan() {},
+    plan(c, g) {
+      // A face that isn't hers might do what hers hasn't. She weighs it: how she'd carry it, what it has cost her lately, how much she minds lying.
+      const { w, rng } = c;
+      const h = w.hero;
+      const n = g.npc ? w.npcs[g.npc] : undefined;
+      if (!n || !isLeaf(w, g) || n.hostile || n.affinity >= 30 || activeDisguise(w) || !starRested(w) || !here(w).some((x) => x.id === n.id)) return;
+      const best = bestStar(w);
+      if (best.polish < 0.3 || buzz(w, best.star.name) >= 1.5) return;
+      const t = traits(w);
+      const plain = 0.28 + h.charm * 0.025; // what her own face gets her
+      const nerve = clamp(0.03 + 0.08 * (t.vanity - 0.5) - 0.08 * (t.honesty - 0.5) + 0.06 * (t.mischief - 0.5), 0.005, 0.15) * clamp(1.4 - plain, 0.3, 1);
+      if (rng.chance(nerve)) adopt(c, { kind: 'guise', parent: g.id, npc: n.id, mode: 'star', why: 'a famous face might do what hers has not', desire: clamp(g.desire, 0.3, 0.9), variant: 'star_plan', extra: { npc: n.name } });
+    },
     metric(w, g) {
       const n = g.npc ? w.npcs[g.npc] : undefined;
       const loc = n && w.mind.lastSeen[n.id];
@@ -575,7 +602,7 @@ const KINDS: Record<GoalKind, Kind> = {
     metric(w, g) {
       if (g.mode === 'escape') return 10 - (safeSpot(w, w.hero.locationId)?.dist ?? 6);
       if (g.mode === 'loot') return 1;
-      return -distTo(w, g.loc!);
+      return 0 - distTo(w, g.loc!);
     },
     targets(w, g) {
       if (g.mode === 'approach') return [{ loc: g.loc!, value: 3.2 }];
@@ -633,8 +660,15 @@ const KINDS: Record<GoalKind, Kind> = {
         if (hpFrac(w) < 0.5) return delay(c, g, 40, 'hurt');
         // A look at the place from the street, and a sharper head thinks twice.
         if (distTo(w, g.loc!) <= 2) {
-          const p = d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1, dangerOf(entrance));
-          if (p > tolerance(w) * 1.15) end(c, g, 'drop', 'outmatched', { inside: false });
+          const raw = d ? typicalPressure(w, d) : estimatePressure(w, entrance.gen.role as DungeonKind, entrance.gen.tier ?? 1, dangerOf(entrance));
+          const limit = tolerance(w) * 1.15;
+          // Too much to take, or hard enough to be worth a trick, and the crew's own colors might get her in: dress for it first.
+          const eased = raw * coverEase(w, entrance);
+          if (!isLeaf(w, g)) return;
+          if (eased === raw && eased > tolerance(w) * 0.7 && raw * bluffEase(w, entrance) <= limit) {
+            const crew = entranceCrew(entrance);
+            adopt(c, { kind: 'guise', parent: g.id, loc: entrance.id, mode: 'cover', why: 'they know their own and will not look twice', desire: g.desire, variant: 'cover_plan', extra: { place: entrance.name, gang: crew ? crewName(crew) : '' } });
+          } else if (eased > limit) end(c, g, 'drop', 'outmatched', { inside: false });
         }
         return;
       }
@@ -658,8 +692,8 @@ const KINDS: Record<GoalKind, Kind> = {
     metric(w, g) {
       const entrance = w.locations[g.loc!];
       const d = w.dungeons[g.loc!];
-      if (g.mode === 'out' || g.mode === 'retreat') return -distTo(w, entrance?.tossTo ?? g.loc!);
-      if (!d || g.mode === 'approach') return -distTo(w, g.loc!);
+      if (g.mode === 'out' || g.mode === 'retreat') return 0 - distTo(w, entrance?.tossTo ?? g.loc!);
+      if (!d || g.mode === 'approach') return 0 - distTo(w, g.loc!);
       const visited = d.rooms.filter((r) => (w.locations[r.id]?.visits ?? 0) > 0).length;
       const taken = d.rooms.filter((r) => r.cache?.taken).length;
       const dead = d.garrison.filter((id) => !w.npcs[id]?.alive).length;
@@ -673,6 +707,8 @@ const KINDS: Record<GoalKind, Kind> = {
       return raidPlan(w, d).targets;
     },
     bias(w, g, fam, id) {
+      // The way in, if she is going to dress for it, is dressed.
+      if (fam === 'don_cover') return g.mode === 'approach' && id === g.loc ? 3.2 : 0;
       if (g.mode === 'out' || g.mode === 'retreat') {
         if (fam === 'raid_loot') return g.mode === 'out' ? 0 : -3;
         if (fam === 'raid_ambush') return -4;
@@ -690,6 +726,54 @@ const KINDS: Record<GoalKind, Kind> = {
       return 0;
     },
   },
+  // ------------------------------------------------------------------ guise
+  // Being somebody else, on purpose (disguise.ts). It is always in service of another goal: the way into a building she'd lose a fight
+  // in (a raid), or a girl who hasn't fallen for her own face (a romance). It ends when she has the face on and the thing is going, or
+  // when the face isn't worth it any more: everyone is talking about the star, the girl has gone cold.
+  guise: {
+    decay: 0.004, stick: ['mischief', 'vanity'], patience: 40,
+    label: (w, g) => (g.mode === 'star' ? `win ${npcName(w, g.npc)} over as somebody famous` : `walk into ${w.locations[g.loc!]?.name ?? 'the place'} as one of them`),
+    check(w, g) {
+      if (g.mode === 'star') {
+        const n = g.npc ? w.npcs[g.npc] : undefined;
+        if (!n || !n.alive) return { drop: 'gone' };
+        if (w.flags[`kissed:${n.id}`] || n.affinity >= 40) return { done: 'won_over' };
+        if (n.affinity <= -25) return { drop: 'cold' };
+        if (!activeDisguise(w) && STARS.every((s) => buzz(w, s.name) >= TIRED)) return { drop: 'too_hot' };
+        return null;
+      }
+      const entrance = w.locations[g.loc!];
+      if (!entrance) return { drop: 'gone' };
+      const d = w.dungeons[g.loc!];
+      if ((d && d.clearedRun !== null) || w.locations[w.hero.locationId]?.dungeon === g.loc) return { drop: 'moot' };
+      return coverEase(w, entrance) < 1 ? { done: 'dressed' } : null;
+    },
+    plan() {},
+    metric(w, g) {
+      if (g.mode === 'star') {
+        const n = g.npc ? w.npcs[g.npc] : undefined;
+        return (n?.affinity ?? 0) + (activeDisguise(w)?.kind === 'star' ? 10 : 0);
+      }
+      return (g.loc && w.locations[g.loc] && coverEase(w, w.locations[g.loc]!) < 1 ? 20 : 0) - distTo(w, g.loc!);
+    },
+    targets(w, g) {
+      if (g.mode === 'star') {
+        const loc = g.npc && w.mind.lastSeen[g.npc];
+        return loc ? [{ loc, value: 2.2 }] : [];
+      }
+      const entrance = g.loc ? w.locations[g.loc] : undefined;
+      return entrance ? [{ loc: entrance.gen?.parent ?? entrance.id, value: 3.4 }] : [];
+    },
+    bias(w, g, fam, id) {
+      if (g.mode === 'cover') return fam === 'don_cover' && id === g.loc ? 5 : 0;
+      if (!here(w).some((n) => n.id === g.npc)) return 0;
+      if (fam === 'don_star') return 4;
+      if (id === g.npc && (fam === 'star_flirt' || fam === 'kiss' || fam === 'make_move')) return 3.6;
+      if (id === g.npc && fam === 'flirt') return activeDisguise(w)?.kind === 'star' ? -1 : 0.5; // (she is saving it for the face)
+      return 0;
+    },
+  },
+
   // ------------------------------------------------------------------ explore
   // Somewhere she has never set foot. The trip is ordinary travel (the goal just wants her at the door); it ends the
   // moment she is through it. Mostly a step on the way to something else: new streets turn up doors worth kicking in,
@@ -788,9 +872,73 @@ const KINDS: Record<GoalKind, Kind> = {
     plan(c, g) {
       if (c.w.hero.locationId !== g.loc && hpFrac(c.w) < 0.5) delay(c, g, 40, 'hurt');
     },
-    metric: (w, g) => -distTo(w, g.loc!),
+    metric: (w, g) => 0 - distTo(w, g.loc!),
     targets: (_w, g) => [{ loc: g.loc!, value: 2.8 }],
     bias: () => 0,
+  },
+  // ------------------------------------------------------------------ frog
+  // A Cyberfrog she can feel nearby (cyberfrogs.ts). It does nothing, it is plastic, and she wants it more than anything she has going: it
+  // shoves aside whatever it has to (`adopt`), she goes into places she would think twice about for it, and the goal ends when it is on its
+  // way to the lab or it is gone. The trip there is ordinary travel; grabbing it is the `frog` action, once she is standing on it.
+  frog: {
+    decay: 0, stick: ['loyalty'], patience: 600,
+    label: (w, g) => {
+      const f = frogRecord(w, g.loc);
+      return f?.seen ? `get ${frogShort(f.char)}` : `find the Cyberfrog she can feel near ${w.locations[f?.door ?? g.loc ?? '']?.name ?? 'here'}`;
+    },
+    check(w, g) {
+      const f = frogRecord(w, g.loc);
+      if (!f) return { drop: 'moot' };
+      if (f.state === 'taken') return { done: 'collected' };
+      if (f.state === 'lost') return { drop: 'frog_lost' };
+      // A shop that has shut for the night is still where the frog is: she waits for it to open.
+      if (!isClosed(w, f.loc) && !routeTo(w, w.hero.locationId, f.loc)) return { drop: 'moot' };
+      return null;
+    },
+    plan() {},
+    metric: (w, g) => -distTo(w, g.loc!),
+    // Badly hurt, even this waits until she has been patched up (quietly: she is not going to announce it for each one).
+    targets: (w, g) => (hpFrac(w) < 0.3 ? [] : [{ loc: g.loc!, value: 4.5 }]),
+    bias(w, g, fam, id) {
+      if (fam === 'frog' && id === g.loc) return 9;
+      // Past the people holding it, if that is the way in.
+      if (fam === 'raid_ambush' && id && w.locations[id]?.dungeon && w.locations[id]?.dungeon === w.locations[g.loc ?? '']?.dungeon) return 2.5;
+      return 0;
+    },
+  },
+  // ------------------------------------------------------------------ game
+  // Getting into it. A game she has played makes her want to beat her own best, claim a spot on its board, or try the cabinet next
+  // to it; and finishing one of these makes her want another (formGameGoals, below). The trip is ordinary travel; once she is in
+  // the arcade the goal leans on which cabinet she plays.
+  game: {
+    decay: 0.0016, stick: ['vanity', 'thrill', 'curiosity', 'techy'], patience: 160,
+    label: (w, g) => gameLabel(w, g),
+    check(w, g) {
+      const hall = g.loc ? w.locations[g.loc] : undefined;
+      if (!hall?.gamehall || isShut(w, hall.id)) return { drop: 'moot' };
+      if (g.mode === 'try') return gamesPlayed(w) > (g.amount ?? 0) ? { done: 'tried' } : null;
+      const mem = g.game ? memoryOf(w, g.game) : undefined;
+      if (!mem) return { drop: 'moot' };
+      if (mem.records > (g.amount ?? 0)) return { done: 'record' };
+      if (!cabsWithGame(w, hall, g.game!).some((x) => x.standing)) return { drop: 'cabinet_gone' };
+      return null;
+    },
+    plan(c, g) {
+      if (hallHere(c.w)?.id !== g.loc && hpFrac(c.w) < 0.5) delay(c, g, 40, 'hurt');
+    },
+    metric(w, g) {
+      const played = g.mode === 'try' ? gamesPlayed(w) : g.game ? memoryOf(w, g.game)?.plays ?? 0 : 0;
+      return played * 3 - (hallHere(w)?.id === g.loc ? 0 : distTo(w, g.loc!));
+    },
+    targets: (_w, g) => [{ loc: g.loc!, value: 2.6 }],
+    bias(w, g, fam, id, sub) {
+      if (fam !== 'halldeal' || id !== 'play' || hallHere(w)?.id !== g.loc) return 0;
+      const gid = gameAtFeature(w, sub);
+      if (!gid) return 0;
+      // Strong, on purpose: once she is into it, the cabinet in front of her is worth more than the door behind her.
+      if (g.mode === 'try') return memoryOf(w, gid) ? -1 : 6;
+      return gid === g.game ? 6.5 : 0.4;
+    },
   },
   // ------------------------------------------------------------------ quest
   // A job for somebody (quests.ts). The trip there is ordinary travel; inside, she goes about it quietly or loudly: sneaking
@@ -865,9 +1013,9 @@ const KINDS: Record<GoalKind, Kind> = {
       const giver = g.npc ? w.npcs[g.npc] : undefined;
       const entrance = w.locations[g.loc!];
       if (g.mode === 'return') return 40 - (giver ? distTo(w, giverPlace(w, giver)) : 12);
-      if (g.mode === 'retreat') return -distTo(w, entrance?.tossTo ?? g.loc!);
+      if (g.mode === 'retreat') return 0 - distTo(w, entrance?.tossTo ?? g.loc!);
       const d = w.dungeons[g.loc!];
-      if (!d || g.mode === 'approach') return -distTo(w, g.loc!);
+      if (!d || g.mode === 'approach') return 0 - distTo(w, g.loc!);
       const visited = d.rooms.filter((r) => (w.locations[r.id]?.visits ?? 0) > 0).length;
       const dead = d.garrison.filter((id) => !w.npcs[id]?.alive).length;
       return 5 + visited * 2 + dead;
@@ -1118,7 +1266,7 @@ function adopt(c: Ctx, s: Spec): Goal | null {
   const { w, rng } = c;
   const m = w.mind;
   const parent = goalById(w, s.parent ?? null);
-  const subject = s.npc ?? s.ware ?? s.loc ?? '';
+  const subject = s.npc ?? s.ware ?? s.game ?? s.loc ?? '';
   const same = m.goals.find((g) => g.kind === s.kind && g.parent === (parent?.id ?? null) && (s.kind === 'cash' || subjectOf(g) === subject));
   if (same) {
     same.desire = Math.max(same.desire, s.desire);
@@ -1139,15 +1287,20 @@ function adopt(c: Ctx, s: Spec): Goal | null {
     const top = topLevel(w);
     if (top.length >= capacity(w)) {
       const weakest = weakestOf(w, top);
-      if (s.desire < priority(w, weakest) + 0.12) {
-        if (rng.chance(0.2)) c.emit('goal_pass', 'mixed', { variant: 'full', goal: label(w, s), count: top.length });
-        return null;
+      // A Cyberfrog gets room made for it, whatever it costs: she drops something else, and if there is nothing else to drop she takes on one more.
+      if (s.kind === 'frog') {
+        if (weakest.kind !== 'frog') end(c, weakest, 'drop', 'overloaded', { replacement: label(w, s) });
+      } else {
+        if (s.desire < priority(w, weakest) + 0.12) {
+          if (rng.chance(0.2)) c.emit('goal_pass', 'mixed', { variant: 'full', goal: label(w, s), count: top.length });
+          return null;
+        }
+        end(c, weakest, 'drop', 'overloaded', { replacement: label(w, s) });
       }
-      end(c, weakest, 'drop', 'overloaded', { replacement: label(w, s) });
     }
   }
   const g: Goal = {
-    id: m.nextId++, kind: s.kind, parent: parent?.id ?? null, npc: s.npc, ware: s.ware, loc: s.loc, amount: s.amount, mode: s.mode,
+    id: m.nextId++, kind: s.kind, parent: parent?.id ?? null, npc: s.npc, ware: s.ware, loc: s.loc, ...(s.game ? { game: s.game } : {}), amount: s.amount, mode: s.mode,
     why: s.why, desire: clamp(s.desire, 0.1, 1), frustration: 0, born: w.beat, lastProgress: w.beat, metric: 0, delayUntil: 0, setbacks: 0,
     revisions: 0, lastFocus: 0, ...(s.calling ? { calling: true } : {}),
   };
@@ -1186,7 +1339,12 @@ function end(c: Ctx, g: Goal, how: 'done' | 'drop', variant: string, extra: Even
   const gone = new Set([g.id, ...descendants(w, g).map((x) => x.id)]);
   m.goals = m.goals.filter((x) => !gone.has(x.id));
   if (m.focus !== null && gone.has(m.focus)) m.focus = null;
-  coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : variant === 'overloaded' ? 120 : 270);
+  coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : g.kind === 'frog' ? 20 : variant === 'overloaded' ? 120 : 270);
+  // Getting into a game is a habit: finishing one thing here leads to the next ("one more"), so it needs no long rest.
+  if (g.kind === 'game' && g.loc) {
+    coolFor(w, `game:${subjectOf(g)}`, how === 'done' ? 1 : 240);
+    if (how === 'done') m.gameNext = { mode: g.mode === 'rank' ? 'beat' : g.mode === 'beat' ? 'try' : 'rank', game: g.mode === 'try' ? latestGame(w) : g.game, hall: g.loc, beat: w.beat };
+  }
   // She still has the job, even if she's put it down for now. (And a place that looked like too much from the street still does.)
   if (g.kind === 'quest' && variant === 'outmatched') coolFor(w, `quest:${subjectOf(g)}`, 720);
   if (g.kind === 'quest' && how === 'drop' && g.npc && w.npcs[g.npc]?.quest && !['gone', 'quest_failed'].includes(variant) && !(m.quests ??= []).includes(g.npc)) m.quests.push(g.npc);
@@ -1258,9 +1416,22 @@ function review(c: Ctx, g: Goal): void {
 
 // ===================================================================== noticing and wanting
 
+/** She wants it: the goal, said in her own words (the text came with the sensing, see cyberfrogs.ts). */
+function adoptFrog(c: Ctx, s: Sensed): void {
+  const f = s.frog;
+  const place = c.w.locations[f.door ?? f.loc]?.name ?? 'somewhere';
+  adopt(c, {
+    kind: 'frog', loc: f.loc, why: 'it is a Cyberfrog', desire: 0.97,
+    variant: s.how === 'sense' ? 'frog_sense' : s.how === 'here' ? 'frog_here' : 'frog_back',
+    extra: { place, frog: f.seen ? frogShort(f.char) : 'the Cyberfrog she can feel', ...(s.text ? { text: s.text } : {}), ...(s.thought ? { thought: s.thought } : {}) },
+  });
+}
+
 function observe(c: Ctx): void {
   const { w } = c;
   const m = w.mind;
+  // A Cyberfrog nearby is the one thing she does not stop to think about.
+  for (const s of frogWatch(c)) adoptFrog(c, s);
   for (const n of here(w)) m.lastSeen[n.id] = w.hero.locationId;
   const fresh = [];
   for (const ware of shopStock(w)) {
@@ -1315,6 +1486,91 @@ export function recallJobs(c: Ctx): void {
   if (rng.chance(clamp(0.35 + 0.6 * a.score, 0.15, 0.9))) startQuestGoal(c, pick, a.desire, 'quest_resume');
 }
 
+/** What a game goal is called. */
+function gameLabel(w: World, g: Goal): string {
+  const title = (g.game && memoryOf(w, g.game)?.title) || 'it';
+  if (g.mode === 'try') return `try something new at ${w.locations[g.loc!]?.name ?? 'the arcade'}`;
+  return g.mode === 'beat' ? `beat her own best on "${title}"` : `get her name on the "${title}" board`;
+}
+
+function gameData(w: World, g: Goal): EventData {
+  const mem = g.game ? memoryOf(w, g.game) : undefined;
+  return { mode: g.mode ?? 'rank', ...(mem ? { title: mem.title, game: g.game! } : {}), ...(g.loc && w.locations[g.loc] ? { place: w.locations[g.loc]!.name } : {}) };
+}
+
+const GAME_WHY: Record<'rank' | 'beat' | 'try', string[]> = {
+  rank: ['the board has a gap exactly her shape', "somebody else's three letters are not staying up there", 'she can see the number from here'],
+  beat: ['her own best is right there, and it is beatable', 'she was not even trying, the first time'],
+  try: ['the cabinet next door has been looking at her', 'one more game will not hurt', 'everything here is a different way to be good at something'],
+};
+
+/**
+ * Getting sucked in. A game she has just played can turn into something to want: her own best to beat, a spot on its board to
+ * claim, or another cabinet in the same arcade to try. Finishing one of those leads to the next (rank, then beat it, then try
+ * something new, then claim that board). How easily she is pulled is her nature: vanity, thrill, the itch for fame, a head for
+ * tech, a love of the odds. One game goal at a time; the goal does the rest (it pulls her back and leans on which cabinet).
+ */
+function formGameGoals(c: Ctx): void {
+  const { w, rng } = c;
+  const m = w.mind;
+  const t = traits(w);
+  if (m.lastPlay && w.beat - m.lastPlay.beat > 3) delete m.lastPlay;
+  if (m.gameNext && w.beat - m.gameNext.beat > 400) delete m.gameNext;
+  const hallNow = hallHere(w);
+  if (!m.lastPlay && !m.gameNext && !hallNow) return;
+  if (hasGoal(w, 'game') || cooling(w, 'game_idea') || hpFrac(w) < 0.5) return;
+  const into = clamp(0.55 + 0.6 * (t.thrill - 0.5) + 0.5 * (t.vanity - 0.5) + 0.4 * (t.fame - 0.5) + 0.4 * (t.techy - 0.5) + 0.3 * (t.gamble - 0.5) + 0.3 * (t.curiosity - 0.5), 0.25, 1.5);
+  const desire = clamp(0.55 + 0.35 * into, 0.5, 0.95);
+  const make = (mode: 'rank' | 'beat' | 'try', hallId: Id, gid: string | undefined, variant: string): boolean => {
+    const hall = w.locations[hallId];
+    if (!hall?.gamehall) return false;
+    const mem = gid ? memoryOf(w, gid) : undefined;
+    if (mode !== 'try' && !mem) return false;
+    const g = adopt(c, {
+      kind: 'game', loc: hallId, ...(mode !== 'try' && gid ? { game: gid } : {}), mode, amount: mode === 'try' ? gamesPlayed(w) : mem!.records,
+      why: rng.pick(GAME_WHY[mode]), desire, variant, extra: { place: hall.name, ...(mem ? { title: mem.title } : {}), mode },
+    });
+    if (g) cool(w, 'game_idea', 15);
+    return !!g;
+  };
+  // "One more": what finishing one leads to.
+  const next = m.gameNext;
+  if (next) {
+    delete m.gameNext;
+    if (rng.chance(Math.min(0.95, 0.8 * into))) {
+      const hall = w.locations[next.hall];
+      if (hall && make(next.mode, next.hall, next.game, 'game_again')) return;
+    }
+  }
+  const last = m.lastPlay;
+  if (!last) {
+    // Just being in the place: the boards are lit, the cabinets are calling, and one of them has a number on it that is not hers.
+    const unplayed = hallNow ? unplayedHere(w, hallNow) : [];
+    if (!hallNow || !unplayed.length || !rng.chance(0.07 * into)) return;
+    if (rng.chance(0.6)) {
+      const gid = rng.pick(unplayed);
+      const cab = firstCabOf(w, hallNow, gid);
+      if (cab) {
+        remember(w, gid, cab.title, cab.genre, cab.legal);
+        if (make('rank', hallNow.id, gid, 'game_rank')) return;
+      }
+    }
+    make('try', hallNow.id, undefined, 'game_try');
+    return;
+  }
+  delete m.lastPlay;
+  const mem = memoryOf(w, last.game);
+  const hall = w.locations[last.hall];
+  if (!mem || !hall?.gamehall) return;
+  const mine = cabsWithGame(w, hall, last.game).some((x) => x.mine);
+  const pRank = last.went === 'bad' ? (mem.like > -0.4 ? 0.22 * into * (1 + 0.25 * Math.min(4, mem.streak)) : 0) : mine ? 0 : 0.35 * into;
+  const pBeat = last.went === 'record' ? 0.45 * into : last.went === 'good' && mine ? 0.25 * into : 0;
+  if (pBeat > 0 && rng.chance(pBeat) && make('beat', last.hall, last.game, 'game_beat')) return;
+  if (pRank > 0 && rng.chance(pRank) && make('rank', last.hall, last.game, 'game_rank')) return;
+  // And while she is here, the cabinet next door.
+  if (unplayedHere(w, hall).length && rng.chance(0.16 * (0.6 + t.curiosity) * into)) make('try', last.hall, undefined, 'game_try');
+}
+
 function formGoals(c: Ctx): void {
   const { w, rng } = c;
   const h = w.hero;
@@ -1347,6 +1603,8 @@ function formGoals(c: Ctx): void {
   recallJobs(c);
 
   formIdle(c);
+
+  formGameGoals(c);
 
   // Low on parts: somewhere with a heap of them lying about, and nobody minding it.
   if (lowOnParts(w) && hpFrac(w) >= 0.6 && !hasGoal(w, 'scavenge') && !cooling(w, 'scav_idea') && rng.chance(0.012 + 0.03 * Math.max(0, t.techy - 0.3) + 0.01 * Math.max(0, t.greed - 0.5))) {
@@ -1535,7 +1793,8 @@ export function ambientMind(c: Ctx): void {
 /** Too many goals: shed the weakest. */
 /** The goal she'd let go of first. What she is doing for her Calling goes last. */
 function weakestOf(w: World, top: Goal[]): Goal {
-  const pool = top.some((g) => !g.calling) ? top.filter((g) => !g.calling) : top;
+  const loose = top.some((g) => g.kind !== 'frog') ? top.filter((g) => g.kind !== 'frog') : top;
+  const pool = loose.some((g) => !g.calling) ? loose.filter((g) => !g.calling) : loose;
   return [...pool].sort((a, b) => priority(w, a) - priority(w, b))[0]!;
 }
 
@@ -1545,6 +1804,7 @@ function prune(c: Ctx): void {
     const top = topLevel(w);
     if (top.length <= capacity(w)) return;
     const weakest = weakestOf(w, top);
+    if (weakest.kind === 'frog') return; // (nothing but Cyberfrogs: she keeps all of them)
     end(c, weakest, 'drop', 'overloaded', {});
   }
 }
@@ -1614,7 +1874,7 @@ const dungeonPull = (l: Lead): number => Math.min(2.5, 1.2 * Math.log1p(l.appeal
 export function goalBias(w: World, cand: { key: string }): number {
   const m = w.mind;
   if (!m.goals.length) return 0;
-  const [fam, id] = cand.key.split(':') as [string, string | undefined];
+  const [fam, id, sub] = cand.key.split(':') as [string, string | undefined, string | undefined];
   let s = 0;
   // A route hop doesn't override an errand: while she's standing where a pressing need can be met (ammo, a med pack, the doc), she finishes it first.
   if (fam === 'go' && id) {
@@ -1625,7 +1885,7 @@ export function goalBias(w: World, cand: { key: string }): number {
   }
   for (const d of m.drive) {
     const g = goalById(w, d.id);
-    if (g) s += KINDS[g.kind].bias(w, g, fam, id) * d.weight;
+    if (g) s += KINDS[g.kind].bias(w, g, fam, id, sub) * d.weight;
   }
   // Saving up. Drinks and gadgets come out of the same pocket.
   if (SPEND.has(fam)) {

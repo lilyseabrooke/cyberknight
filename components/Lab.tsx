@@ -11,6 +11,11 @@ import {
   describeFx,
   describePersonality,
   dropCut,
+  FROGS,
+  FROG_COUNT,
+  FROG_EDITIONS,
+  FROG_LINES,
+  FROG_LINE_SIZE,
   hungerRate,
   sleepRate,
   nightHours,
@@ -136,11 +141,14 @@ export default function Lab({ universe, onChange, onSendOut }: { universe: Unive
               <dt>Banked at drop points</dt><dd>+{r.deposited}{r.fees > 0 && <span className="muted"> (after {r.fees} in cuts)</span>}</dd>
               <dt>In her pockets</dt><dd>{r.carried}{r.ending === 'dead' && <span className={r.recovered ? 'good' : 'bad'}> → {r.recovered} recovered</span>}{r.ending !== 'dead' && <span className="good"> → all of it</span>}</dd>
               {r.interest > 0 && (<><dt>Interest</dt><dd className="good">+{r.interest}</dd></>)}
+              {r.frogs && r.frogs.got > 0 && (<><dt>Cyberfrogs sent home</dt><dd className="good">+{r.frogs.got}<span className="muted"> ({r.frogs.got - r.frogs.dupes} new, {r.frogs.dupes} duplicate{r.frogs.dupes === 1 ? '' : 's'}; {r.frogs.owned} of {FROG_COUNT} on the shelf)</span></dd></>)}
               <dt>Balance</dt><dd>{r.before} → <b>{r.after}</b></dd>
             </dl>
           </div>
         )}
       </section>
+
+      <Shelf l={l} />
 
       <div className="labgrid">
         <section className="tree" aria-label="Upgrade trees">
@@ -213,6 +221,44 @@ export default function Lab({ universe, onChange, onSendOut }: { universe: Unive
         </aside>
       </div>
     </main>
+  );
+}
+
+/** The Cyberfrog shelf. Everything she has ever sent home, by line; the ones she hasn't found are blanks. */
+function Shelf({ l }: { l: Universe['legacy'] }) {
+  const have = l.frogs ?? {};
+  const owned = Object.keys(have).length;
+  const total = Object.values(have).reduce((a, s) => a + s.count, 0);
+  const editions = (keys: string[]): string => keys.map((k) => FROG_EDITIONS.find((e) => e.key === k)?.label || 'standard').join('; ');
+  return (
+    <details className="shelf">
+      <summary>
+        <b>The shelf</b> <span className="muted">· Cyberfrogs · {owned} of {FROG_COUNT} · {total} in all, {total - owned} duplicate{total - owned === 1 ? '' : 's'}</span>
+      </summary>
+      <p className="muted">Blackbird sends every one home the moment she gets it, and they stay through every death. They do nothing at all. She does not hear that.</p>
+      {FROG_LINES.map((ln, li) => {
+        const slice = FROGS.slice(li * FROG_LINE_SIZE, (li + 1) * FROG_LINE_SIZE);
+        const got = slice.filter((_, i) => have[String(li * FROG_LINE_SIZE + i)]).length;
+        return (
+          <div key={ln.key} className="shelfline">
+            <h4>{ln.name} <small>{got}/{FROG_LINE_SIZE} · {ln.slogan}</small></h4>
+            <ul>
+              {slice.map((f, i) => {
+                const n = li * FROG_LINE_SIZE + i;
+                const s = have[String(n)];
+                return s ? (
+                  <li key={n} className="got" title={`${f.bio} · ${editions(s.editions)}`}>
+                    {f.name} <small>{f.gear}</small>{s.count > 1 && <b> ×{s.count}</b>}
+                  </li>
+                ) : (
+                  <li key={n} className="gap" title="Not on the shelf yet.">#{n + 1}</li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </details>
   );
 }
 

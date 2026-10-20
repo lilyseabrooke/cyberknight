@@ -5,7 +5,7 @@
  */
 export interface SkillDef {
   label: string;
-  group: 'music' | 'aim' | 'stealth' | 'social' | 'craft' | 'body';
+  group: 'music' | 'aim' | 'stealth' | 'social' | 'craft' | 'body' | 'tech';
   /** Related skills that also gain XP when this one is trained: skill -> fraction of the XP. */
   spill?: Record<string, number>;
   /** What she can be described as at levels 1, 3, 5 and 8. */
@@ -36,6 +36,8 @@ export const SKILLS = {
   perception: { label: 'perception', group: 'stealth', spill: { sneak: 0.1 }, titles: ['notices the obvious, eventually', 'spots the camera before the camera spots her', 'sees the guard behind the guard', 'nothing hides in a room she is in'] },
   tracking: { label: 'tracking', group: 'stealth', spill: { perception: 0.15, streetwise: 0.1 }, titles: ['can follow a trail of dropped fries', 'reads scuffs and wet footprints', 'knows which way the bag-snatcher went', 'could track a rumour through the rain'] },
   hijack: { label: 'hijacking', group: 'stealth', spill: { driving: 0.3, lockpicking: 0.15, tinkering: 0.1 }, titles: ['has locked her keys in a car, from the outside', 'knows which wire is the red one', 'cars start for her, eventually', 'a parking lot is a buffet'] },
+  // ---- tech
+  gaming: { label: 'gaming', group: 'tech', spill: { calculate: 0.15, perception: 0.1, tinkering: 0.05, throwing: 0.05 }, titles: ['knows which button is jump', 'has a personal best on a machine that no longer exists', 'reads a boss\'s pattern in one death', 'the cabinet blinks first'] },
   // ---- social
   romance: { label: 'flirting', group: 'social', spill: { streetwise: 0.1 }, titles: ['has a decent opening line', 'knows the three-second look', 'a legend in three bars', 'could talk a dragon into dinner'] },
   dancing: { label: 'dancing', group: 'social', spill: { romance: 0.2, athletics: 0.1 }, titles: ['sways, with intent', 'finds the downbeat', 'owns a small corner of the floor', 'a neon blur with great hair'] },
@@ -47,6 +49,7 @@ export const SKILLS = {
   speaking: { label: 'speaking', group: 'social', spill: { streetwise: 0.1, intimidation: 0.05 }, titles: ['can say a sentence to a room, mostly', 'holds a crowd for a whole minute', 'finishes speeches people forgot they were listening to', 'could talk a riot into a queue, or a queue into a riot'] },
   rapport: { label: 'animal rapport', group: 'social', spill: { medicine: 0.1 }, titles: ['pigeons do not flee', 'dogs, robot and otherwise, like her', 'drones coo when she walks by', 'speaks fluent beast'] },
   grifting: { label: 'grifting', group: 'social', spill: { streetwise: 0.15, cards: 0.1 }, titles: ['can keep a straight face for one whole sentence', 'has a sob story for every occasion', 'could sell ice to a fridge', "Neo's most convincing liar, professionally"] },
+  acting: { label: 'acting', group: 'social', spill: { grifting: 0.15, speaking: 0.1, romance: 0.05 }, titles: ['has played a tree, convincingly', 'can hold a fake name through a whole conversation', 'becomes whoever the door is expecting', 'has not been entirely herself since Tuesday'] },
   // ---- crafts and care
   tolerance: { label: 'drinking', group: 'craft', titles: ['has a favorite drink, and a second', 'holds it better than most', 'is hydrated by whiskey', 'a liver with its own union'] },
   mixology: { label: 'mixology', group: 'craft', spill: { tolerance: 0.2 }, titles: ['pours straight', 'knows what bitters are for', 'invents drinks with unfortunate names', 'a bar-top alchemist'] },
