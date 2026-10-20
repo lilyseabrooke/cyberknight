@@ -5,7 +5,7 @@ Skill: `acting` (social; its training also nudges grifting, speaking and flirtin
 
 ## The face
 
-`Hero.disguise` is the face she has on: who she is (`label`), what kind (`crew` | `role` | `star`), how well she carries it (`polish`, 0..1, set when she puts it on from `acting`, charm and int, about 0.4 with nothing to go on, 0.7 at level 10, 0.8 at 50, with middling charm and int) and when it wears off (`until`, a world minute: 90 minutes at level 0, a quarter hour more for every four levels, up to 7 hours). The same code serves a cheap trick and a skilled one; nothing is rolled once and kept except the polish.
+`Hero.disguise` is the face she has on: who she is (`label`), what kind (`crew` | `role` | `star`), how well she carries it (`polish`, 0..1, set when she puts it on from `acting`, charm and int, about 0.4 with nothing to go on, 0.7 at level 10, 0.9 at 50, with middling charm and int) and when it wears off (`until`, a world minute: 90 minutes at level 0, a quarter hour more for every four levels, up to 7 hours). The same code serves a cheap trick and a skilled one; nothing is rolled once and kept except the polish.
 
 | Face | Where it is put on | What it is good for |
 |---|---|---|
@@ -60,7 +60,7 @@ Faces are planned, not worn on a whim (`guise` goals, `goals.ts`):
 
 ## Scale
 
-Skills run 0 to 100 and stats 0 to 10 (80 is very high). The chances written across the engine assume a 0-10 scale, so `skills.ts` has `feel(x)`, which turns a skill or a blend into that scale: itself up to 5, then rising ever more slowly to 10 at 100 (level 10 is 6.2, 25 is 7.7, 50 is 8.8, 80 is 9.6). `odds()` applies it to the blend it is given, and probability and bonus terms that took a raw skill level wrap it in `feel()`. Early levels behave as they did; the rest of the range now counts. The small acting terms that are plain per-level numbers (+0.3% hold per level and so on) are on the raw 0-100 scale and don't use it.
+Skills run 0 to 100 and stats 0 to 10 (80 is very high). A skill enters a chance as its square root, so it reads 0 to 10 too: `synergy` blends the roots with the stats, and a chance is `base + per * blend`. A level is worth the most at the bottom and every level still counts at the top (see `PROGRESSION.md`). The acting numbers are: `bearing` is `0.4 + 0.08 * blend`; the shake-heat check is `0.026 * blend^1.45`; the small per-level terms (+0.3% hold per level and so on) are plain numbers on the raw 0-100 scale.
 
 ## Left out / open
 

@@ -11,7 +11,7 @@ import { bump, footChance, stumble } from './footfx';
 import { grabVehicle, vehicleHere } from './vehicles';
 import { accident, hopChance } from './drivefx';
 import { assistOf, removeCompanion } from './companions';
-import { skillValue, train, feel } from './skills';
+import { skillValue, train, skillRoot } from './skills';
 import { hasImplantFlag } from './skills';
 import { fxOf } from './weapons';
 import { Rng } from './rng';
@@ -237,7 +237,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
     return clamp(p + (o.mode === 'pursuer' ? standTired(w) : 0), 0, 0.85);
   };
   // Her chance to get onto a moving vehicle: athletics and reflexes, against how fast it is going.
-  const boardP = (f: Chaser): number => clamp(0.45 + 0.04 * feel(skillValue(h, 'athletics')) + 0.02 * h.reflex - 0.04 * Math.max(0, f.pace - heroSpeed(w)) - 0.1 * squeeze, 0.1, 0.85);
+  const boardP = (f: Chaser): number => clamp(0.474 + 0.04 * skillRoot(h, 'athletics') + 0.02 * h.reflex - 0.04 * Math.max(0, f.pace - heroSpeed(w)) - 0.1 * squeeze, 0.1, 0.85);
 
   // A round spent on their vehicle. She chooses what to do about the doors and the driver, they choose whether to stop, to fight back, or
   // to try to shake her off, and every round she is hanging on outside is a chance to be thrown.
@@ -283,7 +283,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
 
     if (action === 'hijack_door') {
       // The lock, not the car: a good deal easier than taking one.
-      const p = clamp(0.5 + 0.06 * feel(skillValue(h, 'hijack')) + 0.02 * h.reflex - armor * 0.03, 0.15, 0.92);
+      const p = clamp(0.536 + 0.06 * skillRoot(h, 'hijack') + 0.02 * h.reflex - armor * 0.03, 0.15, 0.92);
       train(c, 'hijack', 1);
       if (rng.chance(p)) {
         inside = true;
@@ -468,7 +468,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
       if (car) last = car;
       const foot = !car;
       const skillId = foot ? 'athletics' : 'driving';
-      const skill = feel(skillValue(h, skillId)) * 0.5 + h.reflex * 0.3;
+      const skill = skillRoot(h, skillId) * 0.5 + h.reflex * 0.3;
       const hero = heroSpeed(w);
       const nearest = () => live.reduce((a, f) => (f.gap < a.gap ? f : a));
       const lead = nearest();
@@ -521,7 +521,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         }
       }
       // Work out where they are going and cut across to it.
-      if (route && !boarded && o.mode === 'pursuer' && route.path.length - 1 - route.i >= 2 && band !== 'locked') scores.shortcut = (band === 'far' ? 7 : band === 'near' ? 5 : 2.5) + 0.2 * feel(skillValue(h, 'calculate'));
+      if (route && !boarded && o.mode === 'pursuer' && route.path.length - 1 - route.i >= 2 && band !== 'locked') scores.shortcut = (band === 'far' ? 7 : band === 'near' ? 5 : 2.5) + 0.2 * skillRoot(h, 'calculate');
       if (car && carRatio <= 0.25) scores.bail = (scores.bail ?? 0) + 3 + h.competence * 4; // smoking: it is about to go
       const slack = (1 - h.competence) * 4;
       let action = Object.keys(scores).map((k) => ({ k, s: scores[k]! + rng.next() * (1 + slack) })).sort((a, b) => b.s - a.s)[0]!.k;
@@ -631,7 +631,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         if (ahead <= 0) {
           board.block.done = true;
           const br = new Rng(`blockrun:${w.worldSeed}:${w.beat}:${board.loc}:${round}`);
-          const p = car ? clamp(0.4 + 0.04 * skill + (bike ? 0.25 : 0) - 0.3 * squeeze, 0.1, 0.85) : clamp(0.6 + 0.03 * feel(skillValue(h, 'athletics')) + 0.01 * h.reflex - 0.2 * squeeze, 0.2, 0.9);
+          const p = car ? clamp(0.418 + 0.04 * skill + (bike ? 0.25 : 0) - 0.3 * squeeze, 0.1, 0.85) : clamp(0.6 + 0.03 * skillRoot(h, 'athletics') + 0.01 * h.reflex - 0.2 * squeeze, 0.2, 0.9);
           if (br.chance(p)) {
             if (car) hitCar(car, car.maxHp * 0.03, 'ram');
             told.push('block:through');
@@ -788,7 +788,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
         const def = pr ? PROPS[pr.kind as keyof typeof PROPS] : null;
         if (pr && def) {
           const machine = def.override !== false;
-          const p = machine ? overrideChance(w, 0.5) : clamp(0.7 + 0.03 * feel(skillValue(h, 'athletics')) + 0.01 * h.reflex - 0.1 * squeeze, 0.3, 0.95);
+          const p = machine ? overrideChance(w, 0.5) : clamp(0.718 + 0.03 * skillRoot(h, 'athletics') + 0.01 * h.reflex - 0.1 * squeeze, 0.3, 0.95);
           if (rng.chance(p)) {
             pr.charges--;
             if (machine) train(c, 'tinkering', 1);
@@ -843,7 +843,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
               c.emit('chase_crowd', 'good', { variant: 'clear', who: who.name, role: who.role, place: here.name });
               continue;
             }
-            const skill = clamp(0.6 + 0.03 * feel(skillValue(h, 'athletics')) + 0.01 * h.reflex - 0.2 * squeeze, 0.2, 0.92);
+            const skill = clamp(0.618 + 0.03 * skillRoot(h, 'athletics') + 0.01 * h.reflex - 0.2 * squeeze, 0.2, 0.92);
             if (p.room && rng.chance(skill + 0.1)) {
               slowed += 0.3;
               c.emit('chase_crowd', 'mixed', { variant: 'weave', who: who.name, role: who.role, place: here.name });
@@ -1023,7 +1023,7 @@ export function runChase(c: Ctx, o: ChaseOpts): ChaseResult {
               hurt += dmg;
               maybeInjure(c, dmg, 0.35);
               told.push('struck');
-              if (!rng.chance(clamp(0.5 + 0.04 * feel(skillValue(h, 'athletics')) + 0.02 * h.reflex, 0.1, 0.9))) {
+              if (!rng.chance(clamp(0.524 + 0.04 * skillRoot(h, 'athletics') + 0.02 * h.reflex, 0.1, 0.9))) {
                 f.gap = 0;
                 told.push('down');
               }

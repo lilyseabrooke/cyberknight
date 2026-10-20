@@ -7,7 +7,7 @@ import { canDeepen, ensureDeep } from './deepen';
 import { traitOf } from './character';
 import { isFairGame } from './people';
 import { fight, heroPower, here, remember } from './combat';
-import { feel, synergy, train, type Part } from './skills';
+import { synergy, train, type Part } from './skills';
 import { assistMult, ratio, statsOf, type NpcStat } from './npcstats';
 import { coolFor, cooling, priority } from './mind';
 
@@ -135,7 +135,7 @@ export function oddsWith(w: World, n: Npc, wish: Wish, method: InfluenceMethod, 
   const h = w.hero;
   const m = METHOD[method];
   const align = alignment(w, n, wish.kind);
-  let p = 0.62 + 0.05 * feel(skill);
+  let p = 0.64 + 0.05 * skill;
   // Liking helps; frightening someone doesn't need them to like her.
   p += (method === 'intimidation' ? 0.3 : 1) * (n.affinity / 180);
   p -= 0.55 * wish.magnitude;

@@ -1,7 +1,7 @@
 import type { Ctx, Hero, Npc, World } from './types';
 import { addHeat, fight, here, relocate, remember } from './combat';
 import { clamp, spawnGroup, type Candidate } from './candidate';
-import { synergy, train, feel } from './skills';
+import { synergy, train } from './skills';
 import { moveNpc } from './population';
 import { bondEvent, lovedHere, romanceMod, scruples, ensureBond } from './bonds';
 import { isFairGame } from './people';
@@ -183,7 +183,7 @@ function makeMove(c: Ctx, n: Npc): void {
 
   const kisses = kissesWith(w, n.id);
   const prior = movesWith(w, n.id);
-  const p = clamp(0.22 + n.affinity / 150 + h.charm * 0.03 + 0.045 * feel(synergy(h, ['romance', 'stat:charm'])) + 0.04 * Math.min(h.drunk, 3) + (kisses >= 2 ? 0.1 : 0) - (prior ? 0.3 : 0) + romanceMod(w, n), 0.02, 0.9);
+  const p = clamp(0.233 + n.affinity / 150 + h.charm * 0.03 + 0.045 * synergy(h, ['romance', 'stat:charm']) + 0.04 * Math.min(h.drunk, 3) + (kisses >= 2 ? 0.1 : 0) - (prior ? 0.3 : 0) + romanceMod(w, n), 0.02, 0.9);
   if (!rng.chance(p)) {
     n.affinity -= 8;
     if (rng.chance(0.25)) {

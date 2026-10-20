@@ -24,10 +24,10 @@ export const skillLevel = (h: Hero, id: SkillId): number => Math.floor(skillValu
 
 export type Part = SkillId | `stat:${StatId}` | [SkillId | `stat:${StatId}`, number];
 
-const partValue = (h: Hero, p: SkillId | `stat:${StatId}`): number => (p.startsWith('stat:') ? Math.min(10, Math.max(0, h[p.slice(5) as StatId])) : skillValue(h, p as SkillId));
+const partValue = (h: Hero, p: SkillId | `stat:${StatId}`): number => (p.startsWith('stat:') ? Math.min(10, Math.max(0, h[p.slice(5) as StatId])) : root(skillValue(h, p as SkillId)));
 
 /**
- * Layered skills. A weighted geometric mean of every relevant skill and stat on a 0..10 scale.
+ * Layered skills. A weighted geometric mean of every relevant skill (as its square root) and stat, on a 0..10 scale.
  * - Any factor at zero makes the whole thing zero ("zero guitar makes her music skill useless").
  * - Related skill improves a new skill ("music 8 + guitar 3" beats "guitar 3 alone": sqrt(24) > 3).
  */
@@ -68,11 +68,13 @@ export function train(c: Ctx, id: SkillId, xp = 1): void {
 export const hasImplantFlag = (h: Hero, flag: string): boolean => h.implants.some((i) => IMPLANTS[i]?.flag === flag);
 
 /**
- * How a skill or a blend of skills and stats reads on the 0-to-10 scale the chances and bonuses in the rest of the engine were written for,
- * when skills really run 0 to 100. Under 5 it is itself, so the first levels she gets matter just as much; above that it keeps rising but ever
- * more slowly, to 10 at 100: level 10 is about 6, 25 about 8, 50 about 9. (Nothing should be certain at level 12 and nothing at all at 80.)
+ * Skills run 0 to 100, stats 0 to 10, and the chances in the engine are written as `base + per * (something on 0 to 10)`. For a skill that
+ * something is its square root: 0 to 10 over the whole range, so a level is worth most at the bottom (0 to 1 is a whole point, 24 to 25 a tenth)
+ * and level 100 is as far above level 25 as level 25 is above level 6. `synergy` blends the roots with the stats; a term that takes one skill
+ * on its own uses `skillRoot`.
  */
-export const feel = (x: number): number => (x <= 5 ? x : 5 + (5 * Math.log(x / 5)) / Math.log(20));
+export const root = (x: number): number => Math.sqrt(Math.max(0, x));
+export const skillRoot = (h: Hero, id: SkillId): number => root(skillValue(h, id));
 
-/** Linear helper: baseline chance plus a per-point bonus from a synergy value (read on the 0-10 scale, see `feel`), clamped. */
-export const odds = (base: number, perPoint: number, syn: number, lo = 0.03, hi = 0.93): number => Math.max(lo, Math.min(hi, base + perPoint * feel(syn)));
+/** Linear helper: baseline chance plus a per-point bonus from a synergy value (a blend on the 0-10 scale), clamped. */
+export const odds = (base: number, perPoint: number, syn: number, lo = 0.03, hi = 0.93): number => Math.max(lo, Math.min(hi, base + perPoint * syn));

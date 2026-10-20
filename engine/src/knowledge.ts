@@ -1,6 +1,6 @@
 import { here, fight, remember } from './combat';
 import { clamp, levelRisk, type Candidate } from './candidate';
-import { skillLevel, train, feel } from './skills';
+import { skillLevel, train, skillRoot } from './skills';
 import { ensureDeep } from './deepen';
 import { traitOf } from './character';
 import { neighboursOf, nameOf } from './ties';
@@ -46,7 +46,7 @@ export function learn(c: Ctx, n: Npc, f: Fact, via: Via, source?: Npc): void {
 export function shareFact(c: Ctx, n: Npc): boolean {
   const { w, rng } = c;
   ensureDeep(w, n);
-  const p = clamp(0.12 + 0.5 * traitOf(w, n, 'sociable') + n.affinity / 250 + 0.02 * feel(skillLevel(w.hero, 'streetwise')), 0.05, 0.85);
+  const p = clamp(0.132 + 0.5 * traitOf(w, n, 'sociable') + n.affinity / 250 + 0.02 * skillRoot(w.hero, 'streetwise'), 0.05, 0.85);
   if (!rng.chance(p)) return false;
   const own = unknownFacts(w, n).filter((f) => f.vis !== 'secret' || (n.affinity >= 40 && rng.chance(0.4)));
   if (own.length) {

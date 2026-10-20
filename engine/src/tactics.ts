@@ -3,7 +3,7 @@ import type { EventData, Outcome } from './events';
 import { KINDS, allyPower, assistOf } from './companions';
 import { foeArmor, fxOf, rating, vsMult } from './weapons';
 import { loaded, spendAmmo, wielded } from './arms';
-import { skillLevel, skillValue, train, feel } from './skills';
+import { skillLevel, skillValue, train, skillRoot } from './skills';
 import { addObjects, coverObject, dist, hasLos, idx, inCover, levelAt, makeGrid, nearestFree, objectAt, passable, pathTo, posOf, reach, same, stepOf, terrainAt, type BoardObject, type CarLike, type Grid, type Pos, type Reach } from './grid';
 import { Rng } from './rng';
 import { MAKES, SPILL, blastInside, blastOutside, hitCar, normalize, paceOf } from './cars';
@@ -321,7 +321,7 @@ export class Sim {
     this.lastWield = h.weapon.id;
     this.fleeAt = 0.1 + h.competence * 0.35;
     // She might lob something first. Cues, bottles, knives, and cocktails.
-    this.throwOk = c.rng.chance(0.3 + (h.personality.weights.pride - 0.5) * 0.3 + feel(skillValue(h, 'throwing')) * 0.03);
+    this.throwOk = c.rng.chance(0.318 + (h.personality.weights.pride - 0.5) * 0.3 + skillRoot(h, 'throwing') * 0.03);
 
     this.hero = this.heroUnit();
     this.units.push(this.hero);
@@ -871,7 +871,7 @@ export class Sim {
   hackChance(me: Unit, t: Unit, perceivedOnly = false): number {
     if (me.kind !== 'hero') return 0.6;
     const h = this.w.hero;
-    return clamp(0.35 + h.int * 0.07 + feel(skillValue(h, 'tinkering')) * 0.03 - this.firewall(t, perceivedOnly), 0.1, 0.9);
+    return clamp(0.368 + h.int * 0.07 + skillRoot(h, 'tinkering') * 0.03 - this.firewall(t, perceivedOnly), 0.1, 0.9);
   }
 
   /** Whether anyone could come if they called. */
@@ -917,7 +917,7 @@ export class Sim {
   /** Optic Reset, a Hack: a burst down the optic feed that leaves anything with chrome for eyes blind for a few rounds. */
   opticChance(t: Unit, perceivedOnly = false): number {
     const h = this.w.hero;
-    return clamp(0.4 + h.int * 0.07 + feel(skillValue(h, 'tinkering')) * 0.02 - this.firewall(t, perceivedOnly), 0.1, 0.92);
+    return clamp(0.412 + h.int * 0.07 + skillRoot(h, 'tinkering') * 0.02 - this.firewall(t, perceivedOnly), 0.1, 0.92);
   }
 
   doOpticReset(t: Unit): void {
@@ -1025,7 +1025,7 @@ export class Sim {
     const h = this.w.hero;
     const lvl = t.npc?.level ?? 1;
     const hurt = t.ref.hp / t.ref.maxHp < 0.5 ? 0.2 : 0;
-    return clamp(0.1 + feel(skillValue(h, 'intimidation')) * 0.06 + (h.level - lvl) * 0.05 + h.fame * 0.004 + hurt + this.lostFraction() * 0.2 - (t.npc ? 0.08 * (ratio(t.npc, 'muscle') - 1) + 0.04 * (ratio(t.npc, 'int') - 1) : 0), 0.02, 0.7);
+    return clamp(0.136 + skillRoot(h, 'intimidation') * 0.06 + (h.level - lvl) * 0.05 + h.fame * 0.004 + hurt + this.lostFraction() * 0.2 - (t.npc ? 0.08 * (ratio(t.npc, 'muscle') - 1) + 0.04 * (ratio(t.npc, 'int') - 1) : 0), 0.02, 0.7);
   }
 
   doIntimidate(t: Unit): void {
@@ -1373,7 +1373,7 @@ export class Sim {
 
   private initiative(u: Unit): number {
     const h = this.w.hero;
-    if (u.kind === 'hero') return 2 + h.reflex * 0.8 + feel(skillValue(h, 'athletics')) * 0.3 + (this.round === 1 && this.o.assault ? 10 : 0) + D.initiativeBonus(this, u);
+    if (u.kind === 'hero') return 2.18 + h.reflex * 0.8 + skillRoot(h, 'athletics') * 0.3 + (this.round === 1 && this.o.assault ? 10 : 0) + D.initiativeBonus(this, u);
     if (u.kind === 'ally') return 3 + u.speed * 0.4;
     return 2 + (u.npc?.level ?? 1) * 0.3 + u.speed * 0.3 + D.initiativeBonus(this, u);
   }
@@ -1476,7 +1476,7 @@ export class Sim {
     // No point running from a fight she's about to finish.
     const finishing = this.standingFoes().every((f) => f.ref.hp <= this.heroExpected(f, this.wield, 1) * 1.25);
     if (finishing) this.hero.fleeing = false;
-    if (!finishing && !this.hero.fleeing && !this.outpaced() && this.round >= 2 && h.hp / h.maxHp < this.fleeAt &&this.c.rng.chance(0.55 + h.reflex * 0.03 + feel(skillValue(h, 'athletics')) * 0.02 + D.art(this, 'escape_artist') / 100) && this.exitMap(this.hero).has(idx(this.grid, this.hero))) {
+    if (!finishing && !this.hero.fleeing && !this.outpaced() && this.round >= 2 && h.hp / h.maxHp < this.fleeAt &&this.c.rng.chance(0.562 + h.reflex * 0.03 + skillRoot(h, 'athletics') * 0.02 + D.art(this, 'escape_artist') / 100) && this.exitMap(this.hero).has(idx(this.grid, this.hero))) {
       this.hero.fleeing = true;
       this.note('tactic', 'mixed', { variant: 'retreat', hpPct: Math.round((h.hp / h.maxHp) * 100) }, 3, 'retreat');
     }
@@ -1673,7 +1673,7 @@ export class Sim {
 
   /** Hauling yourself up something that is not meant for it: athletics for her, how hard a foe is for them. */
   private climbRoll(u: Unit): boolean {
-    const p = u.kind === 'hero' ? 0.55 + 0.05 * feel(skillValue(this.w.hero, 'athletics')) + 0.01 * this.w.hero.reflex : 0.5 + 0.02 * (u.npc?.level ?? 1);
+    const p = u.kind === 'hero' ? 0.58 + 0.05 * skillRoot(this.w.hero, 'athletics') + 0.01 * this.w.hero.reflex : 0.5 + 0.02 * (u.npc?.level ?? 1);
     if (u.kind === 'hero') train(this.c, 'athletics', 1);
     return this.c.rng.chance(clamp(p, 0.2, 0.95));
   }

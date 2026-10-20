@@ -7,7 +7,7 @@ import { oddJobReady } from './hustles';
 import { FAME_ACTS, FAME_FAMILIES, expectedFame, routeTo } from './plans';
 import { traitBias } from './traits';
 import { freshness, prestige } from './stage';
-import { skillLevel, feel } from './skills';
+import { skillLevel, skillRoot } from './skills';
 import { fireOf } from './callings';
 import { spawnNpc } from './content/archetypes';
 import { Rng } from './rng';
@@ -357,7 +357,7 @@ function fameOptions(w: World, g: Goal, blocked: Record<string, number>): Gig[] 
     const crowd = a.skill ? freshness(w, loc, a.skill) : 1;
     const stage = prestige(w.locations[loc]!);
     // What she is good at she gets better at: practice breeds appetite, and a calling breeds more.
-    const lvl = a.skill ? 1 + 0.08 * feel(skillLevel(w.hero, a.skill as never)) : 1;
+    const lvl = a.skill ? 1.048 + 0.08 * skillRoot(w.hero, a.skill as never) : 1;
     const fire = 1 + fireOf(w, a.skill);
     const calling = g.mode ? (a.skill === g.mode ? 3 : 0.3) : 1;
     out.push({ fam: a.fam, loc, eff: (expectedFame(w, a.fam) * taste * crowd * stage * lvl * fire * calling) / (2 + 2 * dist(w, loc)) });

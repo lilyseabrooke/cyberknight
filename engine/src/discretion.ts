@@ -6,7 +6,7 @@ import { sneakBonus } from './extras';
 import { hasBounty, knowsBounty } from './bounty';
 import { hasGoal } from './mind';
 import { isHunted } from './pursuit';
-import { skillLevel, feel } from './skills';
+import { skillLevel, skillRoot } from './skills';
 import { workingCameras } from './witness';
 import { atLeast, bucketOf, isSneaking, awareness, V, profile } from './stealth';
 import { camerasSeeHer, seesHer } from './placeboard';
@@ -156,7 +156,7 @@ export function discretionCandidates(w: World): Candidate[] {
 function lure(c: Ctx, n: Npc, to: Id): void {
   const { w, rng } = c;
   const h = w.hero;
-  const p = clamp(0.3 + h.charm * 0.03 + feel(skillLevel(h, 'streetwise')) * 0.02 + n.affinity / 150, 0.1, 0.8);
+  const p = clamp(0.312 + h.charm * 0.03 + skillRoot(h, 'streetwise') * 0.02 + n.affinity / 150, 0.1, 0.8);
   const from = w.locations[h.locationId]!.name;
   if (!rng.chance(p)) {
     n.affinity -= 4;

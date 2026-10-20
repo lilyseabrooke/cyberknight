@@ -2,7 +2,7 @@ import type { Ctx, Exit } from './types';
 import { addHeat, arrive, clamp, fight, here, npcsAt, remember, spawnGroup } from './candidate';
 import { hasInjury, gainXp } from './combat';
 import { sneakBonus, tryTalkDown } from './extras';
-import { hasImplantFlag, skillLevel, synergy, train, feel } from './skills';
+import { hasImplantFlag, skillLevel, synergy, train } from './skills';
 import { moveNpc } from './population';
 import { cross } from './shortcut';
 import { shownFame, tryGate } from './disguise';
@@ -63,7 +63,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
         arrive(c, to, 'invited', { npc: madame.name });
         return;
       }
-      const pick = 0.1 + h.int * 0.03 + h.reflex * 0.02 + 0.055 * feel(synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]));
+      const pick = 0.125 + h.int * 0.03 + h.reflex * 0.02 + 0.055 * synergy(h, ['lockpicking', ['tinkering', 0.5], ['stat:reflex', 0.5]]);
       train(c, 'lockpicking', 1);
       if (rng.chance(pick)) {
         arrive(c, to, 'picked');
@@ -102,7 +102,7 @@ export function moveThrough(c: Ctx, exit: Exit): void {
     }
 
     case 'jump': {
-      const p = clamp(0.35 + h.reflex * 0.03 + 0.04 * feel(synergy(h, ['athletics', ['stat:reflex', 0.5]])) + (hasImplantFlag(h, 'springs') ? 0.2 : 0) - h.drunk * 0.05, 0.1, 0.92);
+      const p = clamp(0.366 + h.reflex * 0.03 + 0.04 * synergy(h, ['athletics', ['stat:reflex', 0.5]]) + (hasImplantFlag(h, 'springs') ? 0.2 : 0) - h.drunk * 0.05, 0.1, 0.92);
       train(c, 'athletics', 1);
       if (rng.chance(p)) {
         arrive(c, to, 'stuck_landing');

@@ -2,7 +2,7 @@ import type { Ctx, Location, Npc } from './types';
 import { addHeat, maybeInjure, npcsAt } from './combat';
 import { spawnGroup, clamp } from './candidate';
 import { scene, trafficAt, trafficWord, type RoadClass } from './roads';
-import { skillValue, train, feel } from './skills';
+import { skillValue, train, skillRoot } from './skills';
 
 /**
  * Running down the street. The same idea as driving (drivefx.ts), with her legs: a class of street says how hard it is, traffic how
@@ -73,7 +73,7 @@ export function stumble(c: Ctx, loc: Location, cls: RoadClass, s: number): Stumb
   h.hp -= dmg;
   maybeInjure(c, dmg, 0.35);
   // Staying on her feet is a matter of athletics and nerve, and of how hard she was going.
-  const stay = clamp(0.5 + 0.04 * feel(skillValue(h, 'athletics')) + 0.02 * h.reflex - 0.2 * (s - 0.5) - 0.15 * t, 0.1, 0.9);
+  const stay = clamp(0.524 + 0.04 * skillRoot(h, 'athletics') + 0.02 * h.reflex - 0.2 * (s - 0.5) - 0.15 * t, 0.1, 0.9);
   const up = rng.chance(stay);
   c.emit('accident', up ? 'mixed' : 'bad', { variant: up ? 'struck' : 'struck_down', dmg, ...data });
   return { lost: up ? 1 : 2.8, down: !up, angry: null };

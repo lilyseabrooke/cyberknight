@@ -171,7 +171,7 @@ export function salvage(c: Ctx, bench: Bench, it: Item): void {
   const i = h.inventory.indexOf(it);
   if (i < 0) return;
   const bill = salvageBill(it);
-  const p = odds(0.62 + 0.04 * (bench.tier - 1), 0.05, tinker(h), 0.15, 0.95);
+  const p = odds(0.64 + 0.04 * (bench.tier - 1), 0.05, tinker(h), 0.15, 0.95);
   const win = c.rng.chance(p);
   // A good pull gets a little extra for skill; a bad one, half.
   const bonus = 1 + 0.04 * tinkerLevel(h);
@@ -187,7 +187,7 @@ export function makeAmmo(c: Ctx, bench: Bench, type: string): void {
   const h = c.w.hero;
   const bill = AMMO_RECIPES[type];
   if (!bill || !canAfford(h.parts, bill)) return;
-  const win = c.rng.chance(odds(0.72 + 0.03 * (bench.tier - 1), 0.04, tinker(h), 0.2, 0.97));
+  const win = c.rng.chance(odds(0.74 + 0.03 * (bench.tier - 1), 0.04, tinker(h), 0.2, 0.97));
   const full = boxRounds(type, h);
   const rounds = win ? full : Math.max(1, Math.round(full * 0.5));
   spend(h, bill);
@@ -199,7 +199,7 @@ export function makeAmmo(c: Ctx, bench: Bench, type: string): void {
 export function craft(c: Ctx, bench: Bench, r: Recipe): void {
   const h = c.w.hero;
   if (!canAfford(h.parts, r.parts)) return;
-  const win = c.rng.chance(odds(0.6 - 0.03 * r.skill + 0.05 * (bench.tier - r.tier), 0.05, tinker(h), 0.1, 0.95));
+  const win = c.rng.chance(odds(0.62 - 0.03 * r.skill + 0.05 * (bench.tier - r.tier), 0.05, tinker(h), 0.1, 0.95));
   const cost = billText(r.parts);
   if (win) {
     spend(h, r.parts);
@@ -221,7 +221,7 @@ export function upgrade(c: Ctx, bench: Bench, slot: 'weapon' | 'armor'): void {
   if (!it) return;
   const bill = upgradeBill(it);
   if (!canAfford(h.parts, bill)) return;
-  const win = c.rng.chance(odds(0.55 + 0.04 * (bench.tier - 1) - 0.04 * (it.mods ?? 0), 0.05, tinker(h), 0.1, 0.95));
+  const win = c.rng.chance(odds(0.57 + 0.04 * (bench.tier - 1) - 0.04 * (it.mods ?? 0), 0.05, tinker(h), 0.1, 0.95));
   const tok = { ...itemTok(it.name), cost: billText(bill) };
   if (win) {
     spend(h, bill);
