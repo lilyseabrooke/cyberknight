@@ -9,6 +9,7 @@ import { meetHazards } from './hazards';
 import { DOORS, doorsTried, isBlock, knowsHome, leaveHome, nextDoor, ownerComesHome, residenceOf } from './homes';
 import { burglaryPending, startBurglary } from './goals';
 import { isFairGame } from './people';
+import { renameNpc } from './population';
 
 /** The hustle-specific skill formulas. These layer the new skills (grifting, hustling) as a
  * straight additive bonus on top of the original stat-driven baseline, rather than wrapping
@@ -41,6 +42,8 @@ const take = (w: World, key: string, n = 1): void => {
 
 /** Chores a place has for her: the mess a busy room makes. */
 export const chores = (w: World, n: Npc): number => stock(w, `chores_${n.id}`, n.tags.includes('owner') ? 3 : 2);
+/** Infestations a place has for her: the vermin a busy kitchen and cellar breed. The one fight a level 1 can count on. */
+export const vermin = (w: World, n: Npc): number => stock(w, `vermin_${n.id}`, 1);
 /** Packages a fixer or dealer has waiting. */
 export const parcels = (w: World, n: Npc): number => stock(w, `parcels_${n.id}`, 1);
 /** Open shifts on the club door. */
@@ -77,6 +80,7 @@ export function tickHustles(c: Ctx): void {
     if (!n.alive || n.id.startsWith('tmp_') || n.hostile || n.tags.includes('robot') || n.locationId.startsWith('_')) continue;
     const busy = (crowd[n.locationId] ?? 1) - 1;
     if (n.tags.includes('staff')) w.counters[`chores_${n.id}`] = Math.min(3, chores(w, n) + 0.006 + 0.004 * busy);
+    if (n.tags.includes('staff')) w.counters[`vermin_${n.id}`] = Math.min(2, vermin(w, n) + 0.005 + 0.002 * busy);
     if (n.tags.includes('fixer') || n.tags.includes('dealer')) w.counters[`parcels_${n.id}`] = Math.min(2, parcels(w, n) + 0.012);
     // Takings: a till fills up between visits from the people who actually shop there.
     if (n.tags.includes('shopkeeper') || n.tags.includes('owner')) n.cash = Math.min(120, n.cash + 0.15 + 0.05 * busy);
@@ -104,6 +108,11 @@ export function hustleCandidates(w: World): Candidate[] {
   // ---- odd jobs for the staff: hauling kegs, bussing tables, nothing heroic about it
   for (const n of crowd.filter((x) => oddJobReady(w, x))) {
     out.push({ key: `odd_jobs:${n.id}`, drives: { greed: 0.25, pride: 0.1 }, risk: 0.1, run: (c) => oddJobs(c, n) });
+  }
+
+  // ---- pest control: staff pay to have the cellar cleared of cyber-rats, which are small, stupid and no match for anyone
+  for (const n of crowd.filter((x) => x.tags.includes('staff') && x.affinity >= -10 && vermin(w, x) >= 1)) {
+    out.push({ key: `pest_control:${n.id}`, drives: { greed: 0.3, bravery: 0.3, pride: 0.1 }, bonus: h.level <= 2 ? 0.4 : 0, risk: 0.1, run: (c) => pestControl(c, n) });
   }
 
   // ---- working the door: a night of standing security for somebody else's club
@@ -225,6 +234,33 @@ function oddJobs(c: Ctx, n: Npc): void {
     n.affinity -= 1;
     c.emit('odd_jobs', 'bad', { variant: `${chore}_mishap`, chore, npc: n.name });
   }
+}
+
+/** Cyber-rats: a nuisance, never a threat. Sized (3 power, 8 hp) so a level 1 with a tire iron wins every time, and leaves cleaner than she came. */
+function pestControl(c: Ctx, n: Npc): void {
+  const { w, rng } = c;
+  const h = w.hero;
+  take(w, `vermin_${n.id}`);
+  train(c, 'hustling', 1);
+  const pack = spawnGroup(c, 'mugger', rng.int(1, 2));
+  pack.forEach((rat, i) => {
+    renameNpc(w, rat, pack.length > 1 ? `Cyber-Rat ${i + 1}` : 'The Cyber-Rat');
+    rat.role = 'cyber-rat';
+    rat.tags = ['robot', 'vermin'];
+    rat.level = 1;
+    rat.power = 3;
+    rat.hp = rat.maxHp = 8;
+    rat.loadout = [];
+    rat.cash = 0;
+  });
+  c.emit('pest_control', 'mixed', { variant: 'start', npc: n.name, count: pack.length });
+  const res = fight(c, pack, { cause: `clearing cyber-rats for ${n.name}`, joiners: false });
+  if (w.over || res !== 'win') return;
+  const pay = rng.int(25, 55) + 10 * pack.length;
+  h.cash += pay;
+  n.affinity += 5;
+  remember(n, 'had Blackbird clear out the cyber-rats');
+  c.emit('pest_control', 'good', { variant: 'cleared', npc: n.name, amount: pay, count: pack.length });
 }
 
 function securityShift(c: Ctx): void {

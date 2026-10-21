@@ -353,6 +353,7 @@ describe('across runs', () => {
     expect(nyx.bond!.stage).not.toBe('interest');
     expect(w1.mind.bonds![nyx.id]).toBeDefined();
     const w2 = beginRun(endRun(w1), { seed: 'two' });
+    w2.hero.locationId = 'halo_floor'; // (the night starts in the lab lot; the lover is in the bar)
     expect(w2.mind.bonds?.[nyx.id]).toBeUndefined();
     expect(w2.npcs.nyx!.bond!.nights).toBe(3);
     const { c: c2, events } = ctxOf(w2);

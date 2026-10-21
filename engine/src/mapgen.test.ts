@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { beginRun, endRun, newUniverse } from './universe';
+import { beginRun, endRun, newUniverse, splitWorld, upgradeUniverse } from './universe';
 import { deserialize, makeSave, serialize } from './store';
 import { relocate } from './combat';
 import { expand, seedFrontier, childId, dangerOf, liftCordon, sealCordon, START_DEPTH } from './mapgen';
 import { everyoneAt, verifyIndex } from './population';
 import { routeTo } from './plans';
+import { edgesOf } from './hexmap';
 import { createWorld } from './world';
 import { runToEnd } from './run';
 import type { Id, Location, World } from './types';
@@ -30,7 +31,8 @@ describe('the city that grows', () => {
     const east = w.locations[childId('street_main', 0)]!;
     expect(east.gen).toMatchObject({ role: 'street', parent: 'street_main', expanded: false });
     expect(w.locations.street_main!.exits.some((e) => e.to === east.id)).toBe(true);
-    expect(east.exits.map((e) => e.to)).toEqual(['street_main']); // only the way back until she gets there
+    // Only the way back until she gets there, plus the two doors wired in by hand: the Overpass, and the lab lot's lane.
+    expect(east.exits.map((e) => e.to)).toEqual(['street_main', 'overpass', childId('lab_lot', 0)]);
     expect(east.blurb).toBeTruthy();
   });
 
@@ -50,7 +52,7 @@ describe('the city that grows', () => {
       expect(to.exits.some((x) => x.to === east)).toBe(true);
     }
     // Neighbours are sketched, not grown.
-    const kid = w.locations[here.exits[1]!.to]!;
+    const kid = w.locations[here.exits.find((e) => w.locations[e.to]?.gen && e.to !== childId('lab_lot', 0))!.to]!;
     expect(kid.gen!.expanded).toBe(false);
     const n = Object.keys(w.locations).length;
     expand(w, here);
@@ -165,7 +167,7 @@ describe('the city that grows', () => {
     expect(tracked.length).toBeGreaterThan(5);
     expect(tracked.every((l) => l.visits === 0)).toBe(true);
     // She wakes where she always does, and the grown map is still out there to walk into.
-    expect(w2.hero.locationId).toBe('halo_floor');
+    expect(w2.hero.locationId).toBe('lab_lot');
     const n = Object.keys(w2.locations).length;
     relocate(w2, tracked[0]!.id);
     expect(Object.keys(w2.locations).length).toBe(n); // already grown: nothing new
@@ -294,5 +296,64 @@ describe('the starting district and its cordon', () => {
       if (!l.gen || l.gen.role === 'street' || l.gen.role === 'tunnel') continue;
       expect(l.gen.danger, l.id).toBe(dangerOf(w.locations[l.gen.parent]));
     }
+  });
+});
+
+describe('the way into the starting district', () => {
+  const hops = (w: ReturnType<typeof createWorld>, from: string, to: string, without: string[] = []): number => {
+    const seen = new Map<string, number>([[from, 0]]);
+    const queue = [from];
+    while (queue.length) {
+      const at = queue.shift()!;
+      for (const e of edgesOf(w.locations[at]!)) {
+        if (e.hidden || e.gate === 'locked' || without.includes(e.to) || seen.has(e.to)) continue;
+        seen.set(e.to, seen.get(at)! + 1);
+        queue.push(e.to);
+      }
+    }
+    return seen.get(to) ?? Infinity;
+  };
+
+  it('starts in the lab lot: a small alley with two ways out and a free drop point', () => {
+    const w = createWorld({ seed: 'lab' });
+    const lot = w.locations.lab_lot!;
+    expect(w.hero.locationId).toBe('lab_lot');
+    expect(lot.exits.map((e) => e.to).sort()).toEqual(['street_main', childId('lab_lot', 0)].sort());
+    expect(w.locations[childId('lab_lot', 0)]!.gen).toMatchObject({ role: 'street', depth: 1 });
+    const drop = Object.values(w.features).find((f) => f.locationId === 'lab_lot' && f.kind === 'drop_lab');
+    expect(drop).toBeDefined();
+  });
+
+  it('the Overpass is two streets from the lab lot, by either road, and not on Strand Street', () => {
+    for (let i = 0; i < 25; i++) {
+      const w = createWorld({ seed: `pass-${i}` });
+      expect(w.locations.street_main!.exits.some((e) => e.to === 'overpass')).toBe(false);
+      expect(w.locations.overpass!.exits.map((e) => e.to)).toEqual([childId('street_main', 0)]);
+      expect(w.locations.overpass!.hex).toBeDefined(); // (on the grid again, where grid links may add ways in; just none that are shorter)
+      expect(hops(w, 'lab_lot', 'overpass')).toBe(3);
+      // Lab lot, Strand Street, a new street, the Overpass.
+      expect(hops(w, 'lab_lot', 'overpass', [childId('lab_lot', 0)])).toBe(3);
+      // Lab lot, a new street, a new street, the Overpass.
+      expect(hops(w, 'lab_lot', 'overpass', ['street_main'])).toBe(3);
+      expect(hops(w, 'street_main', 'overpass')).toBe(2);
+      // Still so once the streets around it have grown.
+      relocate(w, childId('street_main', 0));
+      relocate(w, childId('lab_lot', 0));
+      expect(hops(w, 'lab_lot', 'overpass')).toBe(3);
+    }
+  });
+
+  it('a save from before the lab lot gets one, and loses the door from Strand Street to the Overpass', () => {
+    const w = createWorld({ seed: 'old' });
+    delete w.locations.lab_lot;
+    delete w.locations[childId('lab_lot', 0)];
+    const strand = w.locations.street_main!;
+    strand.exits = strand.exits.filter((e) => e.to !== 'lab_lot');
+    strand.exits.push({ to: 'overpass', label: 'the Kowloon Overpass', hidden: false, gate: null });
+    w.locations.overpass!.exits = [{ to: 'street_main', label: 'back', hidden: false, gate: null }];
+    const u = upgradeUniverse({ ...splitWorld(w).universe, version: 1 });
+    expect(u.locations.lab_lot).toBeDefined();
+    expect(u.locations.street_main!.exits.some((e) => e.to === 'overpass')).toBe(false);
+    expect(u.locations.overpass!.exits.map((e) => e.to)).toEqual([childId('street_main', 0)]);
   });
 });

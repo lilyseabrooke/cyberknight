@@ -36,7 +36,7 @@ export function bankUrge(w: World): number {
 }
 
 /** The cut at a particular drop point, as a percentage. */
-export const cutAt = (w: World, kind: string): number => dropCut(w.legacy, DROPS[kind]?.cut ?? 0);
+export const cutAt = (w: World, kind: string): number => (DROPS[kind]?.free ? 0 : dropCut(w.legacy, DROPS[kind]?.cut ?? 0));
 
 export function dropCandidates(w: World): Candidate[] {
   const out: Candidate[] = [];

@@ -219,6 +219,7 @@ describe('the next night in the same world', () => {
 describe('dying and coming back', () => {
   const dieInTheBar = (seed: string) => {
     const w1 = beginRun(newUniverse(seed), { seed: 'one' });
+    w1.hero.locationId = 'halo_floor'; // (the night starts in the lab lot; this one ends in the bar)
     const ganger = allNpcs(w1).find((n) => n.archetype === 'ganger' && n.faction && n.locationId === 'halo_floor')!;
     ganger.hostile = true;
     w1.over = true;
@@ -243,6 +244,7 @@ describe('dying and coming back', () => {
   it('confuses the ones who know, once, and means nothing to the ones who do not', () => {
     const { u } = dieInTheBar('revenant');
     const w2 = beginRun(u, { seed: 'two' });
+    w2.hero.locationId = 'halo_floor'; // (she wakes in the lab lot; the ones who know are in the bar)
     const events = play(w2, 12);
     const reactions = events.filter((e) => e.type === 'revenant');
     expect(reactions).toHaveLength(1);

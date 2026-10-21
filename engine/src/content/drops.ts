@@ -12,9 +12,12 @@ export interface DropDef {
   name: string;
   /** Percentage points on top of the base cut (can be negative: a friendly place). */
   cut: number;
+  /** No cut at all, whatever the lab's upgrades say (the lab's own hatch). */
+  free?: boolean;
 }
 
 export const DROPS: Record<string, DropDef> = {
+  drop_lab: { at: 'lab_lot', name: "the lab's night-drop hatch", cut: 0, free: true },
   drop_alley: { at: 'halo_alley', name: 'a hollow brick behind the dumpster', cut: 0 },
   drop_street: { at: 'street_main', name: 'an Ironvault ATM with a cracked screen', cut: -3 },
   drop_club: { at: 'neon_pharaoh', name: 'the coat-check window (it takes more than coats)', cut: 8 },

@@ -458,6 +458,7 @@ describe('death spreads along the people who care', () => {
       const dutch = w1.npcs.dutch!;
       const cousin = person(w1, 'cousin', 'patron', 'street_main');
       link(w1, dutch.id, cousin.id, 'kin', 80, 80);
+      w1.hero.locationId = 'halo_floor'; // (the night starts in the lab lot; this one ends in the bar)
       const ganger = allNpcs(w1).find((n) => n.archetype === 'ganger' && n.locationId === 'halo_floor')!;
       ganger.hostile = true;
       w1.over = true;

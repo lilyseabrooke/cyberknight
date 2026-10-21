@@ -153,7 +153,7 @@ const CALLING_VOWS: Record<string, string> = {
 const T: Record<string, Entry> = {
   depart: e(
     (d) => [
-      `Night falls on Neo. Blackbird pushes through the doors of ${d.place}.`,
+      `Night falls on Neo. Blackbird steps out into ${d.place}.`,
       `Another night, another neighborhood the city forgot to fix. Blackbird walks into ${d.place}.`,
     ],
     ['Dragons, damsels, and a whole city that needs saving. Easy.', "Neo, I'm back. Try to keep up."],
@@ -624,6 +624,11 @@ const T: Record<string, Entry> = {
 
   'odd_jobs:good': e((d) => [`Blackbird spends an hour on ${d.chore} for ${d.npc}, like a regular person with a regular job. ${d.amount} neodollars for her trouble.`], ['Honest work. Weird feeling.', 'This is what the other heroes do, right? Chores?']),
   'odd_jobs:bad': e((d) => [`The ${d.chore} fight back. ${d.npc} is unimpressed.`], ["That's a workplace injury. I'm suing somebody."]),
+
+  'pest_control:start': e((d) => [`${d.npc} points at the cellar door and the scratching behind it. ${Number(d.count) > 1 ? 'Cyber-rats, and plenty of them' : 'A cyber-rat'}, ${d.npc} says, is eating the wiring. Blackbird takes the job.`], ['Vermin. Finally, an enemy I can respect.', 'Small, chrome, and furious. We are going to get along.']),
+  'pest_control:cleared': e((d) => [`The cellar goes quiet. ${d.npc} counts out ${d.amount} neodollars and tries not to look at what is left of the wiring.`], ['First blood. It was a rat, but it counts.', 'Pest control. A real career.']),
+
+  'sweeper_accost': e((d) => [Number(d.count) > 1 ? `Two street sweepers on ${d.place} stop sweeping, swivel their lenses at Blackbird and roll straight at her, brush arms whirring.` : `A street sweeper on ${d.place} stops mid-sweep, swivels its lens at Blackbird, decides she is litter, and rolls at her with its brush arm up.`], ['Oh, you want to do this? With a brush?', 'I am being attacked by municipal property.']),
 
   'security_shift:good': e((d) => [`Blackbird works the Neon Pharaoh's door for the night: mirrored shades, a bad attitude, and ${d.amount} neodollars by closing.`], ['Nobody gets past me. Nobody important, anyway.']),
   'security_shift:bad': e((d) => (d.npc ? [`${d.npc} tries to get past Blackbird the hard way. It does not go the way ${d.npc} planned.`] : ['The night shift is long, loud, and entirely uncompensated for the bruises.'])),
@@ -1945,6 +1950,7 @@ const T: Record<string, Entry> = {
   'goal_resume:weapon': e(() => ['Blackbird looks down at her weapon, sighs, and remembers she was going to do something about that.'], ['A better weapon. I was getting to it.']),
   'goal_resume:scavenge': e((d) => [`Blackbird remembers the parts she was after, and glances toward ${d.place ?? 'the dumps'}. There is a bag with her name on it somewhere.`], ['Scrap. Right. Somebody has to carry it.']),
   'goal_resume:guise': e((d) => [d.npc ? `Blackbird remembers she was going to be somebody else for ${d.npc}'s benefit, and starts practicing the chin again.` : `Blackbird remembers the plan to walk into ${d.place ?? 'that place'} as one of their own, and reaches for the right sort of jacket.`], ['The face. I was working on the face.']),
+  'goal_resume:game': e((d) => [d.title ? `Blackbird remembers ${d.title}. The score is still up there, and she is still not on it.` : 'Blackbird remembers the game she was going to get good at. Her thumbs twitch.'], ['The high score. I was getting to it.']),
   'goal_resume:craft': e(() => ['Blackbird remembers the thing she was going to build. The workbench is, presumably, where she left it.'], ['The build. I was in the middle of the build.']),
   'goal_resume:fame': e(() => ['Blackbird catches her reflection in a window and remembers she is meant to be famous. She stands up straighter.'], ['Right. The adoring public. They are waiting.']),
   'goal_resume:dragon': e(() => ['Blackbird glances at the sky and remembers the dragons. They have not forgotten her. They do not know her. But they have not forgotten her.'], ['Back to the hunt.']),
@@ -2238,6 +2244,7 @@ const T: Record<string, Entry> = {
     (d) => {
       const tail = `${$(d.net)} neodollars go into her account${Number(d.fee) ? ` after a ${d.pct}% cut of ${$(d.fee)}` : ' with no cut at all'}. Balance: ${$(d.balance)}.`;
       switch (d.variant) {
+        case 'lab': return [`Blackbird feeds the lab's night-drop hatch, and a small speaker in the wall says "received" in a voice she is fairly sure is the lab guy doing an impression of a machine. ${tail}`];
         case 'alley': return [`Blackbird slides a loose brick out of the alley wall and feeds it the cash, one folded bill at a time. ${tail}`];
         case 'street': return [`The Ironvault ATM blinks twice and agrees to take her money, a state of affairs the screen's crack makes dubious. ${tail}`];
         case 'club': return [`The coat-check attendant slides an envelope under the glass and doesn't make eye contact. ${tail}`];

@@ -12,6 +12,7 @@ import {
 const world = (seed: string, traits: Parameters<typeof personalityFrom>[0] = {}, competence = 0.5): World => {
   const w = createWorld({ seed, competence, personality: personalityFrom(traits) });
   w.hero.satiety = 0;
+  w.hero.locationId = 'halo_floor'; // (a night starts in the lab lot; these are about the bar)
   return w;
 };
 const ctxOf = (w: World, seed: string) => {

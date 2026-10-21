@@ -218,7 +218,8 @@ export function foeProfile(n: Npc): FoeProfile {
   const quick = ratio(n, 'reflex');
   if (!big && speed === 3 && quick >= 1.7) speed = 4;
   const hit = t.includes('hera') ? 1 : clamp(0.8 + 0.06 * (quick - 1), 0.65, 0.92);
-  const care = big ? 1 : t.includes('cop') || t.includes('security') ? 3 : 4.5;
+  // Vermin and sweeper drones are too dumb to be afraid: a hurt one still comes at her, instead of hanging back until the clock runs out.
+  const care = big ? 1 : t.includes('vermin') || t.includes('sweeper') ? 0.5 : t.includes('cop') || t.includes('security') ? 3 : 4.5;
   return { reach, speed, flying, hit, caution: big ? care : care * (0.85 + 0.15 * ratio(n, 'int')), canFlee };
 }
 

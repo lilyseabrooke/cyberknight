@@ -4,7 +4,7 @@ import { rollGovernmentName, rollPersonality } from './personality';
 import { genShelf } from './weapons';
 import { newMind } from './mind';
 import { ensureBounties } from './bounty';
-import { CRACKDOWNS, createWorld, makeHero, type RunOptions } from './world';
+import { CRACKDOWNS, createWorld, handBuilt, makeHero, type RunOptions } from './world';
 import { nextEvening } from './clock';
 import { AWAY, allNpcs, everyoneAt, moveNpc, removeNpc } from './population';
 import { HIRED, isSealed, reopenDue, stayShut } from './shutdown';
@@ -53,6 +53,11 @@ export function upgradeUniverse(u: Universe): Universe {
   for (const loc of Object.values(u.locations)) if (loc.kind === 'street') loc.street ??= streetTypeOf(loc);
   for (const [kind, d] of Object.entries(DROPS)) {
     if (!u.features[kind] && u.locations[d.at]) u.features[kind] = { id: kind, name: d.name, kind, locationId: d.at, uses: 0, flags: [] };
+  }
+  // The lab lot is where every night starts now; a save from before it gets one, off Strand Street.
+  if (!u.locations.lab_lot && u.locations.street_main) {
+    u.locations.lab_lot = handBuilt('lab_lot')!;
+    if (!u.locations.street_main.exits.some((e) => e.to === 'lab_lot')) u.locations.street_main.exits.push({ to: 'lab_lot', label: 'the alley behind the lab', hidden: false, gate: null });
   }
   seedFrontier(u);
   sealCordon(u);

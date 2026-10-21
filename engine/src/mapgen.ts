@@ -1,6 +1,6 @@
 import { typeFromName } from './streettypes';
 import { Rng, hashString } from './rng';
-import { placeOnHex, seedHexes } from './hexmap';
+import { edgesOf, placeOnHex, seedHexes } from './hexmap';
 import { inheritInfluence, pickFaction } from './factions';
 import { ENTRANCE_BLURB, OUTPOST_CODE, hideoutName, outpostName, rollTier } from './content/dungeons';
 import { SPOTS, SPOT_AGAIN, SPOT_CHANCE, pickSpot, rollSpotTier, type SpotDef } from './content/spots';
@@ -188,6 +188,7 @@ const ANCHORS: { at: Id; roads: Road[] }[] = [
       { label: 'Strand Street, west toward the freight yards', districts: ['industrial', 'tenement', 'slum'] },
     ],
   },
+  { at: 'lab_lot', roads: [{ label: 'a narrow lane running off from the lab', districts: ['market', 'tenement', 'nightlife'] }] },
   { at: 'club_backlot', roads: [{ label: 'a service road behind the lots', districts: ['industrial', 'slum'] }] },
   { at: 'halo_alley', roads: [{ label: 'a narrow cut between the buildings', districts: ['slum', 'tenement'] }] },
 ];
@@ -209,6 +210,54 @@ export function seedFrontier(w: MapWorld): void {
       sketch(w, from, i, 'street', district, 1, { label: road.label });
     });
   }
+  wireOverpass(w);
+}
+
+/**
+ * The Kowloon Overpass is not on Strand Street. Its one way in is the first road east off Strand (`street_main~0`), and the lab
+ * lot's own road meets that street too, so the dragon is Strand Street, then a street, then the Overpass, or the lab lot's lane,
+ * then that street, then the Overpass. Safe to call again (a save from before this gets the old door off Strand taken away).
+ */
+function wireOverpass(w: MapWorld): void {
+  const pass = w.locations.overpass;
+  const gate = w.locations[childId('street_main', 0)];
+  if (!pass || !gate) return;
+  const strand = w.locations.street_main;
+  if (strand) strand.exits = strand.exits.filter((e) => e.to !== pass.id);
+  pass.exits = pass.exits.filter((e) => e.to === gate.id);
+  pass.tossTo = gate.id;
+  pass.fleeTo = gate.id;
+  join(gate, pass, 'the Kowloon Overpass (where the dragon patrols)', `back down to ${gate.name}`);
+  const lane = w.locations[childId('lab_lot', 0)];
+  if (lane) join(lane, gate, `a cut-through to ${gate.name}`, `a cut-through to ${lane.name}`);
+  // It stands on the grid beside that street, and may have other ways in from what touches it, so long as none of them is
+  // from within a step of the lab lot: the shortest way there stays three moves.
+  if (!pass.hex) placeOnHex(w, pass, gate, 'spot', false);
+  const near = reach(w, 'lab_lot', 1);
+  if (!pass.links?.length) return;
+  pass.links = pass.links.filter((l) => !near.has(l.to));
+  for (const id of near) {
+    const o = w.locations[id];
+    if (o?.links) o.links = o.links.filter((l) => l.to !== pass.id);
+  }
+}
+
+/** Everywhere within `steps` moves of a place, by doors and by grid links. */
+function reach(w: MapWorld, from: Id, steps: number): Set<Id> {
+  const seen = new Set<Id>([from]);
+  let edge = [from];
+  for (let i = 0; i < steps; i++) {
+    const next: Id[] = [];
+    for (const id of edge) {
+      for (const e of w.locations[id] ? edgesOf(w.locations[id]!) : []) {
+        if (e.hidden || e.to === 'overpass' || seen.has(e.to)) continue;
+        seen.add(e.to);
+        next.push(e.to);
+      }
+    }
+    edge = next;
+  }
+  return seen;
 }
 
 // ===================================================================== the cordon

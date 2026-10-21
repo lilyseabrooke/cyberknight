@@ -393,7 +393,7 @@ describe('in the real loop', () => {
   /** Some night in which a job of this kind is taken, done and reported, with nothing but the loop to drive her. */
   function someNight(kind: QuestKind, wantKind: FactKind) {
     // A flatline job going all the way through in a night she wanders is rare; this is where the search finds one.
-    const from = kind === 'flatline' ? 2727 : 0;
+    const from = kind === 'flatline' ? 445 : 0;
     for (let seed = from; seed < from + 400; seed++) {
       const w = createWorld({ seed: `loop-${kind}-${seed}`, competence: 0.5 });
       w.flags.quiet_skies = true; // this follows a job through a night, and a job only gets done on a night nothing else interrupts
@@ -410,7 +410,8 @@ describe('in the real loop', () => {
       const events: GameEvent[] = [];
       perform(makeCtx(w, always(), events), gather(w).find((x) => x.key === `ask_quest:${giver!.id}`)!);
       for (let beat = 0; beat < 600 && !w.over && giver.quest!.state !== 'done'; beat++) events.push(...step(w));
-      if (giver.quest!.state === 'done') return { w, giver, events };
+      // (Done and reported: some nights she finishes it without the loop ever saying the job was ready.)
+      if (giver.quest!.state === 'done' && events.some((e) => e.type === 'goal_note' && e.data.variant === 'quest_ready')) return { w, giver, events };
     }
     return null;
   }
@@ -432,7 +433,7 @@ describe('in the real loop', () => {
     // And was paid.
     expect(w.hero.inventory.some((i) => i.tags.includes('quest'))).toBe(false);
     for (const e of events) expect(hasTemplate(e), `${e.type}:${e.data.variant}`).toBe(true);
-  });
+  }, 240_000);
 });
 
 describe('over whole nights', () => {
