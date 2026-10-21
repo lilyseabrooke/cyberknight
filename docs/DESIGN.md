@@ -673,6 +673,15 @@ Stealth is one system: while she sneaks, everyone who could notice her has an aw
 
 Every place is meant to be a grid whatever she is doing there, so a fight starts where she is standing and a sneak can use the room. Clubs are the proof of concept: a stable layout with a bar, booths, decks, speakers, a strobed floor and a door per exit; a coarse board of where everyone is; fights and pickpocketing that use it. See [`BOARDS.md`](BOARDS.md).
 
+## The map in the viewer (`mapview.ts`, `components/PlaceBoard.tsx`, `components/Minimap.tsx`)
+
+The night viewer's main view is a map of where she is; the log sits under it and narrates.
+
+- **The board** is the place she is in, from above: its layout (walls, fixtures, the doors she can see, cameras), everyone on it where they stand and which way they face, bodies, and her. It jumps to the end of each beat; a fight resolves inside one beat, so for now the board shows where it ended and the log tells it. People are coloured by side (`sideOf`: house staff for venues and shops, gangs, Atlas, NPD, everyone else); robots are diamonds, security wear a dashed ring. Hover anything for what it is; hover a name in the log to find them on the board, and the other way round.
+- **The minimap** is the city on its hex grid as far as she has seen it (`cityView`): places she has been are filled in, places she has only seen the way into (an exit or link that isn't hidden) are dashed, a white seam runs where districts meet, and where she is pulses (a room off the grid is drawn on its building). Two zooms: *near* (the default, big hexes round her, following her) and *city*. Hover a tile for what is along it.
+- **Read-only.** `boardView` and `cityView` build a fresh view for each beat's status snapshot; nothing is stored. Tests: `mapview.test.ts`.
+- **Not yet:** fights played round by round on the board (needs positions recorded each round).
+
 ## Cyberfrogs (`cyberfrogs.ts`, `content/cyberfrogs.ts`)
 
 A cheap plastic collectible that does absolutely nothing, and the only thing in Neo Blackbird loves enough to protect. There are **121 characters in 11 lines of 11**, a nightmare marketing gimmick (Cyberfrog Donald with a sword; Cyberfrog Jasmine with twin chrome pistols; Cyberfrog Ribbit with no gear at all), each with gear and a backstory that she knows by heart, and each in one of ten **editions** (the limited initial run, glow-in-the-dark, chrome chase, the misprinted eyes, still in the blister pack, a prototype with the wrong legs). Characters and editions are free text and weights in `content/cyberfrogs.ts`; adding a frog is adding a row (keep it a multiple of `LINE_SIZE`). Each has a gender (`FrogDef.gender`) and a bio in the voice of the box, with pronouns, and the bios hint at one elaborate shared backstory: *the War* (never named, never explained, everybody was in it), the Founder and the drain that took Donald's pond, Gerald the drone, Granny Croak's field kitchen. The thread through it is **Sergeant Croaky** (who fought in the War, held the line beside Brunhilde, carried Walter out) and her grandchild **Ribbit**, the brand mascot.

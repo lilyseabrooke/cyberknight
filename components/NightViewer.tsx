@@ -48,8 +48,15 @@ import {
   crewOf,
   deedsOf,
   CREW_JOBS as JOBS,
+  boardView,
+  cityView,
+  type BoardView,
+  type BoardPerson,
+  type CityView,
 } from '../engine/src';
 import Lab from './Lab';
+import Minimap from './Minimap';
+import PlaceBoard from './PlaceBoard';
 
 interface LogLine {
   id: number;
@@ -133,6 +140,10 @@ interface Snapshot {
   banked: number;
   /** She has stopped to ask the lab something. */
   ask: { id: number; question: string; options: { id: string; label: string; hint?: string }[]; left: number } | null;
+  /** The place she is in, with everyone where they stand at the end of the beat. */
+  board: BoardView | null;
+  /** The city as far as she has seen it. */
+  city: CityView;
 }
 
 interface Night {
@@ -203,6 +214,8 @@ function snap(w: World): Snapshot {
     account: w.legacy.account,
     banked: w.stats.deposited,
     ask: w.mind.ask ? { id: w.mind.ask.id, question: w.mind.ask.question, options: w.mind.ask.options.map(({ id, label, hint }) => ({ id, label, hint })), left: Math.max(0, w.mind.ask.until - w.beat) } : null,
+    board: boardView(w),
+    city: cityView(w),
   };
 }
 
@@ -280,6 +293,8 @@ export default function NightViewer() {
   /** The speed to go back to once her question is over (set when we slowed down for it). */
   const speedBeforeAsk = useRef<number | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  /** The person being pointed at, on the board or by name in the log. */
+  const [hl, setHl] = useState<string | null>(null);
 
   /** Send her out into Neo, in whatever universe we have (a fresh one on the first night). */
   const begin = useCallback((s: string, c: number) => {
@@ -422,6 +437,7 @@ export default function NightViewer() {
     [hero?.personality],
   );
   const over = !!status?.ending;
+  const names = useMemo(() => nameMatcher(status?.board?.people), [status?.board]);
 
   if (screen === 'lab' && universeRef.current) {
     return <Lab universe={universeRef.current} onChange={() => saveUniverse(universeRef.current!)} onSendOut={() => begin(randomSeed(), competence)} />;
@@ -466,6 +482,8 @@ export default function NightViewer() {
       )}
 
       <div className="grid">
+        <div className="col">
+        {status && <Stage status={status} hl={hl} onHover={setHl} />}
         <section className={`logwrap${status?.ask ? ' asking' : ''}`} aria-label="Field report">
           <div className="log" ref={logRef} onScroll={(e) => {
             const el = e.currentTarget;
@@ -477,7 +495,7 @@ export default function NightViewer() {
               ) : (
                 <p key={l.id} className={`line report ${l.outcome}${l.head ? ' head' : ''}${l.depth ? ' nested' : ''}`} style={l.depth ? { marginLeft: l.depth * 20 } : undefined}>
                   <span className="beat">{l.depth ? '↳' : String(l.beat).padStart(3, '0')}</span>
-                  <span>{l.text}</span>
+                  <span><Named text={l.text} names={names} hl={hl} onHover={setHl} /></span>
                 </p>
               ),
             )}
@@ -522,6 +540,7 @@ export default function NightViewer() {
             </div>
           )}
         </section>
+        </div>
 
         {status && (
           <aside className="panel" aria-label="Blackbird status">
@@ -658,5 +677,56 @@ function Bar({ label, value, max, kind }: { label: string; value: number; max: n
       <span className="barlabel">{label}</span>
       <span className="barval">{kind === 'heat' ? `${value}/${max}` : `${Math.round(value)} / ${max}`}</span>
     </div>
+  );
+}
+
+const LEGEND: [string, string][] = [['house', 'House staff'], ['gang', 'Gangs'], ['atlas', 'Atlas'], ['npd', 'NPD'], ['civ', 'Everyone else']];
+
+/** The main view: the board of the place she is in, the minimap in its corner, and its name up in lights. */
+function Stage({ status, hl, onHover }: { status: Snapshot; hl: string | null; onHover: (id: string | null) => void }) {
+  const b = status.board;
+  return (
+    <section className="stage" aria-label="Where Blackbird is">
+      <div className="sign">
+        <h2>{b?.name ?? status.location}</h2>
+        <p>{b && <>{b.kind} · {b.district === 'halo' ? 'the Halo' : b.district} · </>}<b>{status.time}</b></p>
+      </div>
+      <Minimap city={status.city} />
+      <div className="boardwrap">
+        {b ? <PlaceBoard view={b} highlight={hl} onHover={onHover} /> : <p className="noplan muted">Somewhere with no floor plan.</p>}
+      </div>
+      <div className="legend" aria-hidden>
+        <span><i className="hero" />Blackbird</span>
+        {LEGEND.map(([k, label]) => <span key={k}><i className={k} />{label}</span>)}
+      </div>
+    </section>
+  );
+}
+
+interface NameMatcher {
+  byName: Map<string, string>;
+  re: RegExp;
+}
+
+/** Finds the names of the people on the board in a line of the log. */
+function nameMatcher(people: BoardPerson[] | undefined): NameMatcher | null {
+  if (!people?.length) return null;
+  const byName = new Map(people.map((p) => [p.name, p.id]));
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return { byName, re: new RegExp(`(${names.join('|')})`) };
+}
+
+/** A log line with the names of people on the board picked out: point at one to find them there. */
+function Named({ text, names, hl, onHover }: { text: string; names: NameMatcher | null; hl: string | null; onHover: (id: string | null) => void }) {
+  if (!names || !names.re.test(text)) return <>{text}</>;
+  return (
+    <>
+      {text.split(names.re).map((part, i) => {
+        const id = i % 2 ? names.byName.get(part) : undefined;
+        return id
+          ? <span key={i} className={`who${hl === id ? ' hl' : ''}`} onPointerEnter={() => onHover(id)} onPointerLeave={() => onHover(null)}>{part}</span>
+          : part;
+      })}
+    </>
   );
 }
