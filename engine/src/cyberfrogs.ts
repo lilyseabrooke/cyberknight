@@ -35,7 +35,7 @@ import {
  */
 
 /** Chance that a place has one lying about, by sort of place. */
-const HERE = { street: 0.06, building: 0.04, entrance: 0.12 } as const;
+const HERE = { street: 0.015, building: 0.01, entrance: 0.03 } as const;
 /** How many doors away she can feel one. */
 export const SENSE_RANGE = 2;
 /** How often her first guess at which one it is turns out right. */

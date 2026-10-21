@@ -8,7 +8,7 @@ import { ACT_SKILL } from './stage';
 import { SPOTLIGHT_LINE, type Want } from './content/callings';
 import { callingAfter, callingTargets, callingTick, spotlightFervor } from './callings';
 import { SKILL_LABELS, skillLevel } from './skills';
-import { dayOf } from './clock';
+import { BASE_MIN_PER_BEAT, dayOf } from './clock';
 import { PLENTY_PARTS, knownBenches, lowOnParts, partsLeads } from './scavenge';
 import { frogRecord, frogWatch, type Sensed } from './cyberfrogs';
 import { frogShort } from './content/cyberfrogs';
@@ -862,7 +862,7 @@ const KINDS: Record<GoalKind, Kind> = {
   // shoves aside whatever it has to (`adopt`), she goes into places she would think twice about for it, and the goal ends when it is on its
   // way to the lab or it is gone. The trip there is ordinary travel; grabbing it is the `frog` action, once she is standing on it.
   frog: {
-    decay: 0, stick: ['loyalty'], patience: 600,
+    decay: 0, stick: ['loyalty'], patience: 60,
     label: (w, g) => {
       const f = frogRecord(w, g.loc);
       return f?.seen ? `get ${frogShort(f.char)}` : `find the Cyberfrog she can feel near ${w.locations[f?.door ?? g.loc ?? '']?.name ?? 'here'}`;
@@ -872,11 +872,21 @@ const KINDS: Record<GoalKind, Kind> = {
       if (!f) return { drop: 'moot' };
       if (f.state === 'taken') return { done: 'collected' };
       if (f.state === 'lost') return { drop: 'frog_lost' };
+      // Thrown off, caught or beaten for it again and again: it can wait for another night (or another her).
+      if ((f.tries ?? 0) >= 4) return { drop: 'frog_stuck' };
       // A shop that has shut for the night is still where the frog is: she waits for it to open.
       if (!isClosed(w, f.loc) && !routeTo(w, w.hero.locationId, f.loc)) return { drop: 'moot' };
       return null;
     },
-    plan() {},
+    plan(c, g) {
+      // Shut for the night, there is no way in and nothing to pull her there: she lets it be until the doors open (no fuss, no frustration meanwhile).
+      const { w } = c;
+      if (!isClosed(w, g.loc!)) return;
+      let mins = 0;
+      while (mins < 720 && isClosed({ ...w, clock: w.clock + mins }, g.loc!)) mins += 15;
+      g.delayUntil = w.beat + Math.max(3, Math.ceil(Math.min(mins, 720) / BASE_MIN_PER_BEAT));
+      g.delayWhy = 'closed';
+    },
     metric: (w, g) => -distTo(w, g.loc!),
     // Badly hurt, even this waits until she has been patched up (quietly: she is not going to announce it for each one).
     targets: (w, g) => (hpFrac(w) < 0.3 ? [] : [{ loc: g.loc!, value: 4.5 }]),
@@ -1306,7 +1316,7 @@ function end(c: Ctx, g: Goal, how: 'done' | 'drop', variant: string, extra: Even
   const gone = new Set([g.id, ...descendants(w, g).map((x) => x.id)]);
   m.goals = m.goals.filter((x) => !gone.has(x.id));
   if (m.focus !== null && gone.has(m.focus)) m.focus = null;
-  coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : g.kind === 'frog' ? 20 : variant === 'overloaded' ? 120 : 270);
+  coolFor(w, `${g.kind}:${subjectOf(g)}`, how === 'done' ? 660 : g.kind === 'frog' ? (variant === 'frog_lost' || variant === 'moot' ? 20 : 300) : variant === 'overloaded' ? 120 : 270);
   // Getting into a game is a habit: finishing one thing here leads to the next ("one more"), so it needs no long rest.
   if (g.kind === 'game' && g.loc) {
     coolFor(w, `game:${subjectOf(g)}`, how === 'done' ? 1 : 240);
