@@ -43,3 +43,5 @@ export { levelOf as companionLevel } from './companions';
 export { crewOf, berthsOf, allStationed } from './crew';
 export { JOBS as CREW_JOBS } from './content/stations';
 export { deedsOf } from './deeds';
+export { boardView, cityView, sideOf, type BoardView, type BoardPerson, type BoardBody, type CityView, type CityPlace, type MapSide } from './mapview';
+export type { Layout, Fixture, FixtureKind, Door, CamMount } from './layout';
